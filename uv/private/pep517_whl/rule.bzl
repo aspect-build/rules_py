@@ -22,9 +22,9 @@ _INHERITED_PYTHON_ENV = (
     "PYTHONPLATLIBDIR",
 )
 
-def _wheel_providers(wheel_dir, console_scripts):
+def _wheel_providers(wheel_file, console_scripts):
     return [
-        DefaultInfo(files = depset([wheel_dir])),
+        DefaultInfo(files = depset([wheel_file])),
         SourceBuiltWheelInfo(console_scripts = tuple(console_scripts)),
     ]
 
@@ -158,7 +158,10 @@ def _cc_toolchain_inputs_and_tools(ctx):
 
 def _pep517_whl(ctx):
     archive = ctx.file.src
-    wheel_dir = ctx.actions.declare_directory("whl")
+
+    # Fixed name; the backend picks the real filename at build time and the
+    # helper renames onto this. Consumers read identity from dist-info only.
+    wheel_file = ctx.actions.declare_file(ctx.label.name + ".whl")
     patch_args, patch_inputs = _patch_args_and_inputs(ctx)
 
     # The build tool is a py_binary wrapping build_helper.py. Using it as
@@ -173,21 +176,21 @@ def _pep517_whl(ctx):
         toolchain = None,
         arguments = ctx.attr.args + patch_args + _memory_args(ctx) + [
             archive.path,
-            wheel_dir.path,
+            wheel_file.path,
         ],
         inputs = [archive] + patch_inputs,
         tools = [ctx.attr.tool[DefaultInfo].files_to_run],
-        outputs = [wheel_dir],
+        outputs = [wheel_file],
         env = _common_env(ctx),
         exec_group = _TARGET_EXEC_GROUP,
         resource_set = resource_set(ctx.attr),
     )
 
-    return _wheel_providers(wheel_dir, ctx.attr.console_scripts)
+    return _wheel_providers(wheel_file, ctx.attr.console_scripts)
 
 def _pep517_native_whl(ctx):
     archive = ctx.file.src
-    wheel_dir = ctx.actions.declare_directory("whl")
+    wheel_file = ctx.actions.declare_file(ctx.label.name + ".whl")
     patch_args, patch_inputs = _patch_args_and_inputs(ctx)
 
     env = _common_env(ctx)
@@ -222,20 +225,20 @@ def _pep517_native_whl(ctx):
             "--execroot-marker",
             _EXECROOT_MARKER,
             archive.path,
-            wheel_dir.path,
+            wheel_file.path,
         ],
         inputs = depset(
             [archive] + patch_inputs,
             transitive = extra_inputs,
         ),
         tools = [ctx.attr.tool[DefaultInfo].files_to_run],
-        outputs = [wheel_dir],
+        outputs = [wheel_file],
         env = env,
         exec_group = _TARGET_EXEC_GROUP,
         resource_set = resource_set(ctx.attr),
     )
 
-    return _wheel_providers(wheel_dir, ctx.attr.console_scripts)
+    return _wheel_providers(wheel_file, ctx.attr.console_scripts)
 
 _PATCH_ATTRS = {
     "pre_build_patches": attr.label_list(

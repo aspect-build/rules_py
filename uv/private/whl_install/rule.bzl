@@ -127,7 +127,7 @@ source_built_wheel = rule(
     doc = "Mark a wheel target as source-built and attach declared metadata.",
     attrs = {
         "src": attr.label(
-            allow_single_file = True,
+            allow_single_file = [".whl"],
             mandatory = True,
         ),
         "console_scripts": attr.string_list(),
@@ -210,7 +210,7 @@ def _whl_install(ctx):
     arguments.add_all(["-S", "-E", "-s", "-B"])
     arguments.add(unpack_script)
     arguments.add_all([install_dir], expand_directories = False, before_each = "--into")
-    arguments.add_all([archive], expand_directories = False, before_each = "--wheel")
+    arguments.add("--wheel", archive)
     arguments.add("--python-version", "{}.{}".format(
         py_toolchain.interpreter_version_info.major,
         py_toolchain.interpreter_version_info.minor,
@@ -375,7 +375,7 @@ lighter weight since the toolchain's files aren't inputs.
             allow_single_file = True,
         ),
         "src": attr.label(
-            allow_single_file = True,
+            allow_single_file = [".whl"],
             doc = "The wheel to install. Must provide PyWheelMetadataInfo (a `whl_dist` or `source_built_wheel` target); its metadata drives the installed layout.",
         ),
         "patches": attr.label_list(

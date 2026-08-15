@@ -83,10 +83,10 @@ def main() -> None:
     helper = find_build_helper()
     tmp = tempfile.mkdtemp(dir=os.environ.get("TEST_TMPDIR"))
     sdist = make_sdist(tmp)
-    outdir = os.path.join(tmp, "out")
+    output = os.path.join(tmp, "out.whl")
 
     result = subprocess.run(
-        [sys.executable, helper, "--validate-anyarch", sdist, outdir],
+        [sys.executable, helper, "--validate-anyarch", sdist, output],
         capture_output=True,
         text=True,
         env={
@@ -99,9 +99,8 @@ def main() -> None:
             "build_helper failed:\nstdout:\n{}\nstderr:\n{}".format(result.stdout, result.stderr)
         )
 
-    wheels = [f for f in os.listdir(outdir) if f.endswith(".whl")]
-    assert wheels, "no wheel produced"
-    print("OK: {}".format(wheels))
+    assert os.path.isfile(output), "no wheel produced"
+    print("OK: {}".format(output))
 
 
 if __name__ == "__main__":
