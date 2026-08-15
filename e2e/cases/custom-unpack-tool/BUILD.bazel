@@ -1,0 +1,86 @@
+load("@aspect_rules_py//py:defs.bzl", "py_test")
+load("@bazel_lib//lib:transitions.bzl", "platform_transition_test")
+load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load(":toolchain.bzl", "custom_unpack_toolchain")
+
+# End-to-end check for the exec-tools toolchain's swappable `unpack_tool`
+# (docs/interpreter.md, "Custom wheel-unpack tool"): a self-contained C binary
+# replaces the default unpack.py for the WhlInstall action installing a real
+# uv-locked wheel (iniconfig, reused from uv-whl-install-output-group's hub).
+#
+# The toolchain is registered module-wide (see MODULE.bazel) but gated by
+# `target_settings` on the flag below, flipped only inside
+# platform_transition_test — sibling cases keep the default tool. Each tool
+# writes a distinctive dist-info INSTALLER (the C tool its own marker, the
+# reference unpack.py `aspect_rules_py`); the tests read it to prove which
+# tool installed the wheel in each configuration.
+
+# POSIX-only C tool; mirror the unpack_test guard.
+_NOT_WINDOWS = select({
+    "@platforms//os:windows": ["@platforms//:incompatible"],
+    "//conditions:default": [],
+})
+
+bool_flag(
+    name = "use_custom_unpack",
+    build_setting_default = False,
+)
+
+config_setting(
+    name = "custom_unpack_enabled",
+    flag_values = {":use_custom_unpack": "true"},
+)
+
+cc_binary(
+    name = "unpack_tool",
+    srcs = ["unpack_tool.c"],
+    target_compatible_with = _NOT_WINDOWS,
+    deps = ["@zlib"],
+)
+
+custom_unpack_toolchain(
+    name = "c_unpack",
+    unpack_tool = ":unpack_tool",
+)
+
+toolchain(
+    name = "c_unpack_toolchain",
+    target_settings = [":custom_unpack_enabled"],
+    toolchain = ":c_unpack",
+    toolchain_type = "@aspect_rules_py//py/private/toolchain:exec_tools_toolchain_type",
+)
+
+platform(
+    name = "custom_unpack_platform",
+    flags = ["--//custom-unpack-tool:use_custom_unpack=true"],
+    parents = ["@platforms//host"],
+)
+
+py_test(
+    name = "custom_test_bin",
+    srcs = ["custom_test.py"],
+    dep_group = "uv-whl-install-output-group",
+    main = "custom_test.py",
+    tags = ["manual"],
+    target_compatible_with = _NOT_WINDOWS,
+    deps = ["@pypi_uv_whl_install_output_group//iniconfig"],
+)
+
+platform_transition_test(
+    name = "custom_test",
+    binary = ":custom_test_bin",
+    target_compatible_with = _NOT_WINDOWS,
+    target_platform = ":custom_unpack_platform",
+)
+
+# Control: without the flag the gated toolchain must not match and the
+# default unpack.py installs the wheel.
+py_test(
+    name = "default_test",
+    srcs = ["default_test.py"],
+    dep_group = "uv-whl-install-output-group",
+    main = "default_test.py",
+    target_compatible_with = _NOT_WINDOWS,
+    deps = ["@pypi_uv_whl_install_output_group//iniconfig"],
+)
