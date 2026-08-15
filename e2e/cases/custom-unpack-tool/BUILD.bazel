@@ -1,0 +1,147 @@
+load("@aspect_rules_py//py:defs.bzl", "py_test", "py_unpack_toolchain")
+load("@bazel_lib//lib:transitions.bzl", "platform_transition_filegroup", "platform_transition_test")
+load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+
+# End-to-end check for the swappable wheel-unpack tool (docs/interpreter.md,
+# "Custom wheel-unpack tool"): a self-contained C binary registered through
+# py_unpack_toolchain replaces the default unpack.py for the WhlInstall action
+# installing a real uv-locked wheel (iniconfig, reused from
+# uv-whl-install-output-group's hub).
+#
+# The toolchain is registered module-wide (see MODULE.bazel) but gated by
+# `target_settings` on the flag below, flipped only by the platforms here —
+# sibling cases keep the default tool. Each tool writes a distinctive
+# dist-info INSTALLER (the C tool its own marker, the reference unpack.py
+# `aspect_rules_py`); the tests read it to prove which tool installed the
+# wheel in each configuration.
+
+# POSIX-only C tool; mirror the unpack_test guard.
+_NOT_WINDOWS = select({
+    "@platforms//os:windows": ["@platforms//:incompatible"],
+    "//conditions:default": [],
+})
+
+bool_flag(
+    name = "use_custom_unpack",
+    build_setting_default = False,
+)
+
+config_setting(
+    name = "custom_unpack_enabled",
+    flag_values = {":use_custom_unpack": "true"},
+)
+
+cc_binary(
+    name = "unpack_tool",
+    srcs = ["unpack_tool.c"],
+    target_compatible_with = _NOT_WINDOWS,
+    deps = ["@zlib"],
+)
+
+py_unpack_toolchain(
+    name = "c_unpack",
+    tool = ":unpack_tool",
+)
+
+toolchain(
+    name = "c_unpack_toolchain",
+    target_settings = [":custom_unpack_enabled"],
+    toolchain = ":c_unpack",
+    toolchain_type = "@aspect_rules_py//py:unpack_toolchain_type",
+)
+
+platform(
+    name = "custom_unpack_platform",
+    flags = ["--//custom-unpack-tool:use_custom_unpack=true"],
+    parents = ["@platforms//host"],
+)
+
+py_test(
+    name = "custom_test_bin",
+    srcs = ["custom_test.py"],
+    dep_group = "uv-whl-install-output-group",
+    main = "custom_test.py",
+    tags = ["manual"],
+    target_compatible_with = _NOT_WINDOWS,
+    deps = ["@pypi_uv_whl_install_output_group//iniconfig"],
+)
+
+platform_transition_test(
+    name = "custom_test",
+    binary = ":custom_test_bin",
+    target_compatible_with = _NOT_WINDOWS,
+    target_platform = ":custom_unpack_platform",
+)
+
+# Control: without the flag the gated toolchain must not match and the
+# default unpack.py installs the wheel.
+py_test(
+    name = "default_test",
+    srcs = ["default_test.py"],
+    dep_group = "uv-whl-install-output-group",
+    main = "default_test.py",
+    target_compatible_with = _NOT_WINDOWS,
+    deps = ["@pypi_uv_whl_install_output_group//iniconfig"],
+)
+
+# Target platform != exec platform: the install trees are built for both Linux
+# architectures, so at least one differs from any host. A tool or pyc
+# interpreter built for the target instead of the executor fails the build.
+_CROSS_FLAGS = [
+    "--//custom-unpack-tool:use_custom_unpack=true",
+    "--@aspect_rules_py//uv/private/constraints/dep_group:dep_group=uv-whl-install-output-group",
+    "--@aspect_rules_py//uv/private/constraints/platform:platform_libc=glibc",
+    "--@aspect_rules_py//uv/private/constraints/platform:platform_version=2.39",
+]
+
+platform(
+    name = "linux_x86_64",
+    constraint_values = [
+        "@platforms//os:linux",
+        "@platforms//cpu:x86_64",
+    ],
+    flags = _CROSS_FLAGS,
+)
+
+platform(
+    name = "linux_aarch64",
+    constraint_values = [
+        "@platforms//os:linux",
+        "@platforms//cpu:aarch64",
+    ],
+    flags = _CROSS_FLAGS,
+)
+
+filegroup(
+    name = "iniconfig_install_dir",
+    srcs = ["@pypi_uv_whl_install_output_group//iniconfig"],
+    output_group = "install_dir",
+)
+
+platform_transition_filegroup(
+    name = "install_dir_linux_x86_64",
+    srcs = [":iniconfig_install_dir"],
+    target_platform = ":linux_x86_64",
+)
+
+platform_transition_filegroup(
+    name = "install_dir_linux_aarch64",
+    srcs = [":iniconfig_install_dir"],
+    target_platform = ":linux_aarch64",
+)
+
+# One test per platform: both trees share a runfiles path.
+[
+    py_test(
+        name = "cross_test_" + arch,
+        srcs = ["cross_test.py"],
+        data = [":install_dir_linux_" + arch],
+        main = "cross_test.py",
+        target_compatible_with = _NOT_WINDOWS,
+    )
+    for arch in [
+        "x86_64",
+        "aarch64",
+    ]
+]
