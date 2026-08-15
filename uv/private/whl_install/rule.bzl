@@ -211,15 +211,17 @@ def _whl_install(ctx):
     arguments.add(unpack_script)
     arguments.add_all([install_dir], expand_directories = False, before_each = "--into")
     arguments.add_all([archive], expand_directories = False, before_each = "--wheel")
-    arguments.add("--python-version-major", py_toolchain.interpreter_version_info.major)
-    arguments.add("--python-version-minor", py_toolchain.interpreter_version_info.minor)
+    arguments.add("--python-version", "{}.{}".format(
+        py_toolchain.interpreter_version_info.major,
+        py_toolchain.interpreter_version_info.minor,
+    ))
 
     transitive_inputs = [
         depset([archive, unpack_script, exec_runtime.interpreter]),
         exec_runtime.files,
     ]
     if ctx.attr.exclude_glob:
-        arguments.add_all(ctx.attr.exclude_glob, format_each = "--exclude-glob=%s")
+        arguments.add_all(ctx.attr.exclude_glob, before_each = "--exclude-glob")
         transitive_inputs.append(depset([ctx.file._exclude_glob_script]))
 
     # Patch application (happens before pyc compilation).
@@ -270,9 +272,8 @@ def _whl_install(ctx):
         py_toolchain.interpreter_version_info,
     )
     if ctx.attr.compile_pyc and exec_matches_target:
-        arguments.add("--compile-pyc")
+        arguments.add("--compile-pyc", exec_runtime.interpreter)
         arguments.add("--pyc-invalidation-mode", ctx.attr.pyc_invalidation_mode)
-        arguments.add("--python", exec_runtime.interpreter)
 
     ctx.actions.run(
         mnemonic = "WhlInstall",

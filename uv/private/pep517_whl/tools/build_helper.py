@@ -1037,6 +1037,7 @@ def _requirement_name(requirement: str) -> str:
 
 def _legacy_metadata_conflicts_with_pyproject(worktree: str, pyproject_data: Optional[Dict[str, object]]) -> bool:
     setup_py = path.join(worktree, "setup.py")
+    pyproject_data = _load_pyproject_data(worktree)
     if not (pyproject_data and path.exists(setup_py)):
         return False
 
@@ -1174,13 +1175,6 @@ if _legacy_metadata_conflicts_with_pyproject(t, pyproject_data):
         outdir,
     ]
 elif path.exists(path.join(t, "pyproject.toml")) or path.exists(path.join(t, "setup.py")):
-    # Always `python -m build`, even for setup.py-only packages (it creates
-    # the PEP 517 shim; invoking setup.py directly triggers setuptools'
-    # deprecated fetch_build_eggs path, which crashes on modern packaging).
-    # --no-isolation: use the deps already in the build venv, never pip.
-    # --skip-dependency-check: redundant under --no-isolation, and it
-    # rejects packages that pile dev tooling into [build-system].requires
-    # (cdifflib lists pytest/ruff/twine there).
     cmd = [
         sys.executable,
         "-m", "build",

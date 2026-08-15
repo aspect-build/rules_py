@@ -209,7 +209,7 @@ def _sdist_build_impl(repository_ctx):
     monitor_memory_attr = ""
     if repository_ctx.attr.monitor_memory:
         all_deps = [
-            "@aspect_rules_py//uv/private/pep517_whl/tools:memory_monitor",
+            "@aspect_rules_py//uv/private/pep517_whl/tools:tools",
         ] + all_deps
         monitor_memory_attr = "\n    monitor_memory = True,"
 

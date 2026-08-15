@@ -1,15 +1,15 @@
 load("//py:defs.bzl", "py_library")
 
-# Runtime tools for the PEP 517 build action. build_helper.py is the `main`
-# of the py_binary each sdist_build repo generates; it stays a single
-# self-contained script (no unconditional sibling imports).
 exports_files(
     ["build_helper.py"],
     visibility = ["//visibility:public"],
 )
 
 py_library(
-    name = "memory_monitor",
-    srcs = ["memory_monitor.py"],
+    name = "tools",
+    srcs = [
+        "build_helper.py",
+        "memory_monitor.py",
+    ],
     visibility = ["//visibility:public"],
 )

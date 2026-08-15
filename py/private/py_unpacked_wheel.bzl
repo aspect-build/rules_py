@@ -19,8 +19,10 @@ def _py_unpacked_wheel_impl(ctx):
     args.add(unpack_script)
     args.add_all([unpack_directory], expand_directories = False, before_each = "--into")
     args.add("--wheel", ctx.file.src)
-    args.add("--python-version-major", py_toolchain.interpreter_version_info.major)
-    args.add("--python-version-minor", py_toolchain.interpreter_version_info.minor)
+    args.add("--python-version", "{}.{}".format(
+        py_toolchain.interpreter_version_info.major,
+        py_toolchain.interpreter_version_info.minor,
+    ))
 
     ctx.actions.run(
         outputs = [unpack_directory],
