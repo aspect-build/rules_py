@@ -85,6 +85,12 @@ def _assemble_venv_target(ctx):
         ctx,
         extra_depsets = virtual_resolution.srcs,
     )
+    runtime_files = depset(
+        direct = assembled.declared_outputs,
+        transitive = [
+            ctx.attr._runfiles_lib[DefaultInfo].default_runfiles.files,
+        ],
+    )
     runfiles = _py_library.make_merged_runfiles(
         ctx,
         extra_depsets = [py_toolchain.files] + virtual_resolution.runfiles,
@@ -99,6 +105,7 @@ def _assemble_venv_target(ctx):
             bin_python = assembled.bin_python,
             imports = imports_depset,
             transitive_sources = srcs_depset,
+            runtime_files = runtime_files,
         ),
         runfiles = runfiles,
     )

@@ -105,6 +105,90 @@ def test_mtree_conflicting_source_fails() -> None:
     assert "py_image_layer runfile collision at ./app.runfiles/pkg/module.py:" in collision
 
 
+def test_mtree_skip_drops_source_layer_duplicate() -> None:
+    # The wheel file appears once as a source-layer row and once (different
+    # destination) as its owning-layer row; only the source row is dropped.
+    assert _mtree_collision(
+        [
+            "#mtree",
+            _mtree_row("./app.runfiles/pip/pkg/module.py", "wheel/module.py"),
+            "#end-source",
+            _mtree_row("./site-packages/pkg/module.py", "wheel/module.py"),
+        ],
+        skip_paths=frozenset(["wheel/module.py"]),
+    ) is None
+
+
+def test_mtree_skip_keeps_owning_layer_row_for_collisions() -> None:
+    # A first-party file colliding with a wheel's owning-layer destination
+    # must still fail: the skip set only hides rows before #end-source.
+    collision = _mtree_collision(
+        [
+            "#mtree",
+            _mtree_row("./site-packages/pkg/module.py", "first_party/module.py"),
+            _mtree_row("./elsewhere/module.py", "wheel/module.py"),
+            "#end-source",
+            _mtree_row("./site-packages/pkg/module.py", "wheel/module.py"),
+        ],
+        skip_paths=frozenset(["wheel/module.py"]),
+    )
+    assert collision is not None
+    assert "py_image_layer runfile collision at ./site-packages/pkg/module.py:" in collision
+
+
+def test_mtree_skip_directory_prefix_drops_children() -> None:
+    # A skip directory excludes its children without listing them.
+    assert _mtree_collision(
+        [
+            "#mtree",
+            _mtree_row("./app.runfiles/pip/pkg/module.py", "wheel_dir/pkg/module.py"),
+            "#end-source",
+            _mtree_row("./site-packages/pkg/module.py", "wheel_dir/pkg/module.py"),
+        ],
+        skip_dirs=frozenset(["wheel_dir"]),
+    ) is None
+
+
+def test_mtree_skip_directory_prefix_ignores_similar_names() -> None:
+    # "wheel_dir" must not exclude "wheel_dirx/..." rows.
+    collision = _mtree_collision(
+        [
+            "#mtree",
+            _mtree_row("./app.runfiles/pkg/module.py", "wheel_dirx/module.py"),
+            _mtree_row("./app.runfiles/pkg/module.py", "other/module.py"),
+            "#end-source",
+        ],
+        skip_dirs=frozenset(["wheel_dir"]),
+    )
+    assert collision is not None
+    assert "py_image_layer runfile collision at ./app.runfiles/pkg/module.py:" in collision
+
+
+def test_mtree_skip_decodes_encoded_spaces() -> None:
+    # Without decoding, neither row matches the skip set and they collide.
+    assert _mtree_collision(
+        [
+            _mtree_row("./app.runfiles/pip/pkg/data file", "wheel/data file"),
+            _mtree_row("./app.runfiles/pip/pkg/data file", "other/data file"),
+            "#end-source",
+        ],
+        skip_paths=frozenset(["wheel/data file", "other/data file"]),
+    ) is None
+
+
+def test_mtree_skip_without_end_source_marker_fails() -> None:
+    # A skip set without the marker would silently hide owning-layer rows too.
+    collision = _mtree_collision(
+        [
+            "#mtree",
+            _mtree_row("./app.runfiles/pip/pkg/module.py", "wheel/module.py"),
+        ],
+        skip_paths=frozenset(["wheel/module.py"]),
+    )
+    assert collision is not None
+    assert "#end-source" in collision
+
+
 def test_mtree_identical_regular_files_coalesce_across_markers() -> None:
     with tempfile.TemporaryDirectory() as directory:
         first = os.path.join(directory, "first")
