@@ -8,6 +8,24 @@
 # portable JVM bytecode.
 
 load("//tools:cross_case.bzl", "pep517_cross_case")
+load("//tools:jdk_layer.bzl", "exec_jdk")
+
+# Ant/javac always run on the exec platform (see setup.MODULE.bazel), but
+# the `toolchains` attribute is target-configured — exec_jdk re-resolves the
+# select under the host platform so cross builds don't pick a foreign JDK.
+exec_jdk(
+    name = "jdk",
+    actual = ":jdk_for_exec",
+    visibility = ["//visibility:public"],
+)
+
+alias(
+    name = "jdk_for_exec",
+    actual = select({
+        "@platforms//os:macos": "@temurin11_darwin_aarch64//:jdk",
+        "//conditions:default": "@temurin11_linux_x86_64//:jdk",
+    }),
+)
 
 pep517_cross_case(
     name = "jpype1",

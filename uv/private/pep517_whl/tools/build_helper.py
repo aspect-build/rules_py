@@ -457,6 +457,36 @@ def _make_cross_compiler_wrapper(
     )
 
 
+_AR_LIBTOOL_WRAPPER = """#!/usr/bin/env python3
+import os
+import sys
+
+libtool = {libtool!r}
+args = sys.argv[1:]
+
+# Already libtool-style ("-static ...") or a tool probe ("--version", "-V"):
+# hand through untouched.
+if not args or args[0].startswith("-"):
+    os.execv(libtool, [libtool] + args)
+
+# ar-style "<ops> <archive> <members...>" (meson "csr", CMake "qc",
+# distutils "rcs"). libtool -static always rewrites the whole symbol-tabled
+# archive, so create/replace/append modifiers all collapse to the same call.
+archive = args[1]
+members = args[2:]
+os.execv(libtool, [libtool, "-static", "-o", archive] + members)
+"""
+
+
+def _make_ar_libtool_wrapper(tmpdir: str, libtool_path: str) -> str:
+    wrapper = path.join(tmpdir, ".aspect_rules_py_compilers", "ar")
+    return _write_generated_file(
+        wrapper,
+        _AR_LIBTOOL_WRAPPER.format(libtool=libtool_path),
+        executable=True,
+    )
+
+
 def _override_tool(env: Dict[str, str], key: str, wrapper: str) -> None:
     current = env.get(key)
     if not current:
@@ -646,13 +676,17 @@ def _compiler_env(
     # $AR consumers (meson, distutils, CMake) all invoke it with ar-style
     # args, but the llvm toolchain's cpp_link_static_library tool on a darwin
     # exec host is llvm-libtool-darwin, which only accepts libtool-style
-    # `-static -o`. Swap in the sibling llvm-ar for every target: its
-    # symbol-table'd archives satisfy ld64 and ELF linkers alike.
+    # `-static -o`. Prefer the sibling llvm-ar (symbol-table'd archives
+    # satisfy ld64 and ELF linkers alike), but the sandbox only mounts the
+    # toolchain's declared tool files — llvm-ar is usually not among them —
+    # so fall back to a wrapper that translates ar-style argv to libtool's.
     ar_path = env.get("AR", "")
     if path.basename(ar_path) == "llvm-libtool-darwin":
         llvm_ar = path.join(path.dirname(ar_path), "llvm-ar")
         if path.exists(llvm_ar):
             env["AR"] = llvm_ar
+        else:
+            env["AR"] = _make_ar_libtool_wrapper(tmpdir, ar_path)
     env.setdefault("AR", "ar")
 
     for key, wrapper in [

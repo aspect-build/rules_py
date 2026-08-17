@@ -28,7 +28,7 @@ uv.override_package(
     },
     lock = "//jpype1:uv.lock",
     toolchains = [
-        "@temurin11_linux_x86_64//:jdk",
+        "//jpype1:jdk",
         "//tools:ant_home",
     ],
 )
@@ -38,9 +38,10 @@ http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "ht
 
 # jpype1 only ever runs Ant/javac at build time to produce a JAR (portable
 # Java bytecode) — always a host-executed step regardless of what CPU the
-# compiled _jpype.so targets, so a single exec-platform (x86_64) JDK and a
-# single (architecture-independent) Ant install cover both the native and
-# cross builds. Genuine Eclipse Temurin, not rules_java's default remotejdk
+# compiled _jpype.so targets, so the JDK must match the exec platform:
+# linux x86_64 on CI, darwin aarch64 on macOS dev hosts (selected via
+# //jpype1:jdk). Ant is architecture-independent, one install covers all.
+# Genuine Eclipse Temurin, not rules_java's default remotejdk
 # (which resolves to Azul Zulu builds) — see fetched release metadata at
 # https://api.adoptium.net/v3/assets/latest/11/hotspot?image_type=jdk&os=linux&architecture=x64.
 http_archive(
@@ -67,6 +68,34 @@ java_runtime(
     sha256 = "5906e0339e9322a688b2375eaf40666e00a16e008b0067b0a9f9e4b6c5033720",
     strip_prefix = "jdk-11.0.32+9",
     url = "https://github.com/adoptium/temurin11-binaries/releases/download/jdk-11.0.32%2B9/OpenJDK11U-jdk_x64_linux_hotspot_11.0.32_9.tar.gz",
+)
+
+# Same release for darwin/aarch64 exec hosts. Mac Temurin tarballs nest the
+# JDK under Contents/Home (macOS bundle layout), hence the deeper prefix.
+http_archive(
+    name = "temurin11_darwin_aarch64",
+    build_file_content = """load("@rules_java//java/toolchains:java_runtime.bzl", "java_runtime")
+
+package(default_visibility = ["//visibility:public"])
+
+filegroup(name = "jdk-bin", srcs = glob(["bin/**"]))
+
+filegroup(name = "jdk-conf", srcs = glob(["conf/**"], allow_empty = True))
+
+filegroup(name = "jdk-include", srcs = glob(["include/**"], allow_empty = True))
+
+filegroup(name = "jdk-lib", srcs = glob(["lib/**", "release"], allow_empty = True))
+
+java_runtime(
+    name = "jdk",
+    srcs = [":jdk-bin", ":jdk-conf", ":jdk-include", ":jdk-lib"],
+    java = "bin/java",
+    version = 11,
+)
+""",
+    sha256 = "3e3687488e472035b7a27732f0f6127d59903ba9fd0cb6c815f1a182f4160109",
+    strip_prefix = "jdk-11.0.32+9/Contents/Home",
+    url = "https://github.com/adoptium/temurin11-binaries/releases/download/jdk-11.0.32%2B9/OpenJDK11U-jdk_aarch64_mac_hotspot_11.0.32_9.tar.gz",
 )
 
 # Apache Ant: plain Java bytecode plus shell/bat launchers — no architecture

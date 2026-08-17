@@ -1,5 +1,5 @@
 load("@bazel_skylib//rules:build_test.bzl", "build_test")
-load("//uv/private/pep517_whl:defs.bzl", "pep517_native_whl")
+load("//uv/private/pep517_whl:pep517_native_whl.bzl", "pep517_native_whl")
 
 package(default_testonly = True)
 

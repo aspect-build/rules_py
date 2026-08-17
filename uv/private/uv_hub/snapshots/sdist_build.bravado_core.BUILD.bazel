@@ -1,5 +1,5 @@
 
-load("@aspect_rules_py//uv/private/pep517_whl:defs.bzl", "pep517_whl")
+load("@aspect_rules_py//uv/private/pep517_whl:pep517_whl.bzl", "pep517_whl")
 load("@aspect_rules_py//py:defs.bzl", "py_binary")
 
 py_binary(

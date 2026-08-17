@@ -1,4 +1,4 @@
-load("//uv/private/pep517_whl:defs.bzl", "pep517_native_whl")
+load("//uv/private/pep517_whl:pep517_native_whl.bzl", "pep517_native_whl")
 load("//uv/private/pep517_whl/tests:pep517_whl_test.bzl", "hostile_python_env_target")
 
 package(default_testonly = True)

@@ -5,15 +5,6 @@ package(default_visibility = [
 ])
 
 bzl_library(
-    name = "defs",
-    srcs = ["defs.bzl"],
-    deps = [
-        ":pep517_native_whl",
-        ":pep517_whl",
-    ],
-)
-
-bzl_library(
     name = "pep517_whl",
     srcs = ["pep517_whl.bzl"],
     deps = [
