@@ -1,18 +1,36 @@
 load("@bazel_lib//:bzl_library.bzl", "bzl_library")
-load("//py:defs.bzl", "py_library")
 
 package(default_visibility = [
     "//uv/private:__subpackages__",
 ])
 
 bzl_library(
-    name = "rule",
-    srcs = ["rule.bzl"],
+    name = "pep517_whl",
+    srcs = ["pep517_whl.bzl"],
     deps = [
+        ":common",
         "//py/private/toolchain:types",
-        "//uv/private:source_built_wheel",
+        "@bazel_lib//lib:resource_sets",
+    ],
+)
+
+bzl_library(
+    name = "pep517_native_whl",
+    srcs = ["pep517_native_whl.bzl"],
+    deps = [
+        ":common",
+        "//py/private/toolchain:types",
         "@bazel_lib//lib:resource_sets",
         "@rules_cc//cc:action_names_bzl",
         "@rules_cc//cc/common",
+    ],
+)
+
+bzl_library(
+    name = "common",
+    srcs = ["common.bzl"],
+    deps = [
+        "//uv/private:source_built_wheel",
+        "@bazel_lib//lib:resource_sets",
     ],
 )

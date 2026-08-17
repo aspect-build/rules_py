@@ -4,7 +4,8 @@ load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 load("@tar.bzl//tar:mtree.bzl", "mtree_mutate", "mtree_spec")
 load("@tar.bzl//tar:tar.bzl", "tar_rule")
 load("//py:defs.bzl", "py_binary", "py_test")
-load("//uv/private/pep517_whl:rule.bzl", "pep517_native_whl", "pep517_whl")
+load("//uv/private/pep517_whl:pep517_native_whl.bzl", "pep517_native_whl")
+load("//uv/private/pep517_whl:pep517_whl.bzl", "pep517_whl")
 load(
     ":pep517_whl_test.bzl",
     "execroot_collision_toolchain",
