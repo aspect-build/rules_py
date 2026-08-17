@@ -60,9 +60,10 @@ py_binary(
 )
 
 ## Use case 3
-# It's possible to completely remove a dependency.
-# For example, to reduce the size of an image when a transitive dep is known to be unused.
-filegroup(
+# It's possible to completely remove a dependency by resolving it to an empty
+# py_library. For example, to reduce the size of an image when a transitive dep
+# is known to be unused.
+py_library(
     name = "empty",
 )
 

@@ -224,6 +224,7 @@ _attrs = dict({
         doc = """Satisfy a virtual_dep with a mapping from external package name to the label of an installed package that provides it.
         See virtual_deps.
         """,
+        providers = [[PyInfo], [RulesPythonPyInfo]],
     ),
 })
 
