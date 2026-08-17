@@ -45,6 +45,7 @@ load("@my_deps//:requirements.bzl", "all_whl_requirements_by_package", "requirem
 
 These can be used to resolve a virtual dependency. The `resolutions` attribute is a plain dict
 mapping each virtual dependency's package name to the label of an installed package that provides it.
+Resolution targets must provide a `PyInfo` (rules_py's or rules_python's).
 Continuing the Django example above, a binary rule can specify which external repository to resolve to:
 
 ```

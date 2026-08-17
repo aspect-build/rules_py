@@ -39,7 +39,9 @@ The `resolutions` helper struct is gone: delete the
 `resolutions.from_requirements(all_whl_requirements_by_package, requirement)`
 with `{pkg: requirement(pkg) for pkg in all_whl_requirements_by_package.keys()}`,
 and replace `.override({...})` with the dict union operator (`base | {...}`).
-See [virtual deps](/docs/virtual_deps.md).
+Resolution targets must now provide a `PyInfo` (rules_py's or rules_python's);
+to remove a dependency entirely, resolve it to an empty `py_library` instead of
+a `filegroup`. See [virtual deps](/docs/virtual_deps.md).
 
 ## rules_python provider compatibility layer
 
