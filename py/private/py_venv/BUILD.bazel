@@ -46,7 +46,6 @@ bzl_library(
     deps = [
         ":toolchains_resolver",
         ":virtuals_resolvers",
-        "//py/private:py_library",
     ],
 )
 
