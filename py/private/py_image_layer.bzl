@@ -33,7 +33,7 @@ Sharing model:
 load("//py/private:providers.bzl", "PyWheelsInfo")
 load("//py/private:py_info.bzl", "PyInfo")
 load("//py/private:py_info_interop.bzl", "has_py_info")
-load("//py/private/py_venv:types.bzl", "PY_VENV_KINDS")
+load("//py/private/py_venv:types.bzl", "PY_VENV_KINDS", "VirtualenvInfo")
 load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN", "interpreter_files_and_version")
 
 _TAR_TOOLCHAIN = "@tar.bzl//tar/toolchain:type"
@@ -240,6 +240,13 @@ def _collect_from_deps(ctx, provider):
             results.append(dep[provider])
     return results
 
+def _runtime_files(dep):
+    """Return an opaque runtime target's outputs plus its transitive runfiles."""
+    return depset(transitive = [
+        dep[DefaultInfo].files,
+        dep[DefaultInfo].default_runfiles.files,
+    ])
+
 def _compression_for(plan, group_name):
     comp = plan.compression.get(group_name, None) if group_name else None
     algorithm = comp[0] if comp else "gzip"
@@ -437,7 +444,7 @@ def _layer_aspect_impl(target, ctx):
                 if has_py_info(dep):
                     continue
                 if DefaultInfo in dep:
-                    own_parts.append(dep[DefaultInfo].files)
+                    own_parts.append(_runtime_files(dep))
         own_depset = depset(transitive = own_parts)
 
         plan = ctx.attr._layer_tier[PyLayerTierInfo]
@@ -453,40 +460,31 @@ def _layer_aspect_impl(target, ctx):
             own_source.append(own_depset)
 
     if kind in PY_VENV_KINDS:
+        # The venv provider separates generated runtime support from the
+        # dependency runfiles closure. Following it keeps wheel install trees
+        # out of the default source layer without flattening runfiles here.
+        venv_info = target[VirtualenvInfo]
+        own_source.append(venv_info.runtime_files)
+        for dep in getattr(ctx.rule.attr, "data", []):
+            if not has_py_info(dep) and DefaultInfo in dep:
+                own_source.append(_runtime_files(dep))
         if PY_TOOLCHAIN in ctx.rule.toolchains:
             py_tc = ctx.rule.toolchains[PY_TOOLCHAIN]
             if _LayerInfo in py_tc:
                 interpreter_layer = py_tc[_LayerInfo].interpreter_layer
+        if interpreter_layer == None:
+            own_source.append(venv_info.interpreter_files)
 
-    # Binaries walk their runfiles for the source layer, filtering out bytes already
-    # shipping in their own pip / fp-group / interpreter layers.
+    # Sources and generated venv support arrive through the sibling venv's
+    # provider. The binary adds its launcher and selected entry-point outputs.
     if is_binary:
-        skip_paths = {}
-        for pkg_depset in transitive_pkgs:
-            for pkg in pkg_depset.to_list():
-                for f in pkg.files.to_list():
-                    skip_paths[f.path] = True
-        for fp_depset in transitive_fp:
-            for entry in fp_depset.to_list():
-                for f in entry.files.to_list():
-                    skip_paths[f.path] = True
-
-        # Opt-in interpreter layer. The aspect fires on the py toolchain via
-        # `toolchains_aspects` and declares the tar there; the venv propagates
-        # that layer (and its file list) so the binary uses the exact interpreter
-        # that built the venv rather than relying on its own toolchain resolution.
-        interp_paths = {}
-        for interp_layer in transitive_interp:
-            for f in interp_layer.interpreter_files.to_list():
-                interp_paths[f.path] = True
+        # The venv propagates the interpreter layer declared at its toolchain so
+        # the binary uses the exact interpreter that built the venv.
         venv = getattr(ctx.rule.attr, "venv", None)
         if venv != None and _LayerInfo in venv:
             interpreter_layer = venv[_LayerInfo].interpreter_layer
 
-        runfiles_files = target[DefaultInfo].default_runfiles.files.to_list()
-        filtered = [f for f in runfiles_files if f.path not in skip_paths and f.path not in interp_paths]
-        if filtered:
-            own_source.append(depset(direct = filtered))
+        own_source.append(target[DefaultInfo].files)
 
     return [_LayerInfo(
         source_files = depset(transitive = transitive_source + own_source),

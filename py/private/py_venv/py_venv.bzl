@@ -99,6 +99,16 @@ def _assemble_venv_target(ctx):
             bin_python = assembled.bin_python,
             imports = imports_depset,
             transitive_sources = srcs_depset,
+            # Keep dependency runfiles out of this provider: consumers that
+            # need their source/data closure should follow providers rather
+            # than treating every runtime dependency as an opaque runfile.
+            runtime_files = depset(
+                direct = assembled.declared_outputs,
+                transitive = [
+                    ctx.attr._runfiles_lib[DefaultInfo].default_runfiles.files,
+                ],
+            ),
+            interpreter_files = py_toolchain.files,
         ),
         runfiles = runfiles,
     )
