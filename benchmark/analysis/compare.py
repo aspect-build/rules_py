@@ -146,8 +146,9 @@ def main() -> None:
         line += " |\n"
         return line
 
+    bcr_label = os.environ.get("ANALYSIS_BCR_VERSION", "release")
     table += row(
-        "BCR 2.0.0-alpha.5 (baseline)", bcr, "—", "—", bcr_aux
+        f"BCR {bcr_label} (baseline)", bcr, "—", "—", bcr_aux
     )
     table += row(
         "HEAD main",
