@@ -85,7 +85,6 @@ bzl_library(
         "//py/private:py_unittest_test",
         "//py/private:py_unpacked_wheel",
         "//py/private:py_wheel",
-        "//py/private:virtual",
         "//py/private/interpreter:current_py_toolchain",
         "//py/private/interpreter:runtime",
         "//py/private/py_venv:defs",

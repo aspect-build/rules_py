@@ -191,8 +191,3 @@ bzl_library(
     name = "transitions",
     srcs = ["transitions.bzl"],
 )
-
-bzl_library(
-    name = "virtual",
-    srcs = ["virtual.bzl"],
-)

@@ -43,17 +43,35 @@ rules_python writes a `requirements.bzl` file which provides some symbols to wor
 load("@my_deps//:requirements.bzl", "all_whl_requirements_by_package", "requirement")
 ```
 
-These can be used to resolve a virtual dependency. Continuing the Django example above, a binary rule can specify which external repository to resolve to:
+These can be used to resolve a virtual dependency. The `resolutions` attribute is a plain dict
+mapping each virtual dependency's package name to the label of an installed package that provides it.
+Continuing the Django example above, a binary rule can specify which external repository to resolve to:
 
 ```
-load("@aspect_rules_py//py:defs.bzl", "resolutions")
-
 py_binary(
     name = "manage",
     srcs = ["manage.py"],
     # Resolve django to the "standard" one from our requirements.txt
-    resolutions = resolutions.from_requirements(all_whl_requirements_by_package, requirement),
+    resolutions = {
+        "django": requirement("django"),
+    },
 )
+```
+
+To resolve everything in the lockfile, build the dict with a comprehension:
+
+```
+py_binary(
+    name = "manage",
+    srcs = ["manage.py"],
+    resolutions = {pkg: requirement(pkg) for pkg in all_whl_requirements_by_package.keys()},
+)
+```
+
+To override a single entry, use the dict union operator:
+
+```
+resolutions = base_resolutions | {"django": ":django_4_2_4"},
 ```
 
 ## Resolving directly to a binary wheel
