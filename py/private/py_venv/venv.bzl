@@ -33,7 +33,6 @@ Bazel's action cache treats each piece independently (no tree-artifact
 + remote-exec materialisation surprises).
 """
 
-load("//py/private:py_library.bzl", _py_library = "py_library_utils")
 load("//py/private/toolchain:types.bzl", "EXEC_TOOLS_TOOLCHAIN")
 load(":toolchains_resolver.bzl", "resolve_venv_toolchain")
 load(":virtuals_resolvers.bzl", "enforce_collision_policy", "resolve_wheel_collisions")
@@ -71,8 +70,9 @@ def _dict_to_exports(env):
 def assemble_venv(
         ctx,
         *,
-        safe_name,
+        venv_stem,
         py_toolchain,
+        wheels,
         imports_depset,
         is_windows,
         package_collisions,
@@ -86,9 +86,11 @@ def assemble_venv(
 
     Args:
       ctx: The rule context.
-      safe_name: Directory-name-safe stem for the venv dir. Slashes in the
+      venv_stem: Directory-name-safe stem for the venv dir. Slashes in the
         target name should be replaced by the caller (e.g. "_").
       py_toolchain: Resolved Python toolchain struct from py_semantics.
+      wheels: Ordered sequence of wheel metadata structs from the venv's
+        resolved dependency graph.
       imports_depset: Depset of first-party + transitive wheel import
         paths (as returned by py_library_utils.make_imports_depset).
       is_windows: Bool — whether the venv targets Windows.
@@ -108,18 +110,16 @@ def assemble_venv(
         EXEC_TOOLS_TOOLCHAIN for an exec-configuration interpreter.
       console_script_tmpl: File — the console-script wrapper template
         (usually `ctx.file._console_script_tmpl`).
-      venv_name: str — the venv dir basename (e.g. "." + safe_name).
+      venv_name: str — the venv dir basename (e.g. "." + venv_stem).
 
     Returns:
       struct with:
         bin_python: File — the venv's bin/python symlink, for launchers
             to rlocation-resolve and exec.
-        all_files: list[File] — every declared output, ready for runfiles
+        declared_outputs: list[File] — every declared output, ready for runfiles
             / DefaultInfo aggregation.
     """
 
-    wheels_depset = _py_library.make_wheels_depset(ctx)
-    wheels = wheels_depset.to_list()
     top_level_to_site_pkgs, fully_covered_site_pkgs, console_scripts_map, merge_groups, data_file_to_site_pkgs, collisions = resolve_wheel_collisions(ctx, wheels)
     enforce_collision_policy(collisions, package_collisions)
 
@@ -309,7 +309,7 @@ def assemble_venv(
     pth_lines.add_all(imports_depset, map_each = _format_imp, allow_closure = True)
 
     site_packages_pth_file = ctx.actions.declare_file(
-        "{}/{}.pth".format(site_packages_rel, safe_name),
+        "{}/{}.pth".format(site_packages_rel, venv_stem),
     )
     ctx.actions.write(
         output = site_packages_pth_file,
@@ -393,5 +393,5 @@ def assemble_venv(
 
     return struct(
         bin_python = bin_python,
-        all_files = declared,
+        declared_outputs = declared,
     )

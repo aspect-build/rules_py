@@ -1,5 +1,5 @@
-load("//py:defs.bzl", "py_library", "py_test", "py_venv")
-load(":runfiles_test.bzl", "py_library_runfiles_test", "py_venv_runfiles_test")
+load("//py:defs.bzl", "py_binary", "py_library", "py_test", "py_venv")
+load(":runfiles_test.bzl", "private_venv_provider_test", "py_library_runfiles_test", "py_venv_runfiles_test")
 
 package(default_testonly = True)
 
@@ -29,6 +29,27 @@ py_venv_runfiles_test(
         "library.py",
     ],
     target_under_test = ":public_venv",
+)
+
+py_binary(
+    name = "private_venv_bin",
+    srcs = ["main.py"],
+    imports = ["."],
+    main = "main.py",
+    deps = [":library"],
+)
+
+# The default py_binary path uses an internal _py_venv_lib. Verify its
+# VirtualenvInfo is the source of truth for the consumer's PyInfo and source
+# runfiles closure.
+private_venv_provider_test(
+    name = "private_venv_provider_test",
+    consumer = ":private_venv_bin",
+    expected_sources = [
+        "main.py",
+        "library.py",
+    ],
+    target_under_test = ":_private_venv_bin.venv",
 )
 
 py_test(

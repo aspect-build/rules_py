@@ -125,7 +125,7 @@ def resolve_venv_toolchain(ctx, *, py_toolchain, is_windows, venv_name):
       ctx: The rule context.
       py_toolchain: Resolved Python toolchain struct from py_semantics.
       is_windows: Whether the venv targets Windows.
-      venv_name: The venv dir basename (e.g. ``.safe_name``).
+      venv_name: The venv dir basename (e.g. ``.venv_stem``).
 
     Returns:
       struct with ``wheel_py_ver``, ``venv_py_ver``, ``escape``,
