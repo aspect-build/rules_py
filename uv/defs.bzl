@@ -1,3 +1,8 @@
+"""Stable public API for uv rules.
+
+Graduated from `@aspect_rules_py//uv/unstable:defs.bzl` in rules_py v2.0.0.
+"""
+
 load(
     "//uv/private/gazelle_manifest:defs.bzl",
     _gazelle_python_manifest = "gazelle_python_manifest",

@@ -8,7 +8,6 @@ import subprocess
 import sys
 import tempfile
 import unittest
-from typing import Dict, List, Optional
 from unittest import mock
 
 from uv.private.pep517_whl.tools import memory_monitor
@@ -143,8 +142,8 @@ class MemoryMonitorTest(unittest.TestCase):
     def _write_process(
         proc_root: Path,
         pid: int,
-        rss_pages: Optional[int],
-        task_children: Dict[int, List[int]],
+        rss_pages: int | None,
+        task_children: dict[int, list[int]],
     ) -> None:
         process_dir = proc_root / str(pid)
         process_dir.mkdir()
