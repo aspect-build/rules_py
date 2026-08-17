@@ -1,10 +1,10 @@
-load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_library", "py_test", "py_unpacked_wheel", "resolutions")
+load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_library", "py_test", "py_unpacked_wheel")
 load("@django//:requirements.bzl", "all_whl_requirements_by_package", "requirement")
 load("@rules_python//python/pip_install:requirements.bzl", "compile_pip_requirements")
 
 package(default_testonly = True)
 
-django_resolutions = resolutions.from_requirements(all_whl_requirements_by_package, requirement)
+django_resolutions = {pkg: requirement(pkg) for pkg in all_whl_requirements_by_package.keys()}
 
 compile_pip_requirements(
     name = "requirements",
@@ -52,10 +52,10 @@ py_binary(
     srcs = ["proj/manage.py"],
     # package_collisions = "warning",
     # Install the dependencies that the pip_parse rule defined as defaults...
-    resolutions = django_resolutions.override({
+    resolutions = django_resolutions | {
         # ...but replace the resolution of django with a specific wheel fetched by http_file.
         "django": ":django_4_2_4",
-    }),
+    },
     deps = [":proj"],
 )
 
@@ -74,10 +74,10 @@ py_binary(
     name = "manage.remove_django",
     srcs = ["proj/manage.py"],
     package_collisions = "warning",
-    resolutions = django_resolutions.override({
+    resolutions = django_resolutions | {
         # Replace the resolution of django with an empty folder
         "django": ":empty",
-    }),
+    },
     deps = [":proj"],
 )
 
@@ -98,9 +98,9 @@ py_test(
     srcs = ["version_test.py"],
     env = {"EXPECT_DJANGO_VERSION": "4.2.4"},
     main = "version_test.py",
-    resolutions = django_resolutions.override({
+    resolutions = django_resolutions | {
         "django": ":django_4_2_4",
-    }),
+    },
     deps = [":proj"],
 )
 
@@ -111,8 +111,8 @@ py_test(
     env = {"EXPECT_DJANGO_VERSION": ""},
     main = "version_test.py",
     package_collisions = "warning",
-    resolutions = django_resolutions.override({
+    resolutions = django_resolutions | {
         "django": ":empty",
-    }),
+    },
     deps = [":proj"],
 )

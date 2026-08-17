@@ -34,7 +34,6 @@ load("//py/private:py_pytest_main.bzl", _py_pytest_main = "py_pytest_main")
 load("//py/private:py_pytest_test.bzl", _py_pytest_test = "py_pytest_test")
 load("//py/private:py_unittest_test.bzl", _py_unittest_test = "py_unittest_test")
 load("//py/private:py_unpacked_wheel.bzl", _py_unpacked_wheel = "py_unpacked_wheel")
-load("//py/private:virtual.bzl", _resolutions = "resolutions")
 load("//py/private/interpreter:current_py_toolchain.bzl", _current_py_toolchain = "current_py_toolchain")
 load("//py/private/interpreter:runtime.bzl", _PyRuntimeInfo = "PyRuntimeInfo")
 load(
@@ -73,8 +72,6 @@ PyWheelsInfo = _PyWheelsInfo
 # The runtime provider carried by rules_py-provisioned interpreter toolchains:
 # rules_python's public PyRuntimeInfo, the shared standard-toolchain contract.
 PyRuntimeInfo = _PyRuntimeInfo
-
-resolutions = _resolutions
 
 def _resolve_main(name, srcs, main):
     """Macro-time fallback for `main`. Operates on label strings instead
@@ -150,18 +147,11 @@ def py_binary(name, srcs = [], main = None, **kwargs):
               alongside the binary.
     """
 
-    # For a clearer DX when updating resolutions, the resolutions dict is "string" -> "label",
-    # where the rule attribute is a label-keyed-dict, so reverse them here.
-    resolutions = kwargs.pop("resolutions", None)
-    if resolutions:
-        resolutions = resolutions.to_label_keyed_dict()
-
     _py_binary_with_venv(
         _py_venv_exec,
         name = name,
         srcs = srcs,
         main = _resolve_main(name, srcs, main),
-        resolutions = resolutions,
         **kwargs
     )
 
@@ -197,18 +187,11 @@ def py_test(name, srcs = [], main = None, **kwargs):
     # Ensure that any other targets we write will be testonly like the py_test target
     kwargs["testonly"] = True
 
-    # For a clearer DX when updating resolutions, the resolutions dict is "string" -> "label",
-    # where the rule attribute is a label-keyed-dict, so reverse them here.
-    resolutions = kwargs.pop("resolutions", None)
-    if resolutions:
-        resolutions = resolutions.to_label_keyed_dict()
-
     _py_binary_with_venv(
         _py_venv_exec_test,
         name = name,
         srcs = srcs,
         deps = kwargs.pop("deps", []),
         main = _resolve_main(name, srcs, main),
-        resolutions = resolutions,
         **kwargs
     )
