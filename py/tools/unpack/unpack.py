@@ -246,19 +246,23 @@ def _record_metadata(
     }
 
 
-def _data_prefix(basename: str, record_dir: str | None) -> str:
-    """Return the wheel's PEP 427 ``.data/`` prefix.
+def _data_prefix(zf: zipfile.ZipFile, record_dir: str | None) -> str | None:
+    """Return the wheel's PEP 427 ``.data/`` prefix, or None if underivable.
 
     ``.data`` and ``.dist-info`` share a stem, and RECORD spells its ``.data``
     paths with the stem the archive shipped -- which a build backend may escape
-    differently from the filename (#1394). Prefer the stem carried by the
-    archive; the filename is the fallback for a wheel with no usable RECORD.
+    differently from the filename (#1394). Prefer the stem carried by RECORD;
+    for a wheel with no usable RECORD, fall back to the first top-level
+    ``.dist-info`` member. The filename carries no semantics: a source-built
+    wheel arrives under an analysis-time name.
     """
     if record_dir and record_dir.endswith(".dist-info") and "/" not in record_dir:
         return record_dir[: -len(".dist-info")] + ".data/"
-    from urllib.parse import unquote
-
-    return "-".join(unquote(basename).split("-")[:2]) + ".data/"
+    for name in zf.namelist():
+        root, sep, _ = name.partition("/")
+        if sep and root.endswith(".dist-info"):
+            return root[: -len(".dist-info")] + ".data/"
+    return None
 
 
 def _relative_path(value: str, what: str) -> Path:
@@ -286,19 +290,7 @@ def install_wheel(
     exclude_patterns: Sequence[tuple[str, ...]],
     drop_pycache: bool = False,
 ) -> set[str]:
-    """Install a wheel into *into*, following PEP 427 layout conventions.
-
-    Accepts either a direct ``.whl`` file or a directory containing exactly
-    one ``.whl`` (the shape produced by Bazel's ``http_file`` rule).
-    """
-    if wheel_path.is_dir():
-        whls = list(wheel_path.glob("*.whl"))
-        if len(whls) != 1:
-            raise SystemExit(
-                "Expected exactly one .whl in {}, found {}".format(wheel_path, len(whls))
-            )
-        wheel_path = whls[0]
-
+    """Install a wheel into *into*, following PEP 427 layout conventions."""
     site_packages = into / "lib" / ("python" + python_version) / "site-packages"
     bin_dir = into / "bin"
     site_packages.mkdir(parents=True, exist_ok=True)
@@ -309,7 +301,7 @@ def install_wheel(
 
     with zipfile.ZipFile(wheel_path, "r") as zf:
         record_dir, record_metadata = _record_metadata(zf)
-        data_prefix = _data_prefix(wheel_path.name, record_dir)
+        data_prefix = _data_prefix(zf, record_dir)
         regenerated_markers = ()
         if record_dir:
             regenerated_markers = (
@@ -323,7 +315,7 @@ def install_wheel(
             member_path = _relative_path(member, "wheel member path")
 
             is_script = False
-            if member.startswith(data_prefix):
+            if data_prefix and member.startswith(data_prefix):
                 rest = member[len(data_prefix):]
                 category, sep, rel = rest.partition("/")
                 if not sep:

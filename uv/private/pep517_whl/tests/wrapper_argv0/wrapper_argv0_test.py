@@ -56,9 +56,9 @@ def main() -> None:
 
     preserved_flag = "--wrapper-argv0-test-flag"
 
-    outdir = os.path.join(workdir, "out")
+    output = os.path.join(workdir, "out.whl")
     result = subprocess.run(
-        [sys.executable, helper, sdist, outdir],
+        [sys.executable, helper, sdist, output],
         capture_output=True,
         cwd=workdir,
         env={

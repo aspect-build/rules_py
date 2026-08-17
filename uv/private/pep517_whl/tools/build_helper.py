@@ -271,7 +271,7 @@ def _legacy_metadata_conflicts_with_pyproject(worktree: str) -> bool:
 
 PARSER = ArgumentParser()
 PARSER.add_argument("srcarchive")
-PARSER.add_argument("outdir")
+PARSER.add_argument("output", help="Path the single built wheel is written to")
 PARSER.add_argument("--monitor-memory", action="store_true")
 PARSER.add_argument("--validate-anyarch", action="store_true")
 PARSER.add_argument("--patch-strip", type=int, default=0, help="Strip count for patch (-p)")
@@ -279,7 +279,7 @@ PARSER.add_argument("--patch", action="append", default=[], dest="patches", help
 PARSER.add_argument("--execroot-marker", help="Token in env values to replace with the absolute execroot")
 opts, _ = PARSER.parse_known_args()
 
-tmp_root = path.abspath(opts.outdir) + ".tmp"
+tmp_root = path.abspath(opts.output) + ".tmp"
 # Sandboxed/remote actions get a fresh root each run, so we don't expect a stale tmp_root to exist.
 makedirs(tmp_root, exist_ok=False)
 
@@ -314,8 +314,9 @@ if opts.patches:
             exit(1)
 
 
-# Get a path to the outdir which will be valid after we cd
-outdir = path.abspath(opts.outdir)
+# Backends take an output directory, not a file: build into a scratch dir.
+outdir = path.join(tmp_root, "dist")
+makedirs(outdir)
 
 # Preserve PATH so native sdist builds can find compilers (clang, gcc),
 # and re-point CC/CXX/etc. through wrapper scripts in tmp_root so the
@@ -392,10 +393,12 @@ with TemporaryFile(mode="w+") as build_log:
 
 inventory = listdir(outdir)
 
-if len(inventory) > 1:
-    print("Error: Built more than one wheel!\nSee {} for the sandbox".format(t), file=sys.stderr)
+if len(inventory) != 1:
+    print("Error: Expected exactly one built wheel, found {}!\nSee {} for the sandbox".format(len(inventory), t), file=sys.stderr)
     exit(1)
 
 if opts.validate_anyarch and not inventory[0].endswith("-none-any.whl"):
     print("Error: Target was anyarch but built a none-any wheel!\nSee {} for the sandbox".format(t), file=sys.stderr)
     exit(1)
+
+os.replace(path.join(outdir, inventory[0]), path.abspath(opts.output))

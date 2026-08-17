@@ -17,10 +17,11 @@ if [[ "${CC-unset}" != "${CXX-unset}" && "${ASPECT_RULES_PY_INFER_CXX_COMPANION-
     exit 1
 fi
 
-wheel_dir="${!#}"
-mkdir -p "${wheel_dir}"
+wheel_out="${!#}"
+work_dir="${wheel_out}.tmp"
+mkdir -p "${work_dir}"
 if [[ "${compile}" == 1 ]]; then
-    cat >"${wheel_dir}/probe.cc" <<'EOF'
+    cat >"${work_dir}/probe.cc" <<'EOF'
 #include <string>
 
 struct Base { virtual ~Base() {} };
@@ -36,8 +37,9 @@ extern "C" const char *probe() {
 int main() { return std::string(probe()) == "rules_py" ? 0 : 1; }
 EOF
     read -r -a cxx <<<"${CXX}"
-    "${cxx[@]}" -std=c++11 "${wheel_dir}/probe.cc" -o "${wheel_dir}/probe"
-    "${wheel_dir}/probe"
-    "${cxx[@]}" -std=c++11 -shared -fPIC "${wheel_dir}/probe.cc" -o "${wheel_dir}/probe.so"
-    /usr/bin/python3 -c 'import ctypes, sys; probe = ctypes.CDLL(sys.argv[1]).probe; probe.restype = ctypes.c_char_p; assert probe() == b"rules_py"' "${wheel_dir}/probe.so"
+    "${cxx[@]}" -std=c++11 "${work_dir}/probe.cc" -o "${work_dir}/probe"
+    "${work_dir}/probe"
+    "${cxx[@]}" -std=c++11 -shared -fPIC "${work_dir}/probe.cc" -o "${work_dir}/probe.so"
+    /usr/bin/python3 -c 'import ctypes, sys; probe = ctypes.CDLL(sys.argv[1]).probe; probe.restype = ctypes.c_char_p; assert probe() == b"rules_py"' "${work_dir}/probe.so"
 fi
+: > "${wheel_out}"
