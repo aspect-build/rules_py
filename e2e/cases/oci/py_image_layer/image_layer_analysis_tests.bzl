@@ -1,6 +1,6 @@
 """Analysis and validation fixtures for multi-launcher image layers."""
 
-load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_image_layer", "py_layer_tier")
+load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_image_layer", "py_layer_tier", "py_library")
 load("@bazel_features//:features.bzl", "bazel_features")
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
 
@@ -15,6 +15,43 @@ _expected_failure_test = analysistest.make(
     _expected_failure_impl,
     attrs = {"expected_error": attr.string(mandatory = True)},
     expect_failure = True,
+)
+
+def _opaque_runtime_impl(ctx):
+    output = ctx.actions.declare_file(ctx.label.name + ".txt")
+    ctx.actions.write(output, "outer runtime data\n")
+    return [DefaultInfo(
+        files = depset([output]),
+        default_runfiles = ctx.runfiles(
+            files = [output],
+            transitive_files = ctx.attr.nested[DefaultInfo].files,
+        ),
+    )]
+
+_opaque_runtime = rule(
+    implementation = _opaque_runtime_impl,
+    attrs = {"nested": attr.label(mandatory = True)},
+)
+
+def _source_mtree_excludes_wheel_impl(ctx):
+    env = analysistest.begin(ctx)
+    actions = [
+        action
+        for action in analysistest.target_actions(env)
+        if action.mnemonic == "PyImageLayerMtree" and
+           action.outputs.to_list()[0].basename.endswith("_default.tar.gz.mtree")
+    ]
+    asserts.equals(env, 1, len(actions), "expected one default source mtree action")
+    inputs = [f.path for f in actions[0].inputs.to_list()]
+    asserts.false(
+        env,
+        any(["whl_install__" in path and "actual_install.install" in path for path in inputs]),
+        "default source mtree must not take wheel install trees as inputs",
+    )
+    return analysistest.end(env)
+
+_source_mtree_excludes_wheel_test = analysistest.make(
+    _source_mtree_excludes_wheel_impl,
 )
 
 def _target_file_symlink_impl(ctx):
@@ -60,6 +97,69 @@ def _image_layer_failure(name, expected_error, **kwargs):
     )
 
 def image_layer_analysis_test_suite():
+    _source_mtree_excludes_wheel_test(
+        name = "source_mtree_excludes_wheel_test",
+        target_under_test = ":my_app_layers",
+    )
+
+    # An opaque data rule exposes only its direct file through DefaultInfo.files
+    # and carries the nested payload through default_runfiles. The image must
+    # retain both when it stops walking the binary's full runfiles closure.
+    native.genrule(
+        name = "_opaque_runtime_nested",
+        outs = ["opaque_runtime/nested.txt"],
+        cmd = "printf nested-runtime-data > $@",
+    )
+    _opaque_runtime(
+        name = "_opaque_runtime",
+        nested = ":_opaque_runtime_nested",
+    )
+    py_binary(
+        name = "_opaque_runtime_bin",
+        srcs = ["server.py"],
+        data = [":_opaque_runtime"],
+    )
+    py_image_layer(
+        name = "_opaque_runtime_layers",
+        binary = ":_opaque_runtime_bin",
+    )
+
+    # The binary launcher owns only its selected main file; image assembly
+    # must also retain the venv's other direct source files.
+    py_binary(
+        name = "_multi_source_bin",
+        srcs = [
+            "server.py",
+            "direct_source_helper.py",
+        ],
+        main = "server.py",
+    )
+    py_image_layer(
+        name = "_multi_source_layers",
+        binary = ":_multi_source_bin",
+    )
+
+    # A virtual-resolution edge is not a normal deps/data edge. Its runtime
+    # data verifies that the image aspect traverses `resolutions` explicitly.
+    py_library(
+        name = "_virtual_runtime",
+        data = [":_opaque_runtime"],
+    )
+    py_library(
+        name = "_virtual_consumer",
+        virtual_deps = ["runtime"],
+        resolutions = {"runtime": ":_virtual_runtime"},
+    )
+    py_binary(
+        name = "_virtual_runtime_bin",
+        srcs = ["server.py"],
+        deps = [":_virtual_consumer"],
+    )
+    py_image_layer(
+        name = "_virtual_runtime_layers",
+        binary = ":_virtual_runtime_bin",
+    )
+
     _image_layer_failure(
         name = "relative_launcher_dir",
         expected_error = "py_image_layer.launcher_dir must be an absolute image path",

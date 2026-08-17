@@ -5,6 +5,8 @@ load("@container_structure_test//:defs.bzl", "container_structure_test")
 load("@rules_oci//oci:defs.bzl", "oci_image", "oci_load")
 load("//tools:asserts.bzl", "assert_tar_listing", "assert_tar_ownership")
 load(":image_layer_analysis_tests.bzl", "image_layer_analysis_test_suite")
+load(":runtime_wrapper.bzl", "runtime_wrapper")
+load(":tree_artifact.bzl", "symlink_target", "symlink_to_target", "tree_artifact")
 
 platform(
     name = "aarch64_linux",
@@ -66,6 +68,135 @@ py_test(
         "@aspect_rules_py//py/tests/internal-deps/adder",
         "@pypi_oci_py_image_layer//colorama",
     ],
+)
+
+# Verify a grouped symlink can target another grouped layer.
+symlink_target(name = "symlink_target_data")
+
+symlink_to_target(
+    name = "grouped_symlink",
+    target = ":symlink_target_data",
+)
+
+py_binary(
+    name = "grouped_symlink_bin",
+    srcs = ["server.py"],
+    data = [
+        ":grouped_symlink",
+        ":symlink_target_data",
+    ],
+)
+
+py_image_layer(
+    name = "grouped_symlink_layers",
+    binary = ":grouped_symlink_bin",
+    groups = {
+        ":grouped_symlink": "symlink_data",
+        ":symlink_target_data": "target_data",
+    },
+)
+
+py_test(
+    name = "grouped_symlink_layers_test",
+    srcs = ["assert_layer_symlink.py"],
+    args = [
+        "--link-tar=_symlink_data.tar.gz",
+        "--link-suffix=grouped_symlink",
+        "--target-tar=_target_data.tar.gz",
+        "$(rootpaths :grouped_symlink_layers)",
+    ],
+    data = [":grouped_symlink_layers"],
+    main = "assert_layer_symlink.py",
+)
+
+# A source-layer symlink whose target ships in a rule group must still
+# resolve into the group layer.
+symlink_target(name = "peeled_symlink_target")
+
+symlink_to_target(
+    name = "source_layer_symlink",
+    target = ":peeled_symlink_target",
+)
+
+py_binary(
+    name = "source_symlink_bin",
+    srcs = ["server.py"],
+    data = [
+        ":peeled_symlink_target",
+        ":source_layer_symlink",
+    ],
+)
+
+py_image_layer(
+    name = "source_symlink_layers",
+    binary = ":source_symlink_bin",
+    groups = {":peeled_symlink_target": "peeled_target"},
+)
+
+py_test(
+    name = "source_symlink_layers_test",
+    srcs = ["assert_layer_symlink.py"],
+    args = [
+        "--link-tar=_default.tar.gz",
+        "--link-suffix=source_layer_symlink",
+        "--target-tar=_peeled_target.tar.gz",
+        "$(rootpaths :source_symlink_layers)",
+    ],
+    data = [":source_symlink_layers"],
+    main = "assert_layer_symlink.py",
+)
+
+py_test(
+    name = "source_symlink_paths_test",
+    srcs = ["assert_tar_paths.py"],
+    args = [
+        "--tar-absent=_default.tar.gz=peeled_symlink_target.txt",
+        "--tar-contains=_peeled_target.tar.gz=peeled_symlink_target.txt",
+        "$(rootpaths :source_symlink_layers)",
+    ],
+    data = [":source_symlink_layers"],
+    main = "assert_tar_paths.py",
+)
+
+# Both launchers carry this data edge, but its rule-level group is emitted
+# once. The default source layer must exclude it after the binaries' source
+# closures have been unioned.
+filegroup(
+    name = "shared_group_payload",
+    srcs = ["my_app_peer_bin/config.json"],
+)
+
+py_binary(
+    name = "shared_group_first_bin",
+    srcs = ["server.py"],
+    data = [":shared_group_payload"],
+)
+
+py_binary(
+    name = "shared_group_second_bin",
+    srcs = ["server.py"],
+    data = [":shared_group_payload"],
+)
+
+py_image_layer(
+    name = "shared_group_layers",
+    binaries = [
+        ":shared_group_first_bin",
+        ":shared_group_second_bin",
+    ],
+    groups = {":shared_group_payload": "shared_data"},
+)
+
+py_test(
+    name = "shared_group_layers_test",
+    srcs = ["assert_tar_paths.py"],
+    args = [
+        "--tar-contains=_shared_data.tar.gz=/my_app_peer_bin/config.json",
+        "--tar-absent=_default.tar.gz=/my_app_peer_bin/config.json",
+        "$(rootpaths :shared_group_layers)",
+    ],
+    data = [":shared_group_layers"],
+    main = "assert_tar_paths.py",
 )
 
 # Tier wired into :my_app_layers_fp that exercises every grouping path:
@@ -138,6 +269,149 @@ py_image_layer(
     binary = ":my_app_owner_bin",
     groups = {":my_app_owner_assets": "assets"},
     layer_tier = ":my_app_owner_tier",
+)
+
+# A grouped generated directory must be excluded from the default source tar
+# after the source mapper expands it into child mtree rows.
+tree_artifact(name = "tree_group_data")
+
+py_binary(
+    name = "tree_group_bin",
+    srcs = ["server.py"],
+    data = [":tree_group_data"],
+)
+
+py_image_layer(
+    name = "tree_group_layers",
+    binary = ":tree_group_bin",
+    groups = {":tree_group_data": "tree_data"},
+)
+
+py_test(
+    name = "tree_group_layers_test",
+    srcs = ["assert_tree_artifact_layering.py"],
+    args = ["$(rootpaths :tree_group_layers)"],
+    data = [":tree_group_layers"],
+    main = "assert_tree_artifact_layering.py",
+)
+
+# An opaque (non-PyInfo) wrapper carries a full py_binary in its runfiles: its
+# wheels ship as pip layers and must not also ride the default source layer.
+py_library(
+    name = "embedded_support",
+    srcs = ["embedded_support.py"],
+    imports = ["."],
+)
+
+py_binary(
+    name = "embedded_tool_bin",
+    srcs = ["embedded_tool.py"],
+    dep_group = "images",
+    deps = [
+        ":embedded_support",
+        "@pypi_oci_py_image_layer//colorama",
+    ],
+)
+
+runtime_wrapper(
+    name = "embedded_tool_wrapper",
+    data = [":embedded_tool_bin"],
+)
+
+py_binary(
+    name = "embedded_host_bin",
+    srcs = ["server.py"],
+    data = [":embedded_tool_wrapper"],
+)
+
+py_image_layer(
+    name = "embedded_tool_layers",
+    binary = ":embedded_host_bin",
+)
+
+py_test(
+    name = "embedded_tool_layers_test",
+    srcs = ["assert_tar_paths.py"],
+    args = [
+        "--contains=_marker.txt",
+        "--contains=/embedded_tool.py",
+        "--count=/colorama/ansi.py=1",
+        "--tar-contains=_squashed.tar.gz=/colorama/ansi.py",
+        "--tar-absent=_default.tar.gz=/colorama/ansi.py",
+        "$(rootpaths :embedded_tool_layers)",
+    ],
+    data = [":embedded_tool_layers"],
+    main = "assert_tar_paths.py",
+)
+
+# Same fixture under a tier: first-party group and interpreter bytes reachable
+# through the wrapper's opaque runfiles must ship only in their own layers.
+py_layer_tier(
+    name = "embedded_tool_tier",
+    groups = {"//oci/py_image_layer:embedded_support": "embedded_support"},
+    interpreter_group = "interpreter",
+)
+
+py_image_layer(
+    name = "embedded_tool_tier_layers",
+    binary = ":embedded_host_bin",
+    layer_tier = ":embedded_tool_tier",
+)
+
+py_test(
+    name = "embedded_tool_tier_layers_test",
+    srcs = ["assert_tar_paths.py"],
+    args = [
+        "--interpreter-python-count=1",
+        "--count=/embedded_support.py=1",
+        "--tar-contains=_embedded_support.tar.gz=/embedded_support.py",
+        "--tar-absent=_default.tar.gz=/embedded_support.py",
+        "--tar-absent=_default.tar.gz=/colorama/ansi.py",
+        "$(rootpaths :embedded_tool_tier_layers)",
+    ],
+    data = [":embedded_tool_tier_layers"],
+    main = "assert_tar_paths.py",
+)
+
+# Mode semantics of rule-group layers: a grouped file that is also one of the
+# binary's runfiles stays executable (0755); a grouped-only file stays 0644.
+filegroup(
+    name = "owned_group_payload",
+    srcs = ["group_payloads/owned.txt"],
+)
+
+filegroup(
+    name = "unowned_group_payload",
+    srcs = ["group_payloads/unowned.txt"],
+)
+
+py_binary(
+    name = "group_modes_bin",
+    srcs = ["server.py"],
+    data = [":owned_group_payload"],
+)
+
+py_image_layer(
+    name = "group_modes_layers",
+    binary = ":group_modes_bin",
+    groups = {
+        ":owned_group_payload": "owned",
+        ":unowned_group_payload": "unowned",
+    },
+)
+
+py_test(
+    name = "group_modes_layers_test",
+    srcs = ["assert_tar_paths.py"],
+    args = [
+        "--tar-mode=_owned.tar.gz=/owned.txt=0755",
+        "--tar-mode=_unowned.tar.gz=/unowned.txt=0644",
+        "--tar-absent=_default.tar.gz=/owned.txt",
+        "--count=/owned.txt=1",
+        "$(rootpaths :group_modes_layers)",
+    ],
+    data = [":group_modes_layers"],
+    main = "assert_tar_paths.py",
 )
 
 platform_transition_filegroup(
@@ -353,6 +627,56 @@ container_structure_test(
 )
 
 image_layer_analysis_test_suite()
+
+# Opaque data includes direct output and default runfiles.
+py_test(
+    name = "opaque_runtime_data_test",
+    srcs = ["assert_tar_paths.py"],
+    args = [
+        "--contains=/_opaque_runtime.txt",
+        "--contains=/opaque_runtime/nested.txt",
+        "$(rootpaths :_opaque_runtime_layers)",
+    ],
+    data = [":_opaque_runtime_layers"],
+    main = "assert_tar_paths.py",
+)
+
+py_test(
+    name = "multi_source_layer_test",
+    srcs = ["assert_tar_paths.py"],
+    args = [
+        "--contains=/direct_source_helper.py",
+        "$(rootpaths :_multi_source_layers)",
+    ],
+    data = [":_multi_source_layers"],
+    main = "assert_tar_paths.py",
+)
+
+# Verify opaque runtime data through a virtual resolution.
+py_test(
+    name = "virtual_runtime_data_test",
+    srcs = ["assert_tar_paths.py"],
+    args = [
+        "--contains=/_opaque_runtime.txt",
+        "--contains=/opaque_runtime/nested.txt",
+        "$(rootpaths :_virtual_runtime_layers)",
+    ],
+    data = [":_virtual_runtime_layers"],
+    main = "assert_tar_paths.py",
+)
+
+# The configured interpreter must be emitted by its dedicated layer, not also
+# by the default source layer assembled from VirtualenvInfo.runtime_files.
+py_test(
+    name = "interpreter_layer_isolation_test",
+    srcs = ["assert_tar_paths.py"],
+    args = [
+        "--interpreter-python-count=1",
+        "$(rootpaths :my_app_layers_fp)",
+    ],
+    data = [":my_app_layers_fp"],
+    main = "assert_tar_paths.py",
+)
 
 # Snapshot the same binary's ordinary image layer to prove explicitly declared
 # runtime data remains packaged even when the collision fixture uses a custom
