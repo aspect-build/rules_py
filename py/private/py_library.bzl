@@ -60,7 +60,7 @@ def _make_virtual_resolutions_depset(ctx):
     return depset(
         order = "postorder",
         direct = [
-            struct(virtual = v, target = k)
+            struct(virtual = k, target = v)
             for k, v in ctx.attr.resolutions.items()
         ],
         transitive = [
@@ -130,7 +130,7 @@ def _make_wheels_depset(ctx):
         for target in getattr(ctx.attr, "deps", [])
         if PyWheelsInfo in target
     ]
-    for target in getattr(ctx.attr, "resolutions", {}).keys():
+    for target in getattr(ctx.attr, "resolutions", {}).values():
         if PyWheelsInfo in target:
             transitive.append(target[PyWheelsInfo].wheels)
     return depset(order = "postorder", transitive = transitive)
@@ -220,7 +220,7 @@ _attrs = dict({
         doc = "List of import directories to be added to the PYTHONPATH.",
         default = [],
     ),
-    "resolutions": attr.label_keyed_string_dict(
+    "resolutions": attr.string_keyed_label_dict(
         doc = """Satisfy a virtual_dep with a mapping from external package name to the label of an installed package that provides it.
         See virtual_deps.
         """,

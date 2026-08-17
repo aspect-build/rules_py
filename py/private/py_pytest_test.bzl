@@ -143,17 +143,14 @@ def py_pytest_test(
             shared main.
         chdir: Optional directory to change into before pytest runs, relative
             to the runfiles root. Also forces a private per-test entrypoint.
-        resolutions: virtual-dep resolutions, `"string" -> label` (reversed to
-            the rule's label-keyed-dict form here).
+        resolutions: virtual-dep resolutions, a dict of virtual dependency
+            name to the label of an installed package providing it.
         **kwargs: forwarded to the underlying test rule and sibling py_venv.
     """
     if "main" in kwargs:
         fail("py_pytest_test provides its own entrypoint; `main` is not supported. Use py_pytest_main + py_test for a custom main.")
 
     kwargs["testonly"] = True
-
-    if resolutions:
-        resolutions = resolutions.to_label_keyed_dict()
 
     deps = list(deps)
     main = pytest_driver_wiring(

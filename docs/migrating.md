@@ -29,6 +29,18 @@ bazel run //path/to/package:target.venv_link
 See [IDE Integration](/README.md#ide-integration) for target declarations and
 editor configuration.
 
+## `resolutions` is a plain dict
+
+In rules_py v2.0, the `resolutions` attribute takes a plain dict mapping each
+virtual dependency's package name to the label of an installed package that
+provides it, on both the `py_binary`/`py_test` macros and the `py_venv` rule.
+The `resolutions` helper struct is gone: delete the
+`load("@aspect_rules_py//py:defs.bzl", "resolutions")` statement, replace
+`resolutions.from_requirements(all_whl_requirements_by_package, requirement)`
+with `{pkg: requirement(pkg) for pkg in all_whl_requirements_by_package.keys()}`,
+and replace `.override({...})` with the dict union operator (`base | {...}`).
+See [virtual deps](/docs/virtual_deps.md).
+
 ## rules_python provider compatibility layer
 
 Mid-migration, a `@rules_python` target depending on an already-converted
