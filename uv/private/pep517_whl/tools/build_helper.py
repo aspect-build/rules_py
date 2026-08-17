@@ -1139,7 +1139,7 @@ def _validate_wheel_platform(wheel_filename: str) -> None:
 
 PARSER = ArgumentParser()
 PARSER.add_argument("srcarchive")
-PARSER.add_argument("outdir")
+PARSER.add_argument("output", help="Path the single built wheel is written to")
 PARSER.add_argument("--monitor-memory", action="store_true")
 PARSER.add_argument("--validate-anyarch", action="store_true")
 PARSER.add_argument("--patch-strip", type=int, default=0, help="Strip count for patch (-p)")
@@ -1150,7 +1150,7 @@ PARSER.add_argument("--target-os", default="", help="Target platform OS (linux, 
 PARSER.add_argument("--target-cpu", default="", help="Target platform CPU (x86_64, aarch64, ...)")
 opts, _ = PARSER.parse_known_args()
 
-tmp_root = path.abspath(opts.outdir) + ".tmp"
+tmp_root = path.abspath(opts.output) + ".tmp"
 # Sandboxed/remote actions get a fresh root each run, but a failed run under
 # --spawn_strategy=standalone leaves tmp_root behind and would mask the real
 # error with FileExistsError on retry — reclaim our own scratch dir instead.
@@ -1183,7 +1183,9 @@ if opts.patches:
             _die("Error: failed to apply patch {} (patch exited {}).".format(abs_patch, exc.returncode))
 
 
-outdir = path.abspath(opts.outdir)
+# Backends take an output directory, not a file: build into a scratch dir.
+outdir = path.join(tmp_root, "dist")
+makedirs(outdir)
 
 build_env = _compiler_env(
     tmp_root,
@@ -1277,11 +1279,13 @@ with TemporaryFile(mode="w+") as build_log:
 
 inventory = listdir(outdir)
 
-if len(inventory) > 1:
-    _die("Error: Built more than one wheel!\nSee {} for the sandbox".format(t))
+if len(inventory) != 1:
+    _die("Error: Expected exactly one built wheel, found {}!\nSee {} for the sandbox".format(len(inventory), t))
 
 if opts.validate_anyarch and not inventory[0].endswith("-none-any.whl"):
     _die("Error: Target was anyarch but built a none-any wheel!\nSee {} for the sandbox".format(t))
 
 if opts.cross and not inventory[0].endswith("-none-any.whl"):
     _validate_wheel_platform(inventory[0])
+
+os.replace(path.join(outdir, inventory[0]), path.abspath(opts.output))

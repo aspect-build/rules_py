@@ -1,9 +1,9 @@
-"""Copy every .whl reachable from the given paths into one output directory.
+"""Copy the given .whl files into one output directory.
 
 Ported from rules_pycross (tests/e2e/shared/collect_wheels.py). Inputs are
-tree artifacts holding wheels — pep517_whl/pep517_native_whl declare a
-directory output. The same anyarch wheel can arrive through more than one
-platform transition, so first copy wins.
+wheel files under fixed analysis-time names, so each copy is prefixed with its
+configuration directory and parent directory (the wheel's repo) to keep both
+per-platform variants and same-named wheels from different repos distinct.
 """
 
 import argparse
@@ -22,11 +22,10 @@ def main() -> None:
 
     for wheel_str in args.wheel:
         for p in wheel_str.split(" "):
-            for whl in Path(p).glob("*.whl"):
-                real_path = whl.resolve()
-                target_path = out_dir / real_path.name
-                if not target_path.exists():
-                    shutil.copy2(real_path, target_path)
+            whl = Path(p)
+            config = whl.parts[1] if whl.parts[0] == "bazel-out" else "source"
+            target_path = out_dir / "{}-{}-{}".format(config, whl.parent.name, whl.name)
+            shutil.copy2(whl.resolve(), target_path)
 
 
 if __name__ == "__main__":

@@ -843,12 +843,13 @@ def _run_tar_action(ctx, bsdtar, bsdtar_files, tar_out, files_depset, map_each, 
         mapping_args.set_param_file_format("multiline")
         mapping_args.use_param_file("%s", use_always = True)
         mapping_args.add("#mtree")
-        mapping_args.add_all(
-            symlink_mappings.files,
-            map_each = symlink_mappings.map_each,
-            expand_directories = False,
-            allow_closure = True,
-        )
+        for mapping_files, mapping_map_each in symlink_mappings.mappings:
+            mapping_args.add_all(
+                mapping_files,
+                map_each = mapping_map_each,
+                expand_directories = False,
+                allow_closure = True,
+            )
         gawk_arguments.append(mapping_args)
         if symlink_mappings.tree_files:
             gawk_inputs.append(depset(direct = symlink_mappings.tree_files))
@@ -1078,26 +1079,21 @@ def _py_image_layer_impl(ctx):
     # links without copying the target bytes into that tar.
     symlink_mappings = None
     if rule_group_files or first_party_reference_files:
-        interpreter_reference_files = []
-        interpreter_reference_paths = {}
-        for layer in interpreter_layers.values():
-            files = layer.interpreter_files
-            interpreter_reference_files.append(files)
-            for f in files.to_list():
-                interpreter_reference_paths[f.path] = True
-        reference_files = [source_files] + rule_group_files + first_party_reference_files + interpreter_reference_files
-        reference_tree_files = {}
-        for files in reference_files:
-            for f in files.to_list():
-                if f.is_directory:
-                    reference_tree_files[f.path] = f
-        reference_map = lambda f, d: (
-            rule_group_map(f, d) if f.path in rule_group_paths else interpreter_map(f, d) if f.path in interpreter_reference_paths else source_map(f, d)
+        # awk's symlink_map is last-row-wins, so emit lowest-priority sets first:
+        # source/first-party, then interpreter, then rule groups.
+        reference_mappings = (
+            [(files, source_map) for files in [source_files] + first_party_reference_files] +
+            [(layer.interpreter_files, interpreter_map) for layer in interpreter_layers.values()] +
+            [(files, rule_group_map) for files in rule_group_files]
         )
         symlink_mappings = struct(
-            files = depset(transitive = reference_files),
-            map_each = reference_map,
-            tree_files = reference_tree_files.values(),
+            mappings = reference_mappings,
+            tree_files = [
+                f
+                for files, _ in reference_mappings
+                for f in files.to_list()
+                if f.is_directory
+            ],
         )
 
     for group_name, files in rule_groups:

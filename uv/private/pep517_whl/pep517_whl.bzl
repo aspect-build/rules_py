@@ -19,7 +19,10 @@ load(
 
 def _pep517_whl(ctx):
     archive = ctx.file.src
-    wheel_dir = ctx.actions.declare_directory("whl")
+
+    # Fixed name; the backend picks the real filename at build time and the
+    # helper renames onto this. Consumers read identity from dist-info only.
+    wheel_file = ctx.actions.declare_file(ctx.label.name + ".whl")
     patch_args, patch_inputs = patch_args_and_inputs(ctx)
 
     # The build tool is a py_binary wrapping build_helper.py. Using it as
@@ -35,17 +38,17 @@ def _pep517_whl(ctx):
         toolchain = None,
         arguments = ctx.attr.args + patch_args + memory_args(ctx) + [
             archive.path,
-            wheel_dir.path,
+            wheel_file.path,
         ],
         inputs = [archive] + patch_inputs,
         tools = [tool],
-        outputs = [wheel_dir],
+        outputs = [wheel_file],
         env = common_env(ctx),
         exec_group = TARGET_EXEC_GROUP,
         resource_set = resource_set(ctx.attr),
     )
 
-    return wheel_providers(wheel_dir, ctx.attr.console_scripts)
+    return wheel_providers(wheel_file, ctx.attr.console_scripts)
 
 pep517_whl = rule(
     implementation = _pep517_whl,

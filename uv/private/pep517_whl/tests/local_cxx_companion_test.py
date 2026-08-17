@@ -68,9 +68,9 @@ def _write_driver(filename: str, message: str) -> None:
 
 
 def _run(helper: str, sdist: str, workdir: str, cxx: str, expect: str, infer_companion: bool) -> None:
-    outdir = os.path.join(workdir, "out-" + expect)
+    output = os.path.join(workdir, "out-" + expect + ".whl")
     result = subprocess.run(
-        [sys.executable, helper, sdist, outdir],
+        [sys.executable, helper, sdist, output],
         capture_output=True,
         cwd=workdir,
         env={

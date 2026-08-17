@@ -12,9 +12,9 @@ _INHERITED_PYTHON_ENV = (
     "PYTHONPLATLIBDIR",
 )
 
-def wheel_providers(wheel_dir, console_scripts):
+def wheel_providers(wheel_file, console_scripts):
     return [
-        DefaultInfo(files = depset([wheel_dir])),
+        DefaultInfo(files = depset([wheel_file])),
         SourceBuiltWheelInfo(console_scripts = tuple(console_scripts)),
     ]
 

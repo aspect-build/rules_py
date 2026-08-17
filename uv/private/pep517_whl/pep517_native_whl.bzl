@@ -191,7 +191,10 @@ def _cross_compile(ctx, eg_toolchains):
 
 def _pep517_native_whl(ctx):
     archive = ctx.file.src
-    wheel_dir = ctx.actions.declare_directory("whl")
+
+    # Fixed name; the backend picks the real filename at build time and the
+    # helper renames onto this. Consumers read identity from dist-info only.
+    wheel_file = ctx.actions.declare_file(ctx.label.name + ".whl")
     patch_args, patch_inputs = patch_args_and_inputs(ctx)
 
     eg_toolchains = ctx.exec_groups[TARGET_EXEC_GROUP].toolchains
@@ -300,20 +303,20 @@ def _pep517_native_whl(ctx):
             "--execroot-marker",
             _EXECROOT_MARKER,
             archive.path,
-            wheel_dir.path,
+            wheel_file.path,
         ],
         inputs = depset(
             [archive] + patch_inputs,
             transitive = extra_inputs,
         ),
         tools = [tool],
-        outputs = [wheel_dir],
+        outputs = [wheel_file],
         env = env,
         exec_group = TARGET_EXEC_GROUP,
         resource_set = resource_set(ctx.attr),
     )
 
-    return wheel_providers(wheel_dir, ctx.attr.console_scripts)
+    return wheel_providers(wheel_file, ctx.attr.console_scripts)
 
 pep517_native_whl = rule(
     implementation = _pep517_native_whl,

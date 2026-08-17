@@ -3,8 +3,9 @@
 Ported from rules_pycross (tests/e2e/shared/collect_wheels.bzl), which builds
 each wheel under a `platform_transition_filegroup` per target platform and
 gathers the results into one directory. rules_pycross stops at "it builds";
-this version adds a runtime assertion over the collected wheel filenames so a
-wheel tagged for the wrong platform fails the test instead of passing silently.
+this version adds a runtime assertion over each wheel's WHEEL `Tag:` metadata
+so a wheel tagged for the wrong platform fails the test instead of passing
+silently.
 """
 
 load("@aspect_rules_py//py:defs.bzl", "py_test")
@@ -19,7 +20,7 @@ def collect_wheels(name, wheels, platforms, expected_tags):
         wheels: Wheel labels, e.g. `["@sdist_build__x__y__1_0//:whl"]`.
         platforms: Platform labels to build each wheel for.
         expected_tags: Substrings that must each appear in at least one
-            collected wheel filename, asserted by `<name>_tags_test`.
+            collected wheel's `Tag:` metadata, asserted by `<name>_tags_test`.
 
     The inner `<name>_wheels` filegroup is tagged manual: it is only reachable
     through the platform transitions declared here, which are what supply the

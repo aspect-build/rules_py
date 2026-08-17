@@ -2,12 +2,13 @@
 
 Usage: check_wheel_native.py <collected-wheel-dir>
 
-For every Linux-tagged wheel in the directory, every extension module inside it
-must be an ELF object whose `e_machine` matches the wheel's architecture tag,
-and whose filename ABI tag names the same architecture. A cross build that
-fell back to the exec platform's compiler or sysconfig produces a correctly
-named wheel holding host-architecture objects — which the wheel-tag check
-alone cannot see.
+For every Linux-tagged wheel in the directory (tags read from the dist-info
+WHEEL metadata — filenames are analysis-time names carrying no tags), every
+extension module inside it must be an ELF object whose `e_machine` matches
+the wheel's architecture tag, and whose filename ABI tag names the same
+architecture. A cross build that fell back to the exec platform's compiler
+or sysconfig produces a correctly tagged wheel holding host-architecture
+objects — which the wheel-tag check alone cannot see.
 
 rules_pycross's cross coverage stops at "the wheel builds for both platforms"
 (tests/e2e/shared/collect_wheels.bzl feeding a build target); this is the
@@ -29,11 +30,24 @@ _ARCH_TAGS = {
 }
 
 
-def _wheel_arch(name: str) -> str:
+def _wheel_tags(zf: zipfile.ZipFile) -> list[str]:
+    for entry in zf.namelist():
+        root, sep, rest = entry.partition("/")
+        if sep and root.endswith(".dist-info") and rest == "WHEEL":
+            lines = zf.read(entry).decode("utf-8").splitlines()
+            return [
+                line.split(":", 1)[1].strip()
+                for line in lines
+                if line.startswith("Tag:")
+            ]
+    return []
+
+
+def _wheel_arch(name: str, tags: list[str]) -> str:
     for arch in _ARCH_TAGS:
-        if arch in name:
+        if any(arch in tag for tag in tags):
             return arch
-    raise AssertionError("cannot determine architecture from wheel name {}".format(name))
+    raise AssertionError("cannot determine architecture from wheel tags {} ({})".format(tags, name))
 
 
 def _elf_machine(data: bytes) -> int:
@@ -44,11 +58,11 @@ def _elf_machine(data: bytes) -> int:
 
 def _check(wheel_path: str) -> int:
     name = os.path.basename(wheel_path)
-    arch = _wheel_arch(name)
-    expected_machine = _ARCH_TAGS[arch]
     checked = 0
 
     with zipfile.ZipFile(wheel_path) as zf:
+        arch = _wheel_arch(name, _wheel_tags(zf))
+        expected_machine = _ARCH_TAGS[arch]
         for entry in zf.namelist():
             if not entry.endswith(".so"):
                 continue
@@ -74,11 +88,14 @@ def _check(wheel_path: str) -> int:
 
 def main() -> None:
     wheel_dir = sys.argv[1]
-    wheels = sorted(
-        f
-        for f in os.listdir(wheel_dir)
-        if f.endswith(".whl") and "linux" in f and not f.endswith("-none-any.whl")
-    )
+    wheels = []
+    for f in sorted(os.listdir(wheel_dir)):
+        if not f.endswith(".whl"):
+            continue
+        with zipfile.ZipFile(os.path.join(wheel_dir, f)) as zf:
+            tags = _wheel_tags(zf)
+        if any("linux" in tag for tag in tags) and not any(tag.endswith("none-any") for tag in tags):
+            wheels.append(f)
     assert wheels, "no Linux-tagged native wheels collected under {}".format(wheel_dir)
 
     total = 0
