@@ -8,7 +8,7 @@ on:
 
 env:
   BCR_VERSION: "1.11.7"
-  ANALYSIS_BCR_VERSION: "2.0.0-alpha.4"
+  ANALYSIS_BCR_VERSION: "2.0.0-alpha.6"
 
 jobs:
   startup:
@@ -183,17 +183,17 @@ jobs:
           OUT_BASE="/tmp/bazel-bcr"
           rm -rf "$OUT_BASE"
 
-          bazel --output_base="$OUT_BASE" --bazelrc=../../.github/workflows/ci.bazelrc fetch //workspace/...
+          bazel --output_base="$OUT_BASE" --bazelrc=../../.github/workflows/ci.bazelrc fetch //workspace/... //workspace:image_layers
 
           hyperfine --warmup 1 --runs 10 \
             --prepare 'rm -rf /tmp/bazel-bcr-analysis' \
             --export-json "${GITHUB_WORKSPACE}/bcr.json" \
-            'bazel --output_base=/tmp/bazel-bcr-analysis --bazelrc=../../.github/workflows/ci.bazelrc build --disk_cache= --nobuild //workspace/...'
+            'bazel --output_base=/tmp/bazel-bcr-analysis --bazelrc=../../.github/workflows/ci.bazelrc build --disk_cache= --nobuild //workspace/... //workspace:image_layers'
 
           targets=$(bazel --output_base="$OUT_BASE" --bazelrc=../../.github/workflows/ci.bazelrc \
             query //workspace/... | wc -l | tr -d ' ')
           actions=$(bazel --output_base="$OUT_BASE" --bazelrc=../../.github/workflows/ci.bazelrc \
-            aquery --output=summary //workspace/... | awk '/^[0-9]+ total actions\.$/ { print $1 }')
+            aquery --output=summary '//workspace/... + //workspace:image_layers' | awk '/^[0-9]+ total actions\.$/ { print $1 }')
           test -n "$targets" && test -n "$actions"
           echo "{\"targets\": $targets, \"actions\": $actions}" > "${GITHUB_WORKSPACE}/bcr-aux.json"
 
@@ -207,17 +207,17 @@ jobs:
           OUT_BASE="/tmp/bazel-main"
           rm -rf "$OUT_BASE"
 
-          bazel --output_base="$OUT_BASE" --bazelrc=../../.github/workflows/ci.bazelrc fetch //workspace/...
+          bazel --output_base="$OUT_BASE" --bazelrc=../../.github/workflows/ci.bazelrc fetch //workspace/... //workspace:image_layers
 
           hyperfine --warmup 1 --runs 10 \
             --prepare 'rm -rf /tmp/bazel-main-analysis' \
             --export-json "${GITHUB_WORKSPACE}/main.json" \
-            'bazel --output_base=/tmp/bazel-main-analysis --bazelrc=../../.github/workflows/ci.bazelrc build --disk_cache= --nobuild //workspace/...'
+            'bazel --output_base=/tmp/bazel-main-analysis --bazelrc=../../.github/workflows/ci.bazelrc build --disk_cache= --nobuild //workspace/... //workspace:image_layers'
 
           targets=$(bazel --output_base="$OUT_BASE" --bazelrc=../../.github/workflows/ci.bazelrc \
             query //workspace/... | wc -l | tr -d ' ')
           actions=$(bazel --output_base="$OUT_BASE" --bazelrc=../../.github/workflows/ci.bazelrc \
-            aquery --output=summary //workspace/... | awk '/^[0-9]+ total actions\.$/ { print $1 }')
+            aquery --output=summary '//workspace/... + //workspace:image_layers' | awk '/^[0-9]+ total actions\.$/ { print $1 }')
           test -n "$targets" && test -n "$actions"
           echo "{\"targets\": $targets, \"actions\": $actions}" > "${GITHUB_WORKSPACE}/main-aux.json"
 
@@ -231,17 +231,17 @@ jobs:
           OUT_BASE="/tmp/bazel-pr"
           rm -rf "$OUT_BASE"
 
-          bazel --output_base="$OUT_BASE" --bazelrc=../../.github/workflows/ci.bazelrc fetch //workspace/...
+          bazel --output_base="$OUT_BASE" --bazelrc=../../.github/workflows/ci.bazelrc fetch //workspace/... //workspace:image_layers
 
           hyperfine --warmup 1 --runs 10 \
             --prepare 'rm -rf /tmp/bazel-pr-analysis' \
             --export-json "${GITHUB_WORKSPACE}/pr.json" \
-            'bazel --output_base=/tmp/bazel-pr-analysis --bazelrc=../../.github/workflows/ci.bazelrc build --disk_cache= --nobuild //workspace/...'
+            'bazel --output_base=/tmp/bazel-pr-analysis --bazelrc=../../.github/workflows/ci.bazelrc build --disk_cache= --nobuild //workspace/... //workspace:image_layers'
 
           targets=$(bazel --output_base="$OUT_BASE" --bazelrc=../../.github/workflows/ci.bazelrc \
             query //workspace/... | wc -l | tr -d ' ')
           actions=$(bazel --output_base="$OUT_BASE" --bazelrc=../../.github/workflows/ci.bazelrc \
-            aquery --output=summary //workspace/... | awk '/^[0-9]+ total actions\.$/ { print $1 }')
+            aquery --output=summary '//workspace/... + //workspace:image_layers' | awk '/^[0-9]+ total actions\.$/ { print $1 }')
           test -n "$targets" && test -n "$actions"
           echo "{\"targets\": $targets, \"actions\": $actions}" > "${GITHUB_WORKSPACE}/pr-aux.json"
 

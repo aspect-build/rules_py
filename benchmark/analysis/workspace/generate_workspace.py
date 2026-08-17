@@ -171,13 +171,22 @@ def generate_package(pkg_dir: Path, name: str, deps: list[str], seed: int) -> No
     )
 
 
-def generate_root_build(root: Path, package_count: int) -> None:
+def generate_root_build(root: Path, package_count: int, image_binaries: int) -> None:
     """Generate a root BUILD that groups all binaries."""
-    lines = ['load("@bazel_skylib//rules:build_test.bzl", "build_test")\n\n']
+    lines = ['load("@aspect_rules_py//py:defs.bzl", "py_image_layer")\n']
+    lines.append('load("@bazel_skylib//rules:build_test.bzl", "build_test")\n\n')
     lines.append('build_test(\n')
     lines.append('    name = "all_bins",\n')
     targets = [f"//workspace/src/pkg_{i}:pkg_{i}_bin" for i in range(package_count)]
     lines.append(f"    targets = {targets},\n")
+    lines.append(')\n\n')
+
+    # Multi-binary image layers: the last N packages have the deepest dep
+    # closures, stressing the py_image_layer aspects during analysis.
+    image_bins = targets[-image_binaries:] if image_binaries else []
+    lines.append('py_image_layer(\n')
+    lines.append('    name = "image_layers",\n')
+    lines.append(f"    binaries = {image_bins},\n")
     lines.append(')\n')
     (root / "BUILD.bazel").write_text("".join(lines))
 
@@ -204,6 +213,12 @@ def main() -> int:
         type=int,
         default=50,
         help="Number of local packages to generate (default: 50)",
+    )
+    parser.add_argument(
+        "--image-binaries",
+        type=int,
+        default=10,
+        help="Number of binaries in the py_image_layer target (default: 10)",
     )
     parser.add_argument(
         "--seed",
@@ -237,7 +252,7 @@ def main() -> int:
 
         generate_package(pkg_dir, name, external_deps + local_deps, seed=args.seed + i)
 
-    generate_root_build(root, args.packages)
+    generate_root_build(root, args.packages, min(args.image_binaries, args.packages))
     print(f"Generated {args.packages} packages under {src}")
     return 0
 
