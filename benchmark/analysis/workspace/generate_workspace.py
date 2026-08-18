@@ -171,9 +171,16 @@ def generate_package(pkg_dir: Path, name: str, deps: list[str], seed: int) -> No
     )
 
 
-def generate_root_build(root: Path, package_count: int, image_binaries: int) -> None:
+def generate_root_build(
+    root: Path,
+    package_count: int,
+    image_binaries: int,
+    image_layer_groups: bool = False,
+    image_common_dep: str | None = None,
+) -> None:
     """Generate a root BUILD that groups all binaries."""
-    lines = ['load("@aspect_rules_py//py:defs.bzl", "py_image_layer")\n']
+    rules = '"py_image_layer", "py_layer_tier"' if image_layer_groups else '"py_image_layer"'
+    lines = [f'load("@aspect_rules_py//py:defs.bzl", {rules})\n']
     lines.append('load("@bazel_skylib//rules:build_test.bzl", "build_test")\n\n')
     lines.append('build_test(\n')
     lines.append('    name = "all_bins",\n')
@@ -181,12 +188,30 @@ def generate_root_build(root: Path, package_count: int, image_binaries: int) -> 
     lines.append(f"    targets = {targets},\n")
     lines.append(')\n\n')
 
+    # A grouped tier instantiates every layer family (first-party, solo pip,
+    # interpreter), so the cross-layer exclusion and symlink-mapping pipeline
+    # is part of the measured graph. The last package's library is the
+    # 1p-mutation target, so its group's rebuild cost is measured too.
+    if image_layer_groups:
+        last = package_count - 1
+        lines.append('py_layer_tier(\n')
+        lines.append('    name = "image_tier",\n')
+        lines.append('    groups = {\n')
+        lines.append(f'        "//workspace/src/pkg_{last}:pkg_{last}": "first_party",\n')
+        if image_common_dep:
+            lines.append(f'        "@pip//{image_common_dep}": "{image_common_dep}",\n')
+        lines.append('    },\n')
+        lines.append('    interpreter_group = "interpreter",\n')
+        lines.append(')\n\n')
+
     # Multi-binary image layers: the last N packages have the deepest dep
     # closures, stressing the py_image_layer aspects during analysis.
     image_bins = targets[-image_binaries:] if image_binaries else []
     lines.append('py_image_layer(\n')
     lines.append('    name = "image_layers",\n')
     lines.append(f"    binaries = {image_bins},\n")
+    if image_layer_groups:
+        lines.append('    layer_tier = ":image_tier",\n')
     lines.append('    # The synthetic dep closure squashes >200MB of wheels into one pip layer;\n')
     lines.append('    # this benchmark measures action fanout, not layer-size hygiene.\n')
     lines.append('    warn_remote_cache_threshold_mb = 1024,\n')
@@ -237,6 +262,11 @@ def main() -> int:
         "--image-common-dep",
         help="External dep added to every image binary's package, guaranteeing it is in each image dep closure",
     )
+    parser.add_argument(
+        "--image-layer-groups",
+        action="store_true",
+        help="Give the image target a py_layer_tier with first-party, pip, and interpreter groups",
+    )
     args = parser.parse_args()
 
     root = Path(args.root)
@@ -271,7 +301,13 @@ def main() -> int:
 
         generate_package(pkg_dir, name, external_deps + local_deps, seed=args.seed + i)
 
-    generate_root_build(root, args.packages, image_binaries)
+    generate_root_build(
+        root,
+        args.packages,
+        image_binaries,
+        image_layer_groups=args.image_layer_groups,
+        image_common_dep=args.image_common_dep,
+    )
     print(f"Generated {args.packages} packages under {src}")
     return 0
 

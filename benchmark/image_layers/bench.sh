@@ -17,13 +17,17 @@ results_dir="${GITHUB_WORKSPACE:-/tmp}"
 
 # Smaller workload than the analysis benchmark: build perf, not analysis stress.
 # The small dep pool keeps wheel-install and mtree time low; click is forced into
-# every image binary's closure as the wheel-change mutation target.
+# every image binary's closure as the wheel-change mutation target. The grouped
+# tier puts the cross-layer exclusion and symlink-mapping pipeline in the
+# measured graph: the 1p mutation hits the grouped package, the wheel mutation
+# hits the solo-grouped pip package.
 packages=15
 python3 workspace/generate_workspace.py --root workspace \
   --packages "$packages" \
   --image-binaries 5 \
   --external-deps click,requests,jinja2,pyyaml \
-  --image-common-dep click
+  --image-common-dep click \
+  --image-layer-groups
 last_pkg="pkg_$((packages - 1))"
 python3 ../image_layers/write_patch.py --tick 0 workspace/patches/wheel_bench_note.patch
 python3 generate_module.py "$@"
@@ -40,6 +44,14 @@ $BAZEL fetch //workspace:image_layers
 hyperfine --warmup 1 --runs 10 \
   --export-json "$results_dir/$variant-analysis.json" \
   "$BAZEL build --disk_cache= --nobuild --action_env=BENCH_TICK=\$(date +%s%N) //workspace:image_layers"
+
+# Total action count behind the image target: the analysis-phase fanout,
+# deterministic, from aquery's summary. deps() so aspect-declared layer tars
+# at pip and toolchain targets are counted, not just the rule's own actions.
+total_actions=$($BAZEL aquery --output=summary "deps(//workspace:image_layers)" \
+  | awk '/^[0-9]+ total actions\.$/ { print $1 }')
+test -n "$total_actions"
+echo "{\"actions_total\": $total_actions}" > "$results_dir/$variant-analysis-actions.json"
 
 # Unmeasured full build to establish the built state for the incremental runs.
 $BAZEL build --disk_cache= //workspace:image_layers
