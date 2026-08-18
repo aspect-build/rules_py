@@ -120,7 +120,9 @@ _PYTHON_CPU_MAP = {
     "x86_64": "x86_64",
     "aarch64": "aarch64",
     "x86": "i686",
-    "arm": "arm",
+    # armv7 CPython reports "linux-armv7l"; build_helper's tag validation
+    # expects the same spelling.
+    "arm": "armv7l",
 }
 
 def _find_sysconfigdata(runtime):
