@@ -937,7 +937,13 @@ def _merge_rust_sysroot(tmpdir: str, target_rustc: str, host_sysroot: str) -> st
     return merged
 
 
-def _configure_cargo_cross_env(build_env: dict[str, str], tmpdir: str, target_os: str, target_cpu: str) -> None:
+def _configure_cargo_cross_env(
+    build_env: dict[str, str],
+    tmpdir: str,
+    target_os: str,
+    target_cpu: str,
+    target_libc: str = "",
+) -> None:
     """Cross env vars for maturin/setuptools-rust (Cargo-driven PyO3 builds).
 
     Cargo has no cross auto-detection: it needs an explicit target triple,
@@ -945,6 +951,10 @@ def _configure_cargo_cross_env(build_env: dict[str, str], tmpdir: str, target_os
     and fails.
     """
     os_suffix = _RUST_TARGET_OS.get(target_os, target_os)
+    # The rustup triple encodes libc; the OS/CPU pair alone would pick the
+    # glibc std for a musl destination (or fail on a musl-only sysroot).
+    if target_os == "linux" and target_libc == "musl":
+        os_suffix = "unknown-linux-musl"
     triple = "{}-{}".format(target_cpu, os_suffix)
     build_env["CARGO_BUILD_TARGET"] = triple
     linker_var = "CARGO_TARGET_{}_LINKER".format(triple.upper().replace("-", "_"))
@@ -1168,6 +1178,7 @@ PARSER.add_argument("--execroot-marker", help="Token in env values to replace wi
 PARSER.add_argument("--cross", action="store_true", help="Cross-compilation mode: target platform != exec platform")
 PARSER.add_argument("--target-os", default="", help="Target platform OS (linux, darwin, windows)")
 PARSER.add_argument("--target-cpu", default="", help="Target platform CPU (x86_64, aarch64, ...)")
+PARSER.add_argument("--target-libc", default="", help="Target platform libc (glibc, musl, ...)")
 opts, _ = PARSER.parse_known_args()
 
 tmp_root = path.abspath(opts.output) + ".tmp"
@@ -1267,7 +1278,7 @@ elif path.exists(path.join(t, "pyproject.toml")) or path.exists(path.join(t, "se
             toolchain = _generate_cmake_toolchain_file(tmp_root, build_env, opts.target_os, opts.target_cpu)
             cmd += ["-C", "cmake.toolchain-file=" + toolchain]
         elif (build_backend == "maturin" or uses_setuptools_rust) and build_env.get("CARGO"):
-            _configure_cargo_cross_env(build_env, tmp_root, opts.target_os, opts.target_cpu)
+            _configure_cargo_cross_env(build_env, tmp_root, opts.target_os, opts.target_cpu, opts.target_libc)
 else:
     # raise, not _die(): ty doesn't narrow NoReturn in module-level flow and
     # would flag `cmd` below as possibly unbound.
