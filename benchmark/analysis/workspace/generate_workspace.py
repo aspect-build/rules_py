@@ -187,6 +187,9 @@ def generate_root_build(root: Path, package_count: int, image_binaries: int) -> 
     lines.append('py_image_layer(\n')
     lines.append('    name = "image_layers",\n')
     lines.append(f"    binaries = {image_bins},\n")
+    lines.append('    # The synthetic dep closure squashes >200MB of wheels into one pip layer;\n')
+    lines.append('    # this benchmark measures action fanout, not layer-size hygiene.\n')
+    lines.append('    warn_remote_cache_threshold_mb = 1024,\n')
     lines.append(')\n')
     (root / "BUILD.bazel").write_text("".join(lines))
 
@@ -226,11 +229,22 @@ def main() -> int:
         default=42,
         help="Random seed for reproducibility (default: 42)",
     )
+    parser.add_argument(
+        "--external-deps",
+        help="Comma-separated external dep pool to sample from (default: the full built-in list)",
+    )
+    parser.add_argument(
+        "--image-common-dep",
+        help="External dep added to every image binary's package, guaranteeing it is in each image dep closure",
+    )
     args = parser.parse_args()
 
     root = Path(args.root)
     src = root / "src"
     rng = random.Random(args.seed)
+
+    dep_pool = args.external_deps.split(",") if args.external_deps else EXTERNAL_DEPS
+    image_binaries = min(args.image_binaries, args.packages)
 
     clean_generated(root)
 
@@ -247,12 +261,17 @@ def main() -> int:
                 for j in sorted(rng.sample(range(i), local_count))
             ]
 
-        external_count = rng.randint(1, 2)
-        external_deps = [f"@pypi//{d}" for d in rng.sample(EXTERNAL_DEPS, external_count)]
+        external_count = rng.randint(1, min(2, len(dep_pool)))
+        external_deps = [f"@pypi//{d}" for d in rng.sample(dep_pool, external_count)]
+
+        if args.image_common_dep and i >= args.packages - image_binaries:
+            common = f"@pypi//{args.image_common_dep}"
+            if common not in external_deps:
+                external_deps.append(common)
 
         generate_package(pkg_dir, name, external_deps + local_deps, seed=args.seed + i)
 
-    generate_root_build(root, args.packages, min(args.image_binaries, args.packages))
+    generate_root_build(root, args.packages, image_binaries)
     print(f"Generated {args.packages} packages under {src}")
     return 0
 
