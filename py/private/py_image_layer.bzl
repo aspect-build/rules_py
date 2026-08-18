@@ -235,6 +235,9 @@ def _collect_from_deps(ctx, provider):
         for dep in actual:
             if provider in dep:
                 results.append(dep[provider])
+    for dep in getattr(ctx.rule.attr, "resolutions", {}).values():
+        if provider in dep:
+            results.append(dep[provider])
     return results
 
 def _compression_for(plan, group_name):
@@ -494,7 +497,7 @@ def _layer_aspect_impl(target, ctx):
 
 _layer_aspect = aspect(
     implementation = _layer_aspect_impl,
-    attr_aspects = ["deps", "data", "actual", "venv"],
+    attr_aspects = ["deps", "data", "actual", "venv", "resolutions"],
     attrs = {
         "_layer_tier": attr.label(
             default = "//py:layer_tier",
@@ -586,13 +589,14 @@ _merge_aspect = aspect(
 )
 
 def _apply_strip_prefix(sp, strip_prefix, root):
+    """Destination for sp under the strip remap, or None when the prefix does not apply."""
     prefix = strip_prefix.replace("\\/", "/")
     if sp == prefix:
         return "." + root
 
     if sp.startswith(prefix + ".runfiles/") or sp.startswith(prefix + "/"):
         return "." + root + sp[len(prefix):]
-    return "./app.runfiles/_main/" + sp
+    return None
 
 def _source_destination(sp, strip_prefix, root, executable_dsts):
     executable_dst = executable_dsts.get(sp, None)
@@ -611,21 +615,21 @@ def _source_destination(sp, strip_prefix, root, executable_dsts):
     if runfiles_prefix != None:
         if strip_prefix and not runfiles_prefix.startswith("../") and not executable_dsts[runfiles_prefix]:
             destination = _apply_strip_prefix(sp, strip_prefix, root)
-            if destination != "./app.runfiles/_main/" + sp:
+            if destination != None:
                 return destination
         runfiles_root = "/app" if executable_dsts[runfiles_prefix] else root
         return _apply_strip_prefix(sp, runfiles_prefix, runfiles_root)
     if sp.startswith("../"):
         if strip_prefix and (sp in executable_dsts or sp == strip_prefix):
             destination = _apply_strip_prefix(sp, strip_prefix, root)
-            if destination != "./app.runfiles/_main/" + sp:
+            if destination != None:
                 return destination
         if sp in executable_dsts:
             return _apply_strip_prefix(sp, sp, root)
         return "./app.runfiles/" + sp[3:]
     if strip_prefix and not any(executable_dsts.values()):
         destination = _apply_strip_prefix(sp, strip_prefix, root)
-        if destination != "./app.runfiles/_main/" + sp:
+        if destination != None:
             return destination
     if sp in executable_dsts:
         return _apply_strip_prefix(sp, sp, root)

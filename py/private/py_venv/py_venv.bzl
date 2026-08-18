@@ -46,10 +46,8 @@ def _interpreter_flags(ctx):
 
     return args
 
-def _assemble_shared(ctx):
-    """Resolve the py toolchain, virtual deps, imports depset — then run
-    the shared venv-assembly helper.
-    """
+def _assemble_venv_target(ctx):
+    """Assemble a venv and its provider-facing runtime metadata."""
     py_toolchain = _py_semantics.resolve_toolchain(ctx)
     virtual_resolution = _py_library.resolve_virtuals(ctx)
     imports_depset = _py_library.make_imports_depset(
@@ -63,12 +61,13 @@ def _assemble_shared(ctx):
         "BAZEL_TARGET_NAME": ctx.attr.name,
     }
 
-    safe_name = ctx.attr.name.replace("/", "_")
-
-    venv = assemble_venv(
+    venv_stem = ctx.attr.name.replace("/", "_")
+    wheels = _py_library.make_wheels_depset(ctx).to_list()
+    assembled = assemble_venv(
         ctx,
-        safe_name = safe_name,
+        venv_stem = venv_stem,
         py_toolchain = py_toolchain,
+        wheels = wheels,
         imports_depset = imports_depset,
         is_windows = ctx.target_platform_has_constraint(
             ctx.attr._windows_constraint[platform_common.ConstraintValueInfo],
@@ -79,7 +78,7 @@ def _assemble_shared(ctx):
         venv_activate_tmpl = ctx.file._venv_activate_tmpl,
         site_merge_script_py = ctx.file._site_merge_script,
         console_script_tmpl = ctx.file._console_script_tmpl,
-        venv_name = ".{}".format(safe_name),
+        venv_name = ".{}".format(venv_stem),
     )
 
     srcs_depset = _py_library.make_srcs_depset(
@@ -88,28 +87,27 @@ def _assemble_shared(ctx):
     )
     runfiles = _py_library.make_merged_runfiles(
         ctx,
-        extra_depsets = [
-            py_toolchain.files,
-        ] + virtual_resolution.runfiles,
-        extra_runfiles = venv.all_files,
+        extra_depsets = [py_toolchain.files] + virtual_resolution.runfiles,
+        extra_runfiles = assembled.declared_outputs,
         extra_runfiles_depsets = [
             ctx.attr._runfiles_lib[DefaultInfo].default_runfiles,
         ],
     )
 
     return struct(
-        py_toolchain = py_toolchain,
-        venv = venv,
+        info = VirtualenvInfo(
+            bin_python = assembled.bin_python,
+            imports = imports_depset,
+            transitive_sources = srcs_depset,
+        ),
         runfiles = runfiles,
-        imports_depset = imports_depset,
-        srcs_depset = srcs_depset,
     )
 
-def _common_providers(ctx, shared, executable = None, include_sources = False):
+def _venv_providers(ctx, venv, executable = None, include_sources = False):
     """Providers emitted by both the executable and lib variants."""
-    runfiles = shared.runfiles
+    runfiles = venv.runfiles
     if include_sources:
-        runfiles = runfiles.merge(ctx.runfiles(transitive_files = shared.srcs_depset))
+        runfiles = runfiles.merge(ctx.runfiles(transitive_files = venv.info.transitive_sources))
     return [
         DefaultInfo(
             files = depset([executable]) if executable != None else None,
@@ -117,11 +115,7 @@ def _common_providers(ctx, shared, executable = None, include_sources = False):
             runfiles = runfiles,
         ),
         # Deliberately no PyInfo: a venv is a terminal artifact, not a source of imports.
-        VirtualenvInfo(
-            bin_python = shared.venv.bin_python,
-            imports = shared.imports_depset,
-            transitive_sources = shared.srcs_depset,
-        ),
+        venv.info,
         # `bazel coverage` finds this by walking the consumer's `venv` attr.
         coverage_common.instrumented_files_info(
             ctx,
@@ -135,7 +129,7 @@ def _py_venv_rule_impl(ctx):
     """A virtualenv target whose own executable activates the venv and
     exec's the interpreter — a `bazel run :name`-able venv."""
 
-    shared = _assemble_shared(ctx)
+    venv = _assemble_venv_target(ctx)
 
     ctx.actions.expand_template(
         template = ctx.file._run_tmpl,
@@ -143,7 +137,7 @@ def _py_venv_rule_impl(ctx):
         substitutions = {
             "{{BASH_RLOCATION_FN}}": BASH_RLOCATION_FUNCTION.strip(),
             "{{INTERPRETER_FLAGS}}": " ".join(_interpreter_flags(ctx)),
-            "{{ARG_VENV_PYTHON}}": to_rlocation_path(ctx, shared.venv.bin_python),
+            "{{ARG_VENV_PYTHON}}": to_rlocation_path(ctx, venv.info.bin_python),
             "{{DEBUG}}": str(ctx.attr.debug).lower(),
         },
         is_executable = True,
@@ -162,9 +156,9 @@ def _py_venv_rule_impl(ctx):
 
     # `VIRTUAL_ENV` as the venv root's rootpath. `venv.tmpl.sh`
     # overrides with its own absolute value when invoked directly.
-    passed_env["VIRTUAL_ENV"] = venv_root(shared.venv.bin_python)
+    passed_env["VIRTUAL_ENV"] = venv_root(venv.info.bin_python)
 
-    return _common_providers(ctx, shared, executable = ctx.outputs.executable, include_sources = True) + [
+    return _venv_providers(ctx, venv, executable = ctx.outputs.executable, include_sources = True) + [
         # Read by the sibling `expose_venv = True` py_binary/py_test;
         # the binary's own `env` wins on key conflicts (py_venv_exec.bzl).
         RunEnvironmentInfo(
@@ -274,18 +268,20 @@ environment. Forwarded to the sibling py_binary/py_test consumer
     ),
 })
 
+_venv_toolchains = [
+    PY_TOOLCHAIN,
+    # Optional: only consulted when a regular package needs a physical merge
+    # and assemble_venv needs an exec-config interpreter to run the
+    # site_merge action. Optional so venvs keep analyzing in setups
+    # that never registered rules_py's exec-tools toolchain.
+    config_common.toolchain_type(EXEC_TOOLS_TOOLCHAIN, mandatory = False),
+]
+
 _py_venv = rule(
     doc = """Build a Python virtual environment and execute its interpreter.""",
     implementation = _py_venv_rule_impl,
     attrs = _attrs,
-    toolchains = [
-        PY_TOOLCHAIN,
-        # Optional: only consulted when a regular package needs a physical merge
-        # and assemble_venv needs an exec-config interpreter to run the
-        # site_merge action. Optional so venvs keep analyzing in setups
-        # that never registered rules_py's exec-tools toolchain.
-        config_common.toolchain_type(EXEC_TOOLS_TOOLCHAIN, mandatory = False),
-    ],
+    toolchains = _venv_toolchains,
     executable = True,
     cfg = python_transition,
 )
@@ -295,8 +291,8 @@ def _py_venv_lib_rule_impl(ctx):
     launcher and no RunEnvironmentInfo (Bazel rejects it on
     non-executable targets; py_venv_exec.bzl gates its read on
     `if RunEnvironmentInfo in venv`)."""
-    shared = _assemble_shared(ctx)
-    return _common_providers(ctx, shared)
+    venv = _assemble_venv_target(ctx)
+    return _venv_providers(ctx, venv)
 
 # Internal-only non-executable variant. Uses `_lib_attrs` — the
 # launcher-only attrs (`debug`, `interpreter_options`, `_run_tmpl`,
@@ -304,12 +300,7 @@ def _py_venv_lib_rule_impl(ctx):
 _py_venv_lib = rule(
     implementation = _py_venv_lib_rule_impl,
     attrs = _lib_attrs,
-    toolchains = [
-        PY_TOOLCHAIN,
-        # Same optional exec-tools dependency as `_py_venv`: assemble_venv
-        # needs it to run the site_merge action when a package needs a merge.
-        config_common.toolchain_type(EXEC_TOOLS_TOOLCHAIN, mandatory = False),
-    ],
+    toolchains = _venv_toolchains,
     cfg = python_transition,
 )
 

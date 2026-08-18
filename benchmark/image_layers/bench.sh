@@ -1,0 +1,84 @@
+#!/usr/bin/env bash
+# Run the py_image_layer benchmark for one variant.
+#
+# Usage: bench.sh <variant> <generate_module.py args...>
+#   e.g. bench.sh bcr bcr --version 2.0.0-alpha.6
+#        bench.sh main local --path /path/to/rules_py
+#
+# Writes hyperfine results to $GITHUB_WORKSPACE (or /tmp when unset) as
+# <variant>-full.json, <variant>-inc-source.json, <variant>-inc-wheel.json.
+set -euo pipefail
+
+variant="$1"
+shift
+
+cd "$(dirname "$0")/../analysis"
+results_dir="${GITHUB_WORKSPACE:-/tmp}"
+
+# Build-perf workload: the grouped tier keeps incremental runs cheap, so the
+# graph can be sizable — the dep pool's transitive closures put ~30 wheels
+# behind the aspect. click is forced into every image binary's closure as the
+# wheel-change mutation target. The grouped tier puts the cross-layer
+# exclusion and symlink-mapping pipeline in the measured graph: the 1p
+# mutation hits the grouped package, the wheel mutation hits the solo-grouped
+# pip package.
+packages=30
+python3 workspace/generate_workspace.py --root workspace \
+  --packages "$packages" \
+  --image-binaries 10 \
+  --external-deps click,requests,jinja2,pyyaml,rich,httpx,marshmallow,jsonschema \
+  --image-common-dep click \
+  --image-layer-groups
+last_pkg="pkg_$((packages - 1))"
+python3 ../image_layers/write_patch.py --tick 0 workspace/patches/wheel_bench_note.patch
+python3 generate_module.py "$@"
+
+out_base="/tmp/bazel-build-$variant"
+rm -rf "$out_base"
+BAZEL="bazel --output_base=$out_base --bazelrc=../../.github/workflows/ci.bazelrc"
+
+$BAZEL fetch //workspace:image_layers
+
+# Warm-server analysis: a fresh --action_env value discards the analysis cache
+# each run while keeping the server and loading warm. The warmup run absorbs
+# the cold start.
+# All scenarios run in ~1s post-grouping (CI data); at that cost 30 samples
+# are cheap and keep the noise floor under the 10% gate.
+hyperfine --warmup 1 --runs 30 \
+  --export-json "$results_dir/$variant-analysis.json" \
+  "$BAZEL build --disk_cache= --nobuild --action_env=BENCH_TICK=\$(date +%s%N) //workspace:image_layers"
+
+# Total action count behind the image target: the analysis-phase fanout,
+# deterministic, from aquery's summary. deps() so aspect-declared layer tars
+# at pip and toolchain targets are counted, not just the rule's own actions.
+total_actions=$($BAZEL aquery --output=summary "deps(//workspace:image_layers)" \
+  | awk '/^[0-9]+ total actions\.$/ { print $1 }')
+test -n "$total_actions"
+echo "{\"actions_total\": $total_actions}" > "$results_dir/$variant-analysis-actions.json"
+
+# Unmeasured full build to establish the built state for the incremental runs.
+$BAZEL build --disk_cache= //workspace:image_layers
+
+hyperfine --warmup 1 --runs 30 \
+  --prepare "echo '# tick' >> workspace/src/$last_pkg/lib.py" \
+  --export-json "$results_dir/$variant-inc-source.json" \
+  "$BAZEL build --disk_cache= //workspace:image_layers"
+
+# One instrumented run per incremental scenario: same mutation, BEP enabled,
+# recording how many actions re-execute. Deterministic, unlike wall time.
+echo '# tick' >> "workspace/src/$last_pkg/lib.py"
+$BAZEL build --disk_cache= --build_event_json_file=/tmp/bep-inc-source.json //workspace:image_layers
+python3 ../image_layers/extract_actions.py /tmp/bep-inc-source.json \
+  > "$results_dir/$variant-inc-source-actions.json"
+
+hyperfine --warmup 1 --runs 30 \
+  --prepare 'python3 ../image_layers/write_patch.py workspace/patches/wheel_bench_note.patch' \
+  --export-json "$results_dir/$variant-inc-wheel.json" \
+  "$BAZEL build --disk_cache= //workspace:image_layers"
+
+python3 ../image_layers/write_patch.py workspace/patches/wheel_bench_note.patch
+$BAZEL build --disk_cache= --build_event_json_file=/tmp/bep-inc-wheel.json //workspace:image_layers
+python3 ../image_layers/extract_actions.py /tmp/bep-inc-wheel.json \
+  > "$results_dir/$variant-inc-wheel-actions.json"
+
+$BAZEL shutdown

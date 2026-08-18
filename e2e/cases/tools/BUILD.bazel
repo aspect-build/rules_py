@@ -4,6 +4,7 @@
 # which declares a py_test with this script as `main` in the caller's package.
 exports_files([
     "assert_absent.py",
+    "assert_disjoint.py",
     "assert_ownership.py",
 ])
 
