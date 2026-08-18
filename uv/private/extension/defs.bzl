@@ -53,7 +53,6 @@ resolved dependencies available in the `@uv` repository.
 
 load("@bazel_lib//lib:resource_sets.bzl", "resource_set_values")
 load("@bazel_skylib//lib:sets.bzl", "sets")
-load("@bazel_skylib//lib:structs.bzl", "structs")
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
 load("//py/private/interpreter:resolve.bzl", "resolve_host_interpreter_label")
 load("//uv/private:normalize_name.bzl", "normalize_name")
@@ -122,15 +121,6 @@ def dedupe_shared_installs(install_cfgs):
     for dropped in id_remap:
         install_cfgs.pop(dropped)
     return id_remap
-
-def _rewrite_available_deps(sbuild_cfg, target_remap):
-    """Rebuild an sbuild spec with its available_deps routed through the remap."""
-    fields = structs.to_dict(sbuild_cfg)
-    fields["available_deps"] = {
-        pkg: target_remap.get(target, target)
-        for pkg, target in sbuild_cfg.available_deps.items()
-    }
-    return struct(**fields)
 
 def parse_declared_console_script(name, entry_point):
     """Canonicalize one override_package console-script declaration.
@@ -583,7 +573,7 @@ def _parse_projects(module_ctx, hub_specs):
                         version = package["version"],
                         pre_build_patches = pre_build_patches,
                         pre_build_patch_strip = pre_build_patch_strip,
-                        available_deps = project_available_deps,
+                        project_id = project_id,
                         extra_toolchains = extra_toolchains,
                         extra_env = extra_env,
                         monitor_memory = monitor_memory,
@@ -635,6 +625,7 @@ def _parse_projects(module_ctx, hub_specs):
             #
             # FIXME: extract a re-keying helper.
             project_cfgs[project_id] = struct(
+                available_deps = project_available_deps,
                 dep_to_scc = marked_package_cfg_sccs,
                 scc_deps = {
                     k: _merge_scc_dep_markers_by_surface_package(deps)
@@ -678,7 +669,7 @@ def _parse_projects(module_ctx, hub_specs):
 
     # Collapse installs that resolve identically across lock universes into one
     # repo, then rewrite the two carriers of `@id//:install` labels — SCC graph
-    # keys and each sbuild's available_deps — so dropped ids leave no dangling
+    # keys and project available_deps — so dropped ids leave no dangling
     # reference.
     id_remap = dedupe_shared_installs(install_cfgs)
     if id_remap:
@@ -688,6 +679,10 @@ def _parse_projects(module_ctx, hub_specs):
         }
         project_cfgs = {
             project_id: struct(
+                available_deps = {
+                    package: target_remap.get(target, target)
+                    for package, target in pc.available_deps.items()
+                },
                 dep_to_scc = pc.dep_to_scc,
                 scc_deps = pc.scc_deps,
                 scc_graph = {
@@ -699,10 +694,6 @@ def _parse_projects(module_ctx, hub_specs):
                 },
             )
             for project_id, pc in project_cfgs.items()
-        }
-        sbuild_specs = {
-            sbuild_id: _rewrite_available_deps(sc, target_remap)
-            for sbuild_id, sc in sbuild_specs.items()
         }
 
     return struct(
@@ -798,6 +789,7 @@ def _uv_impl(module_ctx):
     for sbuild_id, sbuild_cfg in cfg.sbuild_cfgs.items():
         sbuild_kwargs = {
             "name": sbuild_id,
+            "available_deps": "@{}//:available_deps.json".format(sbuild_cfg.project_id),
             "src": sbuild_cfg.src,
             "deps": sbuild_cfg.deps,
             "is_native": sbuild_cfg.is_native,
@@ -807,8 +799,6 @@ def _uv_impl(module_ctx):
         if default_configure_command:
             sbuild_kwargs["configure_command"] = default_configure_command
 
-        if sbuild_cfg.available_deps:
-            sbuild_kwargs["available_deps"] = sbuild_cfg.available_deps
         if sbuild_cfg.pre_build_patches:
             sbuild_kwargs["pre_build_patches"] = sbuild_cfg.pre_build_patches
             sbuild_kwargs["pre_build_patch_strip"] = sbuild_cfg.pre_build_patch_strip
@@ -845,6 +835,7 @@ def _uv_impl(module_ctx):
     for project_id, project_cfg in cfg.project_cfgs.items():
         uv_project(
             name = project_id,
+            available_deps = json.encode(project_cfg.available_deps),
             dep_to_scc = json.encode(project_cfg.dep_to_scc),
             scc_deps = json.encode(project_cfg.scc_deps),
             scc_graph = json.encode(project_cfg.scc_graph),

@@ -11,7 +11,7 @@ load(":attrs.bzl", "validate_build_attrs")
 
 # --- Configure tool invocation ---
 
-def _write_context_file(repository_ctx):
+def _write_context_file(repository_ctx, available_deps):
     """Write the context JSON file that the configure tool reads.
 
     See //uv/private/sdist_configure:defs.bzl for the schema.
@@ -20,14 +20,14 @@ def _write_context_file(repository_ctx):
         "src": str(repository_ctx.attr.src),
         "version": repository_ctx.attr.version,
         "deps": [str(d) for d in repository_ctx.attr.deps],
-        "available_deps": repository_ctx.attr.available_deps,
+        "available_deps": available_deps,
     }
 
     context_path = repository_ctx.path("_configure_context.json")
     repository_ctx.file("_configure_context.json", content = json.encode(context))
     return context_path
 
-def _run_configure_tool(repository_ctx, archive_path):
+def _run_configure_tool(repository_ctx, archive_path, available_deps):
     """Run the sdist configure tool and return its parsed JSON output.
 
     See //uv/private/sdist_configure:defs.bzl for the tool contract.
@@ -39,7 +39,7 @@ def _run_configure_tool(repository_ctx, archive_path):
     if not configure_command:
         return None
 
-    context_path = _write_context_file(repository_ctx)
+    context_path = _write_context_file(repository_ctx, available_deps)
 
     cmd = []
     for arg in configure_command:
@@ -68,7 +68,7 @@ def _run_configure_tool(repository_ctx, archive_path):
 
 # --- Dep resolution ---
 
-def _resolve_extra_deps(repository_ctx, inspection):
+def _resolve_extra_deps(repository_ctx, inspection, available_deps):
     """Resolve extra_deps from the configure tool output into label strings.
 
     Returns a list of label strings. Calls fail() if a dep cannot be resolved.
@@ -78,8 +78,6 @@ def _resolve_extra_deps(repository_ctx, inspection):
     extra_dep_names = inspection.get("extra_deps", [])
     if not extra_dep_names:
         return []
-
-    available_deps = repository_ctx.attr.available_deps
 
     resolved = []
     unresolvable = []
@@ -153,9 +151,10 @@ def _sdist_build_impl(repository_ctx):
         repository_ctx: The repository context.
     """
 
+    available_deps = json.decode(repository_ctx.read(repository_ctx.attr.available_deps))
     is_native_override = repository_ctx.attr.is_native
     archive_path = _resolve_archive_path(repository_ctx)
-    inspection = _run_configure_tool(repository_ctx, archive_path) if archive_path else None
+    inspection = _run_configure_tool(repository_ctx, archive_path, available_deps) if archive_path else None
 
     if is_native_override == "auto":
         if inspection != None:
@@ -197,7 +196,7 @@ def _sdist_build_impl(repository_ctx):
         )
 
     # Resolve additional deps discovered by the configure tool
-    extra_dep_labels = _resolve_extra_deps(repository_ctx, inspection)
+    extra_dep_labels = _resolve_extra_deps(repository_ctx, inspection, available_deps)
 
     # TODO: When the configure tool didn't run or failed, we may want to
     # conservatively add setuptools + wheel as fallback build deps. For now
@@ -297,10 +296,10 @@ sdist_build = repository_rule(
     attrs = {
         "src": attr.label(),
         "deps": attr.label_list(),
-        "available_deps": attr.string_dict(
-            doc = "Dict mapping normalized package names to install labels. " +
-                  "Passed from the uv extension; used to resolve deps " +
-                  "discovered by the configure tool.",
+        "available_deps": attr.label(
+            mandatory = True,
+            allow_single_file = [".json"],
+            doc = "JSON file mapping normalized package names to install labels.",
         ),
         "is_native": attr.string(default = "auto", values = ["auto", "true", "false"]),
         "configure_command": attr.string_list(
