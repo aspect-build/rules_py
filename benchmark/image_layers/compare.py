@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import sys
 from pathlib import Path
@@ -76,7 +77,20 @@ def load_runtime(path: str) -> dict[str, Any]:
         "min_s": r["min"],
         "max_s": r["max"],
         "median_s": r["median"],
+        "n": len(r.get("times") or []) or 1,
     }
+
+
+def noise_floor_pct(a: dict[str, Any], b: dict[str, Any]) -> float:
+    """~95% noise band for the a→b delta, as a percentage of a's median.
+
+    Two standard errors of the difference of means; deltas below this are
+    indistinguishable from run-to-run noise.
+    """
+    if a["median_s"] == 0:
+        return 0.0
+    se = math.sqrt(a["stddev_s"] ** 2 / a["n"] + b["stddev_s"] ** 2 / b["n"])
+    return 2 * se / a["median_s"] * 100
 
 
 def load_actions(prefix: str, scenario_key: str, field: str) -> int | None:
@@ -123,7 +137,7 @@ def main() -> None:
     table += "| Scenario | Version | Mean (s) | Median (s) | ± stddev | Actions | vs BCR | vs main |\n"
     table += "|----------|---------|----------|------------|----------|---------|--------|---------|\n"
 
-    regressions: list[tuple[str, float]] = []
+    regressions: list[tuple[str, float, float]] = []
 
     for scenario_key, scenario_label, actions_field in SCENARIOS:
         bcr = load_runtime(f"{args.bcr}-{scenario_key}.json")
@@ -134,9 +148,10 @@ def main() -> None:
         main_actions = load_actions(args.main, scenario_key, actions_field)
         pr_actions = load_actions(args.pr, scenario_key, actions_field)
 
-        main_vs_bcr = pct(bcr["mean_s"], main["mean_s"])
-        pr_vs_bcr = pct(bcr["mean_s"], pr["mean_s"])
-        pr_vs_main = pct(main["mean_s"], pr["mean_s"])
+        main_vs_bcr = pct(bcr["median_s"], main["median_s"])
+        pr_vs_bcr = pct(bcr["median_s"], pr["median_s"])
+        pr_vs_main = pct(main["median_s"], pr["median_s"])
+        noise_pct = noise_floor_pct(main, pr)
 
         def row(
             label: str, d: dict[str, Any], actions: str, vs_bcr: str, vs_main: str
@@ -169,12 +184,12 @@ def main() -> None:
             f"{pr_vs_main:+.1f}% {warn(pr_vs_main)}",
         )
 
-        if pr_vs_main > THRESHOLD_REGRESSION_PCT:
-            regressions.append((scenario_label, pr_vs_main))
+        if pr_vs_main > THRESHOLD_REGRESSION_PCT and pr_vs_main > noise_pct:
+            regressions.append((scenario_label, pr_vs_main, noise_pct))
 
     table += (
         f"\n> Measured with hyperfine on `{os.environ.get('RUNNER_OS', 'local')}`, "
-        "building `//workspace:image_layers` (5 binaries, small dep pool, grouped "
+        "building `//workspace:image_layers` (10 binaries, ~30-wheel dep pool, grouped "
         "first-party/pip/interpreter tier) with isolated output base, no disk cache.\n"
     )
     table += (
@@ -191,7 +206,8 @@ def main() -> None:
         "`*-actions.json` artifacts). Informational only, not gated.\n"
     )
     table += (
-        f"> **Gate**: PR vs HEAD main (threshold: {THRESHOLD_REGRESSION_PCT}%). "
+        f"> **Gate**: PR vs HEAD main median per scenario (threshold: {THRESHOLD_REGRESSION_PCT}%, "
+        "and must exceed the 2×SE noise floor). "
         "BCR is shown only as a historical baseline.\n"
     )
 
@@ -203,10 +219,10 @@ def main() -> None:
         print(table)
 
     if regressions:
-        for scenario_label, delta in regressions:
+        for scenario_label, delta, noise in regressions:
             print(
-                f"\n❌ REGRESSION [{scenario_label}]: PR is {delta:.1f}% slower than HEAD main "
-                f"(threshold: {THRESHOLD_REGRESSION_PCT}%)"
+                f"\n❌ REGRESSION [{scenario_label}]: PR median is {delta:.1f}% slower than HEAD main "
+                f"(threshold: {THRESHOLD_REGRESSION_PCT}%, noise floor: {noise:.1f}%)"
             )
         sys.exit(1)
 
