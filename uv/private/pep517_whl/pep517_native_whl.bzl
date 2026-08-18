@@ -258,14 +258,21 @@ def _pep517_native_whl(ctx):
             extra_inputs.append(cc_layer.static_runtime_files)
         if cc_layer.static_runtime_paths:
             env["RULES_PY_CXX_STATIC_RUNTIME"] = ":".join(cc_layer.static_runtime_paths)
-        if cc_layer.cflags:
-            env["CFLAGS"] = cc_layer.cflags
-        if cc_layer.cxxflags:
-            env["CXXFLAGS"] = cc_layer.cxxflags
-        if cc_layer.ldflags:
-            env["LDFLAGS"] = cc_layer.ldflags
-        if cc_layer.ldshared_flags:
-            env["LDSHAREDFLAGS"] = cc_layer.ldshared_flags
+        # Toolchain flags first, then any flags the package set via `env`
+        # (uv.override_package): the package's -D/-std/feature-baseline
+        # additions must survive, and trailing position lets them override.
+        # Values inherited from the ambient shell env stay excluded — only
+        # an explicit `env` entry merges.
+        for key, toolchain_flags in (
+            ("CFLAGS", cc_layer.cflags),
+            ("CXXFLAGS", cc_layer.cxxflags),
+            ("LDFLAGS", cc_layer.ldflags),
+            ("LDSHAREDFLAGS", cc_layer.ldshared_flags),
+        ):
+            if not toolchain_flags:
+                continue
+            package_flags = env.get(key) if key in ctx.attr.env else None
+            env[key] = toolchain_flags + " " + package_flags if package_flags else toolchain_flags
         if cc_layer.ccshared:
             env["CFLAGS"] = (env.get("CFLAGS", "") + " " + cc_layer.ccshared).strip()
             env["CXXFLAGS"] = (env.get("CXXFLAGS", "") + " " + cc_layer.ccshared).strip()
