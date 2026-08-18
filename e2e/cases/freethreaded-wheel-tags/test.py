@@ -1,15 +1,18 @@
 """Basic hypothesis usage on a free-threaded (3.14t) interpreter."""
 
+import os
 import sys
 import sysconfig
 import unittest
 
 from hypothesis import given, settings, strategies as st
 
+EXPECTED_VERSION = tuple(int(p) for p in os.environ.get("EXPECTED_PY_VERSION", "3.14").split("."))
+
 
 class HypothesisFreethreadedTest(unittest.TestCase):
-    def test_interpreter_is_freethreaded_314(self) -> None:
-        self.assertEqual(sys.version_info[:2], (3, 14), sys.version)
+    def test_interpreter_is_freethreaded(self) -> None:
+        self.assertEqual(sys.version_info[:2], EXPECTED_VERSION, sys.version)
         gil_disabled = sysconfig.get_config_var("Py_GIL_DISABLED")
         self.assertEqual(gil_disabled, 1, "Expected Py_GIL_DISABLED=1 for a freethreaded build")
 

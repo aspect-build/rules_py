@@ -28,6 +28,7 @@ interpreters = use_extension("@aspect_rules_py//py:extensions.bzl", "python_inte
 interpreters.configure(
     releases = [
         "20260303",
+        "20260814",
     ],
 )
 interpreters.toolchain(
@@ -44,6 +45,10 @@ interpreters.toolchain(
 )
 interpreters.toolchain(
     python_version = "3.14",
+)
+interpreters.toolchain(
+    pre_release = True,
+    python_version = "3.15",
 )
 use_repo(interpreters, "python_interpreters")
 
