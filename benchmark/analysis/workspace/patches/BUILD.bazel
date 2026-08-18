@@ -1,0 +1,4 @@
+exports_files(
+    ["wheel_bench_note.patch"],
+    visibility = ["//visibility:public"],
+)

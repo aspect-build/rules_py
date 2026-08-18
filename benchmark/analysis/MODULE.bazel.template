@@ -23,4 +23,13 @@ uv.project(
     lock = "//workspace:uv.lock",
     pyproject = "//workspace:pyproject.toml",
 )
+
+# The build benchmark rewrites this patch to simulate an incremental change to a
+# third-party wheel that every image binary depends on.
+uv.override_package(
+    name = "click",
+    lock = "//workspace:uv.lock",
+    post_install_patch_strip = 1,
+    post_install_patches = ["//workspace/patches:wheel_bench_note.patch"],
+)
 use_repo(uv, "pypi")

@@ -2,3 +2,4 @@
 src/
 tests/
 BUILD.bazel
+!patches/BUILD.bazel
