@@ -821,6 +821,38 @@ _platform_cfg = transition(
     outputs = ["//command_line_option:platforms", "@aspect_rules_py//py:layer_tier"],
 )
 
+def _declare_symlink_mapping(ctx, mappings):
+    """Expand every mapping set's mtree rows into one shared file.
+
+    Bazel writes `rows` to a param file, expanding tree artifacts as it does
+    for any action argument; a gawk one-liner then copies that param file to
+    the declared output. `ctx.actions.write` cannot be used instead: it has
+    no inputs, and only tree artifacts that are action inputs can be
+    expanded, which is also why the whole mapping closure is an input here.
+    """
+    mapping_out = ctx.actions.declare_file(ctx.attr.name + "_symlink_mappings.mtree")
+
+    rows = ctx.actions.args()
+    rows.set_param_file_format("multiline")
+    rows.use_param_file("%s", use_always = True)
+    rows.add("#mtree")
+    for files, map_each in mappings:
+        rows.add_all(files, map_each = map_each, expand_directories = False, allow_closure = True)
+
+    copy_program = ctx.actions.args()
+    copy_program.add("-v", mapping_out, format = "outfile=%s")
+    copy_program.add("{ print > outfile }")
+
+    ctx.actions.run(
+        executable = ctx.executable._awk,
+        inputs = depset(transitive = [files for files, _ in mappings]),
+        outputs = [mapping_out],
+        arguments = [copy_program, rows],
+        env = {"LC_ALL": "C"},
+        mnemonic = "PyImageLayerSymlinkMappings",
+    )
+    return mapping_out
+
 def _run_tar_action(ctx, bsdtar, bsdtar_files, tar_out, files_depset, map_each, compress, level, reqs, mnemonic, progress_msg, symlink_mappings = None):
     # mtree (param file) → gawk (readlinks `type=link`/`type=file content=`
     # rows; `contents=` rows pass through; END buffers, asort-sorts, and
@@ -843,20 +875,12 @@ def _run_tar_action(ctx, bsdtar, bsdtar_files, tar_out, files_depset, map_each, 
     gawk_arguments = [gawk_args, mtree_args]
     gawk_inputs = [files_depset]
     if symlink_mappings != None:
-        mapping_args = ctx.actions.args()
-        mapping_args.set_param_file_format("multiline")
-        mapping_args.use_param_file("%s", use_always = True)
-        mapping_args.add("#mtree")
-        for mapping_files, mapping_map_each in symlink_mappings.mappings:
-            mapping_args.add_all(
-                mapping_files,
-                map_each = mapping_map_each,
-                expand_directories = False,
-                allow_closure = True,
-            )
-        gawk_arguments.append(mapping_args)
-        if symlink_mappings.tree_files:
-            gawk_inputs.append(depset(direct = symlink_mappings.tree_files))
+        # Own Args so the file lands in argv after the mtree param file: awk
+        # treats files past source_argind as destination registrations only.
+        mapping_file_arg = ctx.actions.args()
+        mapping_file_arg.add(symlink_mappings)
+        gawk_arguments.append(mapping_file_arg)
+        gawk_inputs.append(depset(direct = [symlink_mappings]))
     ctx.actions.run(
         executable = awk,
         inputs = depset(direct = [awk_script], transitive = gawk_inputs),
@@ -1090,15 +1114,7 @@ def _py_image_layer_impl(ctx):
             [(layer.interpreter_files, interpreter_map) for layer in interpreter_layers.values()] +
             [(files, rule_group_map) for files in rule_group_files]
         )
-        symlink_mappings = struct(
-            mappings = reference_mappings,
-            tree_files = [
-                f
-                for files, _ in reference_mappings
-                for f in files.to_list()
-                if f.is_directory
-            ],
-        )
+        symlink_mappings = _declare_symlink_mapping(ctx, reference_mappings)
 
     for group_name, files in rule_groups:
         tar_out = _declare_group_tar(
