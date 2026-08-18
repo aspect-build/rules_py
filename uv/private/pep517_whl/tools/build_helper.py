@@ -83,10 +83,9 @@ sysroot = {sysroot!r}
 if sysroot and "-isysroot" not in filtered_args:
     filtered_args = ["-isysroot", sysroot] + filtered_args
 
-# argv[0] must be the compiler's full path, not just its basename: GCC's
-# driver resolves prefix-relative resources (libstdc++.a, LTO plugins) off
-# argv[0], not /proc/self/exe. A basename-only argv[0] makes it silently
-# search relative to our wrapper's own directory instead and miss them.
+# argv[0] repeats the compiler's full path: GCC-family drivers locate
+# prefix-relative resources (libstdc++.a, LTO plugins) off argv[0], not
+# /proc/self/exe.
 os.execv("{compiler_path}", ["{compiler_path}"] + filtered_args)
 """
 
