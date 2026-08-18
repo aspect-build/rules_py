@@ -1,0 +1,30 @@
+load("@aspect_rules_py//py:defs.bzl", "py_test")
+load("@bazel_lib//lib:transitions.bzl", "platform_transition_test")
+
+platform(
+    name = "freethreaded",
+    flags = [
+        "--@aspect_rules_py//py/private/interpreter:freethreaded=true",
+    ],
+    parents = ["@platforms//host"],
+)
+
+# Regression test for freethreaded wheel ABI tag selection: hypothesis
+# ships cp314-cp314t and compound cp315-abi3.abi3t wheels.
+py_test(
+    name = "test_bin",
+    srcs = ["test.py"],
+    dep_group = "freethreaded-wheel-tags",
+    main = "test.py",
+    python_version = "3.14",
+    tags = ["manual"],
+    deps = [
+        "@pypi_freethreaded_wheel_tags//hypothesis",
+    ],
+)
+
+platform_transition_test(
+    name = "test",
+    binary = ":test_bin",
+    target_platform = ":freethreaded",
+)
