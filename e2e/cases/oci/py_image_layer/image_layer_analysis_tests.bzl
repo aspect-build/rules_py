@@ -502,6 +502,24 @@ touch $@
         binary = ":_scalar_strip_collision",
         layer_tier = ":_scalar_strip_collision_tier",
     )
+
+    # strip_prefix remapping onto the natural runfiles paths is an identity:
+    # the launcher keeps its stripped destination, not the tier root.
+    py_binary(
+        name = "_scalar_strip_identity",
+        srcs = ["server.py"],
+        data = ["my_app_peer_bin/config.json"],
+    )
+    py_layer_tier(
+        name = "_scalar_strip_identity_tier",
+        root = "/app.runfiles/_main/oci/py_image_layer",
+        strip_prefix = "oci/py_image_layer",
+    )
+    py_image_layer(
+        name = "_scalar_strip_identity_layers",
+        binary = ":_scalar_strip_identity",
+        layer_tier = ":_scalar_strip_identity_tier",
+    )
     py_image_layer(
         name = "_scalar_data_layers",
         binary = ":_scalar_strip_collision",

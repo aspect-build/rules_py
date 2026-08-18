@@ -678,6 +678,21 @@ py_test(
     main = "assert_tar_paths.py",
 )
 
+# A strip_prefix remap that lands on the natural runfiles paths keeps the
+# launcher at its stripped destination instead of the tier root.
+platform_transition_filegroup(
+    name = "platform_scalar_strip_identity_layers",
+    srcs = [":_scalar_strip_identity_layers"],
+    target_platform = ":x86_64_linux",
+)
+
+assert_tar_listing(
+    name = "scalar_strip_identity_layers_snapshot",
+    actual = [":platform_scalar_strip_identity_layers"],
+    exclude = ["python_interpreters"],
+    expected = "scalar_strip_identity_listing.yaml",
+)
+
 # Snapshot the same binary's ordinary image layer to prove explicitly declared
 # runtime data remains packaged even when the collision fixture uses a custom
 # layer root.
