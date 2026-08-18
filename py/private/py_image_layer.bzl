@@ -709,16 +709,16 @@ def _source_file_to_mtree(
         ),
     ]
 
-def _user_file_to_mtree(f, dir_expander, source_owned_paths, owner = "0", group = "0"):
+def _user_file_to_mtree(f, dir_expander, owner = "0", group = "0"):
     # Rule-level groups may contain declared symlinks that File.is_symlink
     # doesn't expose, so every grouped file needs the readlink fallback.
+    # Source-closure files get 0755 via the tar action's chmod set.
     if f.is_directory:
         return [
             _file_to_mtree_entry(child, "0755", maybe_symlink = True, owner = owner, group = group)
             for child in dir_expander.expand(f)
         ]
-    mode = "0755" if f.path in source_owned_paths else "0644"
-    return _file_to_mtree_entry(f, mode, maybe_symlink = True, owner = owner, group = group)
+    return _file_to_mtree_entry(f, "0644", maybe_symlink = True, owner = owner, group = group)
 
 def _should_skip_pkg_path(p):
     return (
@@ -821,7 +821,12 @@ _platform_cfg = transition(
     outputs = ["//command_line_option:platforms", "@aspect_rules_py//py:layer_tier"],
 )
 
-def _run_tar_action(ctx, bsdtar, bsdtar_files, tar_out, files_depset, map_each, compress, level, reqs, mnemonic, progress_msg, symlink_mappings = None):
+def _skip_path(f):
+    # Trailing "/" marks a directory; consumers prefix-match its children.
+    path = f.path.replace(" ", "\\040")
+    return path + "/" if f.is_directory else path
+
+def _run_tar_action(ctx, bsdtar, bsdtar_files, tar_out, files_depset, map_each, compress, level, reqs, mnemonic, progress_msg, symlink_mappings = None, chmod_files = None):
     # mtree (param file) → gawk (readlinks `type=link`/`type=file content=`
     # rows; `contents=` rows pass through; END buffers, asort-sorts, and
     # writes the sorted mtree to a file) → bsdtar consumes the file.
@@ -838,10 +843,23 @@ def _run_tar_action(ctx, bsdtar, bsdtar_files, tar_out, files_depset, map_each, 
 
     gawk_args = ctx.actions.args()
     gawk_args.add("-v", sorted_mtree, format = "outfile=%s")
-    gawk_args.add("-v", "1", format = "source_argind=%s")
-    gawk_args.add("-f", awk_script)
-    gawk_arguments = [gawk_args, mtree_args]
+
+    # Chmod forces matching source rows to 0755. Entries are path strings
+    # only, so the referenced files are never action inputs.
+    gawk_arguments = [gawk_args]
     gawk_inputs = [files_depset]
+    next_argind = 1
+    if chmod_files != None:
+        gawk_args.add("-v", str(next_argind), format = "chmod_argind=%s")
+        chmod_args = ctx.actions.args()
+        chmod_args.set_param_file_format("multiline")
+        chmod_args.use_param_file("%s", use_always = True)
+        chmod_args.add_all(chmod_files, map_each = _skip_path, expand_directories = False)
+        gawk_arguments.append(chmod_args)
+        next_argind += 1
+    gawk_args.add("-v", str(next_argind), format = "source_argind=%s")
+    gawk_args.add("-f", awk_script)
+    gawk_arguments.append(mtree_args)
     if symlink_mappings != None:
         mapping_args = ctx.actions.args()
         mapping_args.set_param_file_format("multiline")
@@ -898,7 +916,7 @@ def _run_tar_action(ctx, bsdtar, bsdtar_files, tar_out, files_depset, map_each, 
         use_default_shell_env = False,
     )
 
-def _declare_group_tar(ctx, bsdtar, bsdtar_files, out_name, group_name, files, map_each, progress, symlink_mappings = None):
+def _declare_group_tar(ctx, bsdtar, bsdtar_files, out_name, group_name, files, map_each, progress, symlink_mappings = None, chmod_files = None):
     tar_out = ctx.actions.declare_file(out_name)
     level = ctx.attr.group_compress_levels.get(group_name, "6")
     reqs = _parse_exec_requirements(ctx.attr.group_execution_requirements.get(group_name, []))
@@ -915,6 +933,7 @@ def _declare_group_tar(ctx, bsdtar, bsdtar_files, out_name, group_name, files, m
         "PyImageLayer",
         progress,
         symlink_mappings,
+        chmod_files = chmod_files,
     )
     return tar_out
 
@@ -1049,20 +1068,20 @@ def _py_image_layer_impl(ctx):
     source_files = depset(transitive = [info.source_files for info in infos])
     if repo_mapping != None:
         source_files = depset(direct = [repo_mapping], transitive = [source_files])
-    source_owned_group_paths = {}
+    # Rule-group files also present in the pre-filter source closure keep
+    # 0755 via the tar action's chmod set.
+    chmod_source_files = source_files
     if rule_group_paths:
-        # The aspect cannot see rule-level groups, so decide ownership from the
-        # source closure once, then remove grouped bytes from the source tar.
-        ungrouped_source_files = []
-        for f in source_files.to_list():
-            if f.path in rule_group_paths:
-                source_owned_group_paths[f.path] = True
-            else:
-                ungrouped_source_files.append(f)
-        source_files = depset(direct = ungrouped_source_files)
+        # The aspect cannot see rule-level groups, so remove grouped bytes
+        # from the source tar.
+        source_files = depset(direct = [
+            f
+            for f in source_files.to_list()
+            if f.path not in rule_group_paths
+        ])
 
     rule_group_map = lambda f, d: (
-        source_map(f, d) if f.short_path in executable_dsts else _user_file_to_mtree(f, d, source_owned_group_paths, owner, group)
+        source_map(f, d) if f.short_path in executable_dsts else _user_file_to_mtree(f, d, owner, group)
     )
 
     first_party_reference_files = []
@@ -1111,6 +1130,7 @@ def _py_image_layer_impl(ctx):
             rule_group_map,
             "Creating image layer %s[%s]" % (ctx.label, group_name),
             symlink_mappings,
+            chmod_files = chmod_source_files,
         )
         all_tars.append(tar_out)
 

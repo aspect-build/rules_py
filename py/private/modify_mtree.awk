@@ -85,6 +85,33 @@ function decode_mtree_path(path) {
     return path
 }
 
+# Record one path-set entry: a trailing "/" marks a directory recorded by
+# root (tree artifacts are never expanded), anything else an exact path.
+function add_set_entry(entry, exact, dirs) {
+    entry = decode_mtree_path(entry)
+    if (entry ~ /\/$/) {
+        dirs[substr(entry, 1, length(entry) - 1)] = 1
+    } else {
+        exact[entry] = 1
+    }
+}
+
+# True when `path` is an exact entry of `exact` or a descendant of a `dirs`
+# directory.
+function path_in_set(path, exact, dirs, prefix) {
+    if (path in exact) {
+        return 1
+    }
+    prefix = path
+    while (match(prefix, /\/[^\/]*$/)) {
+        prefix = substr(prefix, 1, RSTART - 1)
+        if (prefix in dirs) {
+            return 1
+        }
+    }
+    return 0
+}
+
 function replace_metadata_field(row, pattern, replacement) {
     if (!match(row, pattern)) {
         return row
@@ -93,6 +120,13 @@ function replace_metadata_field(row, pattern, replacement) {
 }
 
 {
+    # Optional path set, read before the source rows: source rows matching
+    # the chmod set are forced to mode=0755.
+    if (chmod_argind && ARGIND == chmod_argind) {
+        add_set_entry($0, chmod_set, chmod_dirs)
+        next
+    }
+
     source_field = ""
     source_type = ""
     for (field = 2; field <= NF; field++) {
@@ -109,6 +143,13 @@ function replace_metadata_field(row, pattern, replacement) {
             symlink_map[decode_mtree_path(source_path)] = $1
         }
         next
+    }
+
+    # Files also present in the binaries' source closure keep 0755.
+    if (chmod_argind && source_field != "") {
+        if (path_in_set(decode_mtree_path(substr(source_field, index(source_field, "=") + 1)), chmod_set, chmod_dirs)) {
+            $0 = replace_metadata_field($0, "[[:space:]]mode=[^ ]+", "mode=0755")
+        }
     }
 
     symlink = ""
