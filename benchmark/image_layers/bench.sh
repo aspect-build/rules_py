@@ -49,9 +49,21 @@ hyperfine --warmup 1 --runs 10 \
   --export-json "$results_dir/$variant-inc-source.json" \
   "$BAZEL build --disk_cache= //workspace:image_layers"
 
+# One instrumented run per incremental scenario: same mutation, BEP enabled,
+# recording how many actions re-execute. Deterministic, unlike wall time.
+echo '# tick' >> "workspace/src/$last_pkg/lib.py"
+$BAZEL build --disk_cache= --build_event_json_file=/tmp/bep-inc-source.json //workspace:image_layers
+python3 ../image_layers/extract_actions.py /tmp/bep-inc-source.json \
+  > "$results_dir/$variant-inc-source-actions.json"
+
 hyperfine --warmup 1 --runs 10 \
   --prepare 'python3 ../image_layers/write_patch.py workspace/patches/wheel_bench_note.patch' \
   --export-json "$results_dir/$variant-inc-wheel.json" \
   "$BAZEL build --disk_cache= //workspace:image_layers"
+
+python3 ../image_layers/write_patch.py workspace/patches/wheel_bench_note.patch
+$BAZEL build --disk_cache= --build_event_json_file=/tmp/bep-inc-wheel.json //workspace:image_layers
+python3 ../image_layers/extract_actions.py /tmp/bep-inc-wheel.json \
+  > "$results_dir/$variant-inc-wheel-actions.json"
 
 $BAZEL shutdown
