@@ -24,10 +24,11 @@ from typing import Any
 
 THRESHOLD_REGRESSION_PCT = 10  # fail CI if PR is >10% slower than HEAD main
 
+# (key, label, has_actions): analysis runs --nobuild, so no executed actions
 SCENARIOS = [
-    ("analysis", "Analysis"),
-    ("inc-source", "1p Source Change"),
-    ("inc-wheel", "3p Source Change"),
+    ("analysis", "Analysis", False),
+    ("inc-source", "1p Source Change", True),
+    ("inc-wheel", "3p Source Change", True),
 ]
 
 
@@ -77,6 +78,16 @@ def load_runtime(path: str) -> dict[str, Any]:
     }
 
 
+def load_actions(prefix: str, scenario_key: str) -> int | None:
+    """Load the executed-action count for one variant/scenario, if recorded."""
+    p = Path(f"{prefix}-{scenario_key}-actions.json")
+    if not p.exists():
+        print(f"WARNING: actions file not found: {p}", file=sys.stderr)
+        return None
+    with p.open() as f:
+        return int(json.load(f)["actions_executed"])
+
+
 def pct(a: float, b: float) -> float:
     """Percentage delta from a to b."""
     if a == 0:
@@ -108,31 +119,51 @@ def main() -> None:
     bcr_label = os.environ.get("ANALYSIS_BCR_VERSION", "release")
 
     table = "## py_image_layer benchmark\n\n"
-    table += "| Scenario | Version | Mean (s) | Median (s) | ± stddev | vs BCR | vs main |\n"
-    table += "|----------|---------|----------|------------|----------|--------|---------|\n"
+    table += "| Scenario | Version | Mean (s) | Median (s) | ± stddev | Actions | vs BCR | vs main |\n"
+    table += "|----------|---------|----------|------------|----------|---------|--------|---------|\n"
 
     regressions: list[tuple[str, float]] = []
 
-    for scenario_key, scenario_label in SCENARIOS:
+    for scenario_key, scenario_label, has_actions in SCENARIOS:
         bcr = load_runtime(f"{args.bcr}-{scenario_key}.json")
         main = load_runtime(f"{args.main}-{scenario_key}.json")
         pr = load_runtime(f"{args.pr}-{scenario_key}.json")
+
+        bcr_actions = load_actions(args.bcr, scenario_key) if has_actions else None
+        main_actions = load_actions(args.main, scenario_key) if has_actions else None
+        pr_actions = load_actions(args.pr, scenario_key) if has_actions else None
 
         main_vs_bcr = pct(bcr["mean_s"], main["mean_s"])
         pr_vs_bcr = pct(bcr["mean_s"], pr["mean_s"])
         pr_vs_main = pct(main["mean_s"], pr["mean_s"])
 
-        def row(label: str, d: dict[str, Any], vs_bcr: str, vs_main: str) -> str:
+        def row(
+            label: str, d: dict[str, Any], actions: str, vs_bcr: str, vs_main: str
+        ) -> str:
             return (
                 f"| {scenario_label} | {label} | {fmt(d['mean_s'])} | {fmt(d['median_s'])} | "
-                f"±{fmt(d['stddev_s'])} | {vs_bcr} | {vs_main} |\n"
+                f"±{fmt(d['stddev_s'])} | {actions} | {vs_bcr} | {vs_main} |\n"
             )
 
-        table += row(f"BCR {bcr_label} (baseline)", bcr, "—", "—")
-        table += row("HEAD main", main, f"{main_vs_bcr:+.1f}% {warn(main_vs_bcr)}", "—")
+        def actions_cell(actions: int | None) -> str:
+            return "—" if actions is None else str(actions)
+
+        pr_actions_cell = actions_cell(pr_actions)
+        if pr_actions is not None and main_actions is not None and pr_actions > main_actions:
+            pr_actions_cell += " ⚠️"
+
+        table += row(f"BCR {bcr_label} (baseline)", bcr, actions_cell(bcr_actions), "—", "—")
+        table += row(
+            "HEAD main",
+            main,
+            actions_cell(main_actions),
+            f"{main_vs_bcr:+.1f}% {warn(main_vs_bcr)}",
+            "—",
+        )
         table += row(
             "This PR",
             pr,
+            pr_actions_cell,
             f"{pr_vs_bcr:+.1f}% {warn(pr_vs_bcr)}",
             f"{pr_vs_main:+.1f}% {warn(pr_vs_main)}",
         )
@@ -149,6 +180,11 @@ def main() -> None:
         "via a fresh `--action_env` value; "
         "incrementals run against a built state with warm analysis: source = append to the last package's `lib.py`, "
         "wheel = rewrite click `post_install_patches` content.\n"
+    )
+    table += (
+        "> **Actions**: actions re-executed for the mutation, from a single instrumented "
+        "run's BEP build metrics (deterministic; per-mnemonic breakdown in the "
+        "`*-actions.json` artifacts). Informational only, not gated.\n"
     )
     table += (
         f"> **Gate**: PR vs HEAD main (threshold: {THRESHOLD_REGRESSION_PCT}%). "
