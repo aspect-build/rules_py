@@ -1062,10 +1062,15 @@ def _generate_cross_site(
     # derived from the target's deployment target so both stay consistent.
     # Linux keeps "": nothing on that path parses it.
     release = _darwin_kernel_release(macos_deployment_target) if target_os == "darwin" else ""
+
+    # macOS reports "arm64", never the Bazel constraint's "aarch64" —
+    # setup.py scripts branch on platform.machine() == "arm64", and the
+    # faked identity must agree with the wheel tag derived elsewhere.
+    machine = "arm64" if target_os == "darwin" and target_cpu == "aarch64" else target_cpu
     _write_generated_file(
         path.join(site_dir, "sitecustomize.py"),
         _SITECUSTOMIZE_TEMPLATE.format(
-            machine=target_cpu,
+            machine=machine,
             sysname=_TITLECASE_OS.get(target_os, target_os),
             release=release,
             sys_platform=_SYS_PLATFORM.get(target_os, target_os),
