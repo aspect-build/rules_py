@@ -261,6 +261,7 @@ def _pep517_native_whl(ctx):
             extra_inputs.append(cc_layer.static_runtime_files)
         if cc_layer.static_runtime_paths:
             env["RULES_PY_CXX_STATIC_RUNTIME"] = ":".join(cc_layer.static_runtime_paths)
+
         # Toolchain flags first, then any flags the package set via `env`
         # (uv.override_package): the package's -D/-std/feature-baseline
         # additions must survive, and trailing position lets them override.
