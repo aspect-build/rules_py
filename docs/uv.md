@@ -313,17 +313,16 @@ Under cross mode the build action:
 4. Validates the produced wheel's platform tag against the target OS/CPU and
    fails the action if the backend leaked the exec platform into the tag.
 
-A working end-to-end suite lives in `e2e/crossbuild/`: real packages forced
-to build from sdist (`[tool.uv] no-binary-package`) and cross-compiled for
-linux/amd64 and linux/arm64, covering setuptools (`python-geohash`,
-`msgpack`, `psutil`), setuptools+CFFI (`zstandard`), setuptools-rust
-(`tiktoken`, `bcrypt`), maturin/PyO3 (`pydantic_core`, `rpds_py`),
-meson-python (`contourpy`, `numpy`), and scikit-build-core/CMake
-(`awkward_cpp`, `jpype1`). Each case asserts the ELF architecture of the
-produced `.so` (and its `EXT_SUFFIX`, where the filename carries one) and
-then actually runs the resulting container image (QEMU for arm64). `//geohash` additionally covers a
-macOS arm64 → macOS amd64 cross target when run from a macOS host (see
-`e2e/crossbuild/test.sh`).
+An end-to-end suite lives in `e2e/crossbuild/`: real packages forced to
+build from sdist (`[tool.uv] no-binary-package`) and cross-compiled for
+linux/amd64 and linux/arm64, currently covering pure-Python sdists,
+distutils-probe shapes, pre-build patches, and setuptools C extensions
+(`pyyaml`, `setproctitle`, `zstandard`), asserting each collected wheel's
+`Tag:` metadata. Coverage for the remaining backend-specific paths this
+mode enables (meson-python, scikit-build-core/CMake, maturin/PyO3,
+setuptools-rust, JDK-dependent builds) plus ELF-architecture assertions
+and QEMU execution of the produced wheels lands with the follow-up
+`e2e/crossbuild` changes split out of #1434.
 
 Current limitations:
 
