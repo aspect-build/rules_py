@@ -1094,9 +1094,16 @@ _REQUIREMENT_NAME_RE = re.compile(r"^\s*([A-Za-z0-9][A-Za-z0-9._-]*)")
 
 
 def _requirement_name(requirement: str) -> str:
-    """PEP 508 requirement string -> bare package name, extras/specifiers/markers stripped."""
+    """PEP 508 requirement string -> canonical package name.
+
+    Extras/specifiers/markers stripped, then normalized per PEP 503
+    (case-insensitive; runs of -, _, . are equivalent) so comparisons like
+    == "setuptools-rust" also match "Setuptools_Rust".
+    """
     match = _REQUIREMENT_NAME_RE.match(requirement)
-    return match.group(1) if match else ""
+    if not match:
+        return ""
+    return re.sub(r"[-_.]+", "-", match.group(1)).lower()
 
 
 def _legacy_metadata_conflicts_with_pyproject(worktree: str, pyproject_data: dict[str, object] | None) -> bool:
