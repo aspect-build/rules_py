@@ -163,17 +163,28 @@ while i < len(args):
     filtered.append(a)
     i += 1
 
-# Standalone (non-"-shared") executables built here are never the wheel
+# Standalone (non-shared) executables built here are never the wheel
 # deliverable — only throwaway feature probes (meson sanity checks,
 # cc.run()) executed under QEMU, where dynamically-linked target-arch PIE
 # binaries hit a real qemu-user/glibc startup bug ("Inconsistency detected
 # by ld.so: ... DT_VERSYM"), reproducible with a single-toolchain
 # hello-world. "-static" sidesteps ld.so entirely; the .so deliverables
-# always pass "-shared" and load via dlopen's unrelated path. Mutually
+# always link shared and load via dlopen's unrelated path. Mutually
 # exclusive with the static-libstdc++ trick: its trailing "-Wl,-Bdynamic"
 # would undo a bare "-static" for driver-appended libs (libc included).
-is_shared = "-shared" in filtered
-if is_link and exe_link_flags:
+# Shared-link spellings: "-shared" (ELF), "-bundle"/"-dynamiclib" (ld64).
+# Scan pre-filter args: the darwin spellings are host-leak-dropped from
+# `filtered` when the target is not darwin.
+is_shared = any(a in ("-shared", "-bundle", "-dynamiclib") for a in args)
+if is_darwin and is_link and is_shared:
+    # Extension modules leave _Py* unresolved until dlopen; ld64 errors on
+    # them by default (ELF linkers don't), so mirror CPython's own LDSHARED
+    # unless the backend already passed it (kept as "-undefined
+    # dynamic_lookup" or the combined -Wl spelling). Takes precedence over
+    # the exe_link_flags branch: target identity beats toolchain plumbing.
+    if "dynamic_lookup" not in filtered and "-Wl,-undefined,dynamic_lookup" not in filtered:
+        filtered.append("-Wl,-undefined,dynamic_lookup")
+elif is_link and exe_link_flags:
     # LLVM-style toolchain (see the "-nostdlib++" detection in
     # build_helper): clang only reaches its crt objects and glibc/libc++
     # archives through the link action's -B/-L/--sysroot flags, and not
@@ -205,10 +216,6 @@ elif is_link and not is_shared and not is_darwin:
     filtered.append("-static")
 elif is_cxx and is_link and not is_darwin:
     filtered.extend(static_libstdcxx_flags)
-elif is_darwin and is_link and is_shared:
-    # Extension modules leave _Py* unresolved until dlopen; ld64 errors on
-    # them by default (ELF linkers don't), so mirror CPython's own LDSHARED.
-    filtered.append("-Wl,-undefined,dynamic_lookup")
 
 if is_link and lld_path:
     os.environ.setdefault("PATH", "")
