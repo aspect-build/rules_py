@@ -46,14 +46,22 @@ def _die(message: str) -> NoReturn:
 # wrappers because non-clang drivers reject it.
 _DEBUG_FLAG = "-fdebug-default-version=4"
 
-# Forces the static libstdc++ archive regardless of driver name. Plain
-# `-static-libstdc++` is a no-op under gcc_toolchain, whose tool_path is
-# "gcc" (not "g++"): that flag only modifies the implicit libstdc++ link the
-# "g++" argv[0] spec adds. Without this, C++ extensions can build and even
-# import (borrowing symbols another loaded .so pulled in) yet fail at
-# runtime. GNU-ld-only syntax: skipped on Darwin, where clang++ links libc++
-# implicitly.
+# Forces the static libstdc++ archive when the configured C++ tool is a
+# plain C driver ("gcc", "clang"): only the "g++"/"clang++" argv[0] spec
+# adds the implicit libstdc++ link, so under such toolchains (e.g.
+# gcc_toolchain, whose cpp tool_path is "gcc") C++ extensions can build and
+# even import (borrowing symbols another loaded .so pulled in) yet fail at
+# runtime. Static, because a hermetic toolchain's libstdc++.so won't exist
+# on the deployment target. Real C++ drivers keep their own (dynamic)
+# stdlib link untouched. GNU-ld-only syntax: skipped on Darwin, where
+# clang++ links libc++ implicitly.
 _STATIC_LIBSTDCXX_FLAGS = ("-Wl,-Bstatic", "-lstdc++", "-Wl,-Bdynamic")
+
+
+def _static_libstdcxx_flags(compiler_path: str, is_cxx: bool, is_darwin: bool) -> list[str]:
+    if is_cxx and not is_darwin and not path.basename(compiler_path).endswith("++"):
+        return list(_STATIC_LIBSTDCXX_FLAGS)
+    return []
 
 _COMPILER_WRAPPER = """#!/usr/bin/env python3
 import os
@@ -343,7 +351,7 @@ def _make_compiler_wrapper(
             sysroot=sysroot,
             is_cxx=is_cxx,
             is_darwin=is_darwin,
-            static_libstdcxx_flags=list(_STATIC_LIBSTDCXX_FLAGS),
+            static_libstdcxx_flags=_static_libstdcxx_flags(compiler_path, is_cxx, is_darwin),
         ),
         executable=True,
     )
