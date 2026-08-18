@@ -24,11 +24,12 @@ from typing import Any
 
 THRESHOLD_REGRESSION_PCT = 10  # fail CI if PR is >10% slower than HEAD main
 
-# (key, label, has_actions): analysis runs --nobuild, so no executed actions
+# (key, label, actions_field): analysis records the target's total action
+# count from aquery; incrementals record actions re-executed, from BEP.
 SCENARIOS = [
-    ("analysis", "Analysis", False),
-    ("inc-source", "1p Source Change", True),
-    ("inc-wheel", "3p Source Change", True),
+    ("analysis", "Analysis", "actions_total"),
+    ("inc-source", "1p Source Change", "actions_executed"),
+    ("inc-wheel", "3p Source Change", "actions_executed"),
 ]
 
 
@@ -78,14 +79,14 @@ def load_runtime(path: str) -> dict[str, Any]:
     }
 
 
-def load_actions(prefix: str, scenario_key: str) -> int | None:
-    """Load the executed-action count for one variant/scenario, if recorded."""
+def load_actions(prefix: str, scenario_key: str, field: str) -> int | None:
+    """Load the action count for one variant/scenario, if recorded."""
     p = Path(f"{prefix}-{scenario_key}-actions.json")
     if not p.exists():
         print(f"WARNING: actions file not found: {p}", file=sys.stderr)
         return None
     with p.open() as f:
-        return int(json.load(f)["actions_executed"])
+        return int(json.load(f)[field])
 
 
 def pct(a: float, b: float) -> float:
@@ -124,14 +125,14 @@ def main() -> None:
 
     regressions: list[tuple[str, float]] = []
 
-    for scenario_key, scenario_label, has_actions in SCENARIOS:
+    for scenario_key, scenario_label, actions_field in SCENARIOS:
         bcr = load_runtime(f"{args.bcr}-{scenario_key}.json")
         main = load_runtime(f"{args.main}-{scenario_key}.json")
         pr = load_runtime(f"{args.pr}-{scenario_key}.json")
 
-        bcr_actions = load_actions(args.bcr, scenario_key) if has_actions else None
-        main_actions = load_actions(args.main, scenario_key) if has_actions else None
-        pr_actions = load_actions(args.pr, scenario_key) if has_actions else None
+        bcr_actions = load_actions(args.bcr, scenario_key, actions_field)
+        main_actions = load_actions(args.main, scenario_key, actions_field)
+        pr_actions = load_actions(args.pr, scenario_key, actions_field)
 
         main_vs_bcr = pct(bcr["mean_s"], main["mean_s"])
         pr_vs_bcr = pct(bcr["mean_s"], pr["mean_s"])
@@ -173,7 +174,8 @@ def main() -> None:
 
     table += (
         f"\n> Measured with hyperfine on `{os.environ.get('RUNNER_OS', 'local')}`, "
-        "building `//workspace:image_layers` (5 binaries, small dep pool) with isolated output base, no disk cache.\n"
+        "building `//workspace:image_layers` (5 binaries, small dep pool, grouped "
+        "first-party/pip/interpreter tier) with isolated output base, no disk cache.\n"
     )
     table += (
         "> **Scenarios**: analysis = warm-server `bazel build --nobuild`, re-analyzed each run "
@@ -182,7 +184,9 @@ def main() -> None:
         "wheel = rewrite click `post_install_patches` content.\n"
     )
     table += (
-        "> **Actions**: actions re-executed for the mutation, from a single instrumented "
+        "> **Actions**: for Analysis, the total action count behind the image target "
+        "from `aquery deps(...)`; for incrementals, actions re-executed for the mutation, "
+        "from a single instrumented "
         "run's BEP build metrics (deterministic; per-mnemonic breakdown in the "
         "`*-actions.json` artifacts). Informational only, not gated.\n"
     )

@@ -321,6 +321,7 @@ jobs:
           name: image-layers-benchmark-results
           path: |
             image-layers-table.txt
+            *-analysis-actions.json
             *-inc-source-actions.json
             *-inc-wheel-actions.json
           if-no-files-found: warn
