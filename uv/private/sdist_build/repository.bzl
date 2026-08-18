@@ -298,7 +298,8 @@ sdist_build = repository_rule(
         "deps": attr.label_list(),
         "available_deps": attr.label(
             mandatory = True,
-            doc = "JSON mapping normalized package names to install labels.",
+            allow_single_file = [".json"],
+            doc = "JSON file mapping normalized package names to install labels.",
         ),
         "is_native": attr.string(default = "auto", values = ["auto", "true", "false"]),
         "configure_command": attr.string_list(
