@@ -27,7 +27,6 @@ single_version_override(
 interpreters = use_extension("@aspect_rules_py//py:extensions.bzl", "python_interpreters")
 interpreters.configure(
     releases = [
-        "20260303",
         "20260814",
     ],
 )

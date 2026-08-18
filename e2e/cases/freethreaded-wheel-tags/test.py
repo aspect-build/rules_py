@@ -21,6 +21,14 @@ class HypothesisFreethreadedTest(unittest.TestCase):
 
         self.assertTrue(hypothesis.__version__)
 
+    def test_native_extension_abi(self) -> None:
+        from hypothesis import _native
+
+        # 3.15+ freethreaded must select the compound cp315-abi3.abi3t wheel,
+        # whose extension uses the PEP 803 .abi3t suffix.
+        if EXPECTED_VERSION >= (3, 15) and not sys.platform.startswith("win"):
+            self.assertIn(".abi3t", _native.__file__, _native.__file__)
+
     @given(st.integers(), st.integers())
     @settings(max_examples=50)
     def test_given_integers(self, a: int, b: int) -> None:
