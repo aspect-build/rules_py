@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import sys
 from pathlib import Path
@@ -57,11 +58,24 @@ def load_runtime(path: str) -> dict[str, Any]:
 
     return {
         "mean_ms": r["mean"] * 1000,
-        "stddev_ms": r["stddev"] * 1000,
+        "stddev_ms": (r["stddev"] or 0.0) * 1000,
         "min_ms": r["min"] * 1000,
         "max_ms": r["max"] * 1000,
         "median_ms": r["median"] * 1000,
+        "n": len(r.get("times") or []) or 1,
     }
+
+
+def noise_floor_pct(a: dict[str, Any], b: dict[str, Any]) -> float:
+    """~95% noise band for the a→b delta, as a percentage of a's median.
+
+    Two standard errors of the difference of means; deltas below this are
+    indistinguishable from run-to-run noise.
+    """
+    if a["median_ms"] == 0:
+        return 0.0
+    se = math.sqrt(a["stddev_ms"] ** 2 / a["n"] + b["stddev_ms"] ** 2 / b["n"])
+    return 2 * se / a["median_ms"] * 100
 
 
 def load_auxiliary(path: str) -> dict[str, Any] | None:
@@ -111,9 +125,10 @@ def main() -> None:
     main_aux = load_auxiliary(main_path.replace(".json", "-aux.json"))
     pr_aux = load_auxiliary(pr_path.replace(".json", "-aux.json"))
 
-    main_vs_bcr = pct(bcr["mean_ms"], main["mean_ms"])
-    pr_vs_bcr = pct(bcr["mean_ms"], pr["mean_ms"])
-    pr_vs_main = pct(main["mean_ms"], pr["mean_ms"])
+    main_vs_bcr = pct(bcr["median_ms"], main["median_ms"])
+    pr_vs_bcr = pct(bcr["median_ms"], pr["median_ms"])
+    pr_vs_main = pct(main["median_ms"], pr["median_ms"])
+    noise_pct = noise_floor_pct(main, pr)
 
     has_aux = bcr_aux is not None or main_aux is not None or pr_aux is not None
 
@@ -170,12 +185,13 @@ def main() -> None:
         f"`{os.environ.get('RUNNER_OS', 'local')}`\n"
     )
     table += (
-        f"> **Gate**: PR vs HEAD main (threshold: {THRESHOLD_REGRESSION_PCT}%). "
+        f"> **Gate**: PR vs HEAD main median (threshold: {THRESHOLD_REGRESSION_PCT}%, "
+        f"and must exceed the 2×SE noise floor, here {noise_pct:.1f}%). "
         f"BCR is shown only as a historical baseline.\n"
     )
     table += (
-        "> **Command**: cold `bazel build --nobuild //workspace/...` with isolated output base, "
-        "no disk cache.\n"
+        "> **Command**: warm-server `bazel build --nobuild //workspace/...`, analysis cache "
+        "discarded each run via a fresh `--action_env` value; no disk cache.\n"
     )
 
     write_gh_output(table)
@@ -185,14 +201,17 @@ def main() -> None:
     else:
         print(table)
 
-    if pr_vs_main > THRESHOLD_REGRESSION_PCT:
+    if pr_vs_main > THRESHOLD_REGRESSION_PCT and pr_vs_main > noise_pct:
         print(
-            f"\n❌ REGRESSION: PR is {pr_vs_main:.1f}% slower than HEAD main "
-            f"(threshold: {THRESHOLD_REGRESSION_PCT}%)"
+            f"\n❌ REGRESSION: PR median is {pr_vs_main:.1f}% slower than HEAD main "
+            f"(threshold: {THRESHOLD_REGRESSION_PCT}%, noise floor: {noise_pct:.1f}%)"
         )
         sys.exit(1)
 
-    print(f"\n✅ No regression detected (PR is {pr_vs_main:+.1f}% vs HEAD main)")
+    print(
+        f"\n✅ No regression detected (PR median is {pr_vs_main:+.1f}% vs HEAD main; "
+        f"noise floor {noise_pct:.1f}%)"
+    )
     sys.exit(0)
 
 

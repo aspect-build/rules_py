@@ -4,4 +4,4 @@
 build --announce_rc
 
 # Share one repository cache across the many --output_base invocations.
-build --repository_cache=~/.cache/bazel-repo
+common --repository_cache=~/.cache/bazel-repo

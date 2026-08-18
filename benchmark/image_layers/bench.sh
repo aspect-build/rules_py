@@ -15,17 +15,18 @@ shift
 cd "$(dirname "$0")/../analysis"
 results_dir="${GITHUB_WORKSPACE:-/tmp}"
 
-# Smaller workload than the analysis benchmark: build perf, not analysis stress.
-# The small dep pool keeps wheel-install and mtree time low; click is forced into
-# every image binary's closure as the wheel-change mutation target. The grouped
-# tier puts the cross-layer exclusion and symlink-mapping pipeline in the
-# measured graph: the 1p mutation hits the grouped package, the wheel mutation
-# hits the solo-grouped pip package.
-packages=15
+# Build-perf workload: the grouped tier keeps incremental runs cheap, so the
+# graph can be sizable — the dep pool's transitive closures put ~30 wheels
+# behind the aspect. click is forced into every image binary's closure as the
+# wheel-change mutation target. The grouped tier puts the cross-layer
+# exclusion and symlink-mapping pipeline in the measured graph: the 1p
+# mutation hits the grouped package, the wheel mutation hits the solo-grouped
+# pip package.
+packages=30
 python3 workspace/generate_workspace.py --root workspace \
   --packages "$packages" \
-  --image-binaries 5 \
-  --external-deps click,requests,jinja2,pyyaml \
+  --image-binaries 10 \
+  --external-deps click,requests,jinja2,pyyaml,rich,httpx,marshmallow,jsonschema \
   --image-common-dep click \
   --image-layer-groups
 last_pkg="pkg_$((packages - 1))"
@@ -41,7 +42,9 @@ $BAZEL fetch //workspace:image_layers
 # Warm-server analysis: a fresh --action_env value discards the analysis cache
 # each run while keeping the server and loading warm. The warmup run absorbs
 # the cold start.
-hyperfine --warmup 1 --runs 10 \
+# All scenarios run in ~1s post-grouping (CI data); at that cost 30 samples
+# are cheap and keep the noise floor under the 10% gate.
+hyperfine --warmup 1 --runs 30 \
   --export-json "$results_dir/$variant-analysis.json" \
   "$BAZEL build --disk_cache= --nobuild --action_env=BENCH_TICK=\$(date +%s%N) //workspace:image_layers"
 
@@ -56,7 +59,7 @@ echo "{\"actions_total\": $total_actions}" > "$results_dir/$variant-analysis-act
 # Unmeasured full build to establish the built state for the incremental runs.
 $BAZEL build --disk_cache= //workspace:image_layers
 
-hyperfine --warmup 1 --runs 10 \
+hyperfine --warmup 1 --runs 30 \
   --prepare "echo '# tick' >> workspace/src/$last_pkg/lib.py" \
   --export-json "$results_dir/$variant-inc-source.json" \
   "$BAZEL build --disk_cache= //workspace:image_layers"
@@ -68,7 +71,7 @@ $BAZEL build --disk_cache= --build_event_json_file=/tmp/bep-inc-source.json //wo
 python3 ../image_layers/extract_actions.py /tmp/bep-inc-source.json \
   > "$results_dir/$variant-inc-source-actions.json"
 
-hyperfine --warmup 1 --runs 10 \
+hyperfine --warmup 1 --runs 30 \
   --prepare 'python3 ../image_layers/write_patch.py workspace/patches/wheel_bench_note.patch' \
   --export-json "$results_dir/$variant-inc-wheel.json" \
   "$BAZEL build --disk_cache= //workspace:image_layers"
