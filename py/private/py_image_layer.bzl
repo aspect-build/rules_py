@@ -235,6 +235,9 @@ def _collect_from_deps(ctx, provider):
         for dep in actual:
             if provider in dep:
                 results.append(dep[provider])
+    for dep in getattr(ctx.rule.attr, "resolutions", {}).values():
+        if provider in dep:
+            results.append(dep[provider])
     return results
 
 def _compression_for(plan, group_name):
@@ -494,7 +497,7 @@ def _layer_aspect_impl(target, ctx):
 
 _layer_aspect = aspect(
     implementation = _layer_aspect_impl,
-    attr_aspects = ["deps", "data", "actual", "venv"],
+    attr_aspects = ["deps", "data", "actual", "venv", "resolutions"],
     attrs = {
         "_layer_tier": attr.label(
             default = "//py:layer_tier",
