@@ -160,6 +160,24 @@ def image_layer_analysis_test_suite():
         binary = ":_virtual_runtime_bin",
     )
 
+    # A wheel reached only through a resolution must get a pip layer, not
+    # ride the default source layer.
+    py_library(
+        name = "_resolved_wheel_consumer",
+        virtual_deps = ["colorama"],
+    )
+    py_binary(
+        name = "_resolved_wheel_bin",
+        srcs = ["server.py"],
+        dep_group = "images",
+        resolutions = {"colorama": "@pypi_oci_py_image_layer//colorama"},
+        deps = [":_resolved_wheel_consumer"],
+    )
+    py_image_layer(
+        name = "_resolved_wheel_layers",
+        binary = ":_resolved_wheel_bin",
+    )
+
     _image_layer_failure(
         name = "relative_launcher_dir",
         expected_error = "py_image_layer.launcher_dir must be an absolute image path",

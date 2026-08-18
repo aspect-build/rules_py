@@ -665,6 +665,20 @@ py_test(
     main = "assert_tar_paths.py",
 )
 
+# The resolved wheel ships once, in the pip layer.
+py_test(
+    name = "resolved_wheel_layer_test",
+    srcs = ["assert_tar_paths.py"],
+    args = [
+        "--tar-contains=_squashed.tar.gz=/colorama/ansi.py",
+        "--tar-absent=_default.tar.gz=/colorama/ansi.py",
+        "--count=/colorama/ansi.py=1",
+        "$(rootpaths :_resolved_wheel_layers)",
+    ],
+    data = [":_resolved_wheel_layers"],
+    main = "assert_tar_paths.py",
+)
+
 # The configured interpreter must be emitted by its dedicated layer, not also
 # by the default source layer assembled from VirtualenvInfo.runtime_files.
 py_test(
