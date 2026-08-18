@@ -187,7 +187,7 @@ filegroup(
 )
 
 exports_files(
-    ["BUILD.bazel", "available_deps.json"],
+    ["BUILD.bazel"],
     visibility = ["//visibility:public"],
 )
 """.format(
