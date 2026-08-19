@@ -1,0 +1,65 @@
+load("@aspect_rules_py//uv:defs.bzl", "gazelle_python_manifest")
+load("@bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
+
+# Regression test for `gazelle_python_manifest(platform_parents = ...)`
+# (issue #1416: the macro's synthetic per-venv platforms were pinned to
+# `@platforms//host`, breaking cross-compilation and custom host platforms).
+# Reads from the //uv-deps-650 hub, which already declares an `extras` venv.
+#
+# Documented exception to per-case isolation: this test applies Gazelle to a
+# venv from another case (//uv-deps-650), so the cross-case reference is by
+# design.
+package(default_visibility = ["//:__pkg__"])
+
+# A case-local constraint that only `:parent_platform` carries: observing it
+# downstream proves the macro-generated platform inherited from
+# `:parent_platform`.
+constraint_setting(name = "parentage")
+
+constraint_value(
+    name = "custom_parent",
+    constraint_setting = ":parentage",
+)
+
+# Stands in for a user's custom `--host_platform` — e.g. one carrying the extra
+# constraints a hermetic C++ toolchain gates on. Parenting it on
+# `@platforms//host` keeps the case host-OS-agnostic.
+platform(
+    name = "parent_platform",
+    constraint_values = [":custom_parent"],
+    parents = ["@platforms//host"],
+)
+
+gazelle_python_manifest(
+    name = "gazelle_python_manifest",
+    hub = "pypi_uv_deps_650",
+    platform_parents = [":parent_platform"],
+    venvs = ["extras"],
+)
+
+# The macro generates a synthetic platform named `_{name}_{hub}_{venv}` in
+# this package; `:probe` depends on that naming scheme, so a rename inside the
+# macro breaks this target with a missing-target analysis error.
+#
+# The snapshot pins "custom-parent": if the macro ignores `platform_parents`,
+# the generated platform loses `:custom_parent`, the select falls through to
+# "default-parent", and the snapshot diff test fails.
+config_setting(
+    name = "under_custom_parent",
+    constraint_values = [":custom_parent"],
+)
+
+genrule(
+    name = "probe_src",
+    outs = ["probe_out.txt"],
+    cmd = select({
+        ":under_custom_parent": "echo custom-parent > $@",
+        "//conditions:default": "echo default-parent > $@",
+    }),
+)
+
+platform_transition_filegroup(
+    name = "probe",
+    srcs = [":probe_src"],
+    target_platform = ":_gazelle_python_manifest_pypi_uv_deps_650_extras",
+)
