@@ -9,10 +9,8 @@ load("//py/private/toolchain:types.bzl", "EXEC_TOOLS_TOOLCHAIN", "PY_TOOLCHAIN")
 # the built wheel; source_built_wheel consumes it below (unless overridden).
 load("//uv/private:source_built_wheel.bzl", "SourceBuiltWheelInfo")
 
-# exclude_glob: whl_dist extraction is exclude-agnostic, so when a package
-# declares exclusions the selected wheel's retained RECORD paths are filtered
-# and the layout is RE-DERIVED here at analysis time (matching pre-derivation
-# semantics — an excluded initializer reclassifies namespace/regular).
+# Wheels shared by consumers with different exclusions require analysis-time
+# layout derivation; all other layouts are derived by the wheel repository.
 load(":metadata.bzl", "derive_layout", "parse_exclude_glob", "record_path_excluded")
 
 PyWheelMetadataInfo = provider(
@@ -38,7 +36,7 @@ PyWheelMetadataInfo = provider(
         "regular_roots": "Minimal `__init__.py`-carrying directories under the namespace top-levels.",
         "native_roots": "Collision roots containing native-library RECORD entries.",
         "console_scripts": "`[console_scripts]` entry points encoded as name=module:object.",
-        "record_paths": "Retained site-packages RECORD paths, for re-deriving the layout after exclude_glob. Empty unless a consuming package declares exclusions.",
+        "record_paths": "Site-packages RECORD paths for conflicting exclusions or empty filtered layouts.",
         "data_files": "PEP 427 `.data/data/` prefix-relative install paths (e.g. `share/...`), projected into the venv prefix.",
     },
 )
@@ -168,39 +166,18 @@ def _whl_install(ctx):
     # in: it lives in a different repo that is never fetched or consulted here.
     meta = ctx.attr.src[PyWheelMetadataInfo]
 
-    # exclude_glob removes files from the install tree (via --exclude-glob on
-    # the action below). To keep the advertised layout consistent with that
-    # tree, filter the selected wheel's retained RECORD paths and RE-DERIVE the
-    # topology — matching the pre-derivation semantics: removing an initializer
-    # reclassifies a package regular→namespace, and removing the last file under
-    # a top-level drops it, so venv assembly never projects a dangling symlink
-    # or mis-merges. console_scripts live under bin/, so exclusions never touch
-    # them. record_paths is carried only for wheels of excluding packages; a
-    # source-built wheel has none, and its layout is already empty.
+    # Re-derive the layout only when this wheel's consumers have conflicting
+    # exclusions. Otherwise its repository already applied the shared policy.
+    # Filtering before derivation preserves regular/namespace classification.
+    layout = meta
     if ctx.attr.exclude_glob and meta.record_paths:
         patterns = [parse_exclude_glob(pattern) for pattern in ctx.attr.exclude_glob]
-        retained = [
-            path.split("/")
-            for path in meta.record_paths
-            if not record_path_excluded(path.split("/"), patterns)
-        ]
+        retained = []
+        for path in meta.record_paths:
+            segments = path.split("/")
+            if not record_path_excluded(segments, patterns):
+                retained.append(segments)
         layout = derive_layout(retained)
-        top_levels = layout.top_levels
-        top_level_dirs = layout.top_level_dirs
-        namespace_top_levels = layout.namespace_top_levels
-        namespace_entries = layout.namespace_entries
-        namespace_dirs = layout.namespace_dirs
-        regular_roots = layout.regular_roots
-        native_roots = layout.native_roots
-    else:
-        top_levels = meta.top_levels
-        top_level_dirs = meta.top_level_dirs
-        namespace_top_levels = meta.namespace_top_levels
-        namespace_entries = meta.namespace_entries
-        namespace_dirs = meta.namespace_dirs
-        regular_roots = meta.regular_roots
-        native_roots = meta.native_roots
-    console_scripts = meta.console_scripts
 
     # Prefix data files (`.data/data/`) are unaffected by exclude_glob (it only
     # removes site-packages files); the patch guard below keeps them consistent.
@@ -229,11 +206,11 @@ def _whl_install(ctx):
     if patch_files:
         arguments.add("--patch-strip", str(ctx.attr.patch_strip))
         arguments.add_all(patch_files, before_each = "--patch")
-        preserve_paths = {path: None for path in top_levels}
-        for path in namespace_entries + namespace_dirs + regular_roots:
+        preserve_paths = set(layout.top_levels)
+        for path in layout.namespace_entries + layout.namespace_dirs + layout.regular_roots:
             root = path.split("/")[0]
             if not root.endswith(".dist-info") and not root.endswith(".egg-info"):
-                preserve_paths[path] = None
+                preserve_paths.add(path)
         arguments.add_all(
             sorted(preserve_paths),
             before_each = "--preserve-path",
@@ -335,15 +312,15 @@ def _whl_install(ctx):
         # venv assembly's per-top-level symlinks reference each wheel by
         # its natural runfiles path rather than through this File.
         wheels = depset(direct = [make_wheel_record(
-            top_levels = top_levels,
-            top_level_dirs = top_level_dirs,
-            namespace_top_levels = namespace_top_levels,
-            namespace_entries = namespace_entries,
-            namespace_dirs = namespace_dirs,
-            regular_roots = regular_roots,
-            native_roots = native_roots,
+            top_levels = layout.top_levels,
+            top_level_dirs = layout.top_level_dirs,
+            namespace_top_levels = layout.namespace_top_levels,
+            namespace_entries = layout.namespace_entries,
+            namespace_dirs = layout.namespace_dirs,
+            regular_roots = layout.regular_roots,
+            native_roots = layout.native_roots,
             site_packages_rfpath = site_packages_rfpath,
-            console_scripts = console_scripts,
+            console_scripts = meta.console_scripts,
             # unpack.py's data-file manifest guard (above) fails the build if a
             # patch alters the data set, so this list always matches the tree.
             data_files = data_files,

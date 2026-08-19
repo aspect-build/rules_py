@@ -37,7 +37,13 @@ def _whl_dist_impl(rctx):
         auth = get_auth(rctx, urls),
     )
 
-    meta = extract_install_metadata(rctx, rctx.path(basename), basename)
+    meta = extract_install_metadata(
+        rctx,
+        rctx.path(basename),
+        basename,
+        rctx.attr.exclude_glob,
+        rctx.attr.carry_record_paths,
+    )
 
     rctx.file("BUILD.bazel", content = """load("@aspect_rules_py//uv/private/whl_install:rule.bzl", "whl_dist")
 
@@ -65,10 +71,8 @@ exports_files(
         # for every wheel (unlike record_paths): exclude_glob only removes
         # site-packages files, so the prefix data tree is never re-derived.
         data_files = _attr("data_files", meta.data_files),
-        # Only carried when a consuming package applies exclude_glob: whl_install
-        # re-derives the layout from these after exclusion. Kept off every other
-        # wheel so the common case doesn't pay for a full RECORD path list.
-        record_paths = _attr("record_paths", meta.record_paths) if rctx.attr.carry_record_paths else "",
+        # Conflicting or empty layouts retain their unfiltered RECORD paths.
+        record_paths = _attr("record_paths", meta.record_paths),
     ))
 
     # Hashless wheels record the discovered checksum so a re-fetch stays
@@ -90,10 +94,11 @@ whl_dist = repository_rule(
             mandatory = True,
             doc = "The wheel's file name; also the on-disk output name.",
         ),
+        "exclude_glob": attr.string_list(
+            doc = "Exclusions shared by every consumer of this wheel.",
+        ),
         "carry_record_paths": attr.bool(
-            doc = "Emit the retained RECORD paths so whl_install can re-derive " +
-                  "the layout after exclude_glob. Set only for wheels of packages " +
-                  "that declare exclude_glob.",
+            doc = "Emit RECORD paths when consumers require different exclusions.",
         ),
     },
     # Match http_file: the URL-derived canonical_id depends on this env var, so

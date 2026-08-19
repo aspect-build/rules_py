@@ -24,6 +24,13 @@ PARSER.add_argument("--script")
 opts = PARSER.parse_args()
 
 entrypoint = None
+if "_aspect_rules_py_import_index" in sys.modules:
+    from importlib.metadata import entry_points
+
+    match = next(iter(entry_points(group="console_scripts", name=opts.script)), None)
+    if match is not None:
+        entrypoint = match.value
+
 for e in sys.path:
     if entrypoint:
         break

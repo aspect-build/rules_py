@@ -93,6 +93,22 @@ using symlink trees:
 - Native IDE compatibility: VSCode, PyCharm, and language servers resolve jump-to-definition correctly into the Bazel
   sandbox
 
+### Experimental Indexed Imports
+
+Large repositories can avoid creating a separate wheel-package symlink for every Python binary and test:
+
+```text
+# .bazelrc
+common --@aspect_rules_py//py:experimental_indexed_imports=true
+```
+
+When enabled, each private runtime virtual environment registers an import finder backed by a small ownership index.
+Packages with executable `.pth` files, native-layout requirements, or ambiguous ownership keep their physical
+projections. Public virtual environments remain physical so IDEs and other filesystem-based tools continue to work.
+
+Individual binaries and tests can opt out with `indexed_imports = False` when a tool must inspect the complete physical
+package tree or pass its `sys.path` to another Python interpreter.
+
 ### Strict Sandbox Isolation
 
 - **Isolated mode**: Python executes with `-I` flag, preventing implicit loading of user site-packages or host

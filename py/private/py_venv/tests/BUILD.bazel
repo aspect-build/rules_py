@@ -73,4 +73,14 @@ py_test(
     main = "//py/private/py_venv/tests:test_link.py",
 )
 
+py_test(
+    name = "import_index_test",
+    srcs = [
+        "import_index_test.py",
+        "//py/private/py_venv:import_index.py",
+    ],
+    imports = [".."],
+    main = "import_index_test.py",
+)
+
 virtuals_resolvers_test_suite(name = "virtuals_resolvers_tests")
