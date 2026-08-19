@@ -64,9 +64,11 @@ def py_console_script_binary(
             via entry points, such as mkdocs or pytest plugins.
         dep_group: The dependency group within which to resolve dependencies,
             forwarded to the underlying `py_binary` targets.
-        **kwargs: Common attributes forwarded to every generated target;
-            `visibility` is applied only to the binary, since the search
-            tool and genrule are private implementation details.
+        **kwargs: Attributes forwarded to the generated `py_binary` targets
+            (e.g. `python_version`); `visibility` is applied only to the
+            binary, since the search tool and genrule are private
+            implementation details. Only universally-shared attributes
+            (`tags`, `testonly`) are forwarded to the internal genrule.
     """
     main = "_{}_entrypoint".format(name)
     tmpl = Label("@aspect_rules_py//uv/private/py_entrypoint_binary:entrypoint.tmpl")
@@ -76,6 +78,10 @@ def py_console_script_binary(
     search = "_{}_search".format(name)
 
     visibility = kwargs.pop("visibility", None)
+
+    # The genrule only understands universally-shared attributes; forwarding
+    # py_binary-specific kwargs (python_version, ...) is a load-time error.
+    genrule_kwargs = {k: kwargs[k] for k in ("tags", "testonly") if k in kwargs}
 
     py_binary(
         name = search_tool,
@@ -100,7 +106,7 @@ def py_console_script_binary(
         ],
         cmd = "$(location {}) --template=\"$(location {})\" --script=\"{}\" >\"$@\"".format(search_tool, tmpl, console_script_name(name, script)),
         visibility = ["//visibility:private"],
-        **kwargs
+        **genrule_kwargs
     )
 
     py_binary(
