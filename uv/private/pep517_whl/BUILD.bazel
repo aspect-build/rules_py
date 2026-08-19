@@ -19,6 +19,7 @@ bzl_library(
     srcs = ["pep517_native_whl.bzl"],
     deps = [
         ":common",
+        "//py/private/interpreter:versions",
         "//py/private/toolchain:types",
         "@bazel_lib//lib:resource_sets",
         "@rules_cc//cc:action_names_bzl",
