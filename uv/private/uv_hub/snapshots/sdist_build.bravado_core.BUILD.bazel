@@ -8,6 +8,7 @@ py_binary(
     srcs = ["@rules_py//uv/private/pep517_whl/tools:build_helper.py"],
     deps = ["@@+uv+project__rules_py//:build", "@@+uv+project__rules_py//:setuptools", "@@+uv+project__rules_py//:maturin", "@project__rules_py//private/build_deps:setuptools"],
     include_console_scripts = True,
+    indexed_imports = False,
 )
 
 pep517_whl(

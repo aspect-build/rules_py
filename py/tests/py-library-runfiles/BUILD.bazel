@@ -1,5 +1,5 @@
 load("//py:defs.bzl", "py_binary", "py_library", "py_test", "py_venv")
-load(":runfiles_test.bzl", "private_venv_provider_test", "py_library_runfiles_test", "py_venv_runfiles_test")
+load(":runfiles_test.bzl", "indexed_imports_layout_test", "private_venv_provider_test", "py_library_runfiles_test", "py_venv_runfiles_test")
 
 package(default_testonly = True)
 
@@ -50,6 +50,33 @@ private_venv_provider_test(
         "library.py",
     ],
     target_under_test = ":_private_venv_bin.venv",
+)
+
+indexed_imports_layout_test(
+    name = "indexed_private_venv_test",
+    expect_index = True,
+    target_under_test = ":_private_venv_bin.venv",
+)
+
+indexed_imports_layout_test(
+    name = "physical_public_venv_test",
+    expect_index = False,
+    target_under_test = ":public_venv",
+)
+
+py_binary(
+    name = "physical_venv_bin",
+    srcs = ["main.py"],
+    imports = ["."],
+    indexed_imports = False,
+    main = "main.py",
+    deps = [":library"],
+)
+
+indexed_imports_layout_test(
+    name = "physical_opt_out_venv_test",
+    expect_index = False,
+    target_under_test = ":_physical_venv_bin.venv",
 )
 
 py_test(
