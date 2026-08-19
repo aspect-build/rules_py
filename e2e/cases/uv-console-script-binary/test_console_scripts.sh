@@ -4,9 +4,10 @@ set -euo pipefail
 DIR="$(cd "$TEST_SRCDIR/_main/uv-console-script-binary" && pwd)"
 DEFAULT_BIN="${DIR}/whoowns"
 EXPLICIT_BIN="${DIR}/whoowns_explicit"
+KWARGS_BIN="${DIR}/whoowns_kwargs"
 MKDOCS_BIN="${DIR}/mkdocs"
 
-for bin in "${DEFAULT_BIN}" "${EXPLICIT_BIN}" "${MKDOCS_BIN}"; do
+for bin in "${DEFAULT_BIN}" "${EXPLICIT_BIN}" "${KWARGS_BIN}" "${MKDOCS_BIN}"; do
     if [[ ! -x "${bin}" ]]; then
         echo "FAIL: expected executable binary at ${bin}" >&2
         exit 1
@@ -23,6 +24,15 @@ fi
 
 if [[ -z "${explicit_out}" ]]; then
     echo "FAIL: explicit-script console script produced no help output" >&2
+    exit 1
+fi
+
+# The kwargs target passes python_version (py_binary-specific) and tags;
+# it existing and running at all is the regression assertion — forwarding
+# python_version to the internal genrule was a load-time error.
+kwargs_out="$("${KWARGS_BIN}" --help 2>&1)"
+if [[ -z "${kwargs_out}" ]]; then
+    echo "FAIL: kwargs console script produced no help output" >&2
     exit 1
 fi
 

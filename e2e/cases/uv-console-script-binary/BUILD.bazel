@@ -14,6 +14,19 @@ py_console_script_binary(
     script = "whoowns",
 )
 
+# Regression: py_binary-specific kwargs (python_version) must reach the
+# generated py_binary targets without being forwarded to the internal
+# genrule, where they are a load-time error; universally-shared kwargs
+# (tags) must still reach every generated target.
+py_console_script_binary(
+    name = "whoowns_kwargs",
+    dep_group = "uv-console-script-binary",
+    pkg = "@pypi_uv_console_script_binary//whoowns",
+    python_version = "3.11",
+    script = "whoowns",
+    tags = ["kwargs-regression"],
+)
+
 py_console_script_binary(
     name = "mkdocs",
     dep_group = "uv-console-script-binary",
@@ -33,5 +46,6 @@ sh_test(
         ":mkdocs",
         ":whoowns",
         ":whoowns_explicit",
+        ":whoowns_kwargs",
     ],
 )
