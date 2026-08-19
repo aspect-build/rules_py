@@ -212,5 +212,122 @@ class LegacyMetadataConflictTest(unittest.TestCase):
             self.assertTrue(build_helper._legacy_metadata_conflicts_with_pyproject(tmp))
 
 
+class WheelPlatformIdentityTest(unittest.TestCase):
+    def test_table(self) -> None:
+        for target_os, target_cpu, expected in (
+            ("linux", "x86_64", ("linux", "x86_64")),
+            ("linux", "aarch64", ("linux", "aarch64")),
+            ("linux", "x86", ("linux", "i686")),
+            ("linux", "arm", ("linux", "armv7l")),
+            ("darwin", "aarch64", ("macosx", "arm64")),
+            ("darwin", "x86_64", ("macosx", "x86_64")),
+            ("windows", "x86_64", ("win", "amd64")),
+            ("windows", "aarch64", ("win", "arm64")),
+        ):
+            with self.subTest(target_os=target_os, target_cpu=target_cpu):
+                self.assertEqual(
+                    build_helper._wheel_platform_identity(target_os, target_cpu), expected
+                )
+
+
+class WheelPlatformErrorTest(unittest.TestCase):
+    def test_no_target_requested_is_exempt(self) -> None:
+        self.assertIsNone(
+            build_helper._wheel_platform_error(
+                "pkg-1.0-cp313-cp313-macosx_11_0_arm64.whl", "", "", host_os="linux"
+            )
+        )
+
+    def test_none_any_wheels_are_exempt(self) -> None:
+        self.assertIsNone(
+            build_helper._wheel_platform_error(
+                "pkg-1.0-py3-none-any.whl", "linux", "aarch64", host_os="linux"
+            )
+        )
+
+    def test_matching_tags_pass(self) -> None:
+        for filename, target_os, target_cpu, host_os in (
+            ("pkg-1.0-cp313-cp313-manylinux_2_17_x86_64.whl", "linux", "x86_64", "linux"),
+            ("pkg-1.0-cp313-cp313-musllinux_1_2_x86_64.whl", "linux", "x86_64", "linux"),
+            ("pkg-1.0-cp313-cp313-linux_aarch64.whl", "linux", "aarch64", "darwin"),
+            ("pkg-1.0-cp313-cp313-linux_armv7l.whl", "linux", "arm", "linux"),
+            ("pkg-1.0-cp313-cp313-macosx_11_0_arm64.whl", "darwin", "aarch64", "darwin"),
+            ("pkg-1.0-cp313-cp313-macosx_10_9_x86_64.whl", "darwin", "x86_64", "linux"),
+            ("PKG-1.0-cp313-cp313-MACOSX_11_0_ARM64.whl", "darwin", "aarch64", "darwin"),
+            ("pkg-1.0-cp313-cp313-win_amd64.whl", "windows", "x86_64", "linux"),
+            ("pkg-1.0-cp313-cp313-win_arm64.whl", "windows", "aarch64", "linux"),
+            ("pkg-1.0-cp313-cp313-macosx_11_0_universal2.whl", "darwin", "aarch64", "darwin"),
+            ("pkg-1.0-cp313-cp313-macosx_10_9_universal2.whl", "darwin", "x86_64", "darwin"),
+        ):
+            with self.subTest(filename=filename):
+                self.assertIsNone(
+                    build_helper._wheel_platform_error(
+                        filename, target_os, target_cpu, host_os=host_os
+                    )
+                )
+
+    def test_host_os_leak_is_reported_as_leak(self) -> None:
+        error = build_helper._wheel_platform_error(
+            "pkg-1.0-cp313-cp313-macosx_11_0_arm64.whl", "linux", "aarch64", host_os="darwin"
+        )
+        self.assertIsNotNone(error)
+        self.assertIn("exec host OS 'macosx'", error)
+
+    def test_linux_tag_for_darwin_target_on_linux_host_is_a_leak(self) -> None:
+        error = build_helper._wheel_platform_error(
+            "pkg-1.0-cp313-cp313-manylinux_2_17_aarch64.whl", "darwin", "aarch64", host_os="linux"
+        )
+        self.assertIsNotNone(error)
+        self.assertIn("exec host OS 'linux'", error)
+
+    def test_wrong_os_without_leak_reports_missing_target_os(self) -> None:
+        error = build_helper._wheel_platform_error(
+            "pkg-1.0-cp313-cp313-macosx_10_9_x86_64.whl", "windows", "x86_64", host_os="linux"
+        )
+        self.assertIsNotNone(error)
+        self.assertIn("does not contain target OS 'win'", error)
+
+    def test_wrong_cpu_reports_missing_target_cpu(self) -> None:
+        error = build_helper._wheel_platform_error(
+            "pkg-1.0-cp313-cp313-manylinux_2_17_x86_64.whl", "linux", "aarch64", host_os="linux"
+        )
+        self.assertIsNotNone(error)
+        self.assertIn("does not contain target CPU 'aarch64'", error)
+
+    def test_darwin_tag_spelled_aarch64_fails_cpu_check(self) -> None:
+        error = build_helper._wheel_platform_error(
+            "pkg-1.0-cp313-cp313-macosx_11_0_aarch64.whl", "darwin", "aarch64", host_os="darwin"
+        )
+        self.assertIsNotNone(error)
+        self.assertIn("target CPU 'arm64'", error)
+
+    def test_universal2_does_not_bypass_non_darwin_targets(self) -> None:
+        error = build_helper._wheel_platform_error(
+            "pkg-1.0-cp313-cp313-macosx_11_0_universal2.whl", "linux", "aarch64", host_os="linux"
+        )
+        self.assertIsNotNone(error)
+        self.assertIn("does not contain target OS 'linux'", error)
+
+    def test_bare_linux_arm_tag_fails_armv7l_check(self) -> None:
+        error = build_helper._wheel_platform_error(
+            "pkg-1.0-cp313-cp313-linux_arm.whl", "linux", "arm", host_os="linux"
+        )
+        self.assertIsNotNone(error)
+        self.assertIn("target CPU 'armv7l'", error)
+
+
+class TargetFlagsTest(unittest.TestCase):
+    def test_parser_accepts_and_defaults_target_flags(self) -> None:
+        opts, _ = build_helper.PARSER.parse_known_args(["src.tar.gz", "out.whl"])
+        self.assertEqual(opts.target_os, "")
+        self.assertEqual(opts.target_cpu, "")
+        opts, _ = build_helper.PARSER.parse_known_args(
+            ["src.tar.gz", "out.whl", "--target-os", "linux", "--target-cpu", "aarch64"]
+        )
+        self.assertEqual(opts.target_os, "linux")
+        self.assertEqual(opts.target_cpu, "aarch64")
+
+
+
 if __name__ == "__main__":
     unittest.main()
