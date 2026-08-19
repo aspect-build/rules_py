@@ -1,4 +1,5 @@
 load("@bazel_lib//:bzl_library.bzl", "bzl_library")
+load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
 load("//py/private/interpreter:launcher.bzl", "py_interpreter_launcher")
 
 # Consumed by //docs:py_api (stardoc). exports_files gives the implicit .bzl file
@@ -6,6 +7,12 @@ load("//py/private/interpreter:launcher.bzl", "py_interpreter_launcher")
 exports_files(
     ["defs.bzl"],
     visibility = ["//docs:__pkg__"],
+)
+
+bool_flag(
+    name = "experimental_indexed_imports",
+    build_setting_default = False,
+    visibility = ["//visibility:public"],
 )
 
 # Users can set, e.g. --@aspect_rules_py//py:python_version=3.12

@@ -343,6 +343,7 @@ py_binary(
     srcs = ["@aspect_rules_py//uv/private/pep517_whl/tools:build_helper.py"],
     deps = {deps},
     include_console_scripts = True,
+    indexed_imports = False,
 )
 {frontend_target}
 {rule}(
