@@ -1101,40 +1101,75 @@ def _legacy_metadata_conflicts_with_pyproject(worktree: str) -> bool:
         )
     )
 
-_WHEEL_OS_MAP = {"linux": "linux", "darwin": "macosx", "windows": "win"}
+
+def _wheel_platform_identity(target_os: str, target_cpu: str) -> tuple[str, str]:
+    """The wheel platform-tag OS and CPU spellings for a Bazel OS/CPU constraint pair."""
+    if target_os == "darwin":
+        wheel_os = "macosx"
+        wheel_cpu = "arm64" if target_cpu == "aarch64" else target_cpu
+    elif target_os == "windows":
+        wheel_os = "win"
+        if target_cpu == "x86_64":
+            wheel_cpu = "amd64"
+        elif target_cpu == "aarch64":
+            wheel_cpu = "arm64"
+        else:
+            wheel_cpu = target_cpu
+    else:
+        wheel_os = target_os
+        if target_cpu == "x86":
+            wheel_cpu = "i686"
+        elif target_cpu == "arm":
+            wheel_cpu = "armv7l"
+        else:
+            wheel_cpu = target_cpu
+    return wheel_os, wheel_cpu
 
 
-def _expected_cpu_in_tag(target_os: str, target_cpu: str) -> str:
-    if target_os == "darwin" and target_cpu == "aarch64":
-        return "arm64"
-    return {"x86": "i686", "arm": "armv7l"}.get(target_cpu, target_cpu)
+def _wheel_platform_error(
+    wheel_filename: str,
+    target_os: str,
+    target_cpu: str,
+    host_os: str | None = None,
+) -> str | None:
+    """Check a built wheel's platform tag against the requested target platform.
 
-
-def _validate_wheel_platform(wheel_filename: str) -> None:
-    target_os = os.environ.get("RULES_PY_TARGET_OS", "")
-    target_cpu = os.environ.get("RULES_PY_TARGET_CPU", "")
+    Returns an error message when the tag names the wrong platform, None when
+    it matches or no target was requested. The platform tag is the last
+    dash-separated component of the filename (PEP 427); -none-any wheels are
+    exempt — they carry no platform identity. host_os is injectable for tests
+    and defaults to the running host.
+    """
     if not target_os or not target_cpu:
-        return
+        return None
+    if wheel_filename.endswith("-none-any.whl"):
+        return None
 
     platform_tag = wheel_filename.rsplit("-", 1)[-1].rsplit(".", 1)[0].lower()
+    expected_os, expected_cpu = _wheel_platform_identity(target_os, target_cpu)
 
-    expected_os = _WHEEL_OS_MAP.get(target_os, target_os)
-    expected_cpu = _expected_cpu_in_tag(target_os, target_cpu)
+    if host_os is None:
+        host_os = _platform.system().lower()
+    host_wheel_os, _ = _wheel_platform_identity(host_os, "")
 
-    host_os = _platform.system().lower()
-    host_wheel_os = _WHEEL_OS_MAP.get(host_os, host_os)
-
+    # A tag naming the host's OS on a foreign-target build is the signature
+    # of the backend compiling for the machine it runs on: report it as the
+    # leak it is rather than a generic mismatch.
     if target_os != host_os and host_wheel_os in platform_tag:
-        _die(
+        return (
             "Error: wheel platform tag '{}' contains exec host OS '{}' instead of "
-            "target OS '{}'. The target sysconfig override may have failed.".format(
-                platform_tag, host_wheel_os, expected_os,
-            )
+            "target OS '{}'.".format(platform_tag, host_wheel_os, expected_os)
         )
     if expected_os not in platform_tag:
-        _die("Error: wheel platform tag '{}' does not contain target OS '{}'.".format(platform_tag, expected_os))
+        return "Error: wheel platform tag '{}' does not contain target OS '{}'.".format(platform_tag, expected_os)
+
+    # macOS universal2 wheels carry both architectures in one binary; either
+    # darwin CPU target is satisfied by them.
+    if target_os == "darwin" and "universal2" in platform_tag:
+        return None
     if expected_cpu not in platform_tag:
-        _die("Error: wheel platform tag '{}' does not contain target CPU '{}'.".format(platform_tag, expected_cpu))
+        return "Error: wheel platform tag '{}' does not contain target CPU '{}'.".format(platform_tag, expected_cpu)
+    return None
 
 
 PARSER = ArgumentParser()
@@ -1146,8 +1181,8 @@ PARSER.add_argument("--patch-strip", type=int, default=0, help="Strip count for 
 PARSER.add_argument("--patch", action="append", default=[], dest="patches", help="Patch file to apply (repeatable)")
 PARSER.add_argument("--execroot-marker", help="Token in env values to replace with the absolute execroot")
 PARSER.add_argument("--cross", action="store_true", help="Cross-compilation mode: target platform != exec platform")
-PARSER.add_argument("--target-os", default="", help="Target platform OS (linux, darwin, windows)")
-PARSER.add_argument("--target-cpu", default="", help="Target platform CPU (x86_64, aarch64, ...)")
+PARSER.add_argument("--target-os", default="", help="Target platform OS the wheel must be tagged for (linux, darwin, windows)")
+PARSER.add_argument("--target-cpu", default="", help="Target platform CPU the wheel must be tagged for (x86_64, aarch64, ...)")
 
 def main() -> None:
     opts, _ = PARSER.parse_known_args()
@@ -1287,8 +1322,10 @@ def main() -> None:
     if opts.validate_anyarch and not inventory[0].endswith("-none-any.whl"):
         _die("Error: Target was anyarch but built a none-any wheel!\nSee {} for the sandbox".format(t))
 
-    if opts.cross and not inventory[0].endswith("-none-any.whl"):
-        _validate_wheel_platform(inventory[0])
+    tag_error = _wheel_platform_error(inventory[0], opts.target_os, opts.target_cpu)
+    if tag_error:
+        print("{}\nSee {} for the sandbox".format(tag_error, t), file=sys.stderr)
+        exit(1)
 
     os.replace(path.join(outdir, inventory[0]), path.abspath(opts.output))
 

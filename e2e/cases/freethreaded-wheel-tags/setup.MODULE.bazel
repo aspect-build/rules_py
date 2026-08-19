@@ -1,0 +1,9 @@
+uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv.declare_hub(hub_name = "pypi_freethreaded_wheel_tags")
+uv.project(
+    default_build_dependencies = [],
+    hub_name = "pypi_freethreaded_wheel_tags",
+    lock = "//freethreaded-wheel-tags:uv.lock",
+    pyproject = "//freethreaded-wheel-tags:pyproject.toml",
+)
+use_repo(uv, "pypi_freethreaded_wheel_tags")

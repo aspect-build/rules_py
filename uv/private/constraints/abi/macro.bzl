@@ -41,6 +41,16 @@ def generate(
         visibility = visibility,
     )
 
+    # PEP 803 stable ABI for free-threaded builds (e.g. cp315-abi3.abi3t
+    # wheels); the version floor comes from the python tag constraint.
+    native.config_setting(
+        name = "abi3t",
+        flag_values = {
+            _FREETHREADING_FLAG: "true",
+        },
+        visibility = visibility,
+    )
+
     # A native config_setting ANDs all of its flag_values entries, so each
     # abi tag is one target instead of a config_setting_group chain — this
     # loop emits 1344 tags, so the per-tag target count matters.
