@@ -1069,7 +1069,7 @@ def _requirement_name(requirement: str) -> str:
     return match.group(1) if match else ""
 
 
-def _legacy_metadata_conflicts_with_pyproject(worktree: str, pyproject_data: Optional[Dict[str, object]]) -> bool:
+def _legacy_metadata_conflicts_with_pyproject(worktree: str) -> bool:
     setup_py = path.join(worktree, "setup.py")
     pyproject_data = _load_pyproject_data(worktree)
     if not (pyproject_data and path.exists(setup_py)):
@@ -1148,144 +1148,150 @@ PARSER.add_argument("--execroot-marker", help="Token in env values to replace wi
 PARSER.add_argument("--cross", action="store_true", help="Cross-compilation mode: target platform != exec platform")
 PARSER.add_argument("--target-os", default="", help="Target platform OS (linux, darwin, windows)")
 PARSER.add_argument("--target-cpu", default="", help="Target platform CPU (x86_64, aarch64, ...)")
-opts, _ = PARSER.parse_known_args()
 
-tmp_root = path.abspath(opts.output) + ".tmp"
-# Sandboxed/remote actions get a fresh root each run, but a failed run under
-# --spawn_strategy=standalone leaves tmp_root behind and would mask the real
-# error with FileExistsError on retry — reclaim our own scratch dir instead.
-if path.isdir(tmp_root):
-    shutil.rmtree(tmp_root)
-makedirs(tmp_root)
+def main() -> None:
+    opts, _ = PARSER.parse_known_args()
 
-t = path.join(tmp_root, "worktree")
+    tmp_root = path.abspath(opts.output) + ".tmp"
+    # Sandboxed/remote actions get a fresh root each run, but a failed run under
+    # --spawn_strategy=standalone leaves tmp_root behind and would mask the real
+    # error with FileExistsError on retry — reclaim our own scratch dir instead.
+    if path.isdir(tmp_root):
+        shutil.rmtree(tmp_root)
+    makedirs(tmp_root)
 
-shutil.unpack_archive(opts.srcarchive, t)
+    t = path.join(tmp_root, "worktree")
 
-# unpack_archive nests the sdist's own top-level directory; follow it.
-t = path.join(t, listdir(t)[0])
+    shutil.unpack_archive(opts.srcarchive, t)
 
-if opts.patches:
-    for patch_file in opts.patches:
-        abs_patch = path.abspath(patch_file)
-        # --no-backup-if-mismatch: a fuzz/offset apply otherwise drops a
-        # `<file>.orig` into the worktree that gets swept into the built wheel.
-        patch_cmd = [
-            "patch",
-            "--no-backup-if-mismatch",
-            "-p{}".format(opts.patch_strip),
-            "-i",
-            abs_patch,
-        ]
-        try:
-            check_call(patch_cmd, cwd=t)
-        except CalledProcessError as exc:
-            _die("Error: failed to apply patch {} (patch exited {}).".format(abs_patch, exc.returncode))
+    # unpack_archive nests the sdist's own top-level directory; follow it.
+    t = path.join(t, listdir(t)[0])
+
+    if opts.patches:
+        for patch_file in opts.patches:
+            abs_patch = path.abspath(patch_file)
+            # --no-backup-if-mismatch: a fuzz/offset apply otherwise drops a
+            # `<file>.orig` into the worktree that gets swept into the built wheel.
+            patch_cmd = [
+                "patch",
+                "--no-backup-if-mismatch",
+                "-p{}".format(opts.patch_strip),
+                "-i",
+                abs_patch,
+            ]
+            try:
+                check_call(patch_cmd, cwd=t)
+            except CalledProcessError as exc:
+                _die("Error: failed to apply patch {} (patch exited {}).".format(abs_patch, exc.returncode))
 
 
-# Backends take an output directory, not a file: build into a scratch dir.
-outdir = path.join(tmp_root, "dist")
-makedirs(outdir)
+    # Backends take an output directory, not a file: build into a scratch dir.
+    outdir = path.join(tmp_root, "dist")
+    makedirs(outdir)
 
-build_env = _compiler_env(
-    tmp_root,
-    opts.execroot_marker,
-    cross=opts.cross,
-    target_os=opts.target_os,
-    target_cpu=opts.target_cpu,
-)
-
-pyproject_data = _load_pyproject_data(t)
-
-if _legacy_metadata_conflicts_with_pyproject(t, pyproject_data):
-    print(
-        "Warning: falling back to setup.py because pyproject.toml omits dynamic dependency metadata "
-        "that setuptools still reads from setup.py/setup.cfg.",
-        file=sys.stderr,
+    build_env = _compiler_env(
+        tmp_root,
+        opts.execroot_marker,
+        cross=opts.cross,
+        target_os=opts.target_os,
+        target_cpu=opts.target_cpu,
     )
-    cmd = [
-        sys.executable,
-        path.realpath(path.join(t, "setup.py")),
-        "bdist_wheel",
-        "--dist-dir",
-        outdir,
-    ]
-elif path.exists(path.join(t, "pyproject.toml")) or path.exists(path.join(t, "setup.py")):
-    cmd = [
-        sys.executable,
-        "-m", "build",
-        "--wheel",
-        "--no-isolation",
-        "--skip-dependency-check",
-        "--outdir", outdir,
-    ]
-    build_system = (pyproject_data or {}).get("build-system", {})
-    build_backend = build_system.get("build-backend") if isinstance(build_system, dict) else None
 
-    # Packages needing -D setup-args (numpy's -Dblas=none — the hermetic
-    # venv has no system BLAS in native mode either) pass them via this env
-    # var. `build`'s -C accumulates repeated keys, so it can't collide with
-    # the --cross-file the cross branch adds separately.
-    if build_backend == "mesonpy":
-        for arg in shlex.split(build_env.get("RULES_PY_MESON_SETUP_ARGS", "")):
-            cmd += ["-C", "setup-args=" + arg]
+    pyproject_data = _load_pyproject_data(t)
 
-    if opts.cross:
-        build_requires = build_system.get("requires", []) if isinstance(build_system, dict) else []
-        if not isinstance(build_requires, list):
-            build_requires = []
-        # setuptools-rust has no build-backend value of its own (it's
-        # setuptools.build_meta plus a requirement) and relies on
-        # $CARGO_BUILD_TARGET, same as maturin.
-        uses_setuptools_rust = build_backend in _SETUPTOOLS_BACKENDS and any(
-            isinstance(req, str) and _requirement_name(req) == "setuptools-rust" for req in build_requires
+    if _legacy_metadata_conflicts_with_pyproject(t):
+        print(
+            "Warning: falling back to setup.py because pyproject.toml omits dynamic dependency metadata "
+            "that setuptools still reads from setup.py/setup.cfg.",
+            file=sys.stderr,
         )
+        cmd = [
+            sys.executable,
+            path.realpath(path.join(t, "setup.py")),
+            "bdist_wheel",
+            "--dist-dir",
+            outdir,
+        ]
+    elif path.exists(path.join(t, "pyproject.toml")) or path.exists(path.join(t, "setup.py")):
+        cmd = [
+            sys.executable,
+            "-m", "build",
+            "--wheel",
+            "--no-isolation",
+            "--skip-dependency-check",
+            "--outdir", outdir,
+        ]
+        build_system = (pyproject_data or {}).get("build-system", {})
+        build_backend = build_system.get("build-backend") if isinstance(build_system, dict) else None
+
+        # Packages needing -D setup-args (numpy's -Dblas=none — the hermetic
+        # venv has no system BLAS in native mode either) pass them via this env
+        # var. `build`'s -C accumulates repeated keys, so it can't collide with
+        # the --cross-file the cross branch adds separately.
         if build_backend == "mesonpy":
-            cross_file = _generate_meson_cross_file(tmp_root, build_env, opts.target_os, opts.target_cpu)
-            cmd += ["-C", "setup-args=--cross-file=" + cross_file]
-        elif build_backend == "scikit_build_core.build":
-            toolchain = _generate_cmake_toolchain_file(tmp_root, build_env, opts.target_os, opts.target_cpu)
-            cmd += ["-C", "cmake.toolchain-file=" + toolchain]
-        elif (build_backend == "maturin" or uses_setuptools_rust) and build_env.get("CARGO"):
-            _configure_cargo_cross_env(build_env, tmp_root, opts.target_os, opts.target_cpu)
-else:
-    # raise, not _die(): ty doesn't narrow NoReturn in module-level flow and
-    # would flag `cmd` below as possibly unbound.
-    raise SystemExit("Error: Unable to detect build command! Neither pyproject.toml nor setup.py found!")
+            for arg in shlex.split(build_env.get("RULES_PY_MESON_SETUP_ARGS", "")):
+                cmd += ["-C", "setup-args=" + arg]
 
-with TemporaryFile(mode="w+") as build_log:
-    try:
-        if opts.monitor_memory:
-            # Lazy: the dependency exists only when the wheel opts in.
-            from uv.private.pep517_whl.tools.memory_monitor import run_with_memory_monitor
-
-            run_with_memory_monitor(
-                cmd,
-                cwd=t,
-                env=build_env,
-                stdout=build_log,
-                wheel=path.basename(opts.srcarchive),
+        if opts.cross:
+            build_requires = build_system.get("requires", []) if isinstance(build_system, dict) else []
+            if not isinstance(build_requires, list):
+                build_requires = []
+            # setuptools-rust has no build-backend value of its own (it's
+            # setuptools.build_meta plus a requirement) and relies on
+            # $CARGO_BUILD_TARGET, same as maturin.
+            uses_setuptools_rust = build_backend in _SETUPTOOLS_BACKENDS and any(
+                isinstance(req, str) and _requirement_name(req) == "setuptools-rust" for req in build_requires
             )
-        else:
-            run(cmd, cwd=t, env=build_env, stdout=build_log, stderr=STDOUT, check=True)
-    except CalledProcessError:
-        build_log.seek(0)
-        output = build_log.read()
-        if output:
-            sys.stderr.write(output)
-            if not output.endswith("\n"):
-                sys.stderr.write("\n")
-        _die("Error: Build failed!\nSee {} for the sandbox".format(t))
+            if build_backend == "mesonpy":
+                cross_file = _generate_meson_cross_file(tmp_root, build_env, opts.target_os, opts.target_cpu)
+                cmd += ["-C", "setup-args=--cross-file=" + cross_file]
+            elif build_backend == "scikit_build_core.build":
+                toolchain = _generate_cmake_toolchain_file(tmp_root, build_env, opts.target_os, opts.target_cpu)
+                cmd += ["-C", "cmake.toolchain-file=" + toolchain]
+            elif (build_backend == "maturin" or uses_setuptools_rust) and build_env.get("CARGO"):
+                _configure_cargo_cross_env(build_env, tmp_root, opts.target_os, opts.target_cpu)
+    else:
+        # raise, not _die(): ty doesn't narrow NoReturn in module-level flow and
+        # would flag `cmd` below as possibly unbound.
+        raise SystemExit("Error: Unable to detect build command! Neither pyproject.toml nor setup.py found!")
 
-inventory = listdir(outdir)
+    with TemporaryFile(mode="w+") as build_log:
+        try:
+            if opts.monitor_memory:
+                # Lazy: the dependency exists only when the wheel opts in.
+                from uv.private.pep517_whl.tools.memory_monitor import run_with_memory_monitor
 
-if len(inventory) != 1:
-    _die("Error: Expected exactly one built wheel, found {}!\nSee {} for the sandbox".format(len(inventory), t))
+                run_with_memory_monitor(
+                    cmd,
+                    cwd=t,
+                    env=build_env,
+                    stdout=build_log,
+                    wheel=path.basename(opts.srcarchive),
+                )
+            else:
+                run(cmd, cwd=t, env=build_env, stdout=build_log, stderr=STDOUT, check=True)
+        except CalledProcessError:
+            build_log.seek(0)
+            output = build_log.read()
+            if output:
+                sys.stderr.write(output)
+                if not output.endswith("\n"):
+                    sys.stderr.write("\n")
+            _die("Error: Build failed!\nSee {} for the sandbox".format(t))
 
-if opts.validate_anyarch and not inventory[0].endswith("-none-any.whl"):
-    _die("Error: Target was anyarch but built a none-any wheel!\nSee {} for the sandbox".format(t))
+    inventory = listdir(outdir)
 
-if opts.cross and not inventory[0].endswith("-none-any.whl"):
-    _validate_wheel_platform(inventory[0])
+    if len(inventory) != 1:
+        _die("Error: Expected exactly one built wheel, found {}!\nSee {} for the sandbox".format(len(inventory), t))
 
-os.replace(path.join(outdir, inventory[0]), path.abspath(opts.output))
+    if opts.validate_anyarch and not inventory[0].endswith("-none-any.whl"):
+        _die("Error: Target was anyarch but built a none-any wheel!\nSee {} for the sandbox".format(t))
+
+    if opts.cross and not inventory[0].endswith("-none-any.whl"):
+        _validate_wheel_platform(inventory[0])
+
+    os.replace(path.join(outdir, inventory[0]), path.abspath(opts.output))
+
+
+if __name__ == "__main__":
+    main()
