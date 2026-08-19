@@ -1,0 +1,18 @@
+manifest:
+  modules_mapping:
+    brotli: brotli
+    brotlicffi: brotlicffi
+    build: build
+    certifi: certifi
+    cffi: cffi
+    charset_normalizer: charset_normalizer
+    colorama: colorama
+    idna: idna
+    packaging: packaging
+    pycparser: pycparser
+    pyproject_hooks: pyproject_hooks
+    requests: requests
+    setuptools: setuptools
+    urllib3: urllib3
+  pip_repository:
+    name: pypi_uv_deps_650
