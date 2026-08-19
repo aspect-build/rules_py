@@ -27,7 +27,7 @@ single_version_override(
 interpreters = use_extension("@aspect_rules_py//py:extensions.bzl", "python_interpreters")
 interpreters.configure(
     releases = [
-        "20260303",
+        "20260814",
     ],
 )
 interpreters.toolchain(
@@ -44,6 +44,10 @@ interpreters.toolchain(
 )
 interpreters.toolchain(
     python_version = "3.14",
+)
+interpreters.toolchain(
+    pre_release = True,
+    python_version = "3.15",
 )
 use_repo(interpreters, "python_interpreters")
 
@@ -95,6 +99,7 @@ include("//current-py-toolchain-bazel-env-896:setup.MODULE.bazel")
 include("//dedup-installs:setup.MODULE.bazel")
 include("//firebase-admin-import:setup.MODULE.bazel")
 include("//freethreaded-805:setup.MODULE.bazel")
+include("//freethreaded-wheel-tags:setup.MODULE.bazel")
 include("//google-native-overlay:setup.MODULE.bazel")
 include("//inactive-marker:setup.MODULE.bazel")
 include("//jwt-regular-collision:setup.MODULE.bazel")

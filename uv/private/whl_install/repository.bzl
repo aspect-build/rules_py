@@ -75,7 +75,8 @@ def sort_select_arms(arms):
     return {a: b for a, b in pairs}
 
 def compatible_python_tags(python_tag, abi_tag):
-    if abi_tag != "abi3" or not python_tag.startswith("cp"):
+    # abi3/abi3t wheels run on any CPython at or above their python tag.
+    if abi_tag not in ["abi3", "abi3t"] or not python_tag.startswith("cp"):
         return [python_tag]
 
     major = int(python_tag[2])
