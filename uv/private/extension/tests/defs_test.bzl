@@ -79,7 +79,8 @@ def _install_cfg(
         sbuild = None,
         post_install_patches = [],
         extra_deps = [],
-        extra_data = []):
+        extra_data = [],
+        testonly = False):
     return struct(
         whls = whls,
         exclude_glob = exclude_glob,
@@ -87,6 +88,7 @@ def _install_cfg(
         post_install_patches = post_install_patches,
         extra_deps = extra_deps,
         extra_data = extra_data,
+        testonly = testonly,
     )
 
 def _shared_install_key_test_impl(ctx):
@@ -115,6 +117,9 @@ def _shared_install_key_test_impl(ctx):
         False,
         key == shared_install_key(_install_cfg(ordered, exclude_glob = ["**/*.pyi"])),
     )
+
+    # Test-only installs must never be shared with unrestricted installs.
+    asserts.equals(env, False, key == shared_install_key(_install_cfg(ordered, testonly = True)))
 
     # Project-local inputs are never shareable.
     asserts.equals(env, None, shared_install_key(_install_cfg(ordered, sbuild = "@sdist_build__x//:whl")))
