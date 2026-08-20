@@ -293,6 +293,29 @@ py_image_layer(
     groups = {":shared_group_payload": "shared_data"},
 )
 
+# launcher_dir "/" places the launchers at the image root.
+py_image_layer(
+    name = "root_launcher_layers",
+    binaries = [
+        ":shared_group_first_bin",
+        ":shared_group_second_bin",
+    ],
+    launcher_dir = "/",
+)
+
+py_test(
+    name = "root_launcher_layers_test",
+    srcs = ["assert_tar_paths.py"],
+    args = [
+        "--tar-contains=_default.tar.gz=./shared_group_first_bin",
+        "--tar-contains=_default.tar.gz=./shared_group_second_bin",
+        "--tar-absent=_default.tar.gz=/app/bin/",
+        "$(rootpaths :root_launcher_layers)",
+    ],
+    data = [":root_launcher_layers"],
+    main = "assert_tar_paths.py",
+)
+
 py_test(
     name = "shared_group_layers_test",
     srcs = ["assert_tar_paths.py"],
@@ -333,6 +356,41 @@ py_image_layer(
     name = "my_app_layers_fp",
     binary = ":my_app_bin",
     layer_tier = ":my_app_tier",
+)
+
+# Aspect-declared tars are action-shared: pip whole/subpath tars live at the
+# wheel repo's namespace and the interpreter tar at the toolchain target, so a
+# second image over the same package and tier must reuse the exact artifacts.
+py_binary(
+    name = "sharing_probe_bin",
+    srcs = ["server.py"],
+    dep_group = "images",
+    deps = ["@pypi_oci_py_image_layer//colorama"],
+)
+
+py_image_layer(
+    name = "sharing_probe_layers",
+    binary = ":sharing_probe_bin",
+    layer_tier = ":my_app_tier",
+)
+
+py_test(
+    name = "pip_layer_sharing_test",
+    srcs = ["assert_shared_layers.py"],
+    args = [
+        "--shared-suffix=_pip_layer_colorama_code.tar.gz",
+        "--shared-suffix=_pip_layer_tar.tar.gz",
+        "--shared-suffix=_interpreter_layer_interpreter.tar.gz",
+        "--first",
+        "$(rootpaths :my_app_layers_fp)",
+        "--second",
+        "$(rootpaths :sharing_probe_layers)",
+    ],
+    data = [
+        ":my_app_layers_fp",
+        ":sharing_probe_layers",
+    ],
+    main = "assert_shared_layers.py",
 )
 
 # Ownership coverage. Every layer kind has its own mtree emitter, so the binary
@@ -399,6 +457,32 @@ py_test(
     args = ["$(rootpaths :tree_group_layers)"],
     data = [":tree_group_layers"],
     main = "assert_tree_artifact_layering.py",
+)
+
+# The same tree artifact left ungrouped: its space-named child exercises the
+# \040 mtree escape on the default source layer (the grouped path is covered
+# above).
+py_binary(
+    name = "tree_source_bin",
+    srcs = ["server.py"],
+    data = [":tree_group_data"],
+)
+
+py_image_layer(
+    name = "tree_source_layers",
+    binary = ":tree_source_bin",
+)
+
+py_test(
+    name = "tree_source_space_test",
+    srcs = ["assert_tar_paths.py"],
+    args = [
+        "'--tar-contains=_default.tar.gz=/tree payload.txt'",
+        "--tar-contains=_default.tar.gz=/tree_payload.txt",
+        "$(rootpaths :tree_source_layers)",
+    ],
+    data = [":tree_source_layers"],
+    main = "assert_tar_paths.py",
 )
 
 # An opaque (non-PyInfo) wrapper carries a full py_binary in its runfiles: its
@@ -477,6 +561,33 @@ py_test(
     ],
     data = [":embedded_tool_tier_layers"],
     main = "assert_tar_paths.py",
+)
+
+# End-to-end validator wiring: warn_layer_count reaches the validation action
+# and the report lands in the _validation output group. The warning threshold
+# and suggestion content are unit-tested in py_image_layer_validator_test.py.
+py_image_layer(
+    name = "validator_warn_layers",
+    binary = ":embedded_tool_bin",
+    warn_layer_count = 1,
+)
+
+filegroup(
+    name = "validator_warn_report",
+    srcs = [":validator_warn_layers"],
+    output_group = "_validation",
+    tags = ["manual"],
+)
+
+py_test(
+    name = "validator_wiring_test",
+    srcs = ["assert_file_contains.py"],
+    args = [
+        "'--expect=WARNING: image has 2 layers (warn threshold: 1, hard limit: 127).'",
+        "$(rootpaths :validator_warn_report)",
+    ],
+    data = [":validator_warn_report"],
+    main = "assert_file_contains.py",
 )
 
 # Mode semantics of rule-group layers: a grouped file that is also one of the
@@ -576,6 +687,85 @@ py_image_layer(
     name = "my_app_multi_layers",
     binary = ":my_app_multi_bin",
     layer_tier = ":my_app_multi_tier",
+)
+
+# The single-binary merged tar is declared by the merge aspect at the binary,
+# so two images over the same binary and tier share one merge action.
+py_image_layer(
+    name = "my_app_multi_twin_layers",
+    binary = ":my_app_multi_bin",
+    layer_tier = ":my_app_multi_tier",
+)
+
+py_test(
+    name = "merged_layer_sharing_test",
+    srcs = ["assert_shared_layers.py"],
+    args = [
+        "--shared-suffix=_merged_pip_layer_third_party.tar.zst",
+        "--first",
+        "$(rootpaths :my_app_multi_layers)",
+        "--second",
+        "$(rootpaths :my_app_multi_twin_layers)",
+    ],
+    data = [
+        ":my_app_multi_layers",
+        ":my_app_multi_twin_layers",
+    ],
+    main = "assert_shared_layers.py",
+)
+
+# Layer bytes must be reproducible: mtree rows are sorted, the gzip MTIME
+# header is zeroed, and unioned closures are order-independent, so reversing
+# `binaries` yields byte-identical tars from independent actions. Also covers
+# the multi-binary merged-union path under zstd compression. The peer keeps
+# the same pip closure as my_app_multi_bin: the merge aspect names its
+# per-binary tar by package only, so same-package binaries with different
+# group closures would produce conflicting actions.
+py_binary(
+    name = "det_peer_bin",
+    srcs = ["server.py"],
+    dep_group = "images",
+    deps = [
+        "@pypi_oci_py_image_layer//colorama",
+        "@pypi_oci_py_image_layer//pyproject_hooks",
+    ],
+)
+
+py_image_layer(
+    name = "det_pair_a_layers",
+    binaries = [
+        ":my_app_multi_bin",
+        ":det_peer_bin",
+    ],
+    layer_tier = ":my_app_multi_tier",
+)
+
+py_image_layer(
+    name = "det_pair_b_layers",
+    binaries = [
+        ":det_peer_bin",
+        ":my_app_multi_bin",
+    ],
+    layer_tier = ":my_app_multi_tier",
+)
+
+py_test(
+    name = "layer_determinism_test",
+    srcs = ["assert_layers_identical.py"],
+    args = [
+        "--first-name=det_pair_a_layers",
+        "--second-name=det_pair_b_layers",
+        "--expect-layer=/merged_pip_layers/third_party.tar.zst",
+        "--first",
+        "$(rootpaths :det_pair_a_layers)",
+        "--second",
+        "$(rootpaths :det_pair_b_layers)",
+    ],
+    data = [
+        ":det_pair_a_layers",
+        ":det_pair_b_layers",
+    ],
+    main = "assert_layers_identical.py",
 )
 
 # Exercise the actual multi-launcher flow with separate lock universes and two
@@ -1003,6 +1193,48 @@ container_structure_test(
     tags = [
         "requires-docker",
     ],
+)
+
+# `\/` in strip_prefix is an escaped literal `/`; both spellings must produce
+# byte-identical layers.
+py_layer_tier(
+    name = "escaped_strip_tier",
+    strip_prefix = "oci\\/py_image_layer",
+)
+
+py_layer_tier(
+    name = "plain_strip_tier",
+    strip_prefix = "oci/py_image_layer",
+)
+
+py_image_layer(
+    name = "escaped_strip_layers",
+    binary = ":server",
+    layer_tier = ":escaped_strip_tier",
+)
+
+py_image_layer(
+    name = "plain_strip_layers",
+    binary = ":server",
+    layer_tier = ":plain_strip_tier",
+)
+
+py_test(
+    name = "escaped_strip_prefix_test",
+    srcs = ["assert_layers_identical.py"],
+    args = [
+        "--first-name=escaped_strip_layers",
+        "--second-name=plain_strip_layers",
+        "--first",
+        "$(rootpaths :escaped_strip_layers)",
+        "--second",
+        "$(rootpaths :plain_strip_layers)",
+    ],
+    data = [
+        ":escaped_strip_layers",
+        ":plain_strip_layers",
+    ],
+    main = "assert_layers_identical.py",
 )
 
 # Exercise scalar launcher relocation independently from the default `/app`
