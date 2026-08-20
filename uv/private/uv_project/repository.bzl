@@ -159,15 +159,19 @@ load("@aspect_rules_py//py:defs.bzl", "py_library")
                     # Extra-only markers cannot be evaluated at build time; they
                     # are already resolved by the active venv. Treat the SCC as
                     # the default for this configuration.
-                    if "//conditions:default" not in cfg_arms:
-                        cfg_arms["//conditions:default"] = "//private/sccs:" + scc
+                    if cfg_arms.get("//conditions:default", "//private/sccs:" + scc) != "//private/sccs:" + scc:
+                        fail("Configuration conflict! Package {} resolves two or more packages via extra-only markers in the same configuration; the venv cannot disambiguate them at build time.\n{}".format(package, pprint(cfgs)))
+
+                    cfg_arms["//conditions:default"] = "//private/sccs:" + scc
 
                 else:
                     for marker in markers.keys():
                         if is_extra_only_marker(marker):
                             # Already resolved by the active venv.
-                            if "//conditions:default" not in cfg_arms:
-                                cfg_arms["//conditions:default"] = "//private/sccs:" + scc
+                            if cfg_arms.get("//conditions:default", "//private/sccs:" + scc) != "//private/sccs:" + scc:
+                                fail("Configuration conflict! Package {} resolves two or more packages via extra-only markers in the same configuration; the venv cannot disambiguate them at build time.\n{}".format(package, pprint(cfgs)))
+
+                            cfg_arms["//conditions:default"] = "//private/sccs:" + scc
                         else:
                             marker = _marker(marker)
                             if marker in cfg_arms:
