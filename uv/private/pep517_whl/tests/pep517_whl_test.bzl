@@ -5,8 +5,9 @@ Inspecting the action at analysis time avoids actually running a PEP 517
 build to verify the env wiring.
 """
 
-load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
+load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts", "unittest")
 load("//uv/private:source_built_wheel.bzl", "SourceBuiltWheelInfo")
+load("//uv/private/pep517_whl:pep517_native_whl.bzl", "cross_detection_test_util")
 
 _ACTION_ENV = "//command_line_option:action_env"
 _HOST_ENV = [
@@ -132,3 +133,53 @@ pep517_native_whl_execroot_collision_test = analysistest.make(
     _execroot_collision_test_impl,
     expect_failure = True,
 )
+
+def _fake_runtime(short_path):
+    return struct(interpreter = struct(short_path = short_path))
+
+def _interpreter_platform_triple_test_impl(ctx):
+    env = unittest.begin(ctx)
+    triple = cross_detection_test_util.interpreter_platform_triple
+    asserts.equals(
+        env,
+        "aarch64-apple-darwin",
+        triple(_fake_runtime("../python_3_12_aarch64-apple-darwin/python")),
+    )
+    asserts.equals(
+        env,
+        "x86_64-unknown-linux-gnu",
+        triple(_fake_runtime("../python_3_13_x86_64_unknown_linux_gnu/bin/python3")),
+    )
+    asserts.equals(
+        env,
+        "aarch64-apple-darwin",
+        triple(_fake_runtime("../rules_python++python+python_3_11_aarch64-apple-darwin/bin/python3")),
+    )
+    asserts.equals(env, None, triple(_fake_runtime("tools/python/bin/python3")))
+    asserts.equals(env, None, triple(_fake_runtime("../custom_interpreter/bin/python")))
+    asserts.equals(env, None, triple(None))
+    asserts.equals(env, None, triple(struct(interpreter = None)))
+    return unittest.end(env)
+
+interpreter_platform_triple_test = unittest.make(_interpreter_platform_triple_test_impl)
+
+def _cross_decision_test_impl(ctx):
+    env = unittest.begin(ctx)
+    decision = cross_detection_test_util.cross_decision
+    linux = "x86_64-unknown-linux-gnu"
+    darwin = "aarch64-apple-darwin"
+
+    # Matching triples prove native, even without the sentinel registered.
+    asserts.false(env, decision(linux, linux, False))
+
+    # Differing triples prove cross, even when a sentinel resolved.
+    asserts.true(env, decision(darwin, linux, True))
+
+    # Unrecognizable identities fall back to the sentinel.
+    asserts.false(env, decision(None, linux, True))
+    asserts.true(env, decision(None, linux, False))
+    asserts.true(env, decision(darwin, None, False))
+    asserts.false(env, decision(None, None, True))
+    return unittest.end(env)
+
+cross_decision_test = unittest.make(_cross_decision_test_impl)

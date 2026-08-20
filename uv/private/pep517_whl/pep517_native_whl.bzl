@@ -160,7 +160,7 @@ def _interpreter_platform_triple(runtime):
     Returns the matching PLATFORMS key, or None when the interpreter's origin
     is not recognizable (custom or non-hermetic toolchains).
     """
-    if runtime == None or runtime.interpreter == None:
+    if runtime == None or getattr(runtime, "interpreter", None) == None:
         return None
     short_path = runtime.interpreter.short_path
     repo = short_path.split("/")[1] if short_path.startswith("../") else short_path.split("/")[0]
@@ -169,25 +169,33 @@ def _interpreter_platform_triple(runtime):
             return triple
     return None
 
-def _cross_compile(ctx, eg_toolchains):
-    """Decide cross mode from exec/target interpreter platform identities.
+def _cross_decision(exec_triple, target_triple, has_native_build_toolchain):
+    """Whether building on this execution platform would cross-compile.
 
-    The exec interpreter (EXEC_TOOLS_TOOLCHAIN, selected by exec platform)
-    and the target interpreter (PY_TOOLCHAIN, selected by target platform)
-    carry their origin repo's platform triple. Identical triples prove
-    exec == target, so a native build stays native even when the optional
-    NATIVE_BUILD_TOOLCHAIN sentinel is not registered for the platform.
-
-    When either identity is unrecognizable (custom interpreters), fall back
-    to the sentinel's absence as the cross signal — the previous behavior.
+    Identical exec and target interpreter triples prove exec == target, so a
+    native build stays native even when the NATIVE_BUILD_TOOLCHAIN sentinel is
+    not registered for the platform. When either identity is unrecognizable
+    (custom interpreters), fall back to the sentinel's absence as the cross
+    signal — the sentinel only resolves when exec and target platforms match.
     """
+    if exec_triple and target_triple:
+        return exec_triple != target_triple
+    return not has_native_build_toolchain
+
+def _cross_compile(ctx, eg_toolchains):
+    """Cross decision plus the interpreter triples it was based on."""
     exec_tc = eg_toolchains[EXEC_TOOLS_TOOLCHAIN]
     py_tc = ctx.toolchains[PY_TOOLCHAIN]
     exec_triple = _interpreter_platform_triple(getattr(exec_tc, "exec_runtime", None) if exec_tc != None else None)
     target_triple = _interpreter_platform_triple(getattr(py_tc, "py3_runtime", None) if py_tc != None else None)
-    if exec_triple and target_triple:
-        return exec_triple != target_triple
-    return eg_toolchains[NATIVE_BUILD_TOOLCHAIN] == None
+    cross = _cross_decision(exec_triple, target_triple, eg_toolchains[NATIVE_BUILD_TOOLCHAIN] != None)
+    return cross, exec_triple, target_triple
+
+# Exposed for the unit tests in tests/pep517_whl_test.bzl only.
+cross_detection_test_util = struct(
+    interpreter_platform_triple = _interpreter_platform_triple,
+    cross_decision = _cross_decision,
+)
 
 def _pep517_native_whl(ctx):
     archive = ctx.file.src
@@ -198,7 +206,7 @@ def _pep517_native_whl(ctx):
     patch_args, patch_inputs = patch_args_and_inputs(ctx)
 
     eg_toolchains = ctx.exec_groups[TARGET_EXEC_GROUP].toolchains
-    cross = _cross_compile(ctx, eg_toolchains)
+    cross, _exec_triple, _target_triple = _cross_compile(ctx, eg_toolchains)
     cc_toolchain_raw = eg_toolchains[_CC_TOOLCHAIN_TYPE]
 
     if cc_toolchain_raw == None:
@@ -360,14 +368,27 @@ absence is used as the cross signal.
     } | CC_LAYER_ATTRS,
     fragments = ["cpp"],
     toolchains = [
+        # Target-configured interpreter, read for its platform triple in the
+        # cross detection and for the target sysconfigdata in cross mode;
+        # optional so unresolvable targets surface the rule's own error
+        # instead of a toolchain-resolution one.
         config_common.toolchain_type(PY_TOOLCHAIN, mandatory = False),
     ],
     exec_groups = {
+        # Detection inputs: NATIVE_BUILD_TOOLCHAIN has matching
+        # exec_compatible_with and target_compatible_with, so it resolves
+        # exactly when the exec and target platforms match — optional, its
+        # absence is a cross signal, not a resolution error. The exec- and
+        # target-configured interpreters' platform triples refine that signal
+        # (see _cross_decision); a cross decision switches the action into
+        # cross mode instead of failing.
         TARGET_EXEC_GROUP: exec_group(
             toolchains = [
                 PY_TOOLCHAIN,
                 config_common.toolchain_type(EXEC_TOOLS_TOOLCHAIN, mandatory = False),
                 config_common.toolchain_type(NATIVE_BUILD_TOOLCHAIN, mandatory = False),
+                # Optional so the rule's own per-mode message wins when no
+                # C++ toolchain resolves (see the cc_toolchain_raw check).
                 config_common.toolchain_type(_CC_TOOLCHAIN_TYPE, mandatory = False),
             ],
         ),
