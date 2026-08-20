@@ -1,0 +1,16 @@
+# tiktoken ships official prebuilt wheels for linux/amd64 and linux/arm64,
+# but [tool.uv] no-binary-package forces it to build from sdist here. A
+# second setuptools-rust package alongside //bcrypt — same build-backend
+# shape (plain "setuptools.build_meta" with "setuptools-rust" only visible
+# in build-system.requires, no --target flag of its own) on a different,
+# widely-used real-world crate (OpenAI's BPE tokenizer core), so this path
+# isn't validated by one lucky package alone.
+
+load("//tools:cross_case.bzl", "pep517_cross_case")
+
+pep517_cross_case(
+    name = "tiktoken",
+    check_so_suffix = False,
+    so_pattern = "whl_install__crossbuild_tiktoken.*_tiktoken.*\\.so$$",
+    deps = ["@pypi_crossbuild_tiktoken//tiktoken"],
+)

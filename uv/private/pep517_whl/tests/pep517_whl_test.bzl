@@ -183,16 +183,3 @@ def _cross_decision_test_impl(ctx):
     return unittest.end(env)
 
 cross_decision_test = unittest.make(_cross_decision_test_impl)
-
-def _cross_unsupported_test_impl(ctx):
-    env = analysistest.begin(ctx)
-    asserts.expect_failure(env, "would cross-compile its native extensions")
-    return analysistest.end(env)
-
-pep517_native_whl_cross_unsupported_test = analysistest.make(
-    _cross_unsupported_test_impl,
-    expect_failure = True,
-    config_settings = {
-        "//command_line_option:platforms": [Label("//uv/private/pep517_whl/tests:cross_target_platform")],
-    },
-)

@@ -1,14 +1,11 @@
-"""PEP 517 sdist to platform-specific whl build rule.
-
-Uses `python -m build` (the pypa/build frontend) which delegates to whatever
-build backend the sdist declares in its `[build-system]` table.
-"""
+"""PEP 517 sdist to platform-specific whl build rule."""
 
 load("@bazel_lib//lib:resource_sets.bzl", "resource_set")
 load("@rules_cc//cc:action_names.bzl", "ACTION_NAMES")
 load("@rules_cc//cc/common:cc_common.bzl", "cc_common")
 load("//py/private/interpreter:versions.bzl", "PLATFORMS")
 load("//py/private/toolchain:types.bzl", "EXEC_TOOLS_TOOLCHAIN", "NATIVE_BUILD_TOOLCHAIN", "PY_TOOLCHAIN")
+load(":cc_layer.bzl", "CC_LAYER_ATTRS", "extract_cc_layer")
 load(
     ":common.bzl",
     "PEP517_WHL_ATTRS",
@@ -16,8 +13,10 @@ load(
     "common_env",
     "memory_args",
     "patch_args_and_inputs",
+    "tool_files_to_run",
     "wheel_providers",
 )
+load(":exec_transition.bzl", "exec_transition")
 
 _CC_TOOLCHAIN_TYPE = Label("@bazel_tools//tools/cpp:toolchain_type")
 _EXECROOT_MARKER = "__ASPECT_RULES_PY_EXECROOT__"
@@ -117,6 +116,41 @@ def _cc_toolchain_inputs_and_tools(ctx):
     infer_cxx = infer_cxx or tools.get("CXX") == tools.get("CC")
     return files, {key: value for key, value in tools.items() if value}, infer_cxx
 
+_PYTHON_CPU_MAP = {
+    "x86_64": "x86_64",
+    "aarch64": "aarch64",
+    "x86": "i686",
+    "arm": "arm",
+}
+
+def _find_sysconfigdata(runtime):
+    """Locate _sysconfigdata*.py inside the target interpreter's file tree."""
+    if not runtime or not hasattr(runtime, "interpreter_version_info"):
+        return None
+    info = runtime.interpreter_version_info
+    prefix = "lib/python{}.{}".format(info.major, info.minor)
+    for f in runtime.files.to_list():
+        if f.basename.startswith("_sysconfigdata") and f.basename.endswith(".py") and prefix in f.path:
+            return f
+    return None
+
+def _derive_python_host_platform(target_os, target_cpu):
+    """Derive _PYTHON_HOST_PLATFORM from target platform constraints.
+
+    Linux: libc does not affect the platform string — always linux-{cpu}.
+    macOS: uses arm64 (not aarch64) and requires a version component. The
+    version here is only an analysis-time fallback: the deployment target is
+    a property of the target interpreter, which analysis can't read, so
+    build_helper re-derives it at build time from the target sysconfigdata's
+    MACOSX_DEPLOYMENT_TARGET whenever that file is available.
+    """
+    if target_os == "linux":
+        return "linux-" + _PYTHON_CPU_MAP.get(target_cpu, target_cpu)
+    if target_os == "darwin":
+        cpu = "arm64" if target_cpu == "aarch64" else target_cpu
+        return "macosx-11.0-" + cpu
+    return None
+
 def _interpreter_platform_triple(runtime):
     """Best-effort platform triple of the repo a PyRuntimeInfo comes from.
 
@@ -166,32 +200,36 @@ cross_detection_test_util = struct(
 def _pep517_native_whl(ctx):
     archive = ctx.file.src
 
-    eg_toolchains = ctx.exec_groups[TARGET_EXEC_GROUP].toolchains
-    cross, exec_triple, target_triple = _cross_compile(ctx, eg_toolchains)
-    if cross:
-        detail = ""
-        if exec_triple and target_triple:
-            detail = " (execution platform interpreter: {}, target interpreter: {})".format(exec_triple, target_triple)
-        fail(
-            "{}: building this sdist would cross-compile its native extensions{}. ".format(ctx.label, detail) +
-            "Cross-compilation of sdists is not supported: build on an execution " +
-            "platform matching the target platform, or supply a prebuilt wheel " +
-            "for the target instead of building from source.",
-        )
-
-    # Native build classified: a missing C++ toolchain must stay an explicit
-    # analysis error (it used to be a resolution failure when the type was
-    # mandatory) — otherwise the backend compiles with whatever ambient
-    # compiler the sandbox exposes, or fails at execution time.
-    if eg_toolchains[_CC_TOOLCHAIN_TYPE] == None:
-        fail(
-            "{}: no C++ toolchain resolved for this native sdist build. ".format(ctx.label) +
-            "Building native extensions requires a registered C++ toolchain " +
-            "usable on the selected execution platform.",
-        )
-
+    # Fixed name; the backend picks the real filename at build time and the
+    # helper renames onto this. Consumers read identity from dist-info only.
     wheel_file = ctx.actions.declare_file(ctx.label.name + ".whl")
     patch_args, patch_inputs = patch_args_and_inputs(ctx)
+
+    eg_toolchains = ctx.exec_groups[TARGET_EXEC_GROUP].toolchains
+    cross, _exec_triple, _target_triple = _cross_compile(ctx, eg_toolchains)
+    cc_toolchain_raw = eg_toolchains[_CC_TOOLCHAIN_TYPE]
+
+    if cc_toolchain_raw == None:
+        if cross:
+            fail(
+                ("Cross-compilation of sdist '{}' requires a CC toolchain " +
+                 "registered for the target platform. No toolchain of type {} " +
+                 "resolved against the current exec/target platform combination.\n" +
+                 "Register a cross CC toolchain (e.g., toolchains_llvm with " +
+                 "matching target_compatible_with) via register_toolchains.").format(
+                    ctx.attr.src.label,
+                    _CC_TOOLCHAIN_TYPE,
+                ),
+            )
+        fail(
+            ("sdist '{}' requires a CC toolchain but none resolved. " +
+             "Register a CC toolchain (e.g., rules_cc, toolchains_llvm) " +
+             "via register_toolchains.").format(ctx.attr.src.label),
+        )
+
+    cc_toolchain = cc_toolchain_raw
+    if hasattr(cc_toolchain, "cc_provider_in_toolchain") and hasattr(cc_toolchain, "cc"):
+        cc_toolchain = cc_toolchain.cc
 
     env = common_env(ctx)
     extra_inputs, known_variables = _collect_toolchain_inputs_and_vars(ctx)
@@ -216,12 +254,60 @@ def _pep517_native_whl(ctx):
     if "CXX" not in ctx.attr.env and cc_tools.get("CXX") and infer_cxx:
         env[_INFER_CXX_COMPANION] = "1"
 
+    if cross:
+        cc_layer = extract_cc_layer(ctx, cc_toolchain)
+        env["RULES_PY_CROSS_COMPILE"] = "1"
+        env["RULES_PY_TARGET_OS"] = cc_layer.target_os or ""
+        env["RULES_PY_TARGET_CPU"] = cc_layer.target_cpu or ""
+        if cc_layer.static_runtime_files:
+            extra_inputs.append(cc_layer.static_runtime_files)
+        if cc_layer.static_runtime_paths:
+            env["RULES_PY_CXX_STATIC_RUNTIME"] = ":".join(cc_layer.static_runtime_paths)
+        if cc_layer.cflags:
+            env["CFLAGS"] = cc_layer.cflags
+        if cc_layer.cxxflags:
+            env["CXXFLAGS"] = cc_layer.cxxflags
+        if cc_layer.ldflags:
+            env["LDFLAGS"] = cc_layer.ldflags
+        if cc_layer.ldshared_flags:
+            env["LDSHAREDFLAGS"] = cc_layer.ldshared_flags
+        if cc_layer.ccshared:
+            env["CFLAGS"] = (env.get("CFLAGS", "") + " " + cc_layer.ccshared).strip()
+            env["CXXFLAGS"] = (env.get("CXXFLAGS", "") + " " + cc_layer.ccshared).strip()
+        cross_args = [
+            "--cross",
+            "--target-os",
+            cc_layer.target_os or "",
+            "--target-cpu",
+            cc_layer.target_cpu or "",
+        ]
+
+        py_toolchain = ctx.toolchains[PY_TOOLCHAIN]
+        if py_toolchain != None:
+            runtime = getattr(py_toolchain, "py3_runtime", None)
+            if runtime:
+                sysconfig_file = _find_sysconfigdata(runtime)
+                if sysconfig_file:
+                    extra_inputs.append(depset([sysconfig_file]))
+                    env["RULES_PY_TARGET_SYSCONFIGDATA"] = sysconfig_file.path
+
+        host_platform = _derive_python_host_platform(cc_layer.target_os, cc_layer.target_cpu)
+        if host_platform:
+            env["_PYTHON_HOST_PLATFORM"] = host_platform
+    else:
+        cross_args = []
+
+    tool = tool_files_to_run(ctx)
+
     ctx.actions.run(
-        mnemonic = "PySdistNativeBuild",
-        progress_message = "Native source compiling {} to a whl".format(archive.basename),
-        executable = ctx.executable.tool,
+        mnemonic = "PySdistCrossBuild" if cross else "PySdistNativeBuild",
+        progress_message = "{} source compiling {} to a whl".format(
+            "Cross" if cross else "Native",
+            archive.basename,
+        ),
+        executable = tool,
         toolchain = None,
-        arguments = ctx.attr.args + patch_args + memory_args(ctx) + [
+        arguments = ctx.attr.args + patch_args + memory_args(ctx) + cross_args + [
             "--execroot-marker",
             _EXECROOT_MARKER,
             archive.path,
@@ -231,7 +317,7 @@ def _pep517_native_whl(ctx):
             [archive] + patch_inputs,
             transitive = extra_inputs,
         ),
-        tools = [ctx.attr.tool[DefaultInfo].files_to_run],
+        tools = [tool],
         outputs = [wheel_file],
         env = env,
         exec_group = TARGET_EXEC_GROUP,
@@ -255,8 +341,15 @@ attribute maps environment variable names to strings that may reference
 `$(VAR)` make-variables sourced from those toolchains. This mirrors the
 pattern used by `rules_rust`'s `cargo_build_script`.
 
-The build is guaranteed to occur on an execution platform matching the
-constraints of the target platform.
+In native mode (exec platform == target platform) the build uses the host
+CC toolchain. Cross mode is decided by comparing the platform triples of the
+exec interpreter (exec-tools toolchain) and the target interpreter (Python
+toolchain): differing triples enter cross mode, where the CC toolchain of
+the "target" exec group resolves against a user-registered cross CC toolchain
+(e.g., toolchains_llvm). If no cross CC toolchain is found, analysis fails
+with a diagnostic naming the required toolchain type. When the interpreter
+origins are unrecognizable, the optional NATIVE_BUILD_TOOLCHAIN sentinel's
+absence is used as the cross signal.
 
 """,
     attrs = PEP517_WHL_ATTRS | {
@@ -271,38 +364,31 @@ constraints of the target platform.
                   "the unpacked source tree. Omit CC/CXX/AR/LD/STRIP to use the " +
                   "configured C++ action tools.",
         ),
-    },
+        "tool": attr.label(executable = True, cfg = exec_transition),
+    } | CC_LAYER_ATTRS,
     fragments = ["cpp"],
     toolchains = [
-        # Target-configured interpreter, read only for its platform triple in
-        # the cross detection; optional so unresolvable targets surface the
-        # rule's own error instead of a toolchain-resolution one.
+        # Target-configured interpreter, read for its platform triple in the
+        # cross detection and for the target sysconfigdata in cross mode;
+        # optional so unresolvable targets surface the rule's own error
+        # instead of a toolchain-resolution one.
         config_common.toolchain_type(PY_TOOLCHAIN, mandatory = False),
     ],
     exec_groups = {
-        # Cross-compilation of sdists is intentionally unsupported: PEP 517
-        # build backends (setuptools, meson-python, etc.) have no standard
-        # mechanism for cross-compilation, Python headers for the target
-        # platform are not readily available, and output wheel tags would
-        # need to encode the target platform with no upstream tooling
-        # support. Packages that need cross-compiled native extensions should
-        # publish pre-built wheels for their target platforms instead.
-        #
         # Detection inputs: NATIVE_BUILD_TOOLCHAIN has matching
         # exec_compatible_with and target_compatible_with, so it resolves
         # exactly when the exec and target platforms match — optional, its
         # absence is a cross signal, not a resolution error. The exec- and
         # target-configured interpreters' platform triples refine that signal
-        # (see _cross_decision). The rule fails with an explicit message
-        # instead of the toolchain-resolution error it used to surface.
+        # (see _cross_decision); a cross decision switches the action into
+        # cross mode instead of failing.
         TARGET_EXEC_GROUP: exec_group(
             toolchains = [
                 PY_TOOLCHAIN,
                 config_common.toolchain_type(EXEC_TOOLS_TOOLCHAIN, mandatory = False),
                 config_common.toolchain_type(NATIVE_BUILD_TOOLCHAIN, mandatory = False),
-                # Optional for the same reason: on a cross target no C++
-                # toolchain may resolve, and the rule's own error must win
-                # over a resolution failure.
+                # Optional so the rule's own per-mode message wins when no
+                # C++ toolchain resolves (see the cc_toolchain_raw check).
                 config_common.toolchain_type(_CC_TOOLCHAIN_TYPE, mandatory = False),
             ],
         ),

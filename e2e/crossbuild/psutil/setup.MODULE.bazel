@@ -1,0 +1,15 @@
+"""psutil: plain setuptools C-extension sdist build."""
+
+uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv.declare_hub(hub_name = "pypi_crossbuild_psutil")
+uv.project(
+    default_build_dependencies = [
+        "build",
+        "setuptools",
+        "wheel",
+    ],
+    hub_name = "pypi_crossbuild_psutil",
+    lock = "//psutil:uv.lock",
+    pyproject = "//psutil:pyproject.toml",
+)
+use_repo(uv, "pypi_crossbuild_psutil")

@@ -17,7 +17,6 @@ load(
     "execroot_collision_toolchain",
     "hostile_python_env_target",
     "interpreter_platform_triple_test",
-    "pep517_native_whl_cross_unsupported_test",
     "pep517_native_whl_execroot_collision_test",
     "pep517_native_whl_toolchain_env_test",
     "pep517_whl_console_scripts_test",
@@ -48,8 +47,8 @@ config_setting(
     ],
 )
 
-# Minimal fixture: no extra toolchains, so under the cross transition the
-# only analysis-time failure can be the rule's own cross-unsupported error.
+# Minimal fixture: no extra toolchains, so cross-configuration analysis
+# tests observe only the rule's own behavior.
 pep517_native_whl(
     name = "__cross_fixture",
     src = ":__stub_sdist",
@@ -82,22 +81,23 @@ exec_platform_prefers_native_match_test(
     target_under_test = ":__cross_fixture",
 )
 
-pep517_native_whl_cross_unsupported_test(
-    name = "cross_unsupported_test",
-    # On a linux-aarch64 host the fixed cross target platform IS the host —
-    # the build would be native and the expected failure never fires.
-    target_compatible_with = select({
-        ":_linux_aarch64_host": ["@platforms//:incompatible"],
-        "//conditions:default": [],
-    }),
-    target_under_test = ":__cross_fixture",
-)
-
 py_test(
     name = "memory_monitor_test",
     srcs = ["memory_monitor_test.py"],
     main = "memory_monitor_test.py",
     deps = ["//uv/private/pep517_whl/tools"],
+)
+
+py_test(
+    name = "build_helper_cross_test",
+    srcs = ["build_helper_cross_test.py"],
+    data = ["//uv/private/pep517_whl/tools:build_helper.py"],
+    main = "build_helper_cross_test.py",
+    target_compatible_with = ["@platforms//os:linux"],
+    deps = [
+        "@pypi//build",
+        "@pypi//setuptools",
+    ],
 )
 
 py_test(

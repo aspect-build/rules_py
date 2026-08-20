@@ -18,7 +18,9 @@ bzl_library(
     name = "pep517_native_whl",
     srcs = ["pep517_native_whl.bzl"],
     deps = [
+        ":cc_layer",
         ":common",
+        ":exec_transition",
         "//py/private/interpreter:versions",
         "//py/private/toolchain:types",
         "@bazel_lib//lib:resource_sets",
@@ -31,7 +33,24 @@ bzl_library(
     name = "common",
     srcs = ["common.bzl"],
     deps = [
+        ":exec_transition",
         "//uv/private:source_built_wheel",
         "@bazel_lib//lib:resource_sets",
     ],
+)
+
+bzl_library(
+    name = "cc_layer",
+    srcs = ["cc_layer.bzl"],
+    visibility = ["//uv/private:__subpackages__"],
+    deps = [
+        "@rules_cc//cc:action_names_bzl",
+        "@rules_cc//cc/common",
+    ],
+)
+
+bzl_library(
+    name = "exec_transition",
+    srcs = ["exec_transition.bzl"],
+    deps = ["@aspect_rules_py_uv_host//:defs"],
 )

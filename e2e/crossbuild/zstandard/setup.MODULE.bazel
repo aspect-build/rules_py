@@ -1,0 +1,39 @@
+"""zstandard: setuptools sdist with a large vendored-libzstd C build plus an
+optional cffi backend.
+
+Also fetches the official PyPI manylinux wheels so BUILD.bazel can diff our
+cross-compiled extension against the upstream-built one per architecture.
+"""
+
+uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv.declare_hub(hub_name = "pypi_crossbuild_zstandard")
+uv.project(
+    default_build_dependencies = [
+        "build",
+        "cffi",
+        "setuptools",
+        "wheel",
+    ],
+    hub_name = "pypi_crossbuild_zstandard",
+    lock = "//zstandard:uv.lock",
+    pyproject = "//zstandard:pyproject.toml",
+)
+use_repo(uv, "pypi_crossbuild_zstandard")
+
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+http_archive(
+    name = "official_zstandard_amd64_linux",
+    build_file_content = """filegroup(name = "backend_c", srcs = ["zstandard/backend_c.cpython-312-x86_64-linux-gnu.so"], visibility = ["//visibility:public"])""",
+    sha256 = "466e6ad8caefb589ed281c076deb6f0cd330e8bc13c5035854ffb9c2014b118c",
+    type = "zip",
+    url = "https://files.pythonhosted.org/packages/e5/01/080939755ca12ebbb7fc38b6f4ddecd5e8c416d571d4927ece1360baba2c/zstandard-0.22.0-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+)
+
+http_archive(
+    name = "official_zstandard_arm64_linux",
+    build_file_content = """filegroup(name = "backend_c", srcs = ["zstandard/backend_c.cpython-312-aarch64-linux-gnu.so"], visibility = ["//visibility:public"])""",
+    sha256 = "a88b7df61a292603e7cd662d92565d915796b094ffb3d206579aaebac6b85d5f",
+    type = "zip",
+    url = "https://files.pythonhosted.org/packages/47/44/be2d67304ba9bf4694ffcaa99d146814d70c4cb0bfc00e0e86fdfae66a31/zstandard-0.22.0-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl",
+)

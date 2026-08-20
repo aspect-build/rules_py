@@ -1,0 +1,33 @@
+"""rpds-py: maturin/PyO3 sdist build (hub dir underscores what PyPI
+hyphenates, hence override name != hub name).
+
+The Cargo cross env/toolchains wiring must stay identical across the four
+rust suites (bcrypt, pydantic_core, rpds_py, tiktoken) — see
+//tools:rust_host_sysroot for why CARGO/RUSTC alone aren't enough.
+"""
+
+uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv.declare_hub(hub_name = "pypi_crossbuild_rpds_py")
+uv.project(
+    default_build_dependencies = [
+        "build",
+        "maturin",
+    ],
+    hub_name = "pypi_crossbuild_rpds_py",
+    lock = "//rpds_py:uv.lock",
+    pyproject = "//rpds_py:pyproject.toml",
+)
+uv.override_package(
+    name = "rpds-py",
+    env = {
+        "CARGO": "$(CARGO)",
+        "RUSTC": "$(RUSTC)",
+        "RULES_PY_RUST_HOST_SYSROOT": "$(RUST_HOST_SYSROOT)",
+    },
+    lock = "//rpds_py:uv.lock",
+    toolchains = [
+        "@rules_rust//rust/toolchain:current_rust_toolchain",
+        "//tools:rust_host_sysroot",
+    ],
+)
+use_repo(uv, "pypi_crossbuild_rpds_py")

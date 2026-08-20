@@ -1,0 +1,27 @@
+"""numpy: meson-python + cython sdist build."""
+
+uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv.declare_hub(hub_name = "pypi_crossbuild_numpy")
+uv.project(
+    default_build_dependencies = [
+        "build",
+        "cython",
+        "meson-python",
+        "ninja",
+    ],
+    hub_name = "pypi_crossbuild_numpy",
+    lock = "//numpy:uv.lock",
+    pyproject = "//numpy:pyproject.toml",
+)
+uv.override_package(
+    # numpy has no system BLAS/LAPACK in this sandbox (native build) or in
+    # the cross toolchain (cross build) — no toolchain needed, just a
+    # literal extra meson setup-args value, same as numpy's own documented
+    # no-BLAS cross recipe (see its emscripten cibuildwheel config).
+    name = "numpy",
+    env = {
+        "RULES_PY_MESON_SETUP_ARGS": "-Dblas=none -Dlapack=none",
+    },
+    lock = "//numpy:uv.lock",
+)
+use_repo(uv, "pypi_crossbuild_numpy")

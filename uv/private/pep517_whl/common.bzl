@@ -2,6 +2,7 @@
 
 load("@bazel_lib//lib:resource_sets.bzl", "resource_set_attr")
 load("//uv/private:source_built_wheel.bzl", "SourceBuiltWheelInfo")
+load(":exec_transition.bzl", "exec_transition")
 
 TARGET_EXEC_GROUP = "target"
 
@@ -16,6 +17,12 @@ def wheel_providers(wheel_file, console_scripts):
         DefaultInfo(files = depset([wheel_file])),
         SourceBuiltWheelInfo(console_scripts = tuple(console_scripts)),
     ]
+
+def tool_files_to_run(ctx):
+    tool = ctx.attr.tool
+    if type(tool) == "list":
+        tool = tool[0]
+    return tool[DefaultInfo].files_to_run
 
 def common_env(ctx):
     # pyproject_hooks copies the build process environment and launches its
@@ -65,10 +72,16 @@ _PATCH_ATTRS = {
 
 PEP517_WHL_ATTRS = {
     "src": attr.label(allow_single_file = True),
-    # The wheel action uses the named group below, so its frontend must use the
-    # same execution platform:
-    # https://bazel.build/extending/exec-groups#defining-exec-groups
-    "tool": attr.label(executable = True, cfg = config.exec(TARGET_EXEC_GROUP)),
+    # The wheel action runs in the "target" exec group; its frontend must run
+    # on the exec (host) platform but resolve its Python build dependencies
+    # for the *target* Python version. exec_transition pins --platforms to the
+    # host and resets the platform_libc/platform_version flags to host values
+    # (Starlark flags otherwise leak from the target configuration and break
+    # wheel selection for build deps). See exec_transition.bzl.
+    "tool": attr.label(executable = True, cfg = exec_transition),
+    "_allowlist_function_transition": attr.label(
+        default = "@bazel_tools//tools/allowlists/function_transition_allowlist",
+    ),
     "version": attr.string(),
     "console_scripts": attr.string_list(
         doc = "Console scripts discovered from the source distribution's entry-point metadata.",

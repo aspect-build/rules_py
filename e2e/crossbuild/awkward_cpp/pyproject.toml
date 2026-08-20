@@ -1,0 +1,15 @@
+[project]
+name = "crossbuild_awkward_cpp"
+version = "0.0.0"
+requires-python = ">=3.11"
+dependencies = [
+    "awkward-cpp==55",
+    "build",
+    "cmake",
+    "ninja",
+    "pybind11",
+    "scikit-build-core",
+]
+
+[tool.uv]
+no-binary-package = ["awkward-cpp"]
