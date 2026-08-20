@@ -1,20 +1,4 @@
 load("@bazel_lib//:bzl_library.bzl", "bzl_library")
-load("//py:defs.bzl", "py_binary")
-
-exports_files(["update.sh"])
-
-exports_files(
-    ["generate.py"],
-    visibility = ["//uv/private/gazelle_manifest/tests:__pkg__"],
-)
-
-py_binary(
-    name = "generator",
-    srcs = [
-        "generate.py",
-    ],
-    main = "generate.py",
-)
 
 bzl_library(
     name = "defs",

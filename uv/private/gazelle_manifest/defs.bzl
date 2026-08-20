@@ -61,16 +61,21 @@ _modules_mapping = rule(
         "hub": attr.string(),
         "include_stub_packages": attr.bool(),
         "_generator": attr.label(
-            default = Label(":generator"),
+            default = Label("//uv/private/gazelle_manifest/tools:generator"),
             executable = True,
             cfg = "exec",
         ),
     },
 )
 
-update = Label(":update.sh")
+update = Label("//uv/private/gazelle_manifest/tools:update.sh")
 
-def gazelle_python_manifest(name, hub, venvs = [], include_stub_packages = False):
+def gazelle_python_manifest(
+        name,
+        hub,
+        venvs = [],
+        include_stub_packages = False,
+        platform_parent = None):
     """Generates a Gazelle Python manifest from uv-managed wheels.
 
     Args:
@@ -79,7 +84,29 @@ def gazelle_python_manifest(name, hub, venvs = [], include_stub_packages = False
         venvs: Dependency groups whose wheels should be indexed.
         include_stub_packages: Whether conventional stub distributions should be
             indexed for Gazelle's automatic stub dependency resolution.
+        platform_parent: Parent platform for the synthetic platforms this macro
+            uses to select each venv's wheels. Defaults to
+            `Label("@platforms//host")`, resolved in rules_py's own repository —
+            you do not need a `bazel_dep` on `platforms` to use the default. The
+            host platform carries only OS and CPU constraints; point this at the
+            platform the wheels should be resolved for when that is not enough:
+
+            - If the build sets a custom `--host_platform` (for example to carry
+              the constraints hermetic C++ toolchains require), pass that
+              platform here so sdist builds inside the hub can still resolve a
+              cc toolchain.
+            - When cross-compiling, pass the target platform so wheel selection
+              follows it instead of snapping back to the host. Note this makes
+              `bazel run <name>.update` build any sdist fallbacks *for that
+              platform*, which requires an execution platform able to run the
+              build (e.g. remote execution) unless every indexed package
+              resolves to a wheel.
     """
+    if platform_parent == None:
+        platform_parent = Label("@platforms//host")
+    if type(platform_parent) not in ("string", "Label"):
+        fail("gazelle_python_manifest: platform_parent takes a single platform label (Bazel's platform() rule accepts at most one parent); got {} of type {}".format(platform_parent, type(platform_parent)))
+
     file = "gazelle_python.yaml"
     hub = hub.lstrip("@")
 
@@ -88,9 +115,7 @@ def gazelle_python_manifest(name, hub, venvs = [], include_stub_packages = False
         platform_name = "_{}_{}_{}".format(name, hub, venv)
         native.platform(
             name = platform_name,
-            parents = [
-                "@platforms//host",
-            ],
+            parents = [platform_parent],
             flags = [
                 "--@{}//dep_group={}".format(hub, venv),
             ],

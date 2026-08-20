@@ -241,5 +241,18 @@ write_source_files(
         # modules_mapping so generator drift (module additions, stub
         # synthesis, merge ordering) surfaces as a diff.
         "snapshots/uv_gazelle_778.gazelle_python.yaml": "//uv-gazelle-778:gazelle_python_manifest",
+
+        # Probes for `gazelle_python_manifest(platform_parent = ...)`
+        # (issue #1416); the manifest build itself is covered by the case's
+        # build_test. First, a genrule transitioned onto the macro-generated
+        # platform, selecting on a constraint only the custom parent carries.
+        # Pins "custom-parent": if the macro ignores `platform_parent` the
+        # constraint is dropped and the diff test fails, rather than the
+        # regression silently building.
+        "snapshots/gazelle_platform_parents_1416.probe_out.txt": "//gazelle-platform-parents-1416:probe",
+        # Second, the wheel-selection probe: pins that each dependency in the
+        # transitioned index resolves to a linux_x86_64 (or pure) wheel,
+        # matching the case's cross-compilation parent regardless of host.
+        "snapshots/gazelle_platform_parents_1416.wheel_selection.txt": "//gazelle-platform-parents-1416:wheel_selection",
     },
 )
