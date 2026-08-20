@@ -449,6 +449,7 @@ def _parse_projects(module_ctx, hub_specs):
             # lockfile. This gives each sdist configure tool visibility
             # into the packages within this project's dependency perimeter.
             project_available_deps = {}
+            project_has_sbuilds = False
             for package in lock_data.get("package", []):
                 if "editable" in package.get("source", {}) or "virtual" in package.get("source", {}):
                     continue
@@ -514,6 +515,7 @@ def _parse_projects(module_ctx, hub_specs):
                         toolchains = pkg_override.toolchains,
                     )
                 if sdist:
+                    project_has_sbuilds = True
                     # HACK: Note that we resolve these LAZILY so that
                     # bdist-only or fully overridden configurations don't
                     # have to provide the build tools.
@@ -625,7 +627,7 @@ def _parse_projects(module_ctx, hub_specs):
             #
             # FIXME: extract a re-keying helper.
             project_cfgs[project_id] = struct(
-                available_deps = project_available_deps,
+                available_deps = project_available_deps if project_has_sbuilds else None,
                 dep_to_scc = marked_package_cfg_sccs,
                 scc_deps = {
                     k: _merge_scc_dep_markers_by_surface_package(deps)
@@ -682,7 +684,7 @@ def _parse_projects(module_ctx, hub_specs):
                 available_deps = {
                     package: target_remap.get(target, target)
                     for package, target in pc.available_deps.items()
-                },
+                } if pc.available_deps != None else None,
                 dep_to_scc = pc.dep_to_scc,
                 scc_deps = pc.scc_deps,
                 scc_graph = {
@@ -789,7 +791,7 @@ def _uv_impl(module_ctx):
     for sbuild_id, sbuild_cfg in cfg.sbuild_cfgs.items():
         sbuild_kwargs = {
             "name": sbuild_id,
-            "available_deps": "@{}//:available_deps.json".format(sbuild_cfg.project_id),
+            "available_deps_file": "@{}//:available_deps.json".format(sbuild_cfg.project_id),
             "src": sbuild_cfg.src,
             "deps": sbuild_cfg.deps,
             "is_native": sbuild_cfg.is_native,
@@ -835,7 +837,7 @@ def _uv_impl(module_ctx):
     for project_id, project_cfg in cfg.project_cfgs.items():
         uv_project(
             name = project_id,
-            available_deps = json.encode(project_cfg.available_deps),
+            available_deps_json = json.encode(project_cfg.available_deps) if project_cfg.available_deps != None else "",
             dep_to_scc = json.encode(project_cfg.dep_to_scc),
             scc_deps = json.encode(project_cfg.scc_deps),
             scc_graph = json.encode(project_cfg.scc_graph),

@@ -151,7 +151,7 @@ def _sdist_build_impl(repository_ctx):
         repository_ctx: The repository context.
     """
 
-    available_deps = json.decode(repository_ctx.read(repository_ctx.attr.available_deps))
+    available_deps = json.decode(repository_ctx.read(repository_ctx.attr.available_deps_file))
     is_native_override = repository_ctx.attr.is_native
     archive_path = _resolve_archive_path(repository_ctx)
     inspection = _run_configure_tool(repository_ctx, archive_path, available_deps) if archive_path else None
@@ -296,7 +296,7 @@ sdist_build = repository_rule(
     attrs = {
         "src": attr.label(),
         "deps": attr.label_list(),
-        "available_deps": attr.label(
+        "available_deps_file": attr.label(
             mandatory = True,
             allow_single_file = [".json"],
             doc = "JSON file mapping normalized package names to install labels.",

@@ -195,7 +195,8 @@ exports_files(
     ))
 
     repository_ctx.file("BUILD.bazel", "\n".join(content))
-    repository_ctx.file("available_deps.json", repository_ctx.attr.available_deps)
+    if repository_ctx.attr.available_deps_json:
+        repository_ctx.file("available_deps.json", repository_ctx.attr.available_deps_json)
 
     ################################0################################################
     # Now the slightly harder bit -- lay down the SCCs
@@ -292,7 +293,7 @@ exports_files(
 uv_project = repository_rule(
     implementation = _project_impl,
     attrs = {
-        "available_deps": attr.string(),
+        "available_deps_json": attr.string(),
         "dep_to_scc": attr.string(),
         "scc_deps": attr.string(),
         "scc_graph": attr.string(),
