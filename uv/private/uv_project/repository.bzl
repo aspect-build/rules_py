@@ -27,6 +27,14 @@ def _project_impl(repository_ctx):
     dep_to_scc = json.decode(repository_ctx.attr.dep_to_scc)
     scc_deps = json.decode(repository_ctx.attr.scc_deps)
     scc_graph = json.decode(repository_ctx.attr.scc_graph)
+    testonly_packages = json.decode(repository_ctx.attr.testonly_packages)
+    testonly_sccs = {
+        scc: True
+        for package, cfgs in dep_to_scc.items()
+        if package in testonly_packages
+        for sccs in cfgs.values()
+        for scc in sccs
+    }
 
     # Collect all the underlying whl installs
     installs = {}
@@ -56,7 +64,7 @@ def _project_impl(repository_ctx):
             acc.append(c if c.isalnum() or c in "._-" else "_")
         return "".join(acc)
 
-    def _conditionalize(it, markers, cond_id_thunk, no_match = None):
+    def _conditionalize(it, markers, cond_id_thunk, no_match = None, testonly = False):
         if "" in markers:
             return it
         else:
@@ -71,13 +79,14 @@ def _project_impl(repository_ctx):
             cond_id = cond_id_thunk()
             content.append("""
 alias(
-    name = "{name}",
+    name = "{name}",{testonly}
     actual = select({arms}),
     visibility = ["//:__subpackages__"],
 )
 """.format(
                 name = cond_id,
                 arms = indent(pprint(cases), " " * 4).lstrip(),
+                testonly = "\n    testonly = True," if testonly else "",
             ))
             return ":" + cond_id
 
@@ -126,6 +135,7 @@ filegroup(
 """.format(package, indent(pprint(cfgs), "# ")))
         main_arms = {}
         whl_main_arms = {}
+        testonly_attr = "\n    testonly = True," if package in testonly_packages else ""
 
         # FIXME: Handle markers for distinct versions
         for cfg, scc_cfgs in cfgs.items():
@@ -143,11 +153,11 @@ filegroup(
 
             content.append("""
 alias(
-    name = "{name}",
+    name = "{name}",{testonly}
     actual = select({arms}),
     visibility = ["//visibility:private"],
 )
-""".format(name = cfg_name, arms = indent(pprint(cfg_arms), " " * 4).lstrip()))
+""".format(name = cfg_name, arms = indent(pprint(cfg_arms), " " * 4).lstrip(), testonly = testonly_attr))
             whl_main_arms["//private/dep_group:" + cfg] = ":" + whl_cfg_name
             content.append("""
 alias(
@@ -159,13 +169,14 @@ alias(
 
         content.append("""
 alias(
-    name = "{name}",
+    name = "{name}",{testonly}
     actual = select({arms}),
     visibility = ["//visibility:public"],
 )
 """.format(
             name = package,
             arms = indent(pprint(main_arms), " " * 4).lstrip(),
+            testonly = testonly_attr,
         ))
 
         content.append("""
@@ -231,6 +242,7 @@ py_library(
                 markers,
                 lambda: "_maybe__{}__{}".format(scc_id, _safe_name(member)),
                 no_match = ":empty",
+                testonly = scc_id in testonly_sccs,
             ))
 
         for dep, markers in this_scc_deps.items():
@@ -240,17 +252,19 @@ py_library(
                 markers,
                 lambda: "_maybe__{}__{}".format(scc_id, _safe_name(dep)),
                 no_match = ":empty",
+                testonly = scc_id in testonly_sccs,
             ))
 
         content.append("""
 py_library(
-    name = "{name}",
+    name = "{name}",{testonly}
     deps = {deps},
     visibility = ["//:__subpackages__"],
 )
 """.format(
             name = scc_id,
             deps = indent(pprint(deps), " " * 4).lstrip(),
+            testonly = "\n    testonly = True," if scc_id in testonly_sccs else "",
         ))
 
     content.append("""
@@ -296,5 +310,6 @@ uv_project = repository_rule(
         "dep_to_scc": attr.string(),
         "scc_deps": attr.string(),
         "scc_graph": attr.string(),
+        "testonly_packages": attr.string(default = "{}"),
     },
 )

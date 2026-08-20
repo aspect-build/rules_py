@@ -207,6 +207,13 @@ uv.override_package(
     exclude_glob = ["another_package/**/tests/**"],
 )
 
+# 3d. (Optional) Restrict a package and its dependents to test targets
+uv.override_package(
+    name = "pytest-postgresql",
+    lock = "//:uv.lock",
+    testonly = True,
+)
+
 use_repo(uv, "pypi")
 ```
 

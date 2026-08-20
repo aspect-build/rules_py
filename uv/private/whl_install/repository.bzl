@@ -269,6 +269,7 @@ select_chain(
 
     extra_deps = json.decode(repository_ctx.attr.extra_deps) if repository_ctx.attr.extra_deps else []
     extra_data = json.decode(repository_ctx.attr.extra_data) if repository_ctx.attr.extra_data else []
+    testonly_attr = "\n    testonly = True," if repository_ctx.attr.package_testonly else ""
 
     compile_pyc_select = """select({
         "@aspect_rules_py//uv/private/pyc:is_precompile": True,
@@ -310,9 +311,9 @@ select_chain(
     content.append(
         """
 whl_install(
-    name = "actual_install",{attrs}
+    name = "actual_install",{testonly}{attrs}
     visibility = ["//visibility:private"],
-)""".format(attrs = install_attrs),
+)""".format(attrs = install_attrs, testonly = testonly_attr),
     )
 
     if extra_deps or extra_data:
@@ -320,7 +321,7 @@ whl_install(
         content.append(
             """
 py_library(
-    name = "install",
+    name = "install",{testonly}
     srcs = [],
     deps = [":actual_install"] + {extra_deps},
     data = {extra_data},
@@ -329,17 +330,18 @@ py_library(
 """.format(
                 extra_deps = repr(extra_deps),
                 extra_data = repr(extra_data),
+                testonly = testonly_attr,
             ),
         )
     else:
         content.append(
             """
 alias(
-    name = "install",
+    name = "install",{testonly}
     actual = ":actual_install",
     visibility = ["//visibility:public"],
 )
-""",
+""".format(testonly = testonly_attr),
         )
 
     content.append("""
@@ -365,5 +367,6 @@ whl_install = repository_rule(
         "exclude_glob": attr.string_list(),
         "extra_deps": attr.string(default = ""),
         "extra_data": attr.string(default = ""),
+        "package_testonly": attr.bool(default = False),
     },
 )
