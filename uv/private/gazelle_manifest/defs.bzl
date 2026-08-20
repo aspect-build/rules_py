@@ -61,14 +61,14 @@ _modules_mapping = rule(
         "hub": attr.string(),
         "include_stub_packages": attr.bool(),
         "_generator": attr.label(
-            default = Label(":generator"),
+            default = Label("//uv/private/gazelle_manifest/tools:generator"),
             executable = True,
             cfg = "exec",
         ),
     },
 )
 
-update = Label(":update.sh")
+update = Label("//uv/private/gazelle_manifest/tools:update.sh")
 
 def gazelle_python_manifest(
         name,
