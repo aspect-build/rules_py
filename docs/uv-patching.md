@@ -83,6 +83,50 @@ Pre-build patches are applied to the extracted source tree after archive extract
 - Removing problematic native build dependencies
 - Patching source code that affects the build output
 
+### Providing native build inputs to sdist builds
+
+Some sdists compile C/C++ extensions against headers and libraries that are
+not part of the CC toolchain sysroot. `native_inputs` threads Bazel targets
+into the hermetic `pep517_native_whl` build action:
+
+```starlark
+uv.override_package(
+    lock = "//:uv.lock",
+    name = "some-native-package",
+    native_inputs = [
+        "//third_party/zlib:zlib",
+    ],
+)
+```
+
+Semantics per target:
+
+- **Targets with `CcInfo`** (e.g. `cc_library`): the compilation context's
+  headers become action inputs and its include directories and defines are
+  passed to the compiler (`-I`/`-iquote`/`-isystem`/`-D` via
+  `CPPFLAGS`/`CFLAGS`/`CXXFLAGS`). Static libraries from the linking context
+  are force-loaded into the extension link (`LDFLAGS`); libraries that expose
+  only object files have those objects linked directly.
+- **Targets without `CcInfo`** (e.g. `filegroup`): files are staged into the
+  build sandbox and their absolute paths exposed via the
+  `PY_NATIVE_INPUT_PATHS` environment variable (path-separator delimited) for
+  the build backend (`setup.py` etc.) to consume explicitly.
+
+Only the **compile-time** case is supported: headers plus static libraries.
+A target whose linking context offers only shared libraries is rejected at
+analysis time — an installed wheel has no rpath into `bazel-out`, so a
+dynamically linked extension would fail at import time with unresolved
+symbols. Build the dependency as a static archive instead (a plain
+`cc_library` always provides one).
+
+`native_inputs` only applies to packages built from source. Declaring it for
+a package that never gets a source build (no sdist in the lockfile, or an
+anyarch wheel satisfies all installs) or for an sdist confidently classified
+as pure-Python is an error. When the classification is uncertain (sdist
+inspection unavailable) or `pre_build_patches` could introduce native
+sources, `native_inputs` acts as an explicit signal and the native build
+path is used.
+
 ### Adding extra dependencies or data
 
 Some packages have implicit runtime dependencies that aren't declared in their metadata:

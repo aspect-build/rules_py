@@ -1,0 +1,12 @@
+[project]
+name = "uv-sdist-native-inputs"
+version = "0.0.0"
+requires-python = ">=3.11"
+# build and setuptools are root dependencies (not only build deps) so the
+# generated project repo exposes aliases for them; default_build_dependencies
+# resolution requires the packages to be activated in the dependency graph.
+dependencies = [
+    "python-geohash==0.8.5",
+    "build>=1.4.0",
+    "setuptools>=75.8.2",
+]

@@ -6,7 +6,7 @@ build backend the sdist declares in its `[build-system]` table.
 """
 
 load("@bazel_tools//tools/cpp:toolchain_utils.bzl", find_cc_toolchain = "find_cpp_toolchain")
-load("@rules_cc//cc:action_names.bzl", "C_COMPILE_ACTION_NAME")
+load("@rules_cc//cc:action_names.bzl", "CPP_COMPILE_ACTION_NAME", "C_COMPILE_ACTION_NAME")
 load("@rules_cc//cc/common:cc_common.bzl", "cc_common")
 load("//py/private/toolchain:types.bzl", "NATIVE_BUILD_TOOLCHAIN", "PY_TOOLCHAIN")
 
@@ -60,13 +60,100 @@ def _pep517_whl(ctx):
 
     return [DefaultInfo(files = depset([wheel_dir]))]
 
+def _native_input_args_and_depsets(ctx):
+    """Derives explicit build flags and action inputs from native_inputs targets.
+
+    CcInfo targets contribute their compilation context (headers as inputs;
+    include dirs and defines as flags) and the static libraries or object
+    files of their linking context. Flag decisions are made here, in Starlark,
+    from provider data — build_helper.py only absolutizes the paths it is
+    handed (they are exec-root relative and the helper cds into the extracted
+    source tree).
+
+    Targets without CcInfo contribute their files verbatim; the helper exposes
+    their paths via $PY_NATIVE_INPUT_PATHS for the build backend to consume
+    explicitly.
+
+    Returns (args, transitive_input_depsets) where args is an Args object.
+    """
+    args = ctx.actions.args()
+    args.use_param_file("@%s")
+    args.set_param_file_format("multiline")
+    transitive = []
+
+    cc_infos = [target[CcInfo] for target in ctx.attr.native_inputs if CcInfo in target]
+    if cc_infos:
+        compilation_context = cc_common.merge_cc_infos(cc_infos = cc_infos).compilation_context
+        transitive.append(compilation_context.headers)
+        args.add_all(compilation_context.includes, format_each = "--native-include=%s", uniquify = True)
+        args.add_all(compilation_context.quote_includes, format_each = "--native-quote-include=%s", uniquify = True)
+        args.add_all(compilation_context.system_includes, format_each = "--native-system-include=%s", uniquify = True)
+        if hasattr(compilation_context, "external_includes"):
+            args.add_all(compilation_context.external_includes, format_each = "--native-system-include=%s", uniquify = True)
+        args.add_all(compilation_context.defines, format_each = "--native-define=%s", uniquify = True)
+
+    # Dicts as ordered sets: dedupe across targets while keeping stable order.
+    # This loop stays per-target (not merged) for per-target error attribution.
+    static_libs = {}
+    link_objects = {}
+
+    for target in ctx.attr.native_inputs:
+        if CcInfo not in target:
+            files = target[DefaultInfo].files
+            transitive.append(files)
+            args.add_all(files, format_each = "--native-input-file=%s")
+            continue
+
+        target_has_linkable = False
+        shared_only_library = None
+        for linker_input in target[CcInfo].linking_context.linker_inputs.to_list():
+            for library in linker_input.libraries:
+                static_library = library.pic_static_library or library.static_library
+
+                # Older Bazel doesn't expose the objects fields on LibraryToLink.
+                objects = getattr(library, "pic_objects", None) or getattr(library, "objects", None)
+                if static_library:
+                    static_libs[static_library] = None
+                    target_has_linkable = True
+                elif objects:
+                    for obj in objects:
+                        link_objects[obj] = None
+                    target_has_linkable = True
+                elif library.dynamic_library or library.interface_library:
+                    shared_only_library = library.dynamic_library or library.interface_library
+
+        if shared_only_library and not target_has_linkable:
+            # A wheel linked against a Bazel-built shared library would
+            # import-fail at runtime: the venv carries no rpath into
+            # bazel-out and we don't install the .so.
+            fail(("native_inputs target '{}' (for {}) provides only shared " +
+                  "libraries (e.g. '{}'). Sdist builds can only link against " +
+                  "static libraries; runtime resolution of Bazel-managed shared " +
+                  "libraries from an installed wheel is unsupported. " +
+                  "Provide a static variant (e.g. cc_library, which always " +
+                  "emits an archive).").format(
+                target.label,
+                ctx.label,
+                shared_only_library.basename,
+            ))
+
+    args.add_all(static_libs.keys(), format_each = "--native-static-lib=%s")
+    args.add_all(link_objects.keys(), format_each = "--native-link-object=%s")
+    if static_libs:
+        transitive.append(depset(static_libs.keys()))
+    if link_objects:
+        transitive.append(depset(link_objects.keys()))
+
+    return args, transitive
+
 def _pep517_native_whl(ctx):
     archive = ctx.attr.src[DefaultInfo].files.to_list()[0]
     wheel_dir = ctx.actions.declare_directory("whl")
     patch_args, patch_inputs = _patch_args_and_inputs(ctx)
+    native_input_args, native_input_depsets = _native_input_args_and_depsets(ctx)
 
     env = _common_env(ctx)
-    extra_inputs = []
+    extra_inputs = native_input_depsets
 
     # Resolve the CC toolchain so setuptools/distutils can find the compiler
     # rather than falling back to whatever is on the system PATH.
@@ -80,11 +167,19 @@ def _pep517_native_whl(ctx):
             feature_configuration = feature_configuration,
             action_name = C_COMPILE_ACTION_NAME,
         )
+        cpp_compiler_path = cc_common.get_tool_for_action(
+            feature_configuration = feature_configuration,
+            action_name = CPP_COMPILE_ACTION_NAME,
+        )
 
         # Note that these paths are relative to the bazel exec root,
         # and they need to be absolutized if they're to be invoked from any
         # other working directory. (e.g. in build_helper.py for sdist builds.)
         env["CC"] = c_compiler_path
+
+        # distutils compiles C++ sources with $CXX, falling back to a bare
+        # `clang++`/`g++` from PATH which doesn't exist in the sandbox.
+        env["CXX"] = cpp_compiler_path
         extra_inputs.append(cc_toolchain.all_files)
 
         # We can extract the relative path to the @llvm-provided sysroot from
@@ -102,6 +197,7 @@ def _pep517_native_whl(ctx):
         executable = ctx.executable.tool,
         toolchain = None,
         arguments = ctx.attr.args + patch_args + [
+            native_input_args,
             archive.path,
             wheel_dir.path,
         ],
@@ -172,6 +268,17 @@ constraints of the target platform.
 """,
     attrs = _pep517_whl_attrs | {
         "args": attr.string_list(),
+        "native_inputs": attr.label_list(
+            default = [],
+            allow_files = True,
+            doc = "Bazel targets providing native build-time inputs. Targets with " +
+                  "CcInfo contribute headers, include paths, defines, and static " +
+                  "libraries to the compile/link environment; shared-library-only " +
+                  "targets are rejected (wheels cannot resolve Bazel-managed shared " +
+                  "libraries at runtime). Targets without CcInfo have their files " +
+                  "staged into the action sandbox and exposed via " +
+                  "$PY_NATIVE_INPUT_PATHS.",
+        ),
         "_cc_toolchain": attr.label(
             default = Label("@bazel_tools//tools/cpp:current_cc_toolchain"),
         ),

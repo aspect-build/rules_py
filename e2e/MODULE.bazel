@@ -481,6 +481,33 @@ uv.project(
 )
 # }}}
 
+# For cases/uv-sdist-native-inputs
+# Regression: uv.override_package(native_inputs) must thread cc_library
+# headers/static libs into PySdistNativeBuild actions. python-geohash is
+# patched to add a C extension compiled against //cases/uv-sdist-native-inputs:native_check.
+# {{{
+# python-geohash is also in the "pypi" hub via cases/uv-sdist-native-build, so
+# this case gets its own hub to avoid cross-configuration package collisions.
+uv.declare_hub(hub_name = "pypi-native-inputs")
+uv.project(
+    default_build_dependencies = [
+        "build",
+        "setuptools",
+    ],
+    hub_name = "pypi-native-inputs",
+    lock = "//cases/uv-sdist-native-inputs:uv.lock",
+    pyproject = "//cases/uv-sdist-native-inputs:pyproject.toml",
+)
+uv.override_package(
+    name = "python-geohash",
+    lock = "//cases/uv-sdist-native-inputs:uv.lock",
+    native_inputs = ["//cases/uv-sdist-native-inputs:native_check"],
+    pre_build_patch_strip = 1,
+    pre_build_patches = ["//cases/uv-sdist-native-inputs/patches:add_native_check_ext.patch"],
+)
+use_repo(uv, "pypi-native-inputs")
+# }}}
+
 # For cases/unconstrained-dependencies
 # {{{
 uv.project(

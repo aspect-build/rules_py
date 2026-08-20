@@ -1,0 +1,3 @@
+exports_files([
+    "add_native_check_ext.patch",
+])

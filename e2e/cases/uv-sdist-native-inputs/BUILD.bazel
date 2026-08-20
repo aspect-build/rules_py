@@ -1,0 +1,29 @@
+# Regression test: uv.override_package(native_inputs = [...]) must thread the
+# headers and static libraries of a Bazel cc_library into PySdistNativeBuild
+# actions so that sdist C extensions can compile and link against them.
+#
+# The python-geohash sdist is patched (pre_build_patches) to add a second C
+# extension that #includes "rulespy_native_check.h" and calls
+# rulespy_native_check_value() — both provided ONLY by :native_check below,
+# never by the CC toolchain sysroot. Without native_inputs the build fails
+# with a missing-header compile error.
+
+load("@aspect_rules_py//py/unstable:defs.bzl", "py_venv_test")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
+cc_library(
+    name = "native_check",
+    srcs = ["native_check.c"],
+    hdrs = ["include/rulespy_native_check.h"],
+    includes = ["include"],
+    visibility = ["//visibility:public"],
+)
+
+py_venv_test(
+    name = "test",
+    srcs = ["__test__.py"],
+    main = "__test__.py",
+    target_compatible_with = ["@platforms//os:linux"],
+    venv = "uv-sdist-native-inputs",
+    deps = ["@pypi-native-inputs//python_geohash"],
+)
