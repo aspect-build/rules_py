@@ -1,0 +1,13 @@
+[project]
+name = "uv-sdist-dup-build-deps"
+version = "0.0.0"
+requires-python = ">=3.11"
+dependencies = [
+    "build",
+    "docopt",
+    "setuptools>=80 ; python_full_version >= '3.12'",
+    "setuptools<76 ; python_full_version < '3.12'",
+    # docopt is a setup.py-only sdist, so the configure tool infers `wheel` as
+    # a build dep; it must be present in the lock for extra_deps resolution.
+    "wheel",
+]

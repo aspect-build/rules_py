@@ -72,6 +72,18 @@ def _extract_name(requirement_str):
     return None
 
 
+def _label_target_name(label):
+    """Extract the target name from a Bazel label string.
+
+    Handles "@repo//:name", "@repo//pkg:name", "//pkg/name" (implicit target)
+    and bare target names.
+    """
+    tail = label.rsplit("//", 1)[-1]
+    if ":" in tail:
+        return tail.rsplit(":", 1)[-1]
+    return tail.rsplit("/", 1)[-1]
+
+
 # --- Archive helpers ---
 
 def _read_tar_member(tf, member_name):
@@ -444,14 +456,21 @@ def detect(archive_path, context):
             declared_dedup.append(name)
 
     # Compute extra_deps: names from declared + inferred that are resolvable
-    # from available_deps but not already in the explicit deps list.
+    # from available_deps but not already in the explicit deps list. Explicit
+    # deps use per-project labels (e.g. @project__x//:setuptools) while
+    # available_deps maps to whl_install labels, so labels never match across
+    # the two namespaces — compare by normalized target name instead.
     available_deps = context.get("available_deps", {})
     provided_labels = set(context.get("deps", []))
+    provided_names = {
+        _normalize_name(_label_target_name(label)) for label in provided_labels
+    }
 
     all_discovered = set(declared_dedup) | inferred
     extra_deps = sorted(
         name for name in all_discovered
         if name in available_deps
+        and name not in provided_names
         and available_deps[name] not in provided_labels
     )
 
