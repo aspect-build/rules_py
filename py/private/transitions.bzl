@@ -19,9 +19,6 @@ def _baseline(settings, flag, current):
         return current
     return baseline
 
-def _python_version(settings):
-    return settings[PYTHON_VERSION_FLAG] or settings[_RPY_VERSION_FLAG]
-
 def _python_transition_impl(settings, attr):
     acc = {}
     acc[_PYTHON_VERSION_BASELINE_FLAG] = _baseline(
@@ -36,11 +33,14 @@ def _python_transition_impl(settings, attr):
     )
     if attr.python_version:
         version = str(attr.python_version)
+        acc[PYTHON_VERSION_FLAG] = version
+        acc[_RPY_VERSION_FLAG] = version
     else:
-        version = _python_version(settings)
-
-    acc[PYTHON_VERSION_FLAG] = version
-    acc[_RPY_VERSION_FLAG] = version
+        # No explicit pin: pass the flags through unchanged rather than
+        # writing a resolved value, which can flip them from unset/default
+        # and fork a new configuration for the whole transitive closure.
+        acc[PYTHON_VERSION_FLAG] = settings[PYTHON_VERSION_FLAG]
+        acc[_RPY_VERSION_FLAG] = settings[_RPY_VERSION_FLAG]
 
     # Set the dep_group transition. The attr is only present on `py_venv`
     # (rules without it propagate the inherited setting; `py_venv_exec`

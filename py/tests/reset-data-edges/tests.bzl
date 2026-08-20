@@ -4,8 +4,11 @@ load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
 load("//py/private:transitions.bzl", "python_transition", "reset_python_flags_transition")
 
 _DEP_GROUP_FLAG = "@aspect_rules_py//uv/private/constraints/dep_group:dep_group"
+_DEP_GROUP_BASELINE_FLAG = "@aspect_rules_py//uv/private/constraints/dep_group:baseline"
 _PYTHON_VERSION_FLAG = "@aspect_rules_py//py/private/interpreter:python_version"
+_PYTHON_VERSION_BASELINE_FLAG = "@aspect_rules_py//py/private/interpreter:baseline_python_version"
 _RPY_VERSION_FLAG = "@rules_python//python/config_settings:python_version"
+_RPY_VERSION_BASELINE_FLAG = "@aspect_rules_py//py/private/interpreter:baseline_rules_python_version"
 
 _ProbeInfo = provider(fields = ["file"])
 _ProbeFilesInfo = provider(fields = ["files"])
@@ -96,6 +99,45 @@ root = rule(
     },
 )
 
+# Give both dependency paths the same transition scratch state while preserving
+# the default/unset state of the version flags. An unpinned terminal used to
+# turn those version flags into explicit resolved values, creating a second
+# configured target for :probe.
+def _seed_baselines_transition_impl(settings, _attr):
+    return {
+        _DEP_GROUP_BASELINE_FLAG: settings[_DEP_GROUP_FLAG],
+        _PYTHON_VERSION_BASELINE_FLAG: settings[_PYTHON_VERSION_FLAG],
+        _RPY_VERSION_BASELINE_FLAG: settings[_RPY_VERSION_FLAG],
+    }
+
+_seed_baselines_transition = transition(
+    implementation = _seed_baselines_transition_impl,
+    inputs = [
+        _DEP_GROUP_FLAG,
+        _PYTHON_VERSION_FLAG,
+        _RPY_VERSION_FLAG,
+    ],
+    outputs = [
+        _DEP_GROUP_BASELINE_FLAG,
+        _PYTHON_VERSION_BASELINE_FLAG,
+        _RPY_VERSION_BASELINE_FLAG,
+    ],
+)
+
+seeded_root = rule(
+    implementation = _root_impl,
+    attrs = {
+        "deps": attr.label_list(
+            aspects = [_probe_aspect],
+            allow_empty = False,
+        ),
+        "_allowlist_function_transition": attr.label(
+            default = "@bazel_tools//tools/allowlists/function_transition_allowlist",
+        ),
+    },
+    cfg = _seed_baselines_transition,
+)
+
 def _reset_data_edges_test_impl(ctx):
     env = analysistest.begin(ctx)
     files = analysistest.target_under_test(env)[_ProbeFilesInfo].files.to_list()
@@ -113,4 +155,8 @@ def reset_data_edges_test_suite():
     _reset_data_edges_test(
         name = "reset_data_edges_test",
         target_under_test = ":root",
+    )
+    _reset_data_edges_test(
+        name = "unversioned_terminal_noop_transition_test",
+        target_under_test = ":seeded_root",
     )
