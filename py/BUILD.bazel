@@ -1,4 +1,11 @@
 load("@bazel_lib//:bzl_library.bzl", "bzl_library")
+load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
+
+bool_flag(
+    name = "experimental_indexed_imports",
+    build_setting_default = False,
+    visibility = ["//visibility:public"],
+)
 
 # Users can set, e.g. --@aspect_rules_py//py:python_version=3.12
 alias(

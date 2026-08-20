@@ -72,7 +72,7 @@ def _distinct_ordered(keys):
     Collision precedence is "last distinct entry wins": the final
     element is the winner, everything before it is a loser.
     """
-    return {k: True for k in keys}.keys()
+    return list(set(keys))
 
 def _last_per_sp(claimants):
     """Last claim struct per distinct ``site_packages``, in first-claim order.
@@ -88,24 +88,14 @@ def _new_state():
     return struct(
         top_level_to_site_pkgs = {},
         skipped_per_wheel = {},
-        covered_per_wheel = {},
         merge_groups = [],
-        conflicted_roots = {},
-        ns_claimant_sps = {},
+        conflicted_roots = set(),
+        ns_claimant_sps = set(),
     )
 
 def _skip(state, sp, tl):
     """Route ``(sp, tl)`` to the ``.pth`` fallback."""
-    state.skipped_per_wheel.setdefault(sp, {})[tl] = True
-
-def _cover(state, sp, tl):
-    """Mark ``(sp, tl)`` as projected, merged, or suppressed."""
-    state.covered_per_wheel.setdefault(sp, {})[tl] = True
-
-def _cover_if_clean(state, sp, tl):
-    """Cover ``(sp, tl)`` only when it was not routed to ``.pth``."""
-    if tl not in state.skipped_per_wheel.get(sp, {}):
-        _cover(state, sp, tl)
+    state.skipped_per_wheel.setdefault(sp, set()).add(tl)
 
 def _skip_entryless_and_split(unique_claimants, state, tl):
     """Route entryless claimants to ``.pth`` and return the rest.
@@ -119,11 +109,6 @@ def _skip_entryless_and_split(unique_claimants, state, tl):
         else:
             _skip(state, c.site_packages, tl)
     return with_entries
-
-def _cover_all_clean(claimants, state, tl):
-    """Cover every claimant that was not routed to ``.pth``."""
-    for c in claimants:
-        _cover_if_clean(state, c.site_packages, tl)
 
 def _make_collision_recorder(ctx, collisions):
     """Build a closure recording collisions for ``enforce_collision_policy``.
@@ -161,15 +146,13 @@ def _resolve_entry_owners(claimants, tl, exclude_roots, state, complain):
     entry_owner = {}
     for c in claimants:
         for entry in c.ns_entries:
-            if _within_any(entry, exclude_roots):
+            if exclude_roots and _within_any(entry, exclude_roots):
                 continue
             prior = entry_owner.get(entry)
-            if prior == None:
-                entry_owner[entry] = c
-            elif prior.site_packages != c.site_packages:
+            if prior != None and prior.site_packages != c.site_packages:
                 complain("namespace entry", entry, prior.site_packages, c.site_packages)
                 _skip(state, prior.site_packages, tl)
-                entry_owner[entry] = c
+            entry_owner[entry] = c
     return entry_owner
 
 def _dedupe_prefix_conflicts(entry_owner, tl, state, complain):
@@ -186,7 +169,7 @@ def _dedupe_prefix_conflicts(entry_owner, tl, state, complain):
     not currently emitted.  The conflict is surfaced via
     ``package_collisions`` rather than silently mis-merging.
     """
-    for entry in list(entry_owner.keys()):
+    for entry in entry_owner.keys():
         segments = entry.split("/")
         for depth in range(2, len(segments)):
             shallower = entry_owner.get("/".join(segments[:depth]))
@@ -245,24 +228,14 @@ def _collapse_entry_projection(entry_owner, claimants, exclude_roots):
         owners,
     )
 
-def _build_wheel_lookup_sets(wheel_by_sp, sps):
-    """Pre-compute O(1) membership dicts for per-wheel root tuples.
+def _wheel_lookup_sets(wheel_by_sp, sps, field):
+    """Index one wheel root field for constant-time membership."""
+    return {
+        sp: set(getattr(wheel_by_sp[sp], field, ()))
+        for sp in sps
+    }
 
-    ``namespace_dirs``, ``regular_roots``, and ``native_roots`` are
-    tuples in the wheel record; converting them to dict keys once
-    avoids O(n) linear scans inside tight N x N loops.
-    """
-    ns_dirs = {}
-    regular_roots = {}
-    native_roots = {}
-    for sp in sps:
-        w = wheel_by_sp[sp]
-        ns_dirs[sp] = {d: True for d in getattr(w, "namespace_dirs", ())}
-        regular_roots[sp] = {r: True for r in getattr(w, "regular_roots", ())}
-        native_roots[sp] = {r: True for r in getattr(w, "native_roots", ())}
-    return ns_dirs, regular_roots, native_roots
-
-def _scan_namespace_conflicts(tl, distinct_sps, wheel_by_sp, state):
+def _scan_namespace_conflicts(tl, sps, wheel_by_sp, state):
     """Detect regular-package roots that span multiple namespace wheels.
 
     Cross-references each wheel's ``regular_roots`` against every other
@@ -272,15 +245,15 @@ def _scan_namespace_conflicts(tl, distinct_sps, wheel_by_sp, state):
     ``__path__`` to the first directory found, so neither ``.pth`` nor
     per-entry symlinks can merge it.
 
-    Returns ``(conflicted_roots_dict, native_candidate_roots_dict)`` and
-    records every namespace claimant in ``state.ns_claimant_sps``.
+    Returns the conflicted roots and records every namespace claimant in
+    ``state.ns_claimant_sps``.
     """
-    sps = list(distinct_sps)
-    ns_dirs, regular_roots, _native = _build_wheel_lookup_sets(wheel_by_sp, sps)
+    ns_dirs = _wheel_lookup_sets(wheel_by_sp, sps, "namespace_dirs")
+    regular_roots = _wheel_lookup_sets(wheel_by_sp, sps, "regular_roots")
     tl_prefix = tl + "/"
-    conflicted = {}
+    conflicted = set()
     for sp_a in sps:
-        state.ns_claimant_sps[sp_a] = True
+        state.ns_claimant_sps.add(sp_a)
         w_a = wheel_by_sp[sp_a]
         for root in getattr(w_a, "regular_roots", ()):
             if not root.startswith(tl_prefix):
@@ -289,7 +262,7 @@ def _scan_namespace_conflicts(tl, distinct_sps, wheel_by_sp, state):
                 if sp_b == sp_a:
                     continue
                 if root in ns_dirs[sp_b] or root in regular_roots[sp_b]:
-                    conflicted[root] = True
+                    conflicted.add(root)
     return conflicted
 
 def _classify_conflicted_roots(conflicted, unique_claimants, wheel_by_sp):
@@ -300,23 +273,19 @@ def _classify_conflicted_roots(conflicted, unique_claimants, wheel_by_sp):
     Roots that cover a native candidate are promoted to avoid declaring
     both an ancestor and descendant as outputs.
     """
-    sps = [c.site_packages for c in unique_claimants]
-    _, _, native_roots = _build_wheel_lookup_sets(wheel_by_sp, sps)
-    native_candidates = [
-        root
-        for root in conflicted
-        if any([root in native_roots[c.site_packages] for c in unique_claimants])
-    ]
+    native_roots = set()
+    for c in unique_claimants:
+        native_roots.update(getattr(wheel_by_sp[c.site_packages], "native_roots", ()))
+    native_candidates = [root for root in conflicted if root in native_roots]
     native_conflicted = _shallowest([
         root
         for root in conflicted
         if _contains_any(root, native_candidates)
     ])
-    mergeable = {
-        root: True
-        for root in conflicted
-        if not _within_any(root, native_conflicted)
-    }
+    mergeable = set()
+    for root in conflicted:
+        if not _within_any(root, native_conflicted):
+            mergeable.add(root)
     return native_conflicted, mergeable
 
 def _resolve_native_span(
@@ -338,9 +307,10 @@ def _resolve_native_span(
     unless they carry duplicate metadata (their fallback would expose
     an unsuppressible duplicate entry).
     """
-    _, regular_roots, _ = _build_wheel_lookup_sets(
+    regular_roots = _wheel_lookup_sets(
         wheel_by_sp,
         [c.site_packages for c in unique_claimants],
+        "regular_roots",
     )
     native_winner_by_root = {}
     for root in native_roots:
@@ -357,8 +327,8 @@ def _resolve_native_span(
 
     for c in unique_claimants:
         w = wheel_by_sp[c.site_packages]
-        ns_dirs = {d: True for d in getattr(w, "namespace_dirs", ())}
-        regs = {r: True for r in getattr(w, "regular_roots", ())}
+        ns_dirs = set(getattr(w, "namespace_dirs", ()))
+        regs = regular_roots[c.site_packages]
         for root, winner_sp in native_winner_by_root.items():
             if (root in regs or root in ns_dirs or _contains_any(root, c.ns_entries)):
                 if (c.site_packages != winner_sp and
@@ -375,7 +345,6 @@ def _resolve_native_span(
         )
         for entry, sp in projection.items():
             state.top_level_to_site_pkgs[entry] = sp
-        _cover_all_clean(with_entries, state, tl)
 
 def _resolve_pure_namespace(unique_claimants, tl, state, complain):
     """Resolve a PEP 420 namespace top-level with no regular-span conflict.
@@ -388,17 +357,15 @@ def _resolve_pure_namespace(unique_claimants, tl, state, complain):
     with_entries = _skip_entryless_and_split(unique_claimants, state, tl)
     if not with_entries:
         return
-    entry_owner = _resolve_entry_owners(with_entries, tl, [], state, complain)
+    entry_owner = _resolve_entry_owners(with_entries, tl, (), state, complain)
     _dedupe_prefix_conflicts(entry_owner, tl, state, complain)
     projection = _collapse_entry_projection(entry_owner, with_entries, [])
     for entry, sp in projection.items():
         state.top_level_to_site_pkgs[entry] = sp
-    _cover_all_clean(with_entries, state, tl)
 
 def _resolve_directory_collision(
         tl,
         distinct_claimants,
-        any_namespace,
         state,
         duplicate_metadata_loser_sps):
     """Resolve a collision where all claimants are directories.
@@ -419,14 +386,10 @@ def _resolve_directory_collision(
         winner = [c for c in distinct_claimants if not c.is_ns][-1]
         state.top_level_to_site_pkgs[tl] = winner.site_packages
         for c in distinct_claimants:
-            if (c.site_packages == winner.site_packages or
-                c.site_packages in duplicate_metadata_loser_sps):
-                _cover(state, c.site_packages, tl)
-            else:
+            if (c.site_packages != winner.site_packages and
+                c.site_packages not in duplicate_metadata_loser_sps):
                 _skip(state, c.site_packages, tl)
     else:
-        for c in distinct_claimants:
-            _cover(state, c.site_packages, tl)
         state.merge_groups.append(struct(
             root = tl,
             site_packages_list = [c.site_packages for c in distinct_claimants],
@@ -446,10 +409,7 @@ def _resolve_top_level(
         state.top_level_to_site_pkgs[tl] = claimants[0].site_packages
         return
 
-    all_namespace = all([c.is_ns for c in claimants])
-    any_namespace = any([c.is_ns for c in claimants])
-
-    if all_namespace:
+    if all([c.is_ns for c in claimants]):
         unique_claimants = distinct_sp.values()
         tl_conflicted_roots = _scan_namespace_conflicts(tl, distinct_sp.keys(), wheel_by_sp, state)
 
@@ -460,7 +420,7 @@ def _resolve_top_level(
                 wheel_by_sp,
             )
             for root in mergeable:
-                state.conflicted_roots[root] = True
+                state.conflicted_roots.add(root)
 
             _resolve_native_span(
                 native_conflicted,
@@ -477,6 +437,7 @@ def _resolve_top_level(
             _resolve_pure_namespace(unique_claimants, tl, state, complain)
         return
 
+    any_namespace = any([c.is_ns for c in claimants])
     _complain_chain(complain, "top-level", tl, distinct_sp.keys())
     distinct_claimants = distinct_sp.values()
     all_directories = any_namespace or all([c.is_dir for c in distinct_claimants])
@@ -485,7 +446,6 @@ def _resolve_top_level(
         _resolve_directory_collision(
             tl,
             distinct_claimants,
-            any_namespace,
             state,
             duplicate_metadata_loser_sps,
         )
@@ -502,21 +462,20 @@ def _resolve_top_level(
             _skip(state, c.site_packages, tl)
     state.top_level_to_site_pkgs[tl] = winner.site_packages
 
-def _fold_merge_groups(wheels, wheel_by_sp, state):
+def _fold_merge_groups(wheel_by_sp, state):
     """Fold conflicted roots into ``PySiteMerge`` merge groups.
 
     A conflicted root nested inside another is covered by the outer
     merge.  Contributors are namespace-claimant wheels whose skeleton or
     regular roots include the path, in wheel traversal order.
     """
-    ordered_sps = _distinct_ordered([w.site_packages_rfpath for w in wheels])
-    for root in _shallowest(state.conflicted_roots.keys()):
+    for root in _shallowest(state.conflicted_roots):
         group_sps = [
             sp
-            for sp in ordered_sps
+            for sp in wheel_by_sp
             if sp in state.ns_claimant_sps and (
-                root in {d: True for d in getattr(wheel_by_sp[sp], "namespace_dirs", ())} or
-                root in {r: True for r in getattr(wheel_by_sp[sp], "regular_roots", ())}
+                root in getattr(wheel_by_sp[sp], "namespace_dirs", ()) or
+                root in getattr(wheel_by_sp[sp], "regular_roots", ())
             )
         ]
         if len(group_sps) >= 2:
@@ -529,9 +488,11 @@ def _resolve_console_scripts(cs_claimants, complain):
     """Resolve console-script name collisions (last distinct wheel wins)."""
     console_scripts_map = {}
     for name, claimants in cs_claimants.items():
-        distinct_sp = _last_per_sp(claimants)
-        _complain_chain(complain, "console script", name, distinct_sp.keys())
-        winner = distinct_sp.values()[-1]
+        winner = claimants[0]
+        if len(claimants) > 1:
+            distinct_sp = _last_per_sp(claimants)
+            _complain_chain(complain, "console script", name, distinct_sp.keys())
+            winner = distinct_sp.values()[-1]
         console_scripts_map[name] = struct(module = winner.module, func = winner.func)
     return console_scripts_map
 
@@ -688,25 +649,19 @@ def _compute_fully_covered(wheels, state):
     Wheels without declared layout metadata (empty ``top_levels``)
     cannot be classified and are excluded.
     """
-    fully_covered = {}
+    fully_covered = set()
     for w in wheels:
         if not w.top_levels:
             continue
         sp = w.site_packages_rfpath
-        skipped = state.skipped_per_wheel.get(sp, {})
-        covered_roots = state.covered_per_wheel.get(sp, {})
-        covered = True
-        for tl, _ in w.tl_claims:
-            if tl in skipped or (
-                state.top_level_to_site_pkgs.get(tl) != sp and tl not in covered_roots
-            ):
-                covered = False
-                break
-        if covered:
-            fully_covered[sp] = True
+        if sp not in state.skipped_per_wheel or all([
+            tl not in state.skipped_per_wheel[sp]
+            for tl, _ in w.tl_claims
+        ]):
+            fully_covered.add(sp)
     return fully_covered
 
-def _resolve_metadata_collisions(metadata_claimants, state, fully_covered, complain, ctx):
+def _resolve_metadata_collisions(metadata_claimants, metadata_duplicates, state, fully_covered, complain, ctx):
     """Resolve duplicate ``.dist-info`` / ``.egg-info`` entries.
 
     Python's metadata discovery scans every ``sys.path`` entry, so a
@@ -716,23 +671,24 @@ def _resolve_metadata_collisions(metadata_claimants, state, fully_covered, compl
     ``package_collisions = "error"``.  The winner is projected only
     when fully covered (fallback gone).
     """
-    for tl, claimants in metadata_claimants.items():
-        distinct = _distinct_ordered(claimants)
-        winner = distinct[-1]
-        for site_packages in distinct[:-1]:
-            if site_packages not in fully_covered:
-                fail(("{}: distribution metadata entry `{}` selects {}, but " +
-                      "losing claimant {} remains on whole-wheel fallback.").format(
-                    ctx.label,
-                    tl,
-                    winner,
-                    site_packages,
-                ))
-        _complain_chain(complain, "distribution metadata entry", tl, distinct)
+    for tl, winner in metadata_claimants.items():
+        if tl in metadata_duplicates:
+            distinct = _distinct_ordered(metadata_duplicates[tl])
+            winner = distinct[-1]
+            for site_packages in distinct[:-1]:
+                if site_packages not in fully_covered:
+                    fail(("{}: distribution metadata entry `{}` selects {}, but " +
+                          "losing claimant {} remains on whole-wheel fallback.").format(
+                        ctx.label,
+                        tl,
+                        winner,
+                        site_packages,
+                    ))
+            _complain_chain(complain, "distribution metadata entry", tl, distinct)
         if winner in fully_covered:
             state.top_level_to_site_pkgs[tl] = winner
 
-def resolve_wheel_collisions(ctx, wheels):
+def resolve_wheel_collisions(ctx, wheels, wheel_by_sp = None, known_layout_site_pkgs = None):
     """Walk ``PyWheelsInfo.wheels`` and produce merge plans for site-packages + bin/.
 
     Policy-agnostic: collisions are recorded, not reported.  The caller
@@ -747,28 +703,37 @@ def resolve_wheel_collisions(ctx, wheels):
     state = _new_state()
 
     tl_claimants = {}
+    tl_duplicates = {}
     metadata_claimants = {}
+    metadata_duplicates = {}
     cs_claimants = {}
-    wheel_by_sp = {}
+    wheel_by_sp = {} if wheel_by_sp == None else wheel_by_sp
     for w in wheels:
         wheel_by_sp[w.site_packages_rfpath] = w
         for tl in w.metadata_top_levels:
-            metadata_claimants.setdefault(tl, []).append(w.site_packages_rfpath)
+            if tl in metadata_claimants:
+                metadata_duplicates.setdefault(tl, [metadata_claimants[tl]]).append(w.site_packages_rfpath)
+            else:
+                metadata_claimants[tl] = w.site_packages_rfpath
         for tl, claim in w.tl_claims:
-            tl_claimants.setdefault(tl, []).append(claim)
+            if tl in tl_claimants:
+                tl_duplicates.setdefault(tl, [tl_claimants[tl]]).append(claim)
+            else:
+                tl_claimants[tl] = claim
         for name, claim in w.cs_claims:
             cs_claimants.setdefault(name, []).append(claim)
 
-    duplicate_metadata_loser_sps = {
-        loser: True
-        for claimants in metadata_claimants.values()
-        for loser in _distinct_ordered(claimants)[:-1]
-    }
+    duplicate_metadata_loser_sps = set()
+    for claimants in metadata_duplicates.values():
+        duplicate_metadata_loser_sps.update(_distinct_ordered(claimants)[:-1])
 
-    for tl, claimants in tl_claimants.items():
+    for tl, claim in tl_claimants.items():
+        if tl not in tl_duplicates:
+            state.top_level_to_site_pkgs[tl] = claim.site_packages
+            continue
         _resolve_top_level(
             tl,
-            claimants,
+            tl_duplicates[tl],
             wheel_by_sp,
             state,
             complain,
@@ -776,11 +741,15 @@ def resolve_wheel_collisions(ctx, wheels):
             duplicate_metadata_loser_sps,
         )
 
-    _fold_merge_groups(wheels, wheel_by_sp, state)
+    _fold_merge_groups(wheel_by_sp, state)
     console_scripts_map = _resolve_console_scripts(cs_claimants, complain)
     data_file_to_site_pkgs = _resolve_data_files(wheels, complain)
     fully_covered = _compute_fully_covered(wheels, state)
-    _resolve_metadata_collisions(metadata_claimants, state, fully_covered, complain, ctx)
+    if known_layout_site_pkgs != None:
+        for site_packages in state.skipped_per_wheel:
+            if site_packages not in fully_covered:
+                known_layout_site_pkgs.add(site_packages)
+    _resolve_metadata_collisions(metadata_claimants, metadata_duplicates, state, fully_covered, complain, ctx)
 
     return (
         state.top_level_to_site_pkgs,

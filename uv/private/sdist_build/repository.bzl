@@ -265,6 +265,7 @@ py_binary(
     main = "@aspect_rules_py//uv/private/pep517_whl/tools:build_helper.py",
     srcs = ["@aspect_rules_py//uv/private/pep517_whl/tools:build_helper.py"],
     deps = {deps},
+    indexed_imports = False,
 )
 
 {rule}(

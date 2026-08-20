@@ -32,6 +32,8 @@ def parse_record_path(line):
     containing an embedded newline (legal but vanishingly rare) is not handled
     -- the same limitation `importlib.metadata` has.
     """
+    if not line.startswith("\""):
+        return line.partition(",")[0]
     path = []
 
     # States mirror csv.reader's field parser:
@@ -186,10 +188,8 @@ def native_roots_for_segments(segments, collision_roots = ()):
 
 # Keep parsing, matching, and cache-to-source matching in sync with
 # py/tools/unpack/{exclude_glob.py,unpack.py} and their shared test vectors.
-# `whl_dist` extraction stays exclude-agnostic (the per-wheel repo never sees
-# a per-package exclude_glob); `whl_install` applies these at analysis time to
-# the selected wheel's layout so the advertised surface matches the install
-# action's filtered tree.
+# Wheel repositories apply exclusions shared by every consumer. Conflicting
+# consumers instead filter the selected wheel's layout during analysis.
 def parse_exclude_glob(value):
     """Return the validated segments of a site-packages-relative glob."""
     parts = value.split("/")
@@ -224,23 +224,23 @@ def _exclude_glob_chunk_matches(value, pattern):
 def exclude_glob_matches(path, pattern):
     """Return whether a parsed glob excludes path or one of its parents."""
     pattern = pattern + ["**"]
-    states = {0: True}
+    states = set([0])
     for segment in path:
         for index in range(len(pattern)):
             if index in states and pattern[index] == "**":
-                states[index + 1] = True
-        next_states = {}
+                states.add(index + 1)
+        next_states = set()
         for index in range(len(pattern)):
             if index not in states:
                 continue
             if pattern[index] == "**":
-                next_states[index] = True
+                next_states.add(index)
             elif _exclude_glob_chunk_matches(segment, pattern[index]):
-                next_states[index + 1] = True
+                next_states.add(index + 1)
         states = next_states
     for index in range(len(pattern)):
         if index in states and pattern[index] == "**":
-            states[index + 1] = True
+            states.add(index + 1)
     return len(pattern) in states
 
 def cache_source_path(path):
@@ -319,7 +319,7 @@ def _namespace_dirs_and_roots(dirs_set, init_dirs, namespace_top_levels_set):
     """
     namespace_dirs = []
     regular_roots = []
-    for d in sorted(dirs_set.keys()):
+    for d in sorted(dirs_set):
         segments = d.split("/")
         if segments[0] not in namespace_top_levels_set:
             continue
@@ -490,48 +490,32 @@ def derive_layout(record_segments):
     """Derive the site-packages layout from filtered RECORD segment lists.
 
     `record_segments` are site-packages-relative paths (install-root escapes
-    already dropped). Run once at extraction, and again at analysis time (in
-    `whl_install`) over the segments that survive `exclude_glob` — so removing
-    an `__init__.py`, or the last file under a top-level, reclassifies
-    namespace/regular and drops stale entries instead of leaving the advertised
-    topology out of sync with the installed tree.
+    already dropped). Run once at extraction, and again at analysis time only
+    when wheel consumers disagree on exclusions. Removing an `__init__.py`, or
+    the last file under a top-level, reclassifies namespace/regular and drops
+    stale entries instead of leaving the advertised topology inconsistent.
     """
 
     # First path segment = top-level name. Track which top-levels have a direct
     # `<toplevel>/__init__.py` (regular packages); the complement are PEP 420
     # namespaces. Also record the directory skeleton, which dirs hold an
     # `__init__.py`, and which files are native.
-    top_levels_set = {}
-    regular_top_levels = {}
-    dirs_set = {}
-    init_dirs = {}
+    top_levels_set = set()
+    regular_top_levels = set()
+    dirs_set = set()
+    init_dirs = set()
     native_segments = []
     for segments in record_segments:
         first_segment = segments[0]
-        top_levels_set[first_segment] = True
-        if len(segments) == 1 or (len(segments) >= 2 and segments[1] == "__init__.py"):
-            regular_top_levels[first_segment] = True
+        top_levels_set.add(first_segment)
+        if len(segments) == 1 or segments[1] == "__init__.py":
+            regular_top_levels.add(first_segment)
         if native_roots_for_segments(segments):
             native_segments.append(segments)
         for i in range(1, len(segments)):
-            dirs_set["/".join(segments[:i])] = True
+            dirs_set.add("/".join(segments[:i]))
         if len(segments) >= 2 and segments[-1] == "__init__.py":
-            init_dirs["/".join(segments[:-1])] = True
-
-    # Namespace entries: for each path under a namespace top-level, descend to
-    # the shallowest concrete prefix — a dir with a direct `__init__.py`, or the
-    # file itself. Nested namespaces (`google/cloud/storage/…`) recurse.
-    namespace_entries_set = {}
-    for segments in record_segments:
-        if segments[0] in regular_top_levels or segments[0].endswith(".dist-info"):
-            continue
-        if len(segments) < 2:
-            continue
-        for depth in range(2, len(segments) + 1):
-            prefix = "/".join(segments[:depth])
-            if depth == len(segments) or prefix in init_dirs:
-                namespace_entries_set[prefix] = True
-                break
+            init_dirs.add("/".join(segments[:-1]))
 
     top_level_dirs = sorted([
         tl
@@ -548,32 +532,41 @@ def derive_layout(record_segments):
             not tl.endswith(".dist-info") and
             not tl.endswith(".egg-info"))
     ])
-    namespace_set = {tl: True for tl in namespaces}
+    namespace_set = set(namespaces)
 
-    namespace_entries = sorted([
-        entry
-        for entry in namespace_entries_set
-        if entry.split("/")[0] in namespace_set
-    ])
+    # Namespace entries: for each path under a namespace top-level, descend to
+    # the shallowest concrete prefix — a dir with a direct `__init__.py`, or the
+    # file itself. Nested namespaces (`google/cloud/storage/…`) recurse.
+    namespace_entries_set = set()
+    for segments in record_segments:
+        if segments[0] not in namespace_set:
+            continue
+        for depth in range(2, len(segments) + 1):
+            prefix = "/".join(segments[:depth])
+            if depth == len(segments) or prefix in init_dirs:
+                namespace_entries_set.add(prefix)
+                break
+
+    namespace_entries = sorted(namespace_entries_set)
 
     namespace_dirs, regular_roots = _namespace_dirs_and_roots(dirs_set, init_dirs, namespace_set)
 
-    native_roots = {}
+    native_roots = set()
     for segments in native_segments:
         for root in native_roots_for_segments(segments, namespace_dirs + regular_roots):
-            native_roots[root] = True
+            native_roots.add(root)
 
     return struct(
-        top_levels = sorted(top_levels_set.keys()),
+        top_levels = sorted(top_levels_set),
         top_level_dirs = top_level_dirs,
         namespace_top_levels = namespaces,
         namespace_entries = namespace_entries,
         namespace_dirs = namespace_dirs,
         regular_roots = regular_roots,
-        native_roots = sorted(native_roots.keys()),
+        native_roots = sorted(native_roots),
     )
 
-def extract_install_metadata(rctx, whl_path, basename):
+def extract_install_metadata(rctx, whl_path, basename, exclude_glob, carry_record_paths):
     """Peek inside a wheel and derive the layout `PyWheelsInfo` consumes.
 
     Reads:
@@ -588,6 +581,8 @@ def extract_install_metadata(rctx, whl_path, basename):
       whl_path: A resolved `rctx.path` to the wheel on disk.
       basename: The wheel's file name, which implies the `.dist-info` directory
         holding RECORD/entry_points.txt.
+      exclude_glob: Exclusions shared by every consumer of this wheel.
+      carry_record_paths: Whether conflicting consumers need unfiltered paths.
 
     Returns:
       A struct of sorted `list[str]` fields ready to pass straight through as
@@ -603,6 +598,13 @@ def extract_install_metadata(rctx, whl_path, basename):
     # paths venv assembly projects.
     parsed = parse_record(record, data_directory)
     record_segments = parsed.record_segments
+    if exclude_glob:
+        patterns = [parse_exclude_glob(pattern) for pattern in exclude_glob]
+        record_segments = [
+            segments
+            for segments in record_segments
+            if not record_path_excluded(segments, patterns)
+        ]
 
     # entry_points.txt: INI-style file. Only `[console_scripts]` interests
     # us — pip/uv synthesize executables under `bin/<name>` from those at
@@ -632,8 +634,9 @@ def extract_install_metadata(rctx, whl_path, basename):
 
     # A wheel's RECORD always lists at least its `.dist-info`, so a prebuilt
     # wheel's top_levels is never empty (empty stays reserved for source-built
-    # wheels of unknown layout). `record_paths` is preserved so whl_install can
-    # re-derive the layout after applying exclude_glob.
+    # wheels of unknown layout). Preserve RECORD paths for conflicting
+    # exclusions, or when exclusions empty a known layout; the latter keeps
+    # prebuilt wheels distinguishable from source-built wheels.
     layout = derive_layout(record_segments)
     return struct(
         top_levels = layout.top_levels,
@@ -644,6 +647,9 @@ def extract_install_metadata(rctx, whl_path, basename):
         regular_roots = layout.regular_roots,
         native_roots = layout.native_roots,
         console_scripts = sorted(console_scripts.values()),
-        record_paths = ["/".join(segments) for segments in record_segments],
+        record_paths = [
+            "/".join(segments)
+            for segments in parsed.record_segments
+        ] if carry_record_paths or not record_segments else [],
         data_files = parsed.data_files,
     )

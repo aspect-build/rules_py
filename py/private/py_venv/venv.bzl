@@ -3,8 +3,8 @@
 This module is the single place in rules_py that declares the files making
 up a Python venv. Both `py_binary` / `py_test` (each with its own internal
 venv, unless `expose_venv = True` routes them to a sibling py_venv) and
-the standalone `py_venv` rule call `assemble_venv` to keep their layouts
-bit-identical.
+the standalone `py_venv` rule call `assemble_venv`. Exposed virtualenvs stay
+physical; private virtualenvs can replace package projections with an index.
 
 The venv shape mirrors what CPython's `python -m venv` + pip install
 produces, so downstream tools (IDEs, `$VIRTUAL_ENV`-aware shells,
@@ -67,6 +67,100 @@ _ADDSITEDIR_LINE = (
 def _dict_to_exports(env):
     return ["export %s=\"%s\"" % (k, v) for (k, v) in env.items()]
 
+def _import_name(entry, wheel):
+    """Return the importable top-level name, or None for metadata/data."""
+    if "." not in entry:
+        if entry not in wheel.top_level_dirs and entry not in wheel.namespace_top_levels:
+            return None
+        name = entry
+    elif entry.endswith(".py"):
+        name = entry[:-3]
+    elif entry.endswith(".pyc"):
+        name = entry[:-4]
+    elif entry.endswith(".so") or entry.endswith(".pyd"):
+        name = entry.split(".", 1)[0]
+    else:
+        return None
+    return name if name and "-" not in name else None
+
+def _source_record(source):
+    path = source.short_path
+    if path.startswith("../"):
+        return None
+    if source.is_directory:
+        return "T\t" + path
+    if source.extension not in ("py", "pyc", "so", "pyd") and "/" in path:
+        path = path.rsplit("/", 1)[0] + "/"
+    return "S\t" + path
+
+def _symlink_record(symlink):
+    return ("Q\t" if symlink.target_file.is_directory else "L\t") + symlink.path
+
+def _root_symlink_record(symlink):
+    return ("B\t" if symlink.target_file.is_directory else "A\t") + symlink.path
+
+def _wheel_projection_record(projection):
+    return "W\t" + projection[0] + "\t" + projection[1]
+
+def _indexed_projection_plan(wheels, wheel_by_site_packages, fully_covered, projections, known_layout_site_pkgs, ordered_metadata = False):
+    """Select safe projections and retain existing collision/.pth semantics."""
+    import_spellings = {}
+    projected_pth_sites = set()
+    candidate_entries = {}
+    for entry, site_packages in projections.items():
+        wheel = wheel_by_site_packages.get(site_packages)
+        if wheel == None or entry in wheel.metadata_top_levels:
+            if ordered_metadata and wheel != None:
+                break
+            continue
+        spelling = entry if "/" not in entry else entry.split("/", 1)[0]
+        name = (
+            spelling if "." not in spelling and "-" not in spelling and spelling in wheel.top_level_dirs else _import_name(spelling, wheel)
+        )
+        if name == None:
+            if spelling.endswith(".pth"):
+                projected_pth_sites.add(site_packages)
+            continue
+        candidate_entries[entry] = name
+        if import_spellings.setdefault(name, spelling) != spelling:
+            import_spellings[name] = None
+
+    if len(wheels) == len(fully_covered) + len(known_layout_site_pkgs):
+        wheels = [
+            wheel_by_site_packages[site]
+            for site in list(known_layout_site_pkgs) + list(projected_pth_sites)
+        ]
+    for wheel in wheels:
+        site_packages = wheel.site_packages_rfpath
+        if site_packages in fully_covered:
+            if site_packages not in projected_pth_sites:
+                continue
+            if not any([entry.endswith(".pth") for entry, _ in wheel.tl_claims]):
+                continue
+        for entry, _ in wheel.tl_claims:
+            name = _import_name(entry, wheel)
+            if name != None:
+                import_spellings[name] = None
+
+    eligible_wheels = {}
+    for entry, name in candidate_entries.items():
+        site_packages = projections[entry]
+        if site_packages not in fully_covered or import_spellings[name] == None:
+            eligible_wheels[site_packages] = None
+        elif site_packages not in eligible_wheels:
+            eligible_wheels[site_packages] = True
+
+    retained_projections = {}
+    for entry, site_packages in projections.items():
+        if not eligible_wheels.get(site_packages) or (
+            entry not in candidate_entries and
+            not entry.endswith(".dist-info") and
+            not entry.endswith(".egg-info")
+        ):
+            retained_projections[entry] = projections.pop(entry)
+
+    return retained_projections, projections
+
 def assemble_venv(
         ctx,
         *,
@@ -81,7 +175,8 @@ def assemble_venv(
         venv_activate_tmpl,
         site_merge_script_py,
         console_script_tmpl,
-        venv_name):
+        venv_name,
+        indexed_runfiles = None):
     """Declare every file + symlink that makes up a venv for a target.
 
     Args:
@@ -111,6 +206,7 @@ def assemble_venv(
       console_script_tmpl: File — the console-script wrapper template
         (usually `ctx.file._console_script_tmpl`).
       venv_name: str — the venv dir basename (e.g. "." + venv_stem).
+      indexed_runfiles: Optional runfiles whose paths seed indexed imports.
 
     Returns:
       struct with:
@@ -120,7 +216,9 @@ def assemble_venv(
             / DefaultInfo aggregation.
     """
 
-    top_level_to_site_pkgs, fully_covered_site_pkgs, console_scripts_map, merge_groups, data_file_to_site_pkgs, collisions = resolve_wheel_collisions(ctx, wheels)
+    wheel_by_site_packages = {}
+    known_layout_site_pkgs = set()
+    top_level_to_site_pkgs, fully_covered_site_pkgs, console_scripts_map, merge_groups, data_file_to_site_pkgs, collisions = resolve_wheel_collisions(ctx, wheels, wheel_by_site_packages, known_layout_site_pkgs)
     enforce_collision_policy(collisions, package_collisions)
 
     # All toolchain-derived path/flag math (runfiles escape arithmetic,
@@ -137,20 +235,17 @@ def assemble_venv(
     wheel_py_ver = tc.wheel_py_ver
     site_packages_rel = tc.site_packages_rel
 
-    # site_packages_rfpath → install_tree, used only by the regular-package
-    # merge action below. The per-top-level symlinks and .pth lines locate
-    # each wheel by its runfiles path directly, not through this map.
-    tree_by_sp = {w.site_packages_rfpath: w.install_tree for w in wheels}
-
-    # site_packages_rfpath → True for wheels whose top-level layout is known
-    # (they declare `top_levels`), so the per-top-level symlink loop projects
-    # their root entries — including any root `.pth` files — into the venv
-    # site-packages. Wheels that carry only `console_scripts` (e.g. source-built
-    # scripts) leave `top_levels` empty: nothing is projected for them, so their
-    # `.pth` line must use `site.addsitedir` (see `_format_imp`).
-    known_layout_site_pkgs = {w.site_packages_rfpath: True for w in wheels if w.top_levels}
-
     declared = []  # accumulator for all outputs
+    wheel_projections = None
+    if indexed_runfiles != None:
+        top_level_to_site_pkgs, wheel_projections = _indexed_projection_plan(
+            wheels,
+            wheel_by_site_packages,
+            fully_covered_site_pkgs,
+            top_level_to_site_pkgs,
+            known_layout_site_pkgs,
+            ordered_metadata = True,
+        )
 
     # Per-top-level site-packages symlink: a relative symlink escaping from
     # site-packages up to the runfiles root, then down into the owning
@@ -222,7 +317,7 @@ def assemble_venv(
     # The merge runs as a build action under the exec-configuration
     # interpreter (same shape as WhlInstall's unpack action). Every
     # PyWheelsInfo record carries an install_tree (see providers.bzl),
-    # so each contributing wheel resolves in tree_by_sp.
+    # so each contributing wheel resolves in wheel_by_site_packages.
     for group in merge_groups:
         exec_toolchain = ctx.toolchains[EXEC_TOOLS_TOOLCHAIN]
         exec_runtime = exec_toolchain.exec_runtime if exec_toolchain else None
@@ -245,7 +340,7 @@ def assemble_venv(
         arguments.add("--collision-policy", package_collisions)
         trees = []
         for sp in group.site_packages_list:
-            tree = tree_by_sp[sp]
+            tree = wheel_by_site_packages[sp].install_tree
             trees.append(tree)
             arguments.add_all(
                 [tree],
@@ -289,33 +384,90 @@ def assemble_venv(
             )
         return "{}/{}".format(escape, imp)
 
-    pth_lines = ctx.actions.args()
-    pth_lines.use_param_file("%s", use_always = True)
-    pth_lines.set_param_file_format("multiline")
-    pth_lines.add(escape)
-
-    # Make wheel-declared console scripts reachable via `subprocess.run("name", ...)`
-    # without loading the distutils shim on every interpreter startup.
-    pth_lines.add(
-        "import os, sys; _venv_bin = os.path.dirname(sys.executable); " +
-        "_path = os.environ.get(\"PATH\", \"\"); " +
-        "os.environ[\"PATH\"] = _path if _venv_bin in _path.split(os.pathsep) " +
-        "else _venv_bin + os.pathsep + _path; del _venv_bin, _path",
-    )
-
-    # allow_closure lets _format_imp capture fully_covered_site_pkgs /
-    # known_layout_site_pkgs so we don't have to materialise imports_depset
-    # via .to_list().
-    pth_lines.add_all(imports_depset, map_each = _format_imp, allow_closure = True)
-
     site_packages_pth_file = ctx.actions.declare_file(
         "{}/{}.pth".format(site_packages_rel, venv_stem),
     )
-    ctx.actions.write(
-        output = site_packages_pth_file,
-        content = pth_lines,
-    )
     declared.append(site_packages_pth_file)
+
+    if indexed_runfiles != None:
+        index_file = ctx.actions.declare_file(
+            site_packages_prefix + ".aspect_rules_py_import_index",
+        )
+        import_index_shim = ctx.actions.declare_file(
+            site_packages_prefix + "_aspect_rules_py_import_index.py",
+        )
+        declared.extend([index_file, import_index_shim])
+
+        records = ctx.actions.args()
+        records.use_param_file("%s", use_always = True)
+        records.set_param_file_format("multiline")
+        records.add_all(imports_depset, format_each = "R\t%s")
+        records.add_all(list(fully_covered_site_pkgs), format_each = "C\t%s")
+        records.add_all(list(known_layout_site_pkgs), format_each = "H\t%s")
+        records.add_all(
+            indexed_runfiles.files,
+            map_each = _source_record,
+            expand_directories = False,
+            uniquify = True,
+        )
+        records.add_all(
+            indexed_runfiles.symlinks,
+            map_each = _symlink_record,
+        )
+        records.add_all(
+            indexed_runfiles.root_symlinks,
+            map_each = _root_symlink_record,
+        )
+        records.add_all(wheel_projections.items(), map_each = _wheel_projection_record)
+
+        arguments = ctx.actions.args()
+        arguments.add(ctx.file._import_index_generator)
+        arguments.add(ctx.workspace_name)
+        arguments.add(escape)
+        arguments.add(venv_to_runfiles_escape)
+        arguments.add(index_file)
+        arguments.add(site_packages_pth_file)
+        arguments.add(ctx.file._import_index_shim)
+        arguments.add(import_index_shim)
+
+        exec_toolchain = ctx.toolchains[EXEC_TOOLS_TOOLCHAIN]
+        exec_runtime = exec_toolchain.exec_runtime if exec_toolchain else None
+        if exec_runtime == None:
+            fail("{}: indexed Python imports require an `{}` execution toolchain".format(
+                ctx.label,
+                EXEC_TOOLS_TOOLCHAIN,
+            ))
+        ctx.actions.run(
+            mnemonic = "PyImportIndex",
+            executable = exec_runtime.interpreter,
+            toolchain = EXEC_TOOLS_TOOLCHAIN,
+            arguments = [arguments, records],
+            inputs = depset(
+                direct = [ctx.file._import_index_generator, ctx.file._import_index_shim],
+                transitive = [exec_runtime.files],
+            ),
+            outputs = [index_file, site_packages_pth_file, import_index_shim],
+            execution_requirements = {"supports-path-mapping": "1"},
+        )
+    else:
+        pth_lines = ctx.actions.args()
+        pth_lines.use_param_file("%s", use_always = True)
+        pth_lines.set_param_file_format("multiline")
+        pth_lines.add(escape)
+
+        # Make console scripts reachable without loading distutils at startup.
+        pth_lines.add(
+            "import os, sys; _venv_bin = os.path.dirname(sys.executable); " +
+            "_path = os.environ.get(\"PATH\", \"\"); " +
+            "os.environ[\"PATH\"] = _path if _venv_bin in _path.split(os.pathsep) " +
+            "else _venv_bin + os.pathsep + _path; del _venv_bin, _path",
+        )
+
+        pth_lines.add_all(imports_depset, map_each = _format_imp, allow_closure = True)
+        ctx.actions.write(
+            output = site_packages_pth_file,
+            content = pth_lines,
+        )
 
     pyvenv_cfg = ctx.actions.declare_file("{}/pyvenv.cfg".format(venv_name))
     home_line = "home =\n" if tc.pyvenv_home == "" else "home = {}\n".format(tc.pyvenv_home)

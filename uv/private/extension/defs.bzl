@@ -755,25 +755,29 @@ def _uv_impl(module_ctx):
         else:
             fail("Unsupported archive! {}".format(repr(sdist_cfg)))
 
-    # Wheel repos whose consuming package applies exclude_glob must carry their
-    # RECORD paths so whl_install can re-derive the layout after exclusion. All
-    # other wheels stay lean. Labels look like `@whl__pkg__hash//:whl`.
-    bdists_with_exclusions = {}
+    # Derive filtered layouts once when every consumer agrees on its exclusions.
+    # Shared wheels with conflicting exclusions retain their RECORD paths so
+    # each install can derive its own layout.
+    bdist_exclusions = {}
     for install_cfg in cfg.install_cfgs.values():
-        if install_cfg.exclude_glob:
-            for whl_label in install_cfg.whls.values():
-                if whl_label:
-                    bdists_with_exclusions[whl_label.split("//", 1)[0].lstrip("@")] = True
+        for whl_label in install_cfg.whls.values():
+            if not whl_label:
+                continue
+            bdist_name = whl_label.split("//", 1)[0].lstrip("@")
+            if bdist_exclusions.setdefault(bdist_name, install_cfg.exclude_glob) != install_cfg.exclude_glob:
+                bdist_exclusions[bdist_name] = None
 
     for bdist_name, bdist_cfg in cfg.bdist_cfgs.items():
         # A per-wheel repo that downloads the wheel AND peeks its RECORD for the
         # install layout, so only the wheel a config selects is ever fetched.
+        exclusions = bdist_exclusions.get(bdist_name, [])
         whl_dist(
             name = bdist_name,
             url = bdist_cfg["url"],
             sha256 = _dist_sha256(bdist_cfg) or "",
             downloaded_file_path = url_basename(bdist_cfg["url"]),
-            carry_record_paths = bdist_name in bdists_with_exclusions,
+            exclude_glob = exclusions or [],
+            carry_record_paths = exclusions == None,
         )
 
     # Resolve the sdist configure tool. The default is our bundled
