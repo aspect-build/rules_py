@@ -1,7 +1,7 @@
 load("@aspect_rules_py//uv:defs.bzl", "gazelle_python_manifest")
 load("@bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
 
-# Regression test for `gazelle_python_manifest(platform_parents = ...)`
+# Regression test for `gazelle_python_manifest(platform_parent = ...)`
 # (issue #1416: the macro's synthetic per-venv platforms were pinned to
 # `@platforms//host`, breaking cross-compilation and custom host platforms).
 # Reads from the //uv-deps-650 hub, which already declares an `extras` venv.
@@ -33,7 +33,7 @@ platform(
 gazelle_python_manifest(
     name = "gazelle_python_manifest",
     hub = "pypi_uv_deps_650",
-    platform_parents = [":parent_platform"],
+    platform_parent = ":parent_platform",
     venvs = ["extras"],
 )
 
@@ -41,7 +41,7 @@ gazelle_python_manifest(
 # this package; `:probe` depends on that naming scheme, so a rename inside the
 # macro breaks this target with a missing-target analysis error.
 #
-# The snapshot pins "custom-parent": if the macro ignores `platform_parents`,
+# The snapshot pins "custom-parent": if the macro ignores `platform_parent`,
 # the generated platform loses `:custom_parent`, the select falls through to
 # "default-parent", and the snapshot diff test fails.
 config_setting(

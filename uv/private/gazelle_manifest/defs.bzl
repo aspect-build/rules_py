@@ -75,7 +75,7 @@ def gazelle_python_manifest(
         hub,
         venvs = [],
         include_stub_packages = False,
-        platform_parents = None):
+        platform_parent = None):
     """Generates a Gazelle Python manifest from uv-managed wheels.
 
     Args:
@@ -84,11 +84,9 @@ def gazelle_python_manifest(
         venvs: Dependency groups whose wheels should be indexed.
         include_stub_packages: Whether conventional stub distributions should be
             indexed for Gazelle's automatic stub dependency resolution.
-        platform_parents: Single-element list holding the parent platform for the
-            synthetic platforms this macro uses to select each venv's wheels.
-            (Bazel's `platform()` rule accepts at most one parent; the list shape
-            mirrors its `parents` attribute.) Defaults to
-            `[Label("@platforms//host")]`, resolved in rules_py's own repository —
+        platform_parent: Parent platform for the synthetic platforms this macro
+            uses to select each venv's wheels. Defaults to
+            `Label("@platforms//host")`, resolved in rules_py's own repository —
             you do not need a `bazel_dep` on `platforms` to use the default. The
             host platform carries only OS and CPU constraints; point this at the
             platform the wheels should be resolved for when that is not enough:
@@ -98,12 +96,16 @@ def gazelle_python_manifest(
               platform here so sdist builds inside the hub can still resolve a
               cc toolchain.
             - When cross-compiling, pass the target platform so wheel selection
-              follows it instead of snapping back to the host.
+              follows it instead of snapping back to the host. Note this makes
+              `bazel run <name>.update` build any sdist fallbacks *for that
+              platform*, which requires an execution platform able to run the
+              build (e.g. remote execution) unless every indexed package
+              resolves to a wheel.
     """
-    if platform_parents == None:
-        platform_parents = [Label("@platforms//host")]
-    if len(platform_parents) != 1:
-        fail("gazelle_python_manifest: platform_parents must contain exactly one platform label (Bazel's platform() rule accepts at most one parent); got {}".format(platform_parents))
+    if platform_parent == None:
+        platform_parent = Label("@platforms//host")
+    if type(platform_parent) not in ("string", "Label"):
+        fail("gazelle_python_manifest: platform_parent takes a single platform label (Bazel's platform() rule accepts at most one parent); got {} of type {}".format(platform_parent, type(platform_parent)))
 
     file = "gazelle_python.yaml"
     hub = hub.lstrip("@")
@@ -113,7 +115,7 @@ def gazelle_python_manifest(
         platform_name = "_{}_{}_{}".format(name, hub, venv)
         native.platform(
             name = platform_name,
-            parents = platform_parents,
+            parents = [platform_parent],
             flags = [
                 "--@{}//dep_group={}".format(hub, venv),
             ],
