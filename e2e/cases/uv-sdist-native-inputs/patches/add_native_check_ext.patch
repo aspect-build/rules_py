@@ -1,0 +1,45 @@
+--- a/setup.py	2026-08-19 10:00:00.063232078 -0600
++++ b/setup.py	2026-08-19 10:00:27.267945780 -0600
+@@ -8,11 +8,14 @@
+ 	sources=['src/geohash.cpp',],
+ 	define_macros = [('PYTHON_MODULE',1),])
+ 
++c2=Extension('_native_inputs_check',
++	sources=['src/native_inputs_check.c',])
++
+ setup(name='python-geohash',
+ 	version='0.8.5',
+ 	description='Fast, accurate python geohashing library',
+ 	author='Hiroaki Kawai',
+ 	url='http://code.google.com/p/python-geohash/',
+ 	py_modules=['geohash','quadtree','jpgrid','jpiarea'],
+-	ext_modules = [c1]
++	ext_modules = [c1,c2]
+ )
+--- a/src/native_inputs_check.c	1969-12-31 18:00:00.000000000 -0600
++++ b/src/native_inputs_check.c	2026-08-19 10:00:00.065155449 -0600
+@@ -0,0 +1,24 @@
++#include <Python.h>
++
++#include "rulespy_native_check.h"
++
++static PyObject *check_value(PyObject *self, PyObject *unused) {
++    return PyLong_FromLong(rulespy_native_check_value());
++}
++
++static PyMethodDef Methods[] = {
++    {"check_value", check_value, METH_NOARGS, "Value provided by the Bazel cc_library."},
++    {NULL, NULL, 0, NULL},
++};
++
++static struct PyModuleDef moduledef = {
++    PyModuleDef_HEAD_INIT,
++    "_native_inputs_check",
++    NULL,
++    -1,
++    Methods,
++};
++
++PyMODINIT_FUNC PyInit__native_inputs_check(void) {
++    return PyModule_Create(&moduledef);
++}

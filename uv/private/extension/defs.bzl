@@ -229,6 +229,7 @@ def _parse_projects(module_ctx, hub_specs):
                 has_modifications = (
                     override.pre_build_patches or
                     override.post_install_patches or
+                    override.native_inputs or
                     override.extra_deps or
                     override.extra_data
                 )
@@ -237,7 +238,7 @@ def _parse_projects(module_ctx, hub_specs):
                     fail("uv.override_package() for '{}': `target` is mutually exclusive with patch/exclude attributes. Use `target` for full replacement OR patch/exclude attributes for modifications, not both.".format(override.name))
 
                 if not has_target and not has_modifications:
-                    fail("uv.override_package() for '{}': must specify either `target` for full replacement or at least one modification attribute (pre_build_patches, post_install_patches, extra_deps, extra_data).".format(override.name))
+                    fail("uv.override_package() for '{}': must specify either `target` for full replacement or at least one modification attribute (pre_build_patches, post_install_patches, native_inputs, extra_deps, extra_data).".format(override.name))
 
                 package_overrides[override_key] = override
 
@@ -378,9 +379,12 @@ def _parse_projects(module_ctx, hub_specs):
                     pkg_override = package_overrides.get((normalize_name(package["name"]), package["version"]))
                     pre_build_patches = []
                     pre_build_patch_strip = 0
+                    native_inputs = []
                     if pkg_override and pkg_override.pre_build_patches:
                         pre_build_patches = [str(p) for p in pkg_override.pre_build_patches]
                         pre_build_patch_strip = pkg_override.pre_build_patch_strip
+                    if pkg_override and pkg_override.native_inputs:
+                        native_inputs = [str(t) for t in pkg_override.native_inputs]
 
                     sbuild_specs[sbuild_id] = struct(
                         src = sdist,
@@ -389,6 +393,7 @@ def _parse_projects(module_ctx, hub_specs):
                         version = package["version"],
                         pre_build_patches = pre_build_patches,
                         pre_build_patch_strip = pre_build_patch_strip,
+                        native_inputs = native_inputs,
                         available_deps = project_available_deps,
                         configure_command = project.unstable_configure_command,
                         subdirectory = package.get("source", {}).get("subdirectory", ""),
@@ -398,6 +403,18 @@ def _parse_projects(module_ctx, hub_specs):
 
                 # Look up post-install patches and BUILD modifications
                 pkg_override = package_overrides.get((normalize_name(package["name"]), package["version"]))
+
+                # native_inputs is only consumed by sdist builds; when the
+                # package installs from a wheel it would be silently ignored.
+                if pkg_override and pkg_override.native_inputs and not has_sbuild:
+                    fail(("uv.override_package() for '{}': native_inputs was provided but " +
+                          "no sdist build is created for this package ({}), so the native " +
+                          "inputs would be silently ignored. Remove native_inputs, or force " +
+                          "a source build via [tool.uv] no-binary-package.").format(
+                        package["name"],
+                        "the lockfile has no sdist" if not sdist else "an anyarch wheel satisfies all installs",
+                    ))
+
                 post_install_patches = []
                 post_install_patch_strip = 0
                 extra_deps = []
@@ -575,6 +592,8 @@ def _uv_impl(module_ctx):
         if sbuild_cfg.pre_build_patches:
             sbuild_kwargs["pre_build_patches"] = sbuild_cfg.pre_build_patches
             sbuild_kwargs["pre_build_patch_strip"] = sbuild_cfg.pre_build_patch_strip
+        if sbuild_cfg.native_inputs:
+            sbuild_kwargs["native_inputs"] = sbuild_cfg.native_inputs
         if sbuild_cfg.subdirectory:
             sbuild_kwargs["subdirectory"] = sbuild_cfg.subdirectory
         sdist_build(**sbuild_kwargs)
@@ -679,6 +698,21 @@ _override_package_tag = tag_class(
         "pre_build_patch_strip": attr.int(
             default = 0,
             doc = "Strip count for pre-build patches (-p flag to the patch tool).",
+        ),
+
+        # Native build inputs: Bazel targets whose artifacts are made available
+        # to the package's native (pep517_native_whl) sdist build.
+        "native_inputs": attr.label_list(
+            default = [],
+            allow_files = True,
+            doc = "Bazel targets providing native build-time inputs to the package's " +
+                  "sdist build. Targets with CcInfo (e.g. cc_library) contribute their " +
+                  "headers, include paths, defines, and static libraries to the compile " +
+                  "and link environment. Only static libraries are supported: a wheel " +
+                  "cannot carry Bazel-managed shared library paths at runtime. Targets " +
+                  "without CcInfo (e.g. filegroup) have their files staged into the " +
+                  "build sandbox and exposed via $PY_NATIVE_INPUT_PATHS for the build " +
+                  "backend to consume explicitly.",
         ),
 
         # Post-install patches: applied to the installed tree artifact after wheel unpacking.

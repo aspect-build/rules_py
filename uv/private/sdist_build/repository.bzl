@@ -162,6 +162,10 @@ def _sdist_build_impl(repository_ctx):
     is_native_override = repository_ctx.attr.is_native
     inspection = None
 
+    # False when is_native was assumed (inspection unavailable/failed) rather
+    # than explicitly set or actually derived from the sdist contents.
+    classification_confident = True
+
     if is_native_override == "auto":
         archive_path = _resolve_archive_path(repository_ctx)
         inspection = _run_configure_tool(repository_ctx, archive_path) if archive_path else None
@@ -170,6 +174,13 @@ def _sdist_build_impl(repository_ctx):
             # If the tool provided complete build file content, use it directly.
             build_file_content = inspection.get("build_file_content")
             if build_file_content:
+                if repository_ctx.attr.native_inputs:
+                    fail(("sdist_build repo '{}': native_inputs was provided via " +
+                          "uv.override_package() but the configure tool supplied complete " +
+                          "build_file_content, which would silently discard it. Wire the " +
+                          "native inputs into the custom build file instead.").format(
+                        repository_ctx.name,
+                    ))
                 repository_ctx.file("BUILD.bazel", content = build_file_content)
                 return
 
@@ -187,6 +198,7 @@ def _sdist_build_impl(repository_ctx):
             print("WARNING: Could not inspect sdist for {}; assuming pure-Python".format(
                 repository_ctx.name,
             ))
+            classification_confident = False
             is_native = False
     else:
         is_native = is_native_override == "true"
@@ -215,6 +227,36 @@ def _sdist_build_impl(repository_ctx):
     if repository_ctx.attr.subdirectory:
         subdir_args = '"--subdirectory={}"'.format(repository_ctx.attr.subdirectory)
 
+    # native_inputs only exists on pep517_native_whl; a confident pure-Python
+    # classification with native inputs is a contradiction worth failing on
+    # rather than silently dropping the user's targets.
+    native_inputs_attr = ""
+    if repository_ctx.attr.native_inputs:
+        if not is_native:
+            explicitly_pure = is_native_override == "false"
+            if explicitly_pure or (classification_confident and not pre_build_patches):
+                fail(("sdist_build repo '{}': native_inputs was provided via " +
+                      "uv.override_package() but the sdist was classified as pure-Python. " +
+                      "native_inputs only applies to native (pep517_native_whl) builds.").format(
+                    repository_ctx.name,
+                ))
+
+            # The classification is either an assumption (inspection
+            # unavailable) or ran on the pristine sdist while pre-build
+            # patches may introduce native sources it cannot see. Treat
+            # native_inputs as the user's explicit signal and build native;
+            # pep517_native_whl is a superset of pep517_whl so a genuinely
+            # pure package still builds correctly.
+            # buildifier: disable=print
+            print(("sdist_build repo '{}': native_inputs provided but the sdist was " +
+                   "not classified as native ({}); using the native build path.").format(
+                repository_ctx.name,
+                "pre-build patches may add native sources" if classification_confident else "inspection unavailable",
+            ))
+            is_native = True
+        native_inputs_attr = """
+    native_inputs = {},""".format(repr([str(it) for it in repository_ctx.attr.native_inputs]))
+
     repository_ctx.file("BUILD.bazel", content = """
 load("@aspect_rules_py//uv/private/pep517_whl:rule.bzl", "{rule}")
 load("@aspect_rules_py//py/unstable:defs.bzl", "py_venv_binary")
@@ -231,7 +273,7 @@ py_venv_binary(
     src = "{src}",
     tool = ":build_tool",
     version = "{version}",
-    args = [{subdir_args}],{patch_attrs}
+    args = [{subdir_args}],{patch_attrs}{native_inputs_attr}
     visibility = ["//visibility:public"],
 )
 """.format(
@@ -241,6 +283,7 @@ py_venv_binary(
         version = repository_ctx.attr.version,
         patch_attrs = patch_attrs,
         subdir_args = subdir_args,
+        native_inputs_attr = native_inputs_attr,
     ))
 
 sdist_build = repository_rule(
@@ -269,5 +312,12 @@ sdist_build = repository_rule(
         ),
         "pre_build_patches": attr.label_list(default = []),
         "pre_build_patch_strip": attr.int(default = 0),
+        "native_inputs": attr.label_list(
+            default = [],
+            allow_files = True,
+            doc = "Bazel targets providing native build-time inputs (headers, static " +
+                  "libraries, auxiliary files) to the pep517_native_whl build. " +
+                  "See uv.override_package(native_inputs).",
+        ),
     },
 )
