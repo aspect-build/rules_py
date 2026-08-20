@@ -7,9 +7,17 @@ load("//py:defs.bzl", "py_binary", "py_test")
 load("//uv/private/pep517_whl:pep517_native_whl.bzl", "pep517_native_whl")
 load("//uv/private/pep517_whl:pep517_whl.bzl", "pep517_whl")
 load(
+    ":exec_platform_steering_test.bzl",
+    "exec_platform_prefers_native_match_test",
+    "exec_platform_steering_test",
+)
+load(
     ":pep517_whl_test.bzl",
+    "cross_decision_test",
     "execroot_collision_toolchain",
     "hostile_python_env_target",
+    "interpreter_platform_triple_test",
+    "pep517_native_whl_cross_unsupported_test",
     "pep517_native_whl_execroot_collision_test",
     "pep517_native_whl_toolchain_env_test",
     "pep517_whl_console_scripts_test",
@@ -18,6 +26,71 @@ load(
 package(
     default_testonly = True,
     default_visibility = ["//uv/private/pep517_whl/tests:__subpackages__"],
+)
+
+interpreter_platform_triple_test(name = "interpreter_platform_triple_test")
+
+cross_decision_test(name = "cross_decision_test")
+
+platform(
+    name = "cross_target_platform",
+    constraint_values = [
+        "@platforms//os:linux",
+        "@platforms//cpu:aarch64",
+    ],
+)
+
+config_setting(
+    name = "_linux_aarch64_host",
+    constraint_values = [
+        "@platforms//os:linux",
+        "@platforms//cpu:aarch64",
+    ],
+)
+
+# Minimal fixture: no extra toolchains, so under the cross transition the
+# only analysis-time failure can be the rule's own cross-unsupported error.
+pep517_native_whl(
+    name = "__cross_fixture",
+    src = ":__stub_sdist",
+    tags = ["manual"],
+    tool = ":__stub_tool",
+    version = "0.0.1",
+)
+
+platform(
+    name = "decoy_exec_platform",
+    constraint_values = [
+        "@platforms//os:linux",
+        "@platforms//cpu:aarch64",
+    ],
+)
+
+exec_platform_steering_test(
+    name = "exec_platform_steering_test",
+    # On a linux-aarch64 host the decoy IS a valid native platform and the
+    # steering property is vacuous.
+    target_compatible_with = select({
+        ":_linux_aarch64_host": ["@platforms//:incompatible"],
+        "//conditions:default": [],
+    }),
+    target_under_test = ":__cross_fixture",
+)
+
+exec_platform_prefers_native_match_test(
+    name = "exec_platform_prefers_native_match_test",
+    target_under_test = ":__cross_fixture",
+)
+
+pep517_native_whl_cross_unsupported_test(
+    name = "cross_unsupported_test",
+    # On a linux-aarch64 host the fixed cross target platform IS the host —
+    # the build would be native and the expected failure never fires.
+    target_compatible_with = select({
+        ":_linux_aarch64_host": ["@platforms//:incompatible"],
+        "//conditions:default": [],
+    }),
+    target_under_test = ":__cross_fixture",
 )
 
 py_test(
@@ -171,4 +244,12 @@ pep517_native_whl(
 pep517_native_whl_execroot_collision_test(
     name = "execroot_collision_test",
     target_under_test = ":__execroot_collision_fixture",
+)
+
+platform(
+    name = "foreign_exec_platform",
+    constraint_values = [
+        "@platforms//os:linux",
+        "@platforms//cpu:x86_64",
+    ],
 )

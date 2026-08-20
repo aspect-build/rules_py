@@ -7,7 +7,8 @@ build backend the sdist declares in its `[build-system]` table.
 load("@bazel_lib//lib:resource_sets.bzl", "resource_set")
 load("@rules_cc//cc:action_names.bzl", "ACTION_NAMES")
 load("@rules_cc//cc/common:cc_common.bzl", "cc_common")
-load("//py/private/toolchain:types.bzl", "NATIVE_BUILD_TOOLCHAIN", "PY_TOOLCHAIN")
+load("//py/private/interpreter:versions.bzl", "PLATFORMS")
+load("//py/private/toolchain:types.bzl", "EXEC_TOOLS_TOOLCHAIN", "NATIVE_BUILD_TOOLCHAIN", "PY_TOOLCHAIN")
 load(
     ":common.bzl",
     "PEP517_WHL_ATTRS",
@@ -116,8 +117,79 @@ def _cc_toolchain_inputs_and_tools(ctx):
     infer_cxx = infer_cxx or tools.get("CXX") == tools.get("CC")
     return files, {key: value for key, value in tools.items() if value}, infer_cxx
 
+def _interpreter_platform_triple(runtime):
+    """Best-effort platform triple of the repo a PyRuntimeInfo comes from.
+
+    Interpreter repositories encode the PBS platform triple in their name
+    (`python_3_12_aarch64-apple-darwin`, sanitized variants with underscores,
+    and rules_python's hyphenated `python_3_11_aarch64-apple-darwin`).
+    Returns the matching PLATFORMS key, or None when the interpreter's origin
+    is not recognizable (custom or non-hermetic toolchains).
+    """
+    if runtime == None or getattr(runtime, "interpreter", None) == None:
+        return None
+    short_path = runtime.interpreter.short_path
+    repo = short_path.split("/")[1] if short_path.startswith("../") else short_path.split("/")[0]
+    for triple in PLATFORMS:
+        if triple in repo or triple.replace("-", "_") in repo:
+            return triple
+    return None
+
+def _cross_decision(exec_triple, target_triple, has_native_build_toolchain):
+    """Whether building on this execution platform would cross-compile.
+
+    Identical exec and target interpreter triples prove exec == target, so a
+    native build stays native even when the NATIVE_BUILD_TOOLCHAIN sentinel is
+    not registered for the platform. When either identity is unrecognizable
+    (custom interpreters), fall back to the sentinel's absence as the cross
+    signal — the sentinel only resolves when exec and target platforms match.
+    """
+    if exec_triple and target_triple:
+        return exec_triple != target_triple
+    return not has_native_build_toolchain
+
+def _cross_compile(ctx, eg_toolchains):
+    """Cross decision plus the interpreter triples it was based on."""
+    exec_tc = eg_toolchains[EXEC_TOOLS_TOOLCHAIN]
+    py_tc = ctx.toolchains[PY_TOOLCHAIN]
+    exec_triple = _interpreter_platform_triple(getattr(exec_tc, "exec_runtime", None) if exec_tc != None else None)
+    target_triple = _interpreter_platform_triple(getattr(py_tc, "py3_runtime", None) if py_tc != None else None)
+    cross = _cross_decision(exec_triple, target_triple, eg_toolchains[NATIVE_BUILD_TOOLCHAIN] != None)
+    return cross, exec_triple, target_triple
+
+# Exposed for the unit tests in tests/pep517_whl_test.bzl only.
+cross_detection_test_util = struct(
+    interpreter_platform_triple = _interpreter_platform_triple,
+    cross_decision = _cross_decision,
+)
+
 def _pep517_native_whl(ctx):
     archive = ctx.file.src
+
+    eg_toolchains = ctx.exec_groups[TARGET_EXEC_GROUP].toolchains
+    cross, exec_triple, target_triple = _cross_compile(ctx, eg_toolchains)
+    if cross:
+        detail = ""
+        if exec_triple and target_triple:
+            detail = " (execution platform interpreter: {}, target interpreter: {})".format(exec_triple, target_triple)
+        fail(
+            "{}: building this sdist would cross-compile its native extensions{}. ".format(ctx.label, detail) +
+            "Cross-compilation of sdists is not supported: build on an execution " +
+            "platform matching the target platform, or supply a prebuilt wheel " +
+            "for the target instead of building from source.",
+        )
+
+    # Native build classified: a missing C++ toolchain must stay an explicit
+    # analysis error (it used to be a resolution failure when the type was
+    # mandatory) — otherwise the backend compiles with whatever ambient
+    # compiler the sandbox exposes, or fails at execution time.
+    if eg_toolchains[_CC_TOOLCHAIN_TYPE] == None:
+        fail(
+            "{}: no C++ toolchain resolved for this native sdist build. ".format(ctx.label) +
+            "Building native extensions requires a registered C++ toolchain " +
+            "usable on the selected execution platform.",
+        )
+
     wheel_file = ctx.actions.declare_file(ctx.label.name + ".whl")
     patch_args, patch_inputs = patch_args_and_inputs(ctx)
 
@@ -201,25 +273,37 @@ constraints of the target platform.
         ),
     },
     fragments = ["cpp"],
+    toolchains = [
+        # Target-configured interpreter, read only for its platform triple in
+        # the cross detection; optional so unresolvable targets surface the
+        # rule's own error instead of a toolchain-resolution one.
+        config_common.toolchain_type(PY_TOOLCHAIN, mandatory = False),
+    ],
     exec_groups = {
-        # Create an exec group which depends on a toolchain which can only be
-        # resolved to exec_compatible_with constraints equal to the target. This
-        # allows us to discover what those constraints need to be.
-        #
-        # NATIVE_BUILD_TOOLCHAIN has matching exec_compatible_with and
-        # target_compatible_with, so this exec group only resolves when the exec
-        # and target platforms match. Cross-compilation of sdists is intentionally
-        # unsupported: PEP 517 build backends (setuptools, meson-python, etc.)
-        # have no standard mechanism for cross-compilation, Python headers for
-        # the target platform are not readily available, and output wheel tags
-        # would need to encode the target platform with no upstream tooling
+        # Cross-compilation of sdists is intentionally unsupported: PEP 517
+        # build backends (setuptools, meson-python, etc.) have no standard
+        # mechanism for cross-compilation, Python headers for the target
+        # platform are not readily available, and output wheel tags would
+        # need to encode the target platform with no upstream tooling
         # support. Packages that need cross-compiled native extensions should
         # publish pre-built wheels for their target platforms instead.
+        #
+        # Detection inputs: NATIVE_BUILD_TOOLCHAIN has matching
+        # exec_compatible_with and target_compatible_with, so it resolves
+        # exactly when the exec and target platforms match — optional, its
+        # absence is a cross signal, not a resolution error. The exec- and
+        # target-configured interpreters' platform triples refine that signal
+        # (see _cross_decision). The rule fails with an explicit message
+        # instead of the toolchain-resolution error it used to surface.
         TARGET_EXEC_GROUP: exec_group(
             toolchains = [
                 PY_TOOLCHAIN,
-                NATIVE_BUILD_TOOLCHAIN,
-                _CC_TOOLCHAIN_TYPE,
+                config_common.toolchain_type(EXEC_TOOLS_TOOLCHAIN, mandatory = False),
+                config_common.toolchain_type(NATIVE_BUILD_TOOLCHAIN, mandatory = False),
+                # Optional for the same reason: on a cross target no C++
+                # toolchain may resolve, and the rule's own error must win
+                # over a resolution failure.
+                config_common.toolchain_type(_CC_TOOLCHAIN_TYPE, mandatory = False),
             ],
         ),
     },
