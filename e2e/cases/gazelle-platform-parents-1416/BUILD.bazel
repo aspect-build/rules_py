@@ -1,5 +1,7 @@
 load("@aspect_rules_py//uv:defs.bzl", "gazelle_python_manifest")
 load("@bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
+load("@bazel_skylib//rules:build_test.bzl", "build_test")
+load(":wheel_selection_probe.bzl", "wheel_selection_probe")
 
 # Regression test for `gazelle_python_manifest(platform_parent = ...)`
 # (issue #1416: the macro's synthetic per-venv platforms were pinned to
@@ -21,13 +23,26 @@ constraint_value(
     constraint_setting = ":parentage",
 )
 
-# Stands in for a user's custom `--host_platform` — e.g. one carrying the extra
-# constraints a hermetic C++ toolchain gates on. Parenting it on
-# `@platforms//host` keeps the case host-OS-agnostic.
+# Stands in for a cross-compilation target platform (issue #1416's scenario):
+# fully specified rather than parented on `@platforms//host`, so wheel
+# selection under the macro's synthetic platform resolves identically on
+# every host and the goldens below are host-invariant. The libc flags ride on
+# the platform because their defaults are detected from the host: without
+# them, manylinux config_settings never match on a non-linux host and every
+# native package silently degrades to its sdist fallback — the same config
+# chimera the issue describes. This doubles as the documented recipe for
+# real cross-compilation parents.
 platform(
     name = "parent_platform",
-    constraint_values = [":custom_parent"],
-    parents = ["@platforms//host"],
+    constraint_values = [
+        ":custom_parent",
+        "@platforms//cpu:x86_64",
+        "@platforms//os:linux",
+    ],
+    flags = [
+        "--@aspect_rules_py//uv/private/constraints/platform:platform_libc=glibc",
+        "--@aspect_rules_py//uv/private/constraints/platform:platform_version=2.28",
+    ],
 )
 
 gazelle_python_manifest(
@@ -35,6 +50,16 @@ gazelle_python_manifest(
     hub = "pypi_uv_deps_650",
     platform_parent = ":parent_platform",
     venvs = ["extras"],
+)
+
+# The manifest YAML content itself is platform-independent (same module
+# mapping regardless of which wheel variant was indexed), so a golden on it
+# would only re-pin the hub's dependency set. Building it end-to-end is the
+# signal: the generator action consumes wheels selected for the linux parent
+# on whatever host runs the test.
+build_test(
+    name = "manifest_build_test",
+    targets = [":gazelle_python_manifest"],
 )
 
 # The macro generates a synthetic platform named `_{name}_{hub}_{venv}` in
@@ -62,4 +87,23 @@ platform_transition_filegroup(
     name = "probe",
     srcs = [":probe_src"],
     target_platform = ":_gazelle_python_manifest_pypi_uv_deps_650_extras",
+)
+
+# Second probe, at the level the bug actually manifested (#1416): pins that
+# wheel *selection* follows the parent. Transitions the hub's index filegroup
+# through the same macro-generated platform and snapshots which wheel variant
+# each dependency resolved to — native packages must come out `linux_x86_64`,
+# never the host's, and never an sdist fallback. The constraint probe above
+# discriminates on any host; this one additionally fails if selection snaps
+# back to the host on non-linux-x86_64 hosts, or if a lock change quietly
+# drops a dependency to an sdist fallback for the cross-compiled platform.
+platform_transition_filegroup(
+    name = "selected_whls",
+    srcs = ["@pypi_uv_deps_650//:gazelle_index_whls"],
+    target_platform = ":_gazelle_python_manifest_pypi_uv_deps_650_extras",
+)
+
+wheel_selection_probe(
+    name = "wheel_selection",
+    src = ":selected_whls",
 )

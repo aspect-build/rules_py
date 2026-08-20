@@ -1,0 +1,14 @@
+brotli: linux_x86_64
+brotlicffi: linux_x86_64
+build: any
+certifi: any
+cffi: linux_x86_64
+charset_normalizer: linux_x86_64
+colorama: any
+idna: any
+packaging: any
+pycparser: any
+pyproject_hooks: any
+requests: any
+setuptools: any
+urllib3: any
