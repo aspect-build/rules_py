@@ -1,4 +1,5 @@
 load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_image_layer", "py_layer_tier", "py_library", "py_test")
+load("@aspect_rules_py//py/private/py_venv:defs.bzl", "py_venv", "py_venv_exec")
 load("@bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
 load("@bazel_skylib//rules:build_test.bzl", "build_test")
 load("@container_structure_test//:defs.bzl", "container_structure_test")
@@ -155,6 +156,111 @@ py_test(
         "$(rootpaths :source_symlink_layers)",
     ],
     data = [":source_symlink_layers"],
+    main = "assert_tar_paths.py",
+)
+
+# Launcher-local `data` on py_venv_exec consumers sharing one venv. The
+# launcher's `data` slot is independent of the venv's, so the source layer
+# must collect it from the exec target itself: alpha ships a raw source
+# file, beta an opaque DefaultInfo-only filegroup.
+py_venv(
+    name = "shared_exec_venv",
+    srcs = ["server.py"],
+)
+
+filegroup(
+    name = "exec_beta_payload",
+    srcs = ["exec_beta_payload.json"],
+)
+
+py_venv_exec(
+    name = "exec_data_alpha_bin",
+    data = ["exec_alpha_payload.txt"],
+    main = "server.py",
+    venv = ":shared_exec_venv",
+)
+
+py_venv_exec(
+    name = "exec_data_beta_bin",
+    data = [":exec_beta_payload"],
+    main = "server.py",
+    venv = ":shared_exec_venv",
+)
+
+py_image_layer(
+    name = "exec_data_layers",
+    binaries = [
+        ":exec_data_alpha_bin",
+        ":exec_data_beta_bin",
+    ],
+)
+
+py_test(
+    name = "exec_data_layers_test",
+    srcs = ["assert_tar_paths.py"],
+    args = [
+        "--tar-contains=_default.tar.gz=/exec_alpha_payload.txt",
+        "--tar-contains=_default.tar.gz=/exec_beta_payload.json",
+        "$(rootpaths :exec_data_layers)",
+    ],
+    data = [":exec_data_layers"],
+    main = "assert_tar_paths.py",
+)
+
+# Same opaque `data` shapes through the py_binary / py_test macros, which
+# route `data` onto both the launcher and its sibling venv.
+py_binary(
+    name = "plain_data_bin",
+    srcs = ["server.py"],
+    data = [
+        "exec_alpha_payload.txt",
+        ":exec_beta_payload",
+    ],
+)
+
+py_image_layer(
+    name = "plain_data_layers",
+    binary = ":plain_data_bin",
+)
+
+py_test(
+    name = "plain_data_layers_test",
+    srcs = ["assert_tar_paths.py"],
+    args = [
+        "--tar-contains=_default.tar.gz=/exec_alpha_payload.txt",
+        "--tar-contains=_default.tar.gz=/exec_beta_payload.json",
+        "$(rootpaths :plain_data_layers)",
+    ],
+    data = [":plain_data_layers"],
+    main = "assert_tar_paths.py",
+)
+
+py_test(
+    name = "test_data_bin",
+    srcs = ["server.py"],
+    data = [
+        "exec_alpha_payload.txt",
+        ":exec_beta_payload",
+    ],
+    main = "server.py",
+    tags = ["manual"],
+)
+
+py_image_layer(
+    name = "test_data_layers",
+    testonly = True,
+    binary = ":test_data_bin",
+)
+
+py_test(
+    name = "test_data_layers_test",
+    srcs = ["assert_tar_paths.py"],
+    args = [
+        "--tar-contains=_default.tar.gz=/exec_alpha_payload.txt",
+        "--tar-contains=_default.tar.gz=/exec_beta_payload.json",
+        "$(rootpaths :test_data_layers)",
+    ],
+    data = [":test_data_layers"],
     main = "assert_tar_paths.py",
 )
 
