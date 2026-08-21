@@ -635,6 +635,11 @@ def _source_destination(sp, strip_prefix, root, executable_dsts):
         return _apply_strip_prefix(sp, sp, root)
     return "./app.runfiles/_main/" + sp
 
+# mtree escapes spaces as \040; must stay byte-identical across every row
+# emitter or awk's path matching silently misses.
+def _encode_mtree_path(path):
+    return path.replace(" ", "\\040")
+
 def _file_to_mtree_entry(
         f,
         mode = "0644",
@@ -651,20 +656,20 @@ def _file_to_mtree_entry(
     # symlinks); default emits `type=file contents=` which skips awk entirely.
     if f.is_symlink:
         return "{} type=link mode={} uid={} gid={} time=1672560000 link={}".format(
-            dst.replace(" ", "\\040"),
+            _encode_mtree_path(dst),
             mode,
             owner,
             group,
-            f.path.replace(" ", "\\040"),
+            _encode_mtree_path(f.path),
         )
     marker = "content" if maybe_symlink else "contents"
     return "{} type=file mode={} uid={} gid={} time=1672560000 {}={}".format(
-        dst.replace(" ", "\\040"),
+        _encode_mtree_path(dst),
         mode,
         owner,
         group,
         marker,
-        f.path.replace(" ", "\\040"),
+        _encode_mtree_path(f.path),
     )
 
 def _source_file_to_mtree(
@@ -1259,23 +1264,22 @@ def _py_image_layer_impl(ctx):
             if group_name not in prebuilt_group_tars
             for files in file_sets
         ])
-        wheel_files = [pkg.files for pkg in all_pkgs]
-        interpreter_files = [layer.interpreter_files for layer in interpreter_layers.values()]
+        owned_sets = (
+            [(files, rule_group_map) for files in rule_group_files] +
+            [(pkg.files, pkg_map) for pkg in all_pkgs] +
+            [(layer.interpreter_files, interpreter_map) for layer in interpreter_layers.values()]
+        )
 
         mtree_args = ctx.actions.args()
         mtree_args.set_param_file_format("multiline")
         mtree_args.use_param_file("%s", use_always = True)
         mtree_args.add("#mtree")
         mtree_args.add_all(source_files, map_each = source_map, expand_directories = False, allow_closure = True)
-        for files in rule_group_files:
-            mtree_args.add_all(files, map_each = rule_group_map, expand_directories = False, allow_closure = True)
-        for files in wheel_files:
-            mtree_args.add_all(files, map_each = pkg_map, expand_directories = False, allow_closure = True)
-        for files in interpreter_files:
-            mtree_args.add_all(files, map_each = interpreter_map, expand_directories = False, allow_closure = True)
+        for files, map_each in owned_sets:
+            mtree_args.add_all(files, map_each = map_each, expand_directories = False, allow_closure = True)
         validation_args.add("--mtree")
         validation_arguments.append(mtree_args)
-        validation_inputs.extend([source_files] + rule_group_files + wheel_files + interpreter_files)
+        validation_inputs.extend([source_files] + [files for files, _ in owned_sets])
 
     ctx.actions.run(
         executable = ctx.executable._validator,
