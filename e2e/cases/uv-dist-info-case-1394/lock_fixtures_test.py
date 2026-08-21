@@ -1,12 +1,17 @@
 """Every lock in this case must keep reproducing #1394.
 
-The four scenarios differ in what rules_py *does* with the mismatched wheel, so
-their install assertions can't be shared — `dep_group` binds a target to exactly
-one project. What is shared is the premise: each lock still has to record
-`InquirerPy-0.3.4-py3-none-any.whl`, whose archive ships
-`inquirerpy-0.3.4.dist-info`. A lock bumped to an escaped filename would leave
-every scenario passing while testing nothing, so the guard runs once over all
-four rather than being restated in each.
+The scenarios differ in what rules_py *does* with the mismatched wheel, so their
+install assertions can't be shared — `dep_group` binds a target to exactly one
+project. What is shared is the premise: each lock still has to record a wheel
+whose filename and `.dist-info` disagree. A lock bumped to an escaped filename
+would leave the scenario passing while testing nothing, so the guards run once
+here rather than being restated in each.
+
+Four scenarios pin `InquirerPy-0.3.4-py3-none-any.whl`, whose archive ships
+`inquirerpy-0.3.4.dist-info`. `archive-prefix` pins the opposite shape —
+`actioneer-0.0.1-py3-none-any.whl`, already escaped, over an archive that ships
+`Actioneer-0.0.1.dist-info` — so its premise is that the filename stays
+normalized.
 """
 
 import tomllib
@@ -17,6 +22,7 @@ from bazel_tools.tools.python.runfiles import runfiles
 
 _SCENARIOS = ("prebuilt-wheel", "no-binary", "override-target", "unbuilt")
 _MISMATCHED_WHEEL = "InquirerPy-0.3.4-py3-none-any.whl"
+_NORMALIZED_WHEEL = "actioneer-0.0.1-py3-none-any.whl"
 
 
 def _wheel_filenames(lock: Path, package: str) -> list[str]:
@@ -67,6 +73,21 @@ class LockFixturesTest(unittest.TestCase):
                     f"{filenames[0]} is now escaped, so it no longer "
                     "exercises discovery",
                 )
+
+    def test_archive_prefix_lock_keeps_a_normalized_filename(self) -> None:
+        # The inverse premise: nothing about this filename hints that the
+        # implied `.dist-info` is a guess, which is what makes it get stripped
+        # as an archive path prefix instead of discovered.
+        lock = Path(
+            runfiles.Create().Rlocation(
+                "_main/uv-dist-info-case-1394/archive-prefix/uv.lock"
+            )
+        )
+        filenames = _wheel_filenames(lock, "actioneer")
+        self.assertEqual([_NORMALIZED_WHEEL], filenames)
+        project, version = filenames[0].split("-")[:2]
+        self.assertEqual(project, project.lower().replace(".", "_"), filenames)
+        self.assertEqual("0.0.1", version, filenames)
 
 
 if __name__ == "__main__":

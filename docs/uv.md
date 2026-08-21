@@ -379,6 +379,44 @@ time, so the complete source-built wheel still participates in the normal
 An explicit `console_scripts = {}` suppresses all detected scripts, which is
 useful when a pre-build patch removes stale entry-point metadata.
 
+### Declaring a package's quirks
+
+Some published packages deviate from packaging standards in ways nothing can
+detect without opening the archive. `uv.package_quirks` records what a released
+artifact does, so it takes no `lock` and applies to every lock in the build.
+Declaring a quirk for a package your build never resolves does nothing, which
+lets a shared module record what it knows for its consumers.
+
+#### `dist_info_name_differs`
+
+A wheel names its metadata directory `<project>-<version>.dist-info`, spelled
+the same way the filename spells them, so rules_py normally reads the metadata
+without inflating the archive. Some backends escape the two differently. When
+the filename is *not* normalized (`InquirerPy-0.3.4-py3-none-any.whl`) rules_py
+already knows to look inside. When the filename *is* normalized it is taken at
+its word, and a wheel that disagrees anyway fails while fetching:
+
+```
+Error in extract: java.io.IOException: ...
+Prefix "actioneer-0.0.1.dist-info" was given, but not found in the archive.
+Here are possible prefixes for this archive: "Actioneer-0.0.1.dist-info".
+```
+
+Declare the quirk for that package to read the name out of the archive instead:
+
+```starlark
+uv.package_quirks(
+    name = "actioneer",
+    version = "0.0.1",
+    dist_info_name_differs = True,
+)
+```
+
+`version` is optional; omit it to cover every locked release. Prefer naming it,
+so a later release built by conforming tooling stops paying the cost — the quirk
+makes fetching that package's wheels extract the whole archive rather than just
+the metadata directory, which is significant for large wheels.
+
 ## Best practices
 
 **Consolidate your hubs**. In `rules_python`, environments with multiple depsets

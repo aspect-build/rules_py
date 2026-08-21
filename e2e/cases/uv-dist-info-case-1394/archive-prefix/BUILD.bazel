@@ -1,0 +1,24 @@
+load("@aspect_rules_py//py:defs.bzl", "py_test")
+
+# The lock is shared with //uv-dist-info-case-1394:lock_fixtures_test,
+# which guards that it still pins the normalized filename.
+exports_files(["uv.lock"])
+
+# #1394 in the direction the filename cannot warn about.
+#
+# `actioneer-0.0.1-py3-none-any.whl` is already spelled the way PEP 625 escaping
+# spells it, so the implied `actioneer-0.0.1.dist-info` reads as authoritative
+# and gets stripped as an archive path prefix. The archive ships
+# `Actioneer-0.0.1.dist-info`, so that prefix matches no member. The sibling
+# scenarios all have an unescaped filename and take the discovery path instead,
+# which is why this one needs its own package.
+py_test(
+    name = "test_archive_prefix",
+    srcs = ["test_archive_prefix.py"],
+    dep_group = "uv-dist-info-1394-archive-prefix",
+    main = "test_archive_prefix.py",
+    python_version = "3.11",
+    deps = [
+        "@pypi_dist_info_1394_archive_prefix//actioneer",
+    ],
+)
