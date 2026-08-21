@@ -18,6 +18,12 @@ local_path_override(
     path = "..",
 )
 
+# Register the llvm cc toolchains directly. aspect_rules_py only registers them
+# when built from source (IS_RELEASE = False); in BCR presubmit the release
+# archive flips IS_RELEASE to True, so without this the native sdist builds
+# (e.g. cases/uv-sdist-native-inputs) find no cc toolchain.
+register_toolchains("@llvm//toolchain:all")
+
 # Ensure any transitive "aspect_bazel_lib" is latest to be forward compatible with bazel_lib 3+
 single_version_override(
     module_name = "aspect_bazel_lib",
