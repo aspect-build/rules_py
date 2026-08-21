@@ -95,6 +95,7 @@ function replace_metadata_field(row, pattern, replacement) {
 {
     source_field = ""
     source_type = ""
+    source_path = ""
     for (field = 2; field <= NF; field++) {
         if ($field ~ /^(contents|content|link)=[^ ]+$/) {
             source_field = $field
@@ -102,11 +103,13 @@ function replace_metadata_field(row, pattern, replacement) {
             source_type = substr($field, index($field, "=") + 1)
         }
     }
+    if (source_field != "") {
+        source_path = decode_mtree_path(substr(source_field, index(source_field, "=") + 1))
+    }
 
     if (ARGIND != source_argind) {
-        if (source_field != "") {
-            source_path = substr(source_field, index(source_field, "=") + 1)
-            symlink_map[decode_mtree_path(source_path)] = $1
+        if (source_path != "") {
+            symlink_map[source_path] = $1
         }
         next
     }
@@ -123,8 +126,7 @@ function replace_metadata_field(row, pattern, replacement) {
     is_hot_path = source_type == "link" && source_field ~ /^link=/
     is_slow_path = source_type == "file" && source_field ~ /^content=/
     if (is_hot_path || is_slow_path) {
-        source_path = substr(source_field, index(source_field, "=") + 1)
-        path = decode_mtree_path(source_path)
+        path = source_path
         symlink_map[path] = $1
 
         # Plain `readlink` first: keep its result if relative
