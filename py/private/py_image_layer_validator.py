@@ -10,6 +10,9 @@ Usage:
     label=path  — one entry per ungrouped pip package; `label` is the canonical pip label
                   (e.g. @pip//numpy), `path` is its install directory / file.
     --mtree FILE  — expanded mtree rows for shared or remapped source destinations.
+    --skip FILE   — source paths shipping in other layers; their rows before the
+                  `#end-source` marker are ignored. A trailing `/` marks a
+                  directory whose children are all excluded.
 """
 
 from __future__ import annotations
@@ -25,6 +28,7 @@ import sys
 from collections.abc import Iterable, Sequence
 
 _OCI_LAYER_HARD_LIMIT = 127
+_END_SOURCE_MARKER = "#end-source"
 _BINARY_GLOBS = {"*.so", "*.so.*", "*.pyd", "*.dylib", "*.dll"}
 _LAYER_TIER_TARGET = "@aspect_rules_py//py:layer_tier"
 _DEFAULT_LAYER_TIER_TARGET = "@aspect_rules_py//py/private:default_layer_tier"
@@ -279,12 +283,42 @@ def _comparable_symlink_target(source_kind: str, encoded_source: str) -> str | N
         return None
 
 
-def _mtree_collision(rows: Iterable[str]) -> str | None:
-    """Return the first conflicting expanded mtree destination, or None."""
+def _skip_match(source: str, skip_paths: frozenset[str], skip_dirs: frozenset[str]) -> bool:
+    """True when source is excluded: an exact skip_paths entry, or a
+    descendant of a skip_dirs directory (tree artifacts are recorded by
+    root, never expanded)."""
+    if source in skip_paths:
+        return True
+    idx = source.rfind("/")
+    while idx > 0:
+        if source[:idx] in skip_dirs:
+            return True
+        idx = source.rfind("/", 0, idx)
+    return False
+
+
+def _mtree_collision(
+    rows: Iterable[str],
+    skip_paths: frozenset[str] = frozenset(),
+    skip_dirs: frozenset[str] = frozenset(),
+) -> str | None:
+    """Return the first conflicting expanded mtree destination, or None.
+
+    skip_paths/skip_dirs drop source-layer rows whose bytes ship in another
+    layer, mirroring the source tar's own exclusion. They apply only to rows
+    before the `#end-source` marker: rows after it belong to the owning layers
+    and must stay visible so their destinations still participate in collisions.
+    """
+    had_skip = bool(skip_paths or skip_dirs)
+    marker_seen = False
     paths: dict[str, tuple[str, str, str, tuple[str, ...]]] = {}
     descendants: dict[str, tuple[str, str]] = {}
     for row in rows:
         if not row or row.startswith("#"):
+            if row.strip() == _END_SOURCE_MARKER:
+                marker_seen = True
+                skip_paths = frozenset()
+                skip_dirs = frozenset()
             continue
         fields = row.split()
         destination_parts: list[str] = []
@@ -309,6 +343,11 @@ def _mtree_collision(rows: Iterable[str]) -> str | None:
         if entry_type is None or source_field is None:
             return "invalid py_image_layer mtree row (missing source): {}".format(row)
         source_kind, _, source = source_field.partition("=")
+        if (skip_paths or skip_dirs) and _skip_match(
+            _decode_mtree_path(source), skip_paths, skip_dirs
+        ):
+            # Ships in another layer; the source tar drops it the same way.
+            continue
         metadata = tuple(sorted(field for field in fields[1:] if field != source_field))
         entry = (entry_type, source_kind, source, metadata)
 
@@ -349,6 +388,10 @@ def _mtree_collision(rows: Iterable[str]) -> str | None:
             parent = "/".join(parts[:end])
             descendants.setdefault(parent, (destination, source))
 
+    if had_skip and not marker_seen:
+        return "py_image_layer validator: --skip given but mtree has no {} marker".format(
+            _END_SOURCE_MARKER
+        )
     return None
 
 
@@ -359,6 +402,7 @@ def main() -> None:
     parser.add_argument("--warn_layer_count", type=int, default=90)
     parser.add_argument("--output", required=True)
     parser.add_argument("--mtree")
+    parser.add_argument("--skip")
     parser.add_argument("pkg_paths", nargs="*", metavar="label=path")
     args = parser.parse_args()
 
@@ -376,9 +420,26 @@ def main() -> None:
     pkg_binary = {label: _pkg_is_binary(paths) for label, paths in pkg_path_map.items()}
 
     messages: list[str] = []
+    skip_paths: frozenset[str] = frozenset()
+    skip_dirs: frozenset[str] = frozenset()
+    if args.skip:
+        exact: set[str] = set()
+        dirs: set[str] = set()
+        with open(args.skip) as skip:
+            for line in skip:
+                entry = line.strip()
+                if not entry:
+                    continue
+                entry = _decode_mtree_path(entry)
+                if entry.endswith("/"):
+                    dirs.add(entry[:-1])
+                else:
+                    exact.add(entry)
+        skip_paths = frozenset(exact)
+        skip_dirs = frozenset(dirs)
     if args.mtree:
         with open(args.mtree) as mtree:
-            collision = _mtree_collision(mtree)
+            collision = _mtree_collision(mtree, skip_paths, skip_dirs)
         if collision:
             messages.append("ERROR: " + collision)
     suggestions = _Suggestions()

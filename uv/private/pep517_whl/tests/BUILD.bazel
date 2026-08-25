@@ -12,6 +12,13 @@ load(
     "exec_platform_steering_test",
 )
 load(
+    ":frontend_config_test.bzl",
+    "flag_probe",
+    "frontend_exec_config_test",
+    "frontend_libc_leak_test",
+    "frontend_probe_plumbing_test",
+)
+load(
     ":pep517_whl_test.bzl",
     "cross_decision_test",
     "execroot_collision_toolchain",
@@ -252,4 +259,34 @@ platform(
         "@platforms//os:linux",
         "@platforms//cpu:x86_64",
     ],
+)
+
+# --- Frontend configuration characterization ------------------------------
+
+flag_probe(
+    name = "__frontend_probe",
+    tags = ["manual"],
+)
+
+pep517_whl(
+    name = "__frontend_config_fixture",
+    src = ":__stub_sdist",
+    tags = ["manual"],
+    tool = ":__frontend_probe",
+    version = "0.0.1",
+)
+
+frontend_exec_config_test(
+    name = "frontend_exec_config_test",
+    target_under_test = ":__frontend_config_fixture",
+)
+
+frontend_probe_plumbing_test(
+    name = "frontend_probe_plumbing_test",
+    target_under_test = ":__frontend_config_fixture",
+)
+
+frontend_libc_leak_test(
+    name = "frontend_libc_leak_test",
+    target_under_test = ":__frontend_config_fixture",
 )

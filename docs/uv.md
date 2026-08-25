@@ -485,6 +485,15 @@ gazelle_python_manifest(
 - `include_stub_packages` — Whether to index conventional stub distributions such as
   `types-requests` and `asyncpg-stubs`. The Gazelle Python extension then adds matching
   stub dependencies automatically. Defaults to `False`.
+- `platform_parent` — Parent platform for the synthetic platforms this rule uses to pin
+  each venv's dependency group. Defaults to `@platforms//host`, which carries only bare
+  OS and CPU constraints. Set it when that isn't enough: pass your custom `--host_platform`
+  when hermetic C++ toolchains gate on extra constraints, so sdist builds in the hub can
+  still resolve a cc toolchain; or pass the target platform when cross-compiling, so wheel
+  selection follows it instead of snapping back to the host. In the cross-compilation case,
+  `bazel run <name>.update` builds any sdist fallbacks *for that platform* — that needs an
+  execution platform able to run those builds (e.g. remote execution) unless every indexed
+  package resolves to a wheel.
 - `venvs` — List of dependency group names whose wheels should be indexed. Module mappings
   from all listed dependency groups are merged into a single manifest.
 

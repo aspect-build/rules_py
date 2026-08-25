@@ -54,7 +54,7 @@ jobs:
                   py/tools/pex/main.py
                   py/tools/site_merge/site_merge.py
                   py/tools/unpack/unpack.py
-                  uv/private/gazelle_manifest/generate.py
+                  uv/private/gazelle_manifest/tools/generate.py
                   uv/private/pep517_whl/tools/build_helper.py
                   uv/private/pep517_whl/tools/memory_monitor.py
                   uv/private/py_entrypoint_binary/search.py

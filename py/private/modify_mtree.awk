@@ -85,6 +85,33 @@ function decode_mtree_path(path) {
     return path
 }
 
+# Record one path-set entry: a trailing "/" marks a directory recorded by
+# root (tree artifacts are never expanded), anything else an exact path.
+function add_set_entry(entry, exact, dirs) {
+    entry = decode_mtree_path(entry)
+    if (entry ~ /\/$/) {
+        dirs[substr(entry, 1, length(entry) - 1)] = 1
+    } else {
+        exact[entry] = 1
+    }
+}
+
+# True when `path` is an exact entry of `exact` or a descendant of a `dirs`
+# directory.
+function path_in_set(path, exact, dirs, prefix) {
+    if (path in exact) {
+        return 1
+    }
+    prefix = path
+    while (match(prefix, /\/[^\/]*$/)) {
+        prefix = substr(prefix, 1, RSTART - 1)
+        if (prefix in dirs) {
+            return 1
+        }
+    }
+    return 0
+}
+
 function replace_metadata_field(row, pattern, replacement) {
     if (!match(row, pattern)) {
         return row
@@ -93,8 +120,20 @@ function replace_metadata_field(row, pattern, replacement) {
 }
 
 {
+    # Optional path sets, read before the source rows: skip drops matching
+    # source rows; chmod forces them to mode=0755.
+    if (skip_argind && ARGIND == skip_argind) {
+        add_set_entry($0, skip_set, skip_dirs)
+        next
+    }
+    if (chmod_argind && ARGIND == chmod_argind) {
+        add_set_entry($0, chmod_set, chmod_dirs)
+        next
+    }
+
     source_field = ""
     source_type = ""
+    source_path = ""
     for (field = 2; field <= NF; field++) {
         if ($field ~ /^(contents|content|link)=[^ ]+$/) {
             source_field = $field
@@ -102,13 +141,24 @@ function replace_metadata_field(row, pattern, replacement) {
             source_type = substr($field, index($field, "=") + 1)
         }
     }
+    if (source_field != "") {
+        source_path = decode_mtree_path(substr(source_field, index(source_field, "=") + 1))
+    }
 
     if (ARGIND != source_argind) {
-        if (source_field != "") {
-            source_path = substr(source_field, index(source_field, "=") + 1)
-            symlink_map[decode_mtree_path(source_path)] = $1
+        if (source_path != "") {
+            symlink_map[source_path] = $1
         }
         next
+    }
+
+    if (skip_argind && source_path != "" && path_in_set(source_path, skip_set, skip_dirs)) {
+        next
+    }
+
+    # Files also present in the binaries' source closure keep 0755.
+    if (chmod_argind && source_path != "" && path_in_set(source_path, chmod_set, chmod_dirs)) {
+        $0 = replace_metadata_field($0, "[[:space:]]mode=[^ ]+", "mode=0755")
     }
 
     symlink = ""
@@ -123,8 +173,7 @@ function replace_metadata_field(row, pattern, replacement) {
     is_hot_path = source_type == "link" && source_field ~ /^link=/
     is_slow_path = source_type == "file" && source_field ~ /^content=/
     if (is_hot_path || is_slow_path) {
-        source_path = substr(source_field, index(source_field, "=") + 1)
-        path = decode_mtree_path(source_path)
+        path = source_path
         symlink_map[path] = $1
 
         # Plain `readlink` first: keep its result if relative

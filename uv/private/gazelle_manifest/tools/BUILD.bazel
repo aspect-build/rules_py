@@ -1,0 +1,17 @@
+load("//py:defs.bzl", "py_binary")
+
+exports_files(["update.sh"])
+
+exports_files(
+    ["generate.py"],
+    visibility = ["//uv/private/gazelle_manifest/tests:__pkg__"],
+)
+
+py_binary(
+    name = "generator",
+    srcs = [
+        "generate.py",
+    ],
+    main = "generate.py",
+    visibility = ["//uv/private/gazelle_manifest:__pkg__"],
+)
