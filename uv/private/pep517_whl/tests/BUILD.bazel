@@ -4,6 +4,7 @@ load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 load("@tar.bzl//tar:mtree.bzl", "mtree_mutate", "mtree_spec")
 load("@tar.bzl//tar:tar.bzl", "tar_rule")
 load("//py:defs.bzl", "py_binary", "py_test")
+load("//uv/private/pep517_whl:frontend.bzl", "pep517_frontend")
 load("//uv/private/pep517_whl:pep517_native_whl.bzl", "pep517_native_whl")
 load("//uv/private/pep517_whl:pep517_whl.bzl", "pep517_whl")
 load(
@@ -16,6 +17,7 @@ load(
     "flag_probe",
     "frontend_exec_config_test",
     "frontend_libc_leak_test",
+    "frontend_libc_override_test",
     "frontend_probe_plumbing_test",
 )
 load(
@@ -183,12 +185,21 @@ sh_binary(
     tags = ["manual"],
 )
 
+# The frontend wrapper sits between the rule and the py_binary exactly as
+# the generated sdist repos wire it; python_env_test therefore runs a real
+# wheel build through the wrapper's forwarded executable and runfiles.
+pep517_frontend(
+    name = "__build_helper_reset",
+    actual = ":__build_helper",
+    tags = ["manual"],
+)
+
 pep517_whl(
     name = "__ambient_env_fixture",
     src = ":__python_env_sdist",
     # This must only build through the hostile environment transition below.
     tags = ["manual"],
-    tool = ":__build_helper",
+    tool = ":__build_helper_reset",
     version = "0.0.1",
 )
 
@@ -268,11 +279,17 @@ flag_probe(
     tags = ["manual"],
 )
 
+pep517_frontend(
+    name = "__frontend_probe_reset",
+    actual = ":__frontend_probe",
+    tags = ["manual"],
+)
+
 pep517_whl(
     name = "__frontend_config_fixture",
     src = ":__stub_sdist",
     tags = ["manual"],
-    tool = ":__frontend_probe",
+    tool = ":__frontend_probe_reset",
     version = "0.0.1",
 )
 
@@ -289,4 +306,26 @@ frontend_probe_plumbing_test(
 frontend_libc_leak_test(
     name = "frontend_libc_leak_test",
     target_under_test = ":__frontend_config_fixture",
+)
+
+# Explicit libc override: the value declared on the wrapper (not the host
+# probe's) must be what the frontend is configured with.
+pep517_frontend(
+    name = "__frontend_probe_musl",
+    actual = ":__frontend_probe",
+    libc = "musl",
+    tags = ["manual"],
+)
+
+pep517_whl(
+    name = "__frontend_override_fixture",
+    src = ":__stub_sdist",
+    tags = ["manual"],
+    tool = ":__frontend_probe_musl",
+    version = "0.0.1",
+)
+
+frontend_libc_override_test(
+    name = "frontend_libc_override_test",
+    target_under_test = ":__frontend_override_fixture",
 )
