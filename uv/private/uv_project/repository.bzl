@@ -149,35 +149,37 @@ load("@aspect_rules_py//py:defs.bzl", "py_library")
             # to true. It's a configuration and locking failure for there to be
             # more than one package which resolves at this point. So we just jam all the configurations into a single select.
             for scc, markers in scc_cfgs.items():
+                scc_target = "//private/sccs:" + scc
+
                 if "" in markers:
                     if "//conditions:default" in cfg_arms:
                         fail("Configuration conflict! Package {} specifies two or more default package states!\n{}".format(package, pprint(cfgs)))
 
-                    cfg_arms["//conditions:default"] = "//private/sccs:" + scc
+                    cfg_arms["//conditions:default"] = scc_target
 
                 elif all([is_extra_only_marker(m) for m in markers.keys()]):
                     # Extra-only markers cannot be evaluated at build time; they
                     # are already resolved by the active venv. Treat the SCC as
                     # the default for this configuration.
-                    if cfg_arms.get("//conditions:default", "//private/sccs:" + scc) != "//private/sccs:" + scc:
+                    if cfg_arms.get("//conditions:default", scc_target) != scc_target:
                         fail("Configuration conflict! Package {} resolves two or more packages via extra-only markers in the same configuration; the venv cannot disambiguate them at build time.\n{}".format(package, pprint(cfgs)))
 
-                    cfg_arms["//conditions:default"] = "//private/sccs:" + scc
+                    cfg_arms["//conditions:default"] = scc_target
 
                 else:
                     for marker in markers.keys():
                         if is_extra_only_marker(marker):
                             # Already resolved by the active venv.
-                            if cfg_arms.get("//conditions:default", "//private/sccs:" + scc) != "//private/sccs:" + scc:
+                            if cfg_arms.get("//conditions:default", scc_target) != scc_target:
                                 fail("Configuration conflict! Package {} resolves two or more packages via extra-only markers in the same configuration; the venv cannot disambiguate them at build time.\n{}".format(package, pprint(cfgs)))
 
-                            cfg_arms["//conditions:default"] = "//private/sccs:" + scc
+                            cfg_arms["//conditions:default"] = scc_target
                         else:
                             marker = _marker(marker)
                             if marker in cfg_arms:
                                 fail("Configuration conflict! Package {} specifies two or more configurations for the same marker!\n{}".format(package, pprint(cfgs)))
 
-                            cfg_arms[marker] = "//private/sccs:" + scc
+                            cfg_arms[marker] = scc_target
 
             # Ensure the alias resolves in exec configurations where the venv
             # flag is not set. Pick any available arm as the default.

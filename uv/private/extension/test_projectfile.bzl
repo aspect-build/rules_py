@@ -360,6 +360,81 @@ collect_activated_extras_group_marker_fallback_test = unittest.make(
     _collect_activated_extras_group_marker_fallback_test_impl,
 )
 
+def _collect_activated_extras_transitive_condition_propagation_test_impl(ctx):
+    env = unittest.begin(ctx)
+    project_data = {
+        "project": {"name": "test_project"},
+        "dependency-groups": {
+            "group_p": ["foo"],
+        },
+    }
+    lock_data = {
+        "manifest": {"members": ["test_project"]},
+        "package": [
+            {
+                "name": "test_project",
+                "version": "0.0.0",
+                "source": {"virtual": "."},
+                "dev-dependencies": {
+                    "group_p": [
+                        {"name": "foo", "version": "1.0", "marker": "sys_platform == 'linux'"},
+                        {"name": "foo", "version": "2.0", "marker": "sys_platform != 'linux'"},
+                    ],
+                },
+            },
+        ],
+    }
+    foo_1 = ("lock", "foo", "1.0", "__base__")
+    foo_2 = ("lock", "foo", "2.0", "__base__")
+    bar_1 = ("lock", "bar", "1.0", "__base__")
+    bar_2 = ("lock", "bar", "2.0", "__base__")
+
+    # Each foo version depends *unconditionally* on a different bar version;
+    # bar is transitive-only, so the group has no candidates for it.
+    graph = {
+        foo_1: {bar_1: {"": 1}},
+        foo_2: {bar_2: {"": 1}},
+        bar_1: {},
+        bar_2: {},
+    }
+    default_versions = {}
+    package_versions = {
+        "bar": {"1.0": 1, "2.0": 1},
+        "foo": {"1.0": 1, "2.0": 1},
+    }
+
+    _cfg_names, activated_extras = collect_activated_extras(
+        "//:pyproject.toml",
+        "lock",
+        project_data,
+        lock_data,
+        default_versions,
+        graph,
+        package_versions,
+    )
+
+    # Each bar version must inherit the platform gate of the foo candidate
+    # that pulls it in. If the walk drops path conditions, both bar versions
+    # become unconditional and repository generation reports two default
+    # package states for the same group.
+    markers_bar_1 = activated_extras[bar_1]["group_p"][bar_1]
+    markers_bar_2 = activated_extras[bar_2]["group_p"][bar_2]
+
+    asserts.false(env, "" in markers_bar_1)
+    asserts.false(env, "" in markers_bar_2)
+
+    asserts.true(env, "sys_platform == 'linux'" in markers_bar_1)
+    asserts.true(env, "sys_platform != 'linux'" in markers_bar_2)
+
+    asserts.false(env, "sys_platform != 'linux'" in markers_bar_1)
+    asserts.false(env, "sys_platform == 'linux'" in markers_bar_2)
+
+    return unittest.end(env)
+
+collect_activated_extras_transitive_condition_propagation_test = unittest.make(
+    _collect_activated_extras_transitive_condition_propagation_test_impl,
+)
+
 def projectfile_test_suite():
     unittest.suite(
         "extract_requirement_marker_pairs_tests",
@@ -372,4 +447,5 @@ def projectfile_test_suite():
         collect_activated_extras_transitive_remap_test,
         collect_activated_extras_group_multi_version_test,
         collect_activated_extras_group_marker_fallback_test,
+        collect_activated_extras_transitive_condition_propagation_test,
     )

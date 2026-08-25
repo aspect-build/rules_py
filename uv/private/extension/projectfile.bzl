@@ -5,7 +5,6 @@ Machinery specific to interacting with a pyproject.toml
 load("//uv/private:normalize_name.bzl", "normalize_name")
 load("//uv/private/versions:versions.bzl", "find_matching_version")
 load(":dep_groups.bzl", "resolve_dependency_group_specs")
-load(":graph_utils.bzl", "combine_markers")
 load(":marker_simplify.bzl", "simplify_markers_for_extras")
 
 def extract_requirement_marker_pairs(projectfile, lock_id, req_string, version_map, package_versions = {}, preferred_versions = {}):
@@ -148,13 +147,57 @@ def _extract_lockfile_group_versions(lock_id, lock_data):
                     result.setdefault(group_name, {}).setdefault(pkg_name, []).append(candidate)
     return result
 
-def _fan_out_candidates(dep, markers, candidates):
+def _atom_sets(markers):
+    """Converts a `{marker: 1}` set into canonical conjunction form.
+
+    Activation conditions are tracked as dicts keyed by sorted tuples of
+    atomic marker expressions: each tuple is one conjunction, the dict is
+    their disjunction, and the empty tuple is the always-true condition.
+    Keeping conjunctions as canonical atom sets instead of formatted strings
+    makes conjunction idempotent, so the reach-set walk below reaches a
+    fixpoint even on dependency cycles instead of growing marker strings
+    forever.
+
+    Returns:
+        A dict of `{atom_tuple: 1}` conditions.
+    """
+    return {((marker,) if marker else ()): 1 for marker in markers.keys()}
+
+def _conjoin_conditions(lefts, rights):
+    """Conjoins two atom-set conditions: cross product, union of atoms.
+
+    Returns:
+        A dict of `{atom_tuple: 1}` conditions.
+    """
+    acc = {}
+    for l_atoms in lefts.keys():
+        for r_atoms in rights.keys():
+            merged = {atom: 1 for atom in l_atoms}
+            merged.update({atom: 1 for atom in r_atoms})
+            acc[tuple(sorted(merged.keys()))] = 1
+    return acc
+
+def _render_markers(conditions):
+    """Renders atom-set conditions back into `{marker: 1}` strings.
+
+    Returns:
+        A dict of `{marker: 1}` PEP 508 marker strings.
+    """
+    acc = {}
+    for atoms in conditions.keys():
+        if len(atoms) == 1:
+            acc[atoms[0]] = 1
+        else:
+            acc[" and ".join(["({})".format(atom) for atom in atoms])] = 1
+    return acc
+
+def _fan_out_candidates(dep, conditions, candidates):
     """Fans a dependency out over a group's marker-gated locked candidates.
 
     Each candidate version is emitted gated by the conjunction of the incoming
-    markers and the candidate's lockfile marker; uv guarantees candidates
-    within a group carry disjoint markers, so at most one conjunction holds
-    per environment.
+    atom-set conditions and the candidate's lockfile marker; uv guarantees
+    candidates within a group carry disjoint markers, so at most one
+    conjunction holds per environment.
 
     The candidates only cover the group's own locked entries for the package.
     When the dependency's version is not among them (a transitive lockfile
@@ -162,17 +205,17 @@ def _fan_out_candidates(dep, markers, candidates):
     environments where no candidate marker holds still wire a version.
 
     Returns:
-        A list of `(dep, markers)` pairs.
+        A list of `(dep, conditions)` pairs.
     """
     targets = [
         (
             (dep[0], dep[1], candidate[2], dep[3]),
-            combine_markers(markers, {candidate_marker: 1}),
+            _conjoin_conditions(conditions, _atom_sets({candidate_marker: 1})),
         )
         for candidate, candidate_marker in candidates
     ]
     if dep[2] not in [candidate[2] for candidate, _ in candidates]:
-        targets.append((dep, markers))
+        targets.append((dep, conditions))
     return targets
 
 def collect_activated_extras(projectfile, lock_id, project_data, lock_data, default_versions, graph, package_versions = {}):
@@ -257,34 +300,40 @@ def collect_activated_extras(projectfile, lock_id, project_data, lock_data, defa
         for spec in resolved_specs:
             for dep, marker in extract_requirement_marker_pairs(projectfile, lock_id, spec, default_versions, package_versions, resolution_versions):
                 candidates = fanout_candidates.get(dep[1])
-                seeds = _fan_out_candidates(dep, {marker: 1}, candidates) if candidates else [(dep, {marker: 1})]
+                spec_condition = _atom_sets({marker: 1})
+                seeds = _fan_out_candidates(dep, spec_condition, candidates) if candidates else [(dep, spec_condition)]
 
                 # Note that this is the base case for the reach set walk below
                 # We do this here so it's easy to handle marker expressions
-                for seed_dep, seed_markers in seeds:
-                    normalized_dep_groups.setdefault(group_name, []).append(seed_dep)
+                for seed_dep, seed_conditions in seeds:
+                    normalized_dep_groups.setdefault(group_name, []).append((seed_dep, seed_conditions))
 
                     base = (seed_dep[0], seed_dep[1], seed_dep[2], "__base__")
-                    activated_extras.setdefault(base, {}).setdefault(group_name, {}).setdefault(seed_dep, {}).update(seed_markers)
+                    activated_extras.setdefault(base, {}).setdefault(group_name, {}).setdefault(seed_dep, {}).update(_render_markers(seed_conditions))
 
     for group_name, deps in normalized_dep_groups.items():
         worklist = list(deps)
         group_prefs = all_group_preferences.get(group_name, {})
         group_fanout = all_group_fanout_candidates.get(group_name, {})
-        visited = {}
+
+        # dep -> {atom_tuple: 1}: every condition the dep was already expanded
+        # under. A node re-expands only for genuinely new conditions, which
+        # both dedups the walk and bounds it: atom tuples are subsets of the
+        # finite marker universe, so cycles saturate instead of diverging.
+        expanded = {}
         idx = 0
         for _ in range(1000000):
             if idx == len(worklist):
                 break
 
-            it = worklist[idx]
+            it, conditions = worklist[idx]
             idx += 1
 
-            # Seeds may repeat across specs and a node can be enqueued once
-            # per incoming edge; expand each node exactly once.
-            if it in visited:
+            known = expanded.setdefault(it, {})
+            fresh = {atoms: 1 for atoms in conditions.keys() if atoms not in known}
+            if not fresh:
                 continue
-            visited[it] = 1
+            known.update(fresh)
 
             # If we reached this node via an extra, any `extra == '...'` marker
             # on outgoing edges can be resolved using that extra.
@@ -294,24 +343,31 @@ def collect_activated_extras(projectfile, lock_id, project_data, lock_data, defa
                 pkg_name = next_dep[1]
                 simplified_markers = simplify_markers_for_extras(markers, [origin_extra]) if origin_extra else markers
 
+                # Conjoin the conditions that (newly) activate this node with
+                # the edge's own markers, so transitive dependencies inherit
+                # the gates of the fanned-out versions that pull them in.
+                propagated = _conjoin_conditions(fresh, _atom_sets(simplified_markers))
+
                 candidates = group_fanout.get(pkg_name)
                 if candidates:
                     # Contradictory conjunctions decide to false at build
                     # time, leaving only the compatible version per env.
-                    targets = _fan_out_candidates(next_dep, simplified_markers, candidates)
+                    targets = _fan_out_candidates(next_dep, propagated, candidates)
                 else:
                     pref = group_prefs.get(pkg_name)
                     target_dep = next_dep
                     if pref and pref[2] != next_dep[2]:
                         target_dep = (next_dep[0], next_dep[1], pref[2], next_dep[3])
-                    targets = [(target_dep, simplified_markers)]
+                    targets = [(target_dep, propagated)]
 
-                for target_dep, target_markers in targets:
+                for target_dep, target_conditions in targets:
                     base = (target_dep[0], target_dep[1], target_dep[2], "__base__")
 
-                    activated_extras.setdefault(base, {}).setdefault(group_name, {}).setdefault(target_dep, {}).update(target_markers)
-                    if target_dep not in visited:
-                        worklist.append(target_dep)
+                    activated_extras.setdefault(base, {}).setdefault(group_name, {}).setdefault(target_dep, {}).update(_render_markers(target_conditions))
+
+                    known_target = expanded.get(target_dep, {})
+                    if any([atoms not in known_target for atoms in target_conditions.keys()]):
+                        worklist.append((target_dep, target_conditions))
 
     return {it: 1 for it in dep_groups.keys()}, activated_extras
 
