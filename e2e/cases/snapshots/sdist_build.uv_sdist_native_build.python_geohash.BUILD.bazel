@@ -1,5 +1,6 @@
 
 load("@aspect_rules_py//uv/private/pep517_whl:pep517_native_whl.bzl", "pep517_native_whl")
+load("@aspect_rules_py//uv/private/pep517_whl:frontend.bzl", "pep517_frontend")
 load("@aspect_rules_py//py:defs.bzl", "py_binary")
 
 py_binary(
@@ -9,10 +10,15 @@ py_binary(
     deps = ["@@aspect_rules_py++uv+project__uv_sdist_native_build//:build", "@@aspect_rules_py++uv+project__uv_sdist_native_build//:setuptools", "@whl_install__uv_sdist_native_build__setuptools__75_8_2//:install"],
 )
 
+pep517_frontend(
+    name = "frontend",
+    actual = ":build_tool",
+)
+
 pep517_native_whl(
     name = "whl",
     src = "@@aspect_rules_py++uv+sdist__python_geohash__05a21fcf4eda1a5e//file:file",
-    tool = ":build_tool",
+    tool = ":frontend",
     version = "0.8.5",
     resource_set = "mem_4g",
     pre_build_patches = ["@@//uv-sdist-native-build:require_cxx_driver.patch"],

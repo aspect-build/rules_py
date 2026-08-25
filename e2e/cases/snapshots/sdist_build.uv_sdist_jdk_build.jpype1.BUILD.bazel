@@ -1,5 +1,6 @@
 
 load("@aspect_rules_py//uv/private/pep517_whl:pep517_native_whl.bzl", "pep517_native_whl")
+load("@aspect_rules_py//uv/private/pep517_whl:frontend.bzl", "pep517_frontend")
 load("@aspect_rules_py//py:defs.bzl", "py_binary")
 
 py_binary(
@@ -9,10 +10,15 @@ py_binary(
     deps = ["@@aspect_rules_py++uv+project__uv_sdist_jdk_build//:scikit_build_core", "@@aspect_rules_py++uv+project__uv_sdist_jdk_build//:setuptools", "@@aspect_rules_py++uv+project__uv_sdist_jdk_build//:wheel", "@@aspect_rules_py++uv+project__uv_sdist_jdk_build//:build", "@whl_install__uv_sdist_jdk_build__scikit_build_core__0_12_2//:install"],
 )
 
+pep517_frontend(
+    name = "frontend",
+    actual = ":build_tool",
+)
+
 pep517_native_whl(
     name = "whl",
     src = "@@aspect_rules_py++uv+sdist__jpype1__3cd88838dc3d2d54//file:file",
-    tool = ":build_tool",
+    tool = ":frontend",
     version = "1.7.1",
     toolchains = [
         "@@bazel_tools//tools/jdk:current_java_runtime",

@@ -26,10 +26,12 @@ load(
     "execroot_collision_toolchain",
     "hostile_python_env_target",
     "interpreter_platform_triple_test",
-    "pep517_native_whl_cross_unsupported_test",
+    "pep517_native_whl_cross_mode_test",
     "pep517_native_whl_execroot_collision_test",
     "pep517_native_whl_toolchain_env_test",
     "pep517_whl_console_scripts_test",
+    "python_host_platform_test",
+    "target_python_artifacts_test",
 )
 
 package(
@@ -91,8 +93,12 @@ exec_platform_prefers_native_match_test(
     target_under_test = ":__cross_fixture",
 )
 
-pep517_native_whl_cross_unsupported_test(
-    name = "cross_unsupported_test",
+python_host_platform_test(name = "python_host_platform_test")
+
+target_python_artifacts_test(name = "target_python_artifacts_test")
+
+pep517_native_whl_cross_mode_test(
+    name = "cross_mode_test",
     # On a linux-aarch64 host the fixed cross target platform IS the host —
     # the build would be native and the expected failure never fires.
     target_compatible_with = select({

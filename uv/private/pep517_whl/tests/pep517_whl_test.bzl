@@ -7,7 +7,7 @@ build to verify the env wiring.
 
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts", "unittest")
 load("//uv/private:source_built_wheel.bzl", "SourceBuiltWheelInfo")
-load("//uv/private/pep517_whl:pep517_native_whl.bzl", "cross_detection_test_util")
+load("//uv/private/pep517_whl:pep517_native_whl.bzl", "cross_detection_test_util", "cross_identity_test_util")
 
 _ACTION_ENV = "//command_line_option:action_env"
 _HOST_ENV = [
@@ -184,15 +184,102 @@ def _cross_decision_test_impl(ctx):
 
 cross_decision_test = unittest.make(_cross_decision_test_impl)
 
-def _cross_unsupported_test_impl(ctx):
+def _cross_mode_test_impl(ctx):
     env = analysistest.begin(ctx)
-    asserts.expect_failure(env, "would cross-compile its native extensions")
+    target = analysistest.target_under_test(env)
+    actions = [a for a in target.actions if a.mnemonic == "PySdistNativeBuild"]
+    asserts.equals(env, 1, len(actions), "expected the cross build action to analyze")
+    if actions:
+        action = actions[0]
+        argv = action.argv
+        asserts.true(env, "--cross" in argv, "cross mode must reach the helper")
+        for flag, value in (("--target-os", "linux"), ("--target-cpu", "aarch64")):
+            asserts.true(
+                env,
+                flag in argv and argv[argv.index(flag) + 1] == value,
+                "expected {} {} in argv; got: {}".format(flag, value, list(argv)),
+            )
+        asserts.equals(
+            env,
+            "linux-aarch64",
+            action.env.get("_PYTHON_HOST_PLATFORM"),
+            "the target's python platform identity must reach the backend",
+        )
+        asserts.true(
+            env,
+            action.env.get("CFLAGS"),
+            "the target CC toolchain's compile flags must reach the backend",
+        )
+        asserts.true(
+            env,
+            action.env.get("RULES_PY_TARGET_INCLUDE"),
+            "the target interpreter's include dir must reach the backend",
+        )
+        input_basenames = [f.basename for f in action.inputs.to_list()]
+        asserts.true(
+            env,
+            "pyconfig.h" in input_basenames,
+            "the target interpreter's headers must be action inputs — the " +
+            "compile must not fall back to the exec runtime's pyconfig.h",
+        )
     return analysistest.end(env)
 
-pep517_native_whl_cross_unsupported_test = analysistest.make(
-    _cross_unsupported_test_impl,
-    expect_failure = True,
+# Runs against the repo's own dev llvm toolchain, which can target
+# linux-aarch64 from any host; the wheel-producing end-to-end version lives
+# in e2e/crossbuild/pycross-setuptools.
+pep517_native_whl_cross_mode_test = analysistest.make(
+    _cross_mode_test_impl,
     config_settings = {
         "//command_line_option:platforms": [Label("//uv/private/pep517_whl/tests:cross_target_platform")],
     },
 )
+
+def _python_host_platform_test_impl(ctx):
+    env = unittest.begin(ctx)
+    derive = cross_identity_test_util.derive_python_host_platform
+    for target_os, target_cpu, expected in (
+        ("linux", "x86_64", "linux-x86_64"),
+        ("linux", "aarch64", "linux-aarch64"),
+        ("linux", "x86", "linux-i686"),
+        ("linux", "arm", "linux-armv7l"),
+        ("darwin", "aarch64", "macosx-11.0-arm64"),
+        ("darwin", "x86_64", "macosx-11.0-x86_64"),
+        ("windows", "x86_64", None),
+        (None, None, None),
+    ):
+        asserts.equals(env, expected, derive(target_os, target_cpu))
+    return unittest.end(env)
+
+python_host_platform_test = unittest.make(_python_host_platform_test_impl)
+
+def _fake_runtime_file(p):
+    return struct(basename = p.split("/")[-1], dirname = p.rsplit("/", 1)[0], path = p)
+
+def _target_python_artifacts_test_impl(ctx):
+    env = unittest.begin(ctx)
+    collect = cross_identity_test_util.target_python_artifacts
+    runtime = struct(
+        interpreter_version_info = struct(major = 3, minor = 12),
+        files = depset([
+            _fake_runtime_file("repo/lib/python3.12/_sysconfigdata__linux_aarch64-linux-gnu.py"),
+            _fake_runtime_file("repo/lib/python3.12/os.py"),
+            _fake_runtime_file("repo/include/python3.12/Python.h"),
+            _fake_runtime_file("repo/include/python3.12/pyconfig.h"),
+            _fake_runtime_file("repo/bin/python3"),
+        ]),
+    )
+    artifacts = collect(runtime)
+    asserts.equals(
+        env,
+        "repo/lib/python3.12/_sysconfigdata__linux_aarch64-linux-gnu.py",
+        artifacts.sysconfig.path,
+    )
+    asserts.equals(env, "repo/include/python3.12", artifacts.include_dir)
+    asserts.equals(env, 2, len(artifacts.include_files))
+
+    empty = collect(None)
+    asserts.equals(env, None, empty.sysconfig)
+    asserts.equals(env, None, empty.include_dir)
+    return unittest.end(env)
+
+target_python_artifacts_test = unittest.make(_target_python_artifacts_test_impl)
