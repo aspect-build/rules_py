@@ -18,6 +18,12 @@ local_path_override(
     path = "..",
 )
 
+# Register the llvm cc toolchains directly. aspect_rules_py only registers them
+# when built from source (IS_RELEASE = False); in BCR presubmit the release
+# archive flips IS_RELEASE to True, so without this the native sdist builds
+# (e.g. cases/uv-sdist-native-inputs) find no cc toolchain.
+register_toolchains("@llvm//toolchain:all")
+
 # Ensure any transitive "aspect_bazel_lib" is latest to be forward compatible with bazel_lib 3+
 single_version_override(
     module_name = "aspect_bazel_lib",
@@ -506,6 +512,23 @@ uv.override_package(
     pre_build_patches = ["//cases/uv-sdist-native-inputs/patches:add_native_check_ext.patch"],
 )
 use_repo(uv, "pypi-native-inputs")
+# }}}
+
+# For cases/uv-sdist-dup-build-deps
+# Regression: build deps discovered by the sdist configure tool must be
+# deduplicated by package name against the explicit deps. With setuptools
+# locked at two versions, the duplicate labels resolve to different versions
+# and collide in the build_tool venv.
+# {{{
+uv.project(
+    default_build_dependencies = [
+        "build",
+        "setuptools",
+    ],
+    hub_name = "pypi",
+    lock = "//cases/uv-sdist-dup-build-deps:uv.lock",
+    pyproject = "//cases/uv-sdist-dup-build-deps:pyproject.toml",
+)
 # }}}
 
 # For cases/uv-group-multi-version

@@ -16,6 +16,9 @@ cc_library(
     srcs = ["native_check.c"],
     hdrs = ["include/rulespy_native_check.h"],
     includes = ["include"],
+    # Keep macOS BCR presubmit from resolving a cc toolchain, which would
+    # fetch the macOS SDK (Apple's swcdn 403s CI IPs).
+    target_compatible_with = ["@platforms//os:linux"],
     visibility = ["//visibility:public"],
 )
 

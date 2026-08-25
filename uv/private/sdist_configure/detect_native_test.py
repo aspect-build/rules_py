@@ -242,7 +242,12 @@ build-backend = "setuptools.build_meta"
 
 @requires_tomllib
 def test_extra_deps_excludes_already_provided():
-    """Deps already in the explicit deps list are not reported as extra."""
+    """Deps already in the explicit deps list are not reported as extra.
+
+    Explicit deps arrive as per-project labels while available_deps maps to
+    whl_install labels, so the exclusion must match on package name rather
+    than label identity.
+    """
     pyproject = """\
 [build-system]
 requires = ["setuptools", "cython"]
@@ -254,16 +259,39 @@ build-backend = "setuptools.build_meta"
         "pkg-1.0/pkg/__init__.py": "",
     })
     context = {
-        "deps": ["@pypi//setuptools:install"],
+        "deps": ["@@rules_py++uv+project__proj//:setuptools"],
         "available_deps": {
-            "setuptools": "@pypi//setuptools:install",
-            "cython": "@pypi//cython:install",
+            "setuptools": "@@rules_py++uv+whl_install__proj__setuptools__75_8_2//:install",
+            "cython": "@@rules_py++uv+whl_install__proj__cython__3_0_11//:install",
         },
     }
     result = detect(archive, context)
     # setuptools is already provided, so only cython is extra
     assert "setuptools" not in result["extra_deps"]
     assert "cython" in result["extra_deps"]
+
+
+@requires_tomllib
+def test_extra_deps_excludes_provided_normalized_name():
+    """Name-based exclusion normalizes both sides (Foo.Bar vs foo-bar)."""
+    pyproject = """\
+[build-system]
+requires = ["Flit-Core"]
+build-backend = "flit_core.buildapi"
+"""
+    archive = _make_tar_gz({
+        "pkg-1.0/": None,
+        "pkg-1.0/pyproject.toml": pyproject,
+        "pkg-1.0/pkg/__init__.py": "",
+    })
+    context = {
+        "deps": ["@@rules_py++uv+project__proj//:flit_core"],
+        "available_deps": {
+            "flit_core": "@@rules_py++uv+whl_install__proj__flit_core__3_10_1//:install",
+        },
+    }
+    result = detect(archive, context)
+    assert "flit_core" not in result["extra_deps"]
 
 
 @requires_tomllib
