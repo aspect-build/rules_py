@@ -1,0 +1,15 @@
+load("@aspect_rules_py//py/unstable:defs.bzl", "py_venv_test")
+
+py_venv_test(
+    name = "group_multi_version",
+    srcs = [
+        "__test__.py",
+    ],
+    main = "__test__.py",
+    python_version = "3.11",
+    venv = "depctx_py_multiver_uv",
+    deps = [
+        "@pypi//retrying",
+        "@pypi//six",
+    ],
+)

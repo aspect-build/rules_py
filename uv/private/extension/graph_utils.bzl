@@ -96,10 +96,14 @@ def combine_markers(lefts, rights):
     def _and(l, r):
         """
         We use "" as the empty/True marker, so if either side is true then we
-        need to return the other side.
+        need to return the other side. Identical markers conjoin to themselves
+        (idempotence), which keeps the common uv case — the lockfile marker
+        mirroring the requirement marker — from inflating select arms.
         """
 
-        if l == "":
+        if l == r:
+            return l
+        elif l == "":
             return r
         elif r == "":
             return l

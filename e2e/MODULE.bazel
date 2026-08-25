@@ -531,6 +531,18 @@ uv.project(
 )
 # }}}
 
+# For cases/uv-group-multi-version
+# Regression: the same package locked at multiple marker-gated versions
+# within a single dependency group must resolve per-platform instead of
+# collapsing to a single (last-written) version.
+# {{{
+uv.project(
+    hub_name = "pypi",
+    lock = "//cases/uv-group-multi-version:uv.lock",
+    pyproject = "//cases/uv-group-multi-version:pyproject.toml",
+)
+# }}}
+
 # For cases/unconstrained-dependencies
 # {{{
 uv.project(
