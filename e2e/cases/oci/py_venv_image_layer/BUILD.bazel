@@ -1,4 +1,4 @@
-load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_image_layer", "py_test")
+load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_image_layer", "py_layer_tier", "py_test")
 load("@bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
 load("@container_structure_test//:defs.bzl", "container_structure_test")
 load("@rules_oci//oci:defs.bzl", "oci_image", "oci_load")
@@ -182,4 +182,179 @@ container_structure_test(
     target_compatible_with = [
         "@platforms//cpu:aarch64",
     ],
+)
+
+# --- First-party bytecode images ---
+
+# Sourceless bytecode: first-party .py files are replaced by colocated .pyc.
+py_image_layer(
+    name = "my_app_pyc_only_layers",
+    binary = ":my_app_bin",
+    pyc = "pyc_only",
+)
+
+platform_transition_filegroup(
+    name = "pyc_only_amd64_layers",
+    srcs = [":my_app_pyc_only_layers"],
+    target_platform = ":amd64_linux",
+)
+
+py_test(
+    name = "my_app_pyc_only_amd64_layers_test",
+    srcs = ["//oci/py_image_layer:assert_tar_paths.py"],
+    args = [
+        "--contains=/oci/py_venv_image_layer/__main__.pyc",
+        "--absent=/oci/py_venv_image_layer/__main__.py",
+        "--count=/_wheels/=0",
+        "$(rootpaths :pyc_only_amd64_layers)",
+    ],
+    data = [":pyc_only_amd64_layers"],
+    main = "//oci/py_image_layer:assert_tar_paths.py",
+)
+
+platform_transition_filegroup(
+    name = "pyc_only_arm64_layers",
+    srcs = [":my_app_pyc_only_layers"],
+    target_platform = ":arm64_linux",
+)
+
+py_test(
+    name = "my_app_pyc_only_arm64_layers_test",
+    srcs = ["//oci/py_image_layer:assert_tar_paths.py"],
+    args = [
+        "--contains=/oci/py_venv_image_layer/__main__.pyc",
+        "--absent=/oci/py_venv_image_layer/__main__.py",
+        "--count=/_wheels/=0",
+        "$(rootpaths :pyc_only_arm64_layers)",
+    ],
+    data = [":pyc_only_arm64_layers"],
+    main = "//oci/py_image_layer:assert_tar_paths.py",
+)
+
+assert_tar_listing(
+    name = "my_app_pyc_only_amd64_layers_snapshot",
+    actual = [":pyc_only_amd64_layers"],
+    exclude = ["python_interpreters"],
+    expected = "my_app_pyc_only_amd64_layers_listing.yaml",
+    pyc = "pyc_only",
+)
+
+# Source-retaining bytecode: sources plus PEP 3147 __pycache__ entries.
+py_image_layer(
+    name = "my_app_pyc_layers",
+    binary = ":my_app_bin",
+    pyc = "pyc",
+)
+
+platform_transition_filegroup(
+    name = "pyc_amd64_layers",
+    srcs = [":my_app_pyc_layers"],
+    target_platform = ":amd64_linux",
+)
+
+py_test(
+    name = "my_app_pyc_amd64_layers_test",
+    srcs = ["//oci/py_image_layer:assert_tar_paths.py"],
+    args = [
+        "--contains=/oci/py_venv_image_layer/__main__.py",
+        "--contains=/oci/py_venv_image_layer/__pycache__/__main__.cpython-",
+        "--count=/_wheels/=0",
+        "$(rootpaths :pyc_amd64_layers)",
+    ],
+    data = [":pyc_amd64_layers"],
+    main = "//oci/py_image_layer:assert_tar_paths.py",
+)
+
+assert_tar_listing(
+    name = "my_app_pyc_amd64_layers_snapshot",
+    actual = [":pyc_amd64_layers"],
+    exclude = ["python_interpreters"],
+    expected = "my_app_pyc_amd64_layers_listing.yaml",
+    pyc = "pyc",
+)
+
+# Grouped first-party layer under bytecode mode: the branding library's
+# bytecode must ship in its group tar, not the default source layer.
+py_layer_tier(
+    name = "pyc_branding_tier",
+    groups = {"//oci/py_image_layer/branding": "branding"},
+)
+
+py_image_layer(
+    name = "my_app_pyc_grouped_layers",
+    binary = ":my_app_bin",
+    layer_tier = ":pyc_branding_tier",
+    pyc = "pyc_only",
+)
+
+platform_transition_filegroup(
+    name = "pyc_grouped_amd64_layers",
+    srcs = [":my_app_pyc_grouped_layers"],
+    target_platform = ":amd64_linux",
+)
+
+py_test(
+    name = "my_app_pyc_grouped_amd64_layers_test",
+    srcs = ["//oci/py_image_layer:assert_tar_paths.py"],
+    args = [
+        "--tar-contains=_branding.tar.gz=/branding/__init__.pyc",
+        "--tar-absent=_default.tar.gz=/branding/__init__.pyc",
+        "--absent=/branding/__init__.py",
+        "--count=/_wheels/=0",
+        "$(rootpaths :pyc_grouped_amd64_layers)",
+    ],
+    data = [":pyc_grouped_amd64_layers"],
+    main = "//oci/py_image_layer:assert_tar_paths.py",
+)
+
+# Runtime proof: the launcher must exec sourceless bytecode inside the image.
+oci_image(
+    name = "pyc_only_image",
+    base = "@ubuntu",
+    entrypoint = ["/app"],
+    tars = [":my_app_pyc_only_layers"],
+)
+
+platform_transition_filegroup(
+    name = "pyc_only_amd64_image",
+    srcs = [":pyc_only_image"],
+    target_platform = ":amd64_linux",
+)
+
+container_structure_test(
+    name = "py_pyc_only_amd64_image_command_test",
+    args = ["--verbosity=debug"],
+    configs = ["py_image_command_test.yaml"],
+    image = ":pyc_only_amd64_image",
+    platform = "linux/amd64",
+    tags = [
+        "requires-docker",
+        "skip-on-bazel9",
+    ],
+    target_compatible_with = [
+        "@platforms//cpu:x86_64",
+    ],
+)
+
+# Failure fixture for oci/test.sh: a binary hard-wired to source under a
+# pyc_only image must fail analysis.
+py_binary(
+    name = "my_app_source_pinned_bin",
+    srcs = ["__main__.py"],
+    dep_group = "venv_images",
+    main = "__main__.py",
+    pyc = "source",
+    tags = ["manual"],
+    deps = [
+        "//oci/py_image_layer/branding",
+        "//tools/verify_venv",
+        "@aspect_rules_py//py/tests/internal-deps/adder",
+        "@pypi_oci_py_venv_image_layer//colorama",
+    ],
+)
+
+py_image_layer(
+    name = "my_app_pyc_mismatch_layers",
+    binary = ":my_app_source_pinned_bin",
+    pyc = "pyc_only",
 )

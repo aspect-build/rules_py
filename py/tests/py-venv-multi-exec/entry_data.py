@@ -9,6 +9,8 @@ target = os.environ["BAZEL_TARGET_NAME"]
 EXPECTATIONS = {
     "test_data_alpha": "alpha-payload\n",
     "test_data_beta":  "beta-payload\n",
+    "test_pyc_data": "alpha-payload\n",
+    "test_pyc_only_data": "beta-payload\n",
 }
 
 expected = EXPECTATIONS.get(target)

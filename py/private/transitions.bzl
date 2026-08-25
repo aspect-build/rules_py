@@ -3,6 +3,11 @@
 DEP_GROUP_FLAG = "@aspect_rules_py//uv/private/constraints/dep_group:dep_group"
 _DEP_GROUP_BASELINE_FLAG = "@aspect_rules_py//uv/private/constraints/dep_group:baseline"
 
+# Only terminal rules read this flag (as the default for an unset `pyc`
+# attribute); it never configures the graph below them, so it is not part of
+# python_transition.
+PYC_FLAG = "@aspect_rules_py//py:pyc"
+
 # Our own python_version flag, replacing the rules_python one.
 PYTHON_VERSION_FLAG = "@aspect_rules_py//py/private/interpreter:python_version"
 _PYTHON_VERSION_BASELINE_FLAG = "@aspect_rules_py//py/private/interpreter:baseline_python_version"
@@ -165,4 +170,13 @@ reset_python_flags_transition = transition(
     implementation = _reset_python_flags_transition_impl,
     inputs = _ALL_FLAGS,
     outputs = _ALL_FLAGS,
+)
+
+def _reset_pyc_transition_impl(settings, _attr):
+    return {PYC_FLAG: "source"}
+
+reset_pyc_transition = transition(
+    implementation = _reset_pyc_transition_impl,
+    inputs = [PYC_FLAG],
+    outputs = [PYC_FLAG],
 )

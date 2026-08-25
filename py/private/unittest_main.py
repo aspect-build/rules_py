@@ -57,7 +57,11 @@ def _import_test_modules(test_files: list[str]) -> list[ModuleType]:
         while rel.startswith("../"):
             rel = rel[len("../"):]
         mod_name = rel[:-len(".py")].replace("/", ".")
-        loader = importlib.machinery.SourceFileLoader(mod_name, path)
+        if os.path.exists(path):
+            loader = importlib.machinery.SourceFileLoader(mod_name, path)
+        else:
+            # pyc_only runfiles replace the source with a colocated .pyc.
+            loader = importlib.machinery.SourcelessFileLoader(mod_name, path[:-len(".py")] + ".pyc")
         spec = importlib.util.spec_from_loader(mod_name, loader)
         if spec is None:
             raise ImportError("cannot load test module from %r" % path)

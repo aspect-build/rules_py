@@ -22,6 +22,8 @@ load("@bazel_lib//lib:paths.bzl", "to_rlocation_path")
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load("//py/private:providers.bzl", "PyWheelsInfo")
 load("//py/private:py_info.bzl", "PyInfo")
+load("//py/private:pyc.bzl", "FirstPartyPycModeInfo")
+load("//py/private:transitions.bzl", "reset_pyc_transition")
 load("//py/private/py_venv:types.bzl", "PY_VENV_KINDS", "VirtualenvInfo", "venv_root")
 load("//py/private/py_venv:virtuals_resolvers.bzl", "VENV_OWNED_ROOTS")
 load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN", "interpreter_files_and_version")
@@ -185,7 +187,9 @@ def _dep_arg(wheel):
     return "--dependency={}/{}".format(wheel.install_tree.path, suffix)
 
 def _py_python_pex_impl(ctx):
-    binary = ctx.attr.binary
+    binary = _single_target(ctx.attr.binary)
+    if FirstPartyPycModeInfo in binary and binary[FirstPartyPycModeInfo].mode != "source":
+        fail("py_pex_binary {} requires binary {} to use pyc=source".format(ctx.label, binary.label))
     binary_default = binary[DefaultInfo]
 
     # py_venv_exec emits depset([launcher, main]) — the non-executable file is
@@ -312,7 +316,7 @@ def _py_python_pex_impl(ctx):
 _attrs = dict({
     "binary": attr.label(
         executable = True,
-        cfg = "target",
+        cfg = reset_pyc_transition,
         mandatory = True,
         doc = "The py_binary target to package.",
         aspects = [_closure_aspect],
@@ -340,6 +344,9 @@ the `binary`'s own interpreter, the one the PEX is built for.
 """,
     ),
     "_pex": attr.label(executable = True, cfg = "exec", default = "//py/tools/pex"),
+    "_allowlist_function_transition": attr.label(
+        default = "@bazel_tools//tools/allowlists/function_transition_allowlist",
+    ),
 })
 
 py_pex_binary = rule(

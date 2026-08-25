@@ -32,7 +32,8 @@ dev-dependencies = [
 [tool.ruff]
 target-version = "py39"
 extend-exclude = [
-   # Intentionally unparsable .py-as-data fixture.
+   # Intentionally unparsable .py-as-data fixture; must stay broken so a
+   # bytecode compile of it would fail loudly.
    "py/tests/py-venv-multi-exec/broken_data.py",
    # OCI layer snapshots pin the byte sizes of these fixtures.
    "e2e/cases/oci/py_image_layer/branding/**",

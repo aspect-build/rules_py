@@ -1,3 +1,4 @@
+load("@bazel_skylib//rules:build_test.bzl", "build_test")
 load("//py:defs.bzl", "py_binary", "py_test")
 
 package(default_testonly = True)
@@ -14,6 +15,52 @@ py_binary(
     name = "main_from_genrule_bin",
     srcs = [":gen_main"],
     main = ":gen_main",
+)
+
+# Bytecode requires srcs listed by file label: a rule target in srcs (like
+# :gen_main above) is opaque to compilation. A generated file listed by its
+# own output label compiles like a checked-in source.
+py_binary(
+    name = "main_from_genrule_pyc_bin",
+    srcs = ["main_generated.py"],
+    main = ":gen_main",
+    pyc = "pyc_only",
+)
+
+py_binary(
+    name = "main_from_genrule_pyc_and_source_bin",
+    srcs = ["main_generated.py"],
+    main = ":gen_main",
+    pyc = "pyc",
+)
+
+build_test(
+    name = "pyc_binaries_build",
+    targets = [
+        ":main_from_genrule_pyc_bin",
+        ":main_from_genrule_pyc_and_source_bin",
+    ],
+)
+
+# Cross-compile targets for e2e/cases/pyc/test.sh: at least one is foreign to
+# any CI host, proving bytecode compiles via the exec interpreter.
+platform(
+    name = "linux_amd64",
+    constraint_values = [
+        "@platforms//os:linux",
+        "@platforms//cpu:x86_64",
+    ],
+    # Pin libc so the PBS linux-gnu toolchain matches regardless of host.
+    flags = ["--//uv/private/constraints/platform:platform_libc=glibc"],
+)
+
+platform(
+    name = "linux_arm64",
+    constraint_values = [
+        "@platforms//os:linux",
+        "@platforms//cpu:aarch64",
+    ],
+    flags = ["--//uv/private/constraints/platform:platform_libc=glibc"],
 )
 
 genrule(

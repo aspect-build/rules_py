@@ -18,6 +18,16 @@ py_pytest_test(
     ],
 )
 
+py_pytest_test(
+    name = "pytest_pyc_only_af_unix_test",
+    srcs = ["pytest_af_unix_test.py"],
+    pyc = "pyc_only",
+    deps = [
+        ":af_unix_probe",
+        "@pypi//pytest",
+    ],
+)
+
 py_unittest_test(
     name = "unittest_af_unix_test",
     srcs = ["unittest_af_unix_test.py"],

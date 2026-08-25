@@ -152,6 +152,29 @@ def py_binary(name, srcs = [], main = None, **kwargs):
               explicit
               `py_venv_link(name = "{name}.venv_link", venv = ":{name}.venv")`
               alongside the binary.
+            * `pyc` (string) — first-party bytecode packaging.
+              `"source"` ships only `.py` sources; `"pyc"` additionally
+              ships PEP 3147 `__pycache__` bytecode; `"pyc_only"` ships
+              colocated sourceless `.pyc` files (tracebacks then carry
+              no source lines). Unset inherits the global
+              `--@aspect_rules_py//py:pyc` flag; an explicit value pins
+              the mode regardless of the flag. Configurable: a
+              `select()` value is accepted. Bytecode compilation
+              requires an executable, bytecode-compatible target
+              interpreter, and `"pyc_only"` requires every first-party
+              source to be directly owned by a rules_py `py_*` target;
+              other first-party sources ship as source under `"pyc"`.
+              A `.py` file also declared through `data` remains source
+              because explicit runtime data takes precedence over source
+              stripping.
+              Only `.py` files listed in `srcs` by their own file label
+              are compiled; files reached through a rule target in
+              `srcs` (filegroup, genrule, py_library) stay source.
+              `bazel coverage` always runs `"pyc_only"` targets from
+              sources so coverage.py can instrument them.
+              Bytecode modes reject `-O`/`-OO` interpreter options and
+              `PYTHONOPTIMIZE` settings because compilation produces
+              optimization-level-0 bytecode.
     """
 
     _py_binary_with_venv(

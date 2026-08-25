@@ -3,6 +3,7 @@
 load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_image_layer", "py_layer_tier", "py_library")
 load("@bazel_features//:features.bzl", "bazel_features")
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
+load("@bazel_skylib//rules:build_test.bzl", "build_test")
 
 _PY_TOOLCHAIN = "@bazel_tools//tools/python:toolchain_type"
 
@@ -227,6 +228,53 @@ def image_layer_analysis_test_suite():
         name = "_wheel_scripts_tier",
         groups = {"@pip//build": "wheel_scripts"},
     )
+
+    # Source-retaining mode: the same logical source under two runtimes ships
+    # one version-tagged __pycache__ entry per runtime.
+    py_image_layer(
+        name = "_pyc_mixed_runtimes_layers",
+        binaries = [":_wheel_scripts_311", ":_wheel_scripts_312"],
+        launcher_dir = "/app/bin",
+        pyc = "pyc",
+    )
+    build_test(
+        name = "pyc_mixed_runtimes_build_test",
+        targets = [":_pyc_mixed_runtimes_layers"],
+    )
+
+    # One logical source compiled under two Python runtimes cannot collapse
+    # into a single sourceless .pyc image destination.
+    _image_layer_failure(
+        name = "pyc_only_mixed_runtimes",
+        expected_error = "binaries compile conflicting bytecode for",
+        binaries = [":_wheel_scripts_311", ":_wheel_scripts_312"],
+        launcher_dir = "/app/bin",
+        pyc = "pyc_only",
+    )
+
+    for dep_group in ["images", "venv_images"]:
+        py_binary(
+            name = "_pyc_same_runtime_{}".format(dep_group),
+            srcs = ["server.py"],
+            dep_group = dep_group,
+            python_version = "3.11",
+        )
+    for mode in ["pyc", "pyc_only"]:
+        layer_name = "_pyc_same_runtime_distinct_configs_{}_layers".format(mode)
+        py_image_layer(
+            name = layer_name,
+            binaries = [
+                ":_pyc_same_runtime_images",
+                ":_pyc_same_runtime_venv_images",
+            ],
+            launcher_dir = "/app/bin",
+            pyc = mode,
+        )
+        build_test(
+            name = "pyc_same_runtime_distinct_configs_{}_build_test".format(mode),
+            targets = [":" + layer_name],
+        )
+
     py_image_layer(
         name = "_configured_wheel_collision_layers",
         binaries = [":_wheel_scripts_311", ":_wheel_scripts_312"],

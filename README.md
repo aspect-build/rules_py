@@ -164,6 +164,58 @@ py_test(
 )
 ```
 
+### First-party bytecode
+
+`py_binary` and `py_test` accept `pyc = "source" | "pyc" | "pyc_only"`
+(a `select()` value is also accepted). The default is `source`, and may be
+changed for inheriting targets with
+`--@aspect_rules_py//py:pyc=source|pyc|pyc_only`; an explicit `pyc`
+attribute pins the target's mode regardless of the flag.
+
+- `source` packages first-party `.py` sources.
+- `pyc` packages sources and PEP 3147 `__pycache__` bytecode.
+- `pyc_only` packages colocated first-party `.pyc` files without their source.
+  Tracebacks then carry no source lines, and every first-party source must be
+  directly owned by a rules_py `py_*` target. A `.py` file also declared through
+  `data` remains available as source because explicit runtime data takes
+  precedence over source stripping.
+
+Only `.py` files listed in a `py_*` target's `srcs` by their own file label
+(checked-in or generated) are compiled. A `.py` file reached through a rule
+target in `srcs` — a `filegroup`, a `genrule`, or another `py_library` —
+stays in source form; `pyc_only` reports it as missing bytecode.
+
+Only sources directly owned by a rules_py `py_*` target are compiled.
+Other first-party sources — files listed from another package or
+repository, or provided by non-rules_py rules (e.g. a rules_python
+`py_library` dependency) — have no bytecode: `pyc` mode ships them as
+plain source, and `pyc_only` fails analysis listing them.
+
+Bytecode is compiled by an exec-platform interpreter of the target's
+implementation/cache tag and feature version (major.minor; prereleases must
+match exactly) when one is provisioned (the default with the
+rules_py interpreter hub), so cross-platform builds work out of the box. With
+toolchains not provisioned by rules_py (e.g. rules_python runtimes) the
+target interpreter itself must be runnable on the build host, unless the
+toolchain supplies a custom `pyc_compile_tool`.
+
+`bazel coverage` always runs `pyc_only` targets from sources so coverage.py
+can instrument them.
+
+Bytecode is compiled at optimization level 0: a target combining a `pyc`
+mode with `-O`/`-OO` `interpreter_options` fails analysis. `PYTHONOPTIMIZE`
+is unsupported in bytecode modes, whether set or inherited by the launcher or
+its venv; use `pyc = "source"` when it is required.
+
+`py_unittest_test` supports `pyc_only`. Because pytest collects `.py` source
+files, `py_pytest_test` automatically falls back to `source` when `pyc_only`
+is requested explicitly or through the global flag.
+
+`py_image_layer` accepts the same `pyc` attribute; unset, it inherits the
+`--@aspect_rules_py//py:pyc` flag. Binaries with an unset `pyc` attribute
+follow the image's mode automatically; a binary whose explicit `pyc`
+attribute disagrees with the image fails analysis.
+
 ## Dependency Resolution with `uv`
 
 `aspect_rules_py//uv` is our alternative to `rules_python`'s `pip.parse`:

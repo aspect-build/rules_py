@@ -1,8 +1,8 @@
-load("@rules_python//python:defs.bzl", "py_library")
 load("//py:defs.bzl", "py_library", "py_venv")
 load("//py/private/py_venv:defs.bzl", "py_venv_exec_test")
 load(":env_inherit_test.bzl", "contextual_keys_not_inherited_test", "env_inherit_test")
 load(":freethreaded_flag_test.bzl", "freethreaded_flag_test")
+load(":pyc_runfiles_test.bzl", "pyc_failure_test", "pyc_runfiles_test")
 load(":runfiles_mapping.bzl", "runfiles_mapping")
 
 package(default_testonly = True)
@@ -112,11 +112,195 @@ py_venv_exec_test(
     venv = ":shared_venv",
 )
 
+py_venv_exec_test(
+    name = "test_pyc_only_transitive_python_data",
+    main = "entry_runtime_data.py",
+    pyc = "pyc_only",
+    venv = ":runtime_data_venv",
+)
+
+pyc_runfiles_test(
+    name = "test_pyc_only_transitive_python_data_runfiles",
+    expect_legacy = False,
+    mode = "pyc_only",
+    module = "runtime_data",
+    protect_source = True,
+    target_under_test = ":test_pyc_only_transitive_python_data",
+)
+
+# Non-.py files in `srcs` are not bytecode candidates and must survive
+# every mode, including sourceless pyc_only.
+py_venv(
+    name = "sidecar_venv",
+    srcs = [
+        "entry_sidecar.py",
+        "sidecar.txt",
+    ],
+    imports = ["."],
+)
+
+py_venv_exec_test(
+    name = "test_pyc_only_sidecar_srcs",
+    main = "entry_sidecar.py",
+    pyc = "pyc_only",
+    venv = ":sidecar_venv",
+)
+
+pyc_runfiles_test(
+    name = "test_pyc_only_sidecar_srcs_runfiles",
+    expect_suffixes = ["/sidecar.txt"],
+    mode = "pyc_only",
+    module = "entry_sidecar",
+    target_under_test = ":test_pyc_only_sidecar_srcs",
+)
+
+py_venv_exec_test(
+    name = "test_foreign_source_pyc",
+    main = "entry_foreign.py",
+    pyc = "pyc",
+    venv = ":foreign_source_venv",
+)
+
+pyc_runfiles_test(
+    name = "test_foreign_source_pyc_runfiles",
+    expect_pyc = False,
+    mode = "pyc",
+    module = "foreign_source",
+    target_under_test = ":test_foreign_source_pyc",
+)
+
+py_venv_exec_test(
+    name = "_test_foreign_source_pyc_only",
+    main = "entry_foreign.py",
+    pyc = "pyc_only",
+    tags = ["manual"],
+    venv = ":foreign_source_venv",
+)
+
+py_venv_exec_test(
+    name = "_test_pyc_optimized",
+    interpreter_options = ["-O"],
+    main = "entry_a.py",
+    pyc = "pyc",
+    tags = ["manual"],
+    venv = ":shared_venv",
+)
+
+pyc_failure_test(
+    name = "test_pyc_optimized_failure",
+    expected_error = "pyc modes compile level-0 bytecode",
+    target_under_test = ":_test_pyc_optimized",
+)
+
+py_venv_exec_test(
+    name = "_test_pyc_repeated_optimize",
+    interpreter_options = ["-OO"],
+    main = "entry_a.py",
+    pyc = "pyc_only",
+    tags = ["manual"],
+    venv = ":shared_venv",
+)
+
+pyc_failure_test(
+    name = "test_pyc_repeated_optimize_failure",
+    expected_error = "pyc modes compile level-0 bytecode",
+    target_under_test = ":_test_pyc_repeated_optimize",
+)
+
+py_venv_exec_test(
+    name = "_test_pyc_inherit_optimize",
+    env_inherit = ["PYTHONOPTIMIZE"],
+    main = "entry_a.py",
+    pyc = "pyc",
+    tags = ["manual"],
+    venv = ":shared_venv",
+)
+
+pyc_failure_test(
+    name = "test_pyc_inherit_optimize_failure",
+    expected_error = "pyc modes do not support PYTHONOPTIMIZE",
+    target_under_test = ":_test_pyc_inherit_optimize",
+)
+
+py_venv_exec_test(
+    name = "_test_pyc_only_pythonoptimize",
+    env = {"PYTHONOPTIMIZE": "0"},
+    main = "entry_a.py",
+    pyc = "pyc_only",
+    tags = ["manual"],
+    venv = ":shared_venv",
+)
+
+pyc_failure_test(
+    name = "test_pyc_only_pythonoptimize_failure",
+    expected_error = "pyc modes do not support PYTHONOPTIMIZE",
+    target_under_test = ":_test_pyc_only_pythonoptimize",
+)
+
+py_venv(
+    name = "_pyc_optimize_env_venv",
+    srcs = ["entry_a.py"],
+    env = {"PYTHONOPTIMIZE": "0"},
+    tags = ["manual"],
+)
+
+py_venv_exec_test(
+    name = "_test_pyc_venv_optimize_env",
+    isolated = False,
+    main = "entry_a.py",
+    pyc = "pyc",
+    tags = ["manual"],
+    venv = ":_pyc_optimize_env_venv",
+)
+
+pyc_failure_test(
+    name = "test_pyc_venv_optimize_env_failure",
+    expected_error = "pyc modes do not support PYTHONOPTIMIZE",
+    target_under_test = ":_test_pyc_venv_optimize_env",
+)
+
+py_venv(
+    name = "_pyc_optimize_inherit_venv",
+    srcs = ["entry_a.py"],
+    env_inherit = ["PYTHONOPTIMIZE"],
+    tags = ["manual"],
+)
+
+py_venv_exec_test(
+    name = "_test_pyc_venv_optimize_inherit",
+    isolated = False,
+    main = "entry_a.py",
+    pyc = "pyc_only",
+    tags = ["manual"],
+    venv = ":_pyc_optimize_inherit_venv",
+)
+
+pyc_failure_test(
+    name = "test_pyc_venv_optimize_inherit_failure",
+    expected_error = "pyc modes do not support PYTHONOPTIMIZE",
+    target_under_test = ":_test_pyc_venv_optimize_inherit",
+)
+
+pyc_failure_test(
+    name = "test_foreign_source_pyc_only_failure",
+    expected_error = "pyc_only could not compile all first-party sources",
+    target_under_test = ":_test_foreign_source_pyc_only",
+)
+
 # Same shared venv, two different `main` entry points. Both reach
 # `shared_lib` via the venv's sys.path.
 py_venv_exec_test(
     name = "test_entry_a",
     main = "entry_a.py",
+    pyc = "pyc",
+    venv = ":shared_venv",
+)
+
+py_venv_exec_test(
+    name = "test_pyc_only_broken_python_data",
+    data = [":broken_python_data"],
+    main = "entry_a.py",
+    pyc = "pyc_only",
     venv = ":shared_venv",
 )
 
@@ -126,9 +310,73 @@ py_venv_exec_test(
     venv = ":shared_venv",
 )
 
+# All three launchers consume the same configured :shared_venv (source mode
+# aside). The runtime tests prove each launcher executes; the paired analysis
+# tests below inspect their individual runfiles closures without merging their
+# conflicting layouts.
+py_venv_exec_test(
+    name = "test_pyc_source",
+    main = "entry_a.py",
+    venv = ":shared_venv",
+)
+
+py_venv_exec_test(
+    name = "test_pyc_cache",
+    main = "entry_a.py",
+    pyc = "pyc",
+    venv = ":shared_venv",
+)
+
+py_venv_exec_test(
+    name = "test_pyc_only",
+    data = [":entry_a_mapping"],
+    main = "entry_a.py",
+    pyc = "pyc_only",
+    venv = ":shared_venv",
+)
+
+pyc_runfiles_test(
+    name = "test_pyc_source_runfiles",
+    mode = "source",
+    target_under_test = ":test_pyc_source",
+)
+
+pyc_runfiles_test(
+    name = "test_pyc_cache_runfiles",
+    forbid_entry_substring = "site-packages",
+    mode = "pyc",
+    target_under_test = ":test_pyc_cache",
+)
+
+pyc_runfiles_test(
+    name = "test_pyc_only_runfiles",
+    check_mappings = True,
+    mode = "pyc_only",
+    target_under_test = ":test_pyc_only",
+)
+
+py_venv_exec_test(
+    name = "test_pyc_data",
+    data = ["data_alpha.txt"],
+    env = {"DATA_PATH": "$(rootpath :data_alpha.txt)"},
+    main = "entry_data.py",
+    pyc = "pyc",
+    venv = ":shared_venv",
+)
+
+py_venv_exec_test(
+    name = "test_pyc_only_data",
+    data = ["data_beta.txt"],
+    env = {"DATA_PATH": "$(rootpath :data_beta.txt)"},
+    main = "entry_data.py",
+    pyc = "pyc_only",
+    venv = ":shared_venv",
+)
+
 # One py_venv label, resolved in two consumer configurations. A materialized
 # venv cannot be shared across interpreter versions, but Bazel configures this
-# label independently for each launcher's `python_version`.
+# label independently for each launcher so their bytecode uses the matching
+# interpreter cache tag.
 py_venv(
     name = "shared_versioned_venv",
     srcs = ["entry_versioned.py"],
@@ -150,11 +398,93 @@ py_venv_exec_test(
 )
 
 py_venv_exec_test(
+    name = "test_pyc_python_313",
+    main = "entry_versioned.py",
+    pyc = "pyc",
+    python_version = "3.13",
+    venv = ":shared_versioned_venv",
+)
+
+py_venv_exec_test(
     name = "test_python_313_freethreaded",
     freethreaded = "true",
     main = "entry_versioned.py",
     python_version = "3.13",
     venv = ":shared_versioned_venv",
+)
+
+py_venv_exec_test(
+    name = "test_pyc_python_312",
+    main = "entry_versioned.py",
+    pyc = "pyc",
+    python_version = "3.12",
+    venv = ":shared_versioned_venv",
+)
+
+# `pyc` is configurable: this resolves to "pyc" in every configuration, and
+# the paired runfiles test asserts bytecode is shipped.
+py_venv_exec_test(
+    name = "test_pyc_select",
+    main = "entry_a.py",
+    pyc = select({"//conditions:default": "pyc"}),
+    venv = ":shared_venv",
+)
+
+pyc_runfiles_test(
+    name = "test_pyc_select_runfiles",
+    mode = "pyc",
+    target_under_test = ":test_pyc_select",
+)
+
+# Full {source, pyc, pyc_only} x {3.12, 3.13} matrix over the same venv label.
+# The e2e pyc suite asserts these six launchers yield exactly one configured
+# venv and one PyCompile action set per python version.
+py_venv_exec_test(
+    name = "test_pyc_source_python_313",
+    main = "entry_versioned.py",
+    pyc = "source",
+    python_version = "3.13",
+    venv = ":shared_versioned_venv",
+)
+
+py_venv_exec_test(
+    name = "test_pyc_source_python_312",
+    main = "entry_versioned.py",
+    pyc = "source",
+    python_version = "3.12",
+    venv = ":shared_versioned_venv",
+)
+
+py_venv_exec_test(
+    name = "test_pyc_only_python_313",
+    main = "entry_versioned.py",
+    pyc = "pyc_only",
+    python_version = "3.13",
+    venv = ":shared_versioned_venv",
+)
+
+py_venv_exec_test(
+    name = "test_pyc_only_python_312",
+    main = "entry_versioned.py",
+    pyc = "pyc_only",
+    python_version = "3.12",
+    venv = ":shared_versioned_venv",
+)
+
+pyc_runfiles_test(
+    name = "test_pyc_python_313_runfiles",
+    mode = "pyc",
+    module = "entry_versioned",
+    pyc_tag = "cpython-313",
+    target_under_test = ":test_pyc_python_313",
+)
+
+pyc_runfiles_test(
+    name = "test_pyc_python_312_runfiles",
+    mode = "pyc",
+    module = "entry_versioned",
+    pyc_tag = "cpython-312",
+    target_under_test = ":test_pyc_python_312",
 )
 
 # Regression: the launcher edge must not validate intermediate flag combos.
