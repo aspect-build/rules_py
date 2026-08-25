@@ -13,14 +13,17 @@ Two properties are pinned:
   directory, proving the exec transition applied (a target-configuration
   frontend would break remote execution — the binary must match the worker,
   not the target).
-- Starlark flag leak: `--//uv/private/constraints/platform:platform_libc`
-  set in the target configuration SURVIVES the exec transition and reaches
-  the frontend (Bazel does not reset Starlark flags on exec edges). This is
-  a defect — the frontend's own Python build deps get selected with the
-  *target's* libc — pinned here as current behavior so the fix has to flip
-  this assertion explicitly.
+- Starlark flag reset: Bazel does not reset Starlark flags on exec edges,
+  so `--//uv/private/constraints/platform:platform_libc` set in the target
+  configuration survives into the frontend. The pep517_frontend wrapper
+  (frontend.bzl) resets the flag inside the exec configuration; the leak
+  test wires the wrapper explicitly and asserts the reset value reaches
+  the frontend instead of the target's. Production wiring is the cross
+  code path's concern — native builds' leaked flags are already the
+  execution platform's.
 """
 
+load("@aspect_rules_py_uv_host//:defs.bzl", "CURRENT_PLATFORM_LIBC")
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 
@@ -75,12 +78,11 @@ def _frontend_libc_leak_test_impl(ctx):
     if action:
         asserts.equals(
             env,
-            "musl",
+            CURRENT_PLATFORM_LIBC,
             _probe_libc_value(action),
-            "CURRENT BEHAVIOR (defect): the target configuration's " +
-            "platform_libc leaks through the exec transition into the " +
-            "frontend. The frontend-configuration fix must flip this " +
-            "assertion to the execution platform's libc.",
+            "the target configuration's platform_libc (musl here) must " +
+            "not leak into the frontend: pep517_frontend resets the flag " +
+            "to the host's value inside the exec configuration",
         )
     return analysistest.end(env)
 
@@ -104,3 +106,19 @@ def _frontend_probe_plumbing_test_impl(ctx):
     return analysistest.end(env)
 
 frontend_probe_plumbing_test = analysistest.make(_frontend_probe_plumbing_test_impl)
+
+def _frontend_libc_override_test_impl(ctx):
+    env = analysistest.begin(ctx)
+    action = _build_action(env)
+    if action:
+        asserts.equals(
+            env,
+            "musl",
+            _probe_libc_value(action),
+            "an explicit libc on pep517_frontend must reach the frontend's " +
+            "configuration: it is the escape hatch for execution platforms " +
+            "whose libc differs from the host probe's",
+        )
+    return analysistest.end(env)
+
+frontend_libc_override_test = analysistest.make(_frontend_libc_override_test_impl)
