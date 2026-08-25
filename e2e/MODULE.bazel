@@ -514,6 +514,23 @@ uv.override_package(
 use_repo(uv, "pypi-native-inputs")
 # }}}
 
+# For cases/uv-sdist-dup-build-deps
+# Regression: build deps discovered by the sdist configure tool must be
+# deduplicated by package name against the explicit deps. With setuptools
+# locked at two versions, the duplicate labels resolve to different versions
+# and collide in the build_tool venv.
+# {{{
+uv.project(
+    default_build_dependencies = [
+        "build",
+        "setuptools",
+    ],
+    hub_name = "pypi",
+    lock = "//cases/uv-sdist-dup-build-deps:uv.lock",
+    pyproject = "//cases/uv-sdist-dup-build-deps:pyproject.toml",
+)
+# }}}
+
 # For cases/unconstrained-dependencies
 # {{{
 uv.project(

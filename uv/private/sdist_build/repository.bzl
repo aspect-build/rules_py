@@ -72,8 +72,23 @@ def _run_configure_tool(repository_ctx, archive_path):
 
 # --- Dep resolution ---
 
+def _label_target_name(label_str):
+    """Extract the target name from a label string.
+
+    Handles "@repo//:name", "@repo//pkg:name", "//pkg/name" (implicit target)
+    and bare target names.
+    """
+    tail = label_str.rsplit("//", 1)[-1]
+    if ":" in tail:
+        return tail.rsplit(":", 1)[-1]
+    return tail.rsplit("/", 1)[-1]
+
 def _resolve_extra_deps(repository_ctx, inspection):
     """Resolve extra_deps from the configure tool output into label strings.
+
+    Names already covered by the explicit deps are skipped: the explicit label
+    and the available_deps label live in different repos and can resolve to
+    different versions of the same package, colliding in the build_tool venv.
 
     Returns a list of label strings. Calls fail() if a dep cannot be resolved.
     """
@@ -87,27 +102,34 @@ def _resolve_extra_deps(repository_ctx, inspection):
     if repository_ctx.attr.available_deps:
         available_deps = json.decode(repository_ctx.attr.available_deps)
 
-    resolved = []
+    provided_names = {
+        normalize_name(_label_target_name(str(dep))): True
+        for dep in repository_ctx.attr.deps
+    }
+
+    resolved = {}
     unresolvable = []
     for name in extra_dep_names:
         normalized = normalize_name(name)
+        if normalized in provided_names:
+            continue
         label = available_deps.get(normalized)
         if label:
-            resolved.append(label)
+            resolved[label] = True
         else:
             unresolvable.append(normalized)
 
     if unresolvable:
         fail(
-            "sdist configure tool for {} reported build deps that are not in " +
-            "the lockfile: {}. Add these packages to your lockfile or provide " +
-            "them via uv.unstable_annotate_packages().".format(
+            ("sdist configure tool for {} reported build deps that are not in " +
+             "the lockfile: {}. Add these packages to your lockfile or provide " +
+             "them via uv.unstable_annotate_packages().").format(
                 repository_ctx.name,
                 ", ".join(unresolvable),
             ),
         )
 
-    return resolved
+    return resolved.keys()
 
 # --- Archive path resolution ---
 

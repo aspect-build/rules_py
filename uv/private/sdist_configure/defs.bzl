@@ -73,9 +73,12 @@ The JSON object MAY contain any of the following fields:
         Normalized package names of additional build-time dependencies
         discovered by the tool (e.g. from pyproject.toml [build-system]
         requires, or inferred from file extensions like .pyx -> cython).
-        These are resolved against `available_deps` from the context and
-        merged into the build target's deps. The repository rule will
-        fail() if a name cannot be resolved.
+        Names already covered by the repository's explicit deps (matched by
+        normalized package name) are skipped, so the tool does not need to
+        pre-filter them. The remaining names are resolved against
+        `available_deps` from the context, deduplicated by label, and merged
+        into the build target's deps. The repository rule will fail() if a
+        non-skipped name cannot be resolved.
 
     "native_files": [<string>, ...]
 

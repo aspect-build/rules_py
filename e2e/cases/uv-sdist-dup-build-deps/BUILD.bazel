@@ -1,0 +1,20 @@
+# Regression test: the sdist configure tool discovers build deps (setuptools
+# for a legacy setup.py package) that are already provided explicitly via
+# default_build_dependencies. With setuptools locked at two versions the
+# explicit label (@project__*//:setuptools) and the discovered label
+# (@whl_install__*__setuptools__*//:install) can resolve to different
+# versions, colliding in the build_tool venv unless deduplicated by name.
+
+load("@aspect_rules_py//py/unstable:defs.bzl", "py_venv_test")
+
+py_venv_test(
+    name = "test",
+    srcs = ["__test__.py"],
+    main = "__test__.py",
+    python_version = "3.11",
+    venv = "uv-sdist-dup-build-deps",
+    deps = [
+        "@pypi//docopt",
+        "@pypi//setuptools",
+    ],
+)
