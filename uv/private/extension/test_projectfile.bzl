@@ -269,16 +269,13 @@ def _collect_activated_extras_group_multi_version_test_impl(ctx):
     markers_116 = activated_extras[six_116]["group_m"][six_116]
     markers_117 = activated_extras[six_117]["group_m"][six_117]
 
-    # Neither version may be activated unconditionally.
-    asserts.false(env, "" in markers_116)
-    asserts.false(env, "" in markers_117)
-
-    asserts.true(env, "sys_platform == 'linux'" in markers_116)
-    asserts.true(env, "sys_platform != 'linux'" in markers_117)
-
-    # The satisfiable marker for one version must not gate the other.
-    asserts.false(env, "sys_platform == 'linux'" in markers_117)
-    asserts.false(env, "sys_platform != 'linux'" in markers_116)
+    # Each version is gated by exactly its satisfiable lockfile marker.
+    # Unconditional activation, the sibling's marker, and cross-candidate
+    # contradictions must all be absent: a contradictory conjunction has the
+    # same canonical form for both versions, which repository generation
+    # rejects as one marker gating two packages.
+    asserts.equals(env, {"sys_platform == 'linux'": 1}, markers_116)
+    asserts.equals(env, {"sys_platform != 'linux'": 1}, markers_117)
 
     return unittest.end(env)
 

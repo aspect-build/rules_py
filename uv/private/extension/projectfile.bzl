@@ -197,7 +197,12 @@ def _fan_out_candidates(dep, conditions, candidates):
     Each candidate version is emitted gated by the conjunction of the incoming
     atom-set conditions and the candidate's lockfile marker; uv guarantees
     candidates within a group carry disjoint markers, so at most one
-    conjunction holds per environment.
+    conjunction holds per environment. That same invariant makes any
+    conjunction mixing two sibling candidate markers unsatisfiable, so such
+    conjunctions are dropped instead of emitted: they could never activate
+    anything, and their canonical form is identical across the sibling
+    versions, which repository generation would reject as one marker gating
+    two packages.
 
     The candidates only cover the group's own locked entries for the package.
     When the dependency's version is not among them (a transitive lockfile
@@ -207,13 +212,20 @@ def _fan_out_candidates(dep, conditions, candidates):
     Returns:
         A list of `(dep, conditions)` pairs.
     """
-    targets = [
-        (
-            (dep[0], dep[1], candidate[2], dep[3]),
-            _conjoin_conditions(conditions, _atom_sets({candidate_marker: 1})),
-        )
-        for candidate, candidate_marker in candidates
-    ]
+    candidate_markers = {marker: 1 for _, marker in candidates if marker}
+
+    targets = []
+    for candidate, candidate_marker in candidates:
+        sibling_markers = {m: 1 for m in candidate_markers.keys() if m != candidate_marker}
+        conjoined = _conjoin_conditions(conditions, _atom_sets({candidate_marker: 1}))
+        live = {
+            atoms: 1
+            for atoms in conjoined.keys()
+            if not [atom for atom in atoms if atom in sibling_markers]
+        }
+        if live:
+            targets.append(((dep[0], dep[1], candidate[2], dep[3]), live))
+
     if dep[2] not in [candidate[2] for candidate, _ in candidates]:
         targets.append((dep, conditions))
     return targets
