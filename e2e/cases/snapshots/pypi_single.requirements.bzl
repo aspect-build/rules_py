@@ -1,5 +1,5 @@
 
-load("@aspect_rules_py//uv/private:normalize_name.bzl", "normalize_name")
+load("@aspect_rules_py//uv/private/normalize:name.bzl", "normalize_name")
 
 all_requirements = ["@@aspect_rules_py++uv+pypi_single//cowsay:pkg", "@@aspect_rules_py++uv+pypi_single//single_project_hub:pkg"]
 

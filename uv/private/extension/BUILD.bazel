@@ -9,10 +9,10 @@ bzl_library(
         ":lockfile",
         ":projectfile",
         "//py/private/interpreter:resolve",
-        "//uv/private:normalize_name",
         "//uv/private:normalize_version",
         "//uv/private/constraints:repository",
         "//uv/private/git_archive:repository",
+        "//uv/private/normalize:name",
         "//uv/private/sdist_build:attrs",
         "//uv/private/sdist_build:repository",
         "//uv/private/sdist_configure:defs",
@@ -45,12 +45,12 @@ bzl_library(
     deps = [
         ":git_utils",
         ":marker_simplify",
-        "//uv/private:normalize_name",
         "//uv/private:normalize_version",
         "//uv/private:parse_whl_name",
         "//uv/private:sha1",
         "//uv/private/constraints/platform:defs",
         "//uv/private/constraints/python:defs",
+        "//uv/private/normalize:name",
         "//uv/private/whl_install:repository",
     ],
 )
@@ -68,7 +68,7 @@ bzl_library(
     visibility = ["//uv:__subpackages__"],
     deps = [
         ":dep_groups",
-        "//uv/private:normalize_name",
+        "//uv/private/normalize:name",
         "//uv/private/versions",
     ],
 )

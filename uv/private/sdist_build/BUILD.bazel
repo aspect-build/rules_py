@@ -10,7 +10,7 @@ bzl_library(
     srcs = ["repository.bzl"],
     deps = [
         ":attrs",
-        "//uv/private:normalize_name",
+        "//uv/private/normalize:name",
     ],
 )
 

@@ -6,7 +6,7 @@ tool to inspect the archive, then generates a BUILD.bazel that uses the
 appropriate backend-specific build rule (e.g. pep517_whl, maturin_whl).
 """
 
-load("//uv/private:normalize_name.bzl", "normalize_name")
+load("//uv/private/normalize:name.bzl", "normalize_name")
 load(":attrs.bzl", "validate_build_attrs")
 
 # --- Configure tool invocation ---

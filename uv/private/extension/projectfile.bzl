@@ -2,7 +2,7 @@
 Machinery specific to interacting with a pyproject.toml
 """
 
-load("//uv/private:normalize_name.bzl", "normalize_name")
+load("//uv/private/normalize:name.bzl", "normalize_name")
 load("//uv/private/versions:versions.bzl", "find_matching_version")
 load(":dep_groups.bzl", "resolve_dependency_group_specs")
 

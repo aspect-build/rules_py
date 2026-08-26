@@ -231,7 +231,7 @@ def group_deps():
     # rules_py-specific additions belong in defs.bzl instead.
     content = []
     content.append("""
-load("@aspect_rules_py//uv/private:normalize_name.bzl", "normalize_name")
+load("@aspect_rules_py//uv/private/normalize:name.bzl", "normalize_name")
 
 all_requirements = {all_requirements}
 

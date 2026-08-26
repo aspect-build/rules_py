@@ -12,8 +12,8 @@ a configuration is ever fetched and inspected — sibling platform wheels are
 never downloaded.
 """
 
-load("//uv/private:normalize_name.bzl", "normalize_name")
 load("//uv/private:parse_whl_name.bzl", "parse_whl_name")
+load("//uv/private/normalize:name.bzl", "normalize_name")
 
 def parse_record_path(line):
     """Return the path field from one CSV-encoded wheel RECORD row.
