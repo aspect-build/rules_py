@@ -164,8 +164,18 @@ while i < len(args):
 # always pass "-shared" and load via dlopen's unrelated path. Mutually
 # exclusive with the static-libstdc++ trick: its trailing "-Wl,-Bdynamic"
 # would undo a bare "-static" for driver-appended libs (libc included).
-is_shared = "-shared" in filtered
-if is_link and exe_link_flags:
+# Shared-link spellings: "-shared" (ELF), "-bundle"/"-dynamiclib" (ld64).
+# Scanned pre-filter: the darwin spellings are host-leak-dropped from
+# `filtered` when the target is not darwin.
+is_shared = any(a in ("-shared", "-bundle", "-dynamiclib") for a in args)
+if is_darwin and is_link and is_shared:
+    # Extension modules leave _Py* unresolved until dlopen; ld64 errors on
+    # them by default (ELF linkers don't), so mirror CPython's own LDSHARED
+    # unless the backend already passed it. Takes precedence over the
+    # exe_link_flags branch: target identity beats toolchain plumbing.
+    if "dynamic_lookup" not in filtered and "-Wl,-undefined,dynamic_lookup" not in filtered:
+        filtered.append("-Wl,-undefined,dynamic_lookup")
+elif is_link and exe_link_flags:
     # LLVM-style toolchain (see the "-nostdlib++" detection in
     # build_helper): clang only reaches its crt objects and glibc/libc++
     # archives through the link action's -B/-L/--sysroot flags, and not
@@ -197,10 +207,6 @@ elif is_link and not is_shared and not is_darwin:
     filtered.append("-static")
 elif is_cxx and is_link and not is_darwin:
     filtered.extend(static_libstdcxx_flags)
-elif is_darwin and is_link and is_shared:
-    # Extension modules leave _Py* unresolved until dlopen; ld64 errors on
-    # them by default (ELF linkers don't), so mirror CPython's own LDSHARED.
-    filtered.append("-Wl,-undefined,dynamic_lookup")
 
 if is_link and lld_path:
     os.environ.setdefault("PATH", "")
@@ -581,9 +587,22 @@ def _compiler_env(
     is_darwin = target_os == "darwin" if cross else _platform.system() == "Darwin"
 
     if cross:
-        for key in ("CFLAGS", "CXXFLAGS", "CPPFLAGS", "LDSHAREDFLAGS"):
+        # LDFLAGS included: distutils' customize_compiler appends $LDFLAGS
+        # after $LDSHARED, so a relative --sysroot there would override the
+        # wrapper's absolute one (the driver honors the last occurrence).
+        for key in ("CFLAGS", "CXXFLAGS", "CPPFLAGS", "LDFLAGS", "LDSHAREDFLAGS"):
             if env.get(key):
                 env[key] = _absolutize_sysroot_flags(env[key])
+
+        # The target interpreter's Python.h/pyconfig.h must shadow the exec
+        # runtime's: distutils still injects the running interpreter's
+        # include path, but CFLAGS-supplied -I directories are searched
+        # first.
+        target_include = env.pop("RULES_PY_TARGET_INCLUDE", "")
+        if target_include:
+            include_flag = "-I" + _absolutize_path(target_include)
+            for key in ("CFLAGS", "CXXFLAGS"):
+                env[key] = (include_flag + " " + env.get(key, "")).strip()
 
         wrapper_flags = _get_wrapper_flags(env.get("CFLAGS", ""))
         lld_path = _find_lld(cc_path)
@@ -1047,10 +1066,14 @@ def _generate_cross_site(
     # derived from the target's deployment target so both stay consistent.
     # Linux keeps "": nothing on that path parses it.
     release = _darwin_kernel_release(macos_deployment_target) if target_os == "darwin" else ""
+    # macOS reports "arm64", never the Bazel constraint's "aarch64" —
+    # setup.py scripts branch on platform.machine() == "arm64", and the
+    # faked identity must agree with the wheel tag derived elsewhere.
+    machine = "arm64" if target_os == "darwin" and target_cpu == "aarch64" else target_cpu
     _write_generated_file(
         path.join(site_dir, "sitecustomize.py"),
         _SITECUSTOMIZE_TEMPLATE.format(
-            machine=target_cpu,
+            machine=machine,
             sysname=_TITLECASE_OS.get(target_os, target_os),
             release=release,
             sys_platform=_SYS_PLATFORM.get(target_os, target_os),

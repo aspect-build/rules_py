@@ -33,7 +33,7 @@ def _absolutize_flag(flag):
     if not flag:
         return flag
     if not flag.startswith("-"):
-        if "/" in flag:
+        if "/" in flag and not flag.startswith("/"):
             return _EXECROOT_MARKER + "/" + flag
         return flag
     for pfx in _PATH_FLAG_PREFIXES:
@@ -75,6 +75,7 @@ def extract_cc_layer(ctx, cc_toolchain):
 
     Called only in cross-compilation mode. The native path relies on the
     existing _cc_toolchain_inputs_and_tools + backend self-discovery.
+
 
     Args:
         ctx: The rule context. Must include CC_LAYER_ATTRS and
@@ -214,3 +215,9 @@ def extract_cc_layer(ctx, cc_toolchain):
         static_runtime_files = static_runtime_files,
         static_runtime_paths = static_runtime_paths,
     )
+
+# Exposed for the unit tests in tests/pep517_whl_test.bzl only.
+cc_layer_test_util = struct(
+    absolutize_flag = _absolutize_flag,
+    execroot_marker = _EXECROOT_MARKER,
+)

@@ -120,19 +120,40 @@ _PYTHON_CPU_MAP = {
     "x86_64": "x86_64",
     "aarch64": "aarch64",
     "x86": "i686",
-    "arm": "arm",
+    # armv7 CPython reports "linux-armv7l"; build_helper's tag validation
+    # expects the same spelling.
+    "arm": "armv7l",
 }
 
-def _find_sysconfigdata(runtime):
-    """Locate _sysconfigdata*.py inside the target interpreter's file tree."""
+def _target_python_artifacts(runtime):
+    """Collect the target interpreter files a cross build must see.
+
+    One pass over the runtime's file tree: the _sysconfigdata*.py module
+    (faked into the backend via _PYTHON_SYSCONFIGDATA_NAME) and the
+    include/pythonX.Y header tree — the compile must use the target's
+    Python.h/pyconfig.h, not the exec runtime's, or the wheel is built
+    against the wrong ABI.
+    """
     if not runtime or not hasattr(runtime, "interpreter_version_info"):
-        return None
+        return struct(sysconfig = None, include_files = [], include_dir = None)
     info = runtime.interpreter_version_info
-    prefix = "lib/python{}.{}".format(info.major, info.minor)
+    lib_prefix = "lib/python{}.{}".format(info.major, info.minor)
+    include_marker = "/include/python{}.{}".format(info.major, info.minor)
+    sysconfig_file = None
+    include_files = []
+    include_dir = None
     for f in runtime.files.to_list():
-        if f.basename.startswith("_sysconfigdata") and f.basename.endswith(".py") and prefix in f.path:
-            return f
-    return None
+        if f.basename.startswith("_sysconfigdata") and f.basename.endswith(".py") and lib_prefix in f.path:
+            sysconfig_file = f
+        elif include_marker in f.path:
+            include_files.append(f)
+            if f.basename == "pyconfig.h":
+                include_dir = f.dirname
+    return struct(
+        sysconfig = sysconfig_file,
+        include_files = include_files,
+        include_dir = include_dir,
+    )
 
 def _derive_python_host_platform(target_os, target_cpu):
     """Derive _PYTHON_HOST_PLATFORM from target platform constraints.
@@ -195,6 +216,12 @@ def _cross_compile(ctx, eg_toolchains):
 cross_detection_test_util = struct(
     interpreter_platform_triple = _interpreter_platform_triple,
     cross_decision = _cross_decision,
+)
+
+# Exposed for the unit tests in tests/pep517_whl_test.bzl only.
+cross_identity_test_util = struct(
+    derive_python_host_platform = _derive_python_host_platform,
+    target_python_artifacts = _target_python_artifacts,
 )
 
 def _pep517_native_whl(ctx):
@@ -263,14 +290,22 @@ def _pep517_native_whl(ctx):
             extra_inputs.append(cc_layer.static_runtime_files)
         if cc_layer.static_runtime_paths:
             env["RULES_PY_CXX_STATIC_RUNTIME"] = ":".join(cc_layer.static_runtime_paths)
-        if cc_layer.cflags:
-            env["CFLAGS"] = cc_layer.cflags
-        if cc_layer.cxxflags:
-            env["CXXFLAGS"] = cc_layer.cxxflags
-        if cc_layer.ldflags:
-            env["LDFLAGS"] = cc_layer.ldflags
-        if cc_layer.ldshared_flags:
-            env["LDSHAREDFLAGS"] = cc_layer.ldshared_flags
+
+        # Toolchain flags first, then any flags the package set via `env`
+        # (uv.override_package): the package's -D/-std/feature-baseline
+        # additions must survive, and trailing position lets them override.
+        # Values inherited from the ambient shell env stay excluded — only
+        # an explicit `env` entry merges.
+        for key, toolchain_flags in (
+            ("CFLAGS", cc_layer.cflags),
+            ("CXXFLAGS", cc_layer.cxxflags),
+            ("LDFLAGS", cc_layer.ldflags),
+            ("LDSHAREDFLAGS", cc_layer.ldshared_flags),
+        ):
+            if not toolchain_flags:
+                continue
+            package_flags = env.get(key) if key in ctx.attr.env else None
+            env[key] = toolchain_flags + " " + package_flags if package_flags else toolchain_flags
         if cc_layer.ccshared:
             env["CFLAGS"] = (env.get("CFLAGS", "") + " " + cc_layer.ccshared).strip()
             env["CXXFLAGS"] = (env.get("CXXFLAGS", "") + " " + cc_layer.ccshared).strip()
@@ -286,10 +321,13 @@ def _pep517_native_whl(ctx):
         if py_toolchain != None:
             runtime = getattr(py_toolchain, "py3_runtime", None)
             if runtime:
-                sysconfig_file = _find_sysconfigdata(runtime)
-                if sysconfig_file:
-                    extra_inputs.append(depset([sysconfig_file]))
-                    env["RULES_PY_TARGET_SYSCONFIGDATA"] = sysconfig_file.path
+                artifacts = _target_python_artifacts(runtime)
+                if artifacts.sysconfig:
+                    extra_inputs.append(depset([artifacts.sysconfig]))
+                    env["RULES_PY_TARGET_SYSCONFIGDATA"] = artifacts.sysconfig.path
+                if artifacts.include_dir:
+                    extra_inputs.append(depset(artifacts.include_files))
+                    env["RULES_PY_TARGET_INCLUDE"] = artifacts.include_dir
 
         host_platform = _derive_python_host_platform(cc_layer.target_os, cc_layer.target_cpu)
         if host_platform:
@@ -300,7 +338,7 @@ def _pep517_native_whl(ctx):
     tool = tool_files_to_run(ctx)
 
     ctx.actions.run(
-        mnemonic = "PySdistCrossBuild" if cross else "PySdistNativeBuild",
+        mnemonic = "PySdistNativeBuild",
         progress_message = "{} source compiling {} to a whl".format(
             "Cross" if cross else "Native",
             archive.basename,

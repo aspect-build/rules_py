@@ -329,5 +329,138 @@ class TargetFlagsTest(unittest.TestCase):
 
 
 
+def _run_wrapper(wrapper: str, args: list[str]) -> list[str]:
+    import subprocess
+
+    result = subprocess.run(
+        [wrapper] + args, capture_output=True, text=True, check=True
+    )
+    return result.stdout.split()
+
+
+class CrossCompilerWrapperTest(unittest.TestCase):
+    """Generates a cross wrapper around an argv-echoing fake compiler and
+    asserts the transformed command line."""
+
+    def _wrapper(self, tmp: str, is_darwin: bool = False, wrapper_flags: list[str] | None = None) -> str:
+        echo = path.join(tmp, "echo_cc")
+        with open(echo, "w") as f:
+            f.write('#!/bin/sh\nprintf \'%s\\n\' "$@"\n')
+        os.chmod(echo, 0o755)
+        return build_helper._make_cross_compiler_wrapper(
+            tmp, "cc", echo, wrapper_flags or [], is_darwin=is_darwin
+        )
+
+    def test_identity_flags_are_reinjected(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            wrapper = self._wrapper(tmp, wrapper_flags=["-target", "aarch64-linux-gnu"])
+            argv = _run_wrapper(wrapper, ["-c", "x.c"])
+            self.assertEqual(["-target", "aarch64-linux-gnu", "-c", "x.c"], argv)
+
+    def test_host_linker_leaks_are_dropped(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            wrapper = self._wrapper(tmp)
+            argv = _run_wrapper(
+                wrapper,
+                ["-bundle", "-undefined", "dynamic_lookup", "-arch", "arm64", "-shared", "a.o"],
+            )
+            self.assertEqual(["-shared", "a.o"], argv)
+
+    def test_darwin_target_keeps_bundle_and_adds_dynamic_lookup(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            wrapper = self._wrapper(tmp, is_darwin=True)
+            argv = _run_wrapper(wrapper, ["-bundle", "a.o"])
+            self.assertEqual(["-bundle", "a.o", "-Wl,-undefined,dynamic_lookup"], argv)
+
+    def test_darwin_target_respects_existing_dynamic_lookup(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            wrapper = self._wrapper(tmp, is_darwin=True)
+            argv = _run_wrapper(wrapper, ["-bundle", "-undefined", "dynamic_lookup", "a.o"])
+            self.assertEqual(["-bundle", "-undefined", "dynamic_lookup", "a.o"], argv)
+
+    def test_probe_invocations_are_left_alone(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            wrapper = self._wrapper(tmp, is_darwin=True)
+            argv = _run_wrapper(wrapper, ["--version"])
+            self.assertEqual(["--version"], argv)
+
+    def test_debug_flag_is_stripped(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            wrapper = self._wrapper(tmp)
+            argv = _run_wrapper(wrapper, [build_helper._DEBUG_FLAG, "-c", "x.c"])
+            self.assertEqual(["-c", "x.c"], argv)
+
+
+class WrapperFlagExtractionTest(unittest.TestCase):
+    def test_identity_flags_extracted_from_cflags(self) -> None:
+        self.assertEqual(
+            ["-target", "aarch64-linux-gnu", "--sysroot=/abs/sysroot"],
+            build_helper._get_wrapper_flags(
+                "-O2 -target aarch64-linux-gnu --sysroot=/abs/sysroot -fPIC"
+            ),
+        )
+
+    def test_relative_sysroot_is_marked(self) -> None:
+        flags = build_helper._get_wrapper_flags("--sysroot=external/llvm/sysroot")
+        self.assertEqual(1, len(flags))
+        self.assertTrue(flags[0].startswith("--sysroot="))
+        self.assertIn("external/llvm/sysroot", flags[0])
+        self.assertNotEqual("--sysroot=external/llvm/sysroot", flags[0])
+
+    def test_no_identity_flags(self) -> None:
+        self.assertEqual([], build_helper._get_wrapper_flags("-O2 -fPIC"))
+
+
+class GenerateCrossSiteTest(unittest.TestCase):
+    def _site(self, target_os: str, target_cpu: str) -> str:
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        site_dir = build_helper._generate_cross_site(self.tmp.name, target_os, target_cpu)
+        with open(path.join(site_dir, "sitecustomize.py")) as f:
+            return f.read()
+
+    def test_linux_identity(self) -> None:
+        content = self._site("linux", "aarch64")
+        self.assertIn("'aarch64'", content)
+        self.assertIn("'Linux'", content)
+        self.assertIn("sys.platform = 'linux'", content)
+
+    def test_darwin_machine_is_arm64(self) -> None:
+        content = self._site("darwin", "aarch64")
+        self.assertIn("'arm64'", content)
+        self.assertNotIn("'aarch64'", content)
+        self.assertIn("sys.platform = 'darwin'", content)
+
+    def test_manylinux_hook_refuses_compatibility(self) -> None:
+        self._site("linux", "x86_64")
+        with open(path.join(self.tmp.name, ".cross_site", "_manylinux.py")) as f:
+            hook = f.read()
+        self.assertIn("return False", hook)
+
+
+class DarwinKernelReleaseTest(unittest.TestCase):
+    def test_known_versions(self) -> None:
+        for deployment, expected_major in (("11.0", 20), ("12.5", 21), ("15.0", 24), ("26.0", 25)):
+            release = build_helper._darwin_kernel_release(deployment)
+            self.assertEqual(expected_major, int(release.split(".")[0]))
+
+    def test_unknown_falls_back(self) -> None:
+        self.assertEqual("20.0.0", build_helper._darwin_kernel_release(None))
+        self.assertEqual("20.0.0", build_helper._darwin_kernel_release("bogus"))
+
+
+class MacosDeploymentTargetTest(unittest.TestCase):
+    def test_parses_sysconfigdata_literal(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            f = path.join(tmp, "_sysconfigdata__darwin_arm64.py")
+            with open(f, "w") as fh:
+                fh.write("build_time_vars = {'MACOSX_DEPLOYMENT_TARGET': '11.0'}\n")
+            self.assertEqual("11.0", build_helper._macosx_deployment_target(f))
+
+    def test_missing_file_returns_none(self) -> None:
+        self.assertIsNone(build_helper._macosx_deployment_target("/nonexistent"))
+
+
+
 if __name__ == "__main__":
     unittest.main()

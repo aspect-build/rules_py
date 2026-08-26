@@ -58,10 +58,6 @@ uv.override_package(
 )
 uv.override_package(
     name = "setproctitle",
-    # gcc_toolchain's GCC defaults to C23, where `bool` is a keyword;
-    # setproctitle 1.3.2's src/c.h still does `typedef char bool`. distutils
-    # appends $CFLAGS after its own flags, so the -std override wins.
-    env = {"CFLAGS": "-std=gnu17"},
     lock = "//pycross-setuptools:uv.lock",
     pre_build_patch_strip = 1,
     pre_build_patches = ["//pycross-setuptools:require_extension.patch"],
@@ -74,5 +70,7 @@ uv.override_package(
 use_repo(
     uv,
     "pypi_pycross_setuptools",
+    "sdist_build__pycross_setuptools__pyyaml__6_0_1",
+    "sdist_build__pycross_setuptools__setproctitle__1_3_2",
     "sdist_build__pycross_setuptools__zstandard__0_22_0",
 )
