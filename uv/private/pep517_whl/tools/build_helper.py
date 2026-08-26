@@ -154,17 +154,12 @@ def _absolutize_tool_paths(env: dict[str, str]) -> None:
             env[key] = shlex.join(parts)
 
 
-
 # --- Cross-compilation support -------------------------------------------
 #
 # Reduced to what setuptools-family backends need. Deferred to the slices
 # that exercise them: meson cross files, CMake toolchain files, cargo env,
 # lld discovery, -nostdlib++ static runtime archives, probe-executable
 # static linking, and the darwin-exec ar/libtool translation.
-
-
-
-
 
 
 def _write_generated_file(file_path: str, content: str, executable: bool = False) -> str:

@@ -7,6 +7,7 @@ build to verify the env wiring.
 
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts", "unittest")
 load("//uv/private:source_built_wheel.bzl", "SourceBuiltWheelInfo")
+load("//uv/private/pep517_whl:cc_layer.bzl", "cc_layer_test_util")
 load("//uv/private/pep517_whl:pep517_native_whl.bzl", "cross_detection_test_util", "cross_identity_test_util")
 
 _ACTION_ENV = "//command_line_option:action_env"
@@ -283,3 +284,29 @@ def _target_python_artifacts_test_impl(ctx):
     return unittest.end(env)
 
 target_python_artifacts_test = unittest.make(_target_python_artifacts_test_impl)
+
+def _absolutize_flag_test_impl(ctx):
+    env = unittest.begin(ctx)
+    absolutize = cc_layer_test_util.absolutize_flag
+    marker = cc_layer_test_util.execroot_marker
+    for flag, expected in (
+        # Bare relative paths get the execroot marker; bare absolute paths
+        # and pathless arguments pass through.
+        ("external/llvm/lib/crt1.o", marker + "/external/llvm/lib/crt1.o"),
+        ("/usr/lib/crt1.o", "/usr/lib/crt1.o"),
+        ("-lm", "-lm"),
+        ("", ""),
+        # Path-flag prefixes: relative values marked, absolute untouched.
+        ("-Iexternal/llvm/include", "-I" + marker + "/external/llvm/include"),
+        ("-I/usr/include", "-I/usr/include"),
+        ("-Bexternal/llvm/bin", "-B" + marker + "/external/llvm/bin"),
+        # "--sysroot=" is deliberately not cc_layer's job: build_helper's
+        # _absolutize_sysroot_flags rewrites it at execution time (it also
+        # handles values the backend re-splices after the chdir).
+        ("--sysroot=external/llvm/sysroot", "--sysroot=external/llvm/sysroot"),
+        ("-O2", "-O2"),
+    ):
+        asserts.equals(env, expected, absolutize(flag))
+    return unittest.end(env)
+
+absolutize_flag_test = unittest.make(_absolutize_flag_test_impl)

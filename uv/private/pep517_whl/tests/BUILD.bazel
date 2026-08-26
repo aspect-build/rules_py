@@ -22,6 +22,7 @@ load(
 )
 load(
     ":pep517_whl_test.bzl",
+    "absolutize_flag_test",
     "cross_decision_test",
     "execroot_collision_toolchain",
     "hostile_python_env_target",
@@ -42,6 +43,8 @@ package(
 interpreter_platform_triple_test(name = "interpreter_platform_triple_test")
 
 cross_decision_test(name = "cross_decision_test")
+
+absolutize_flag_test(name = "absolutize_flag_test")
 
 platform(
     name = "cross_target_platform",

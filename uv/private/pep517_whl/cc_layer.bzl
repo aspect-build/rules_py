@@ -33,7 +33,7 @@ def _absolutize_flag(flag):
     if not flag:
         return flag
     if not flag.startswith("-"):
-        if "/" in flag:
+        if "/" in flag and not flag.startswith("/"):
             return _EXECROOT_MARKER + "/" + flag
         return flag
     for pfx in _PATH_FLAG_PREFIXES:
@@ -195,3 +195,9 @@ def extract_cc_layer(ctx, cc_toolchain):
         target_os = target_os,
         target_cpu = target_cpu,
     )
+
+# Exposed for the unit tests in tests/pep517_whl_test.bzl only.
+cc_layer_test_util = struct(
+    absolutize_flag = _absolutize_flag,
+    execroot_marker = _EXECROOT_MARKER,
+)
