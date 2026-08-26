@@ -18,10 +18,20 @@ bzl_library(
     name = "pep517_native_whl",
     srcs = ["pep517_native_whl.bzl"],
     deps = [
+        ":cc_layer",
         ":common",
         "//py/private/interpreter:versions",
         "//py/private/toolchain:types",
         "@bazel_lib//lib:resource_sets",
+        "@rules_cc//cc:action_names_bzl",
+        "@rules_cc//cc/common",
+    ],
+)
+
+bzl_library(
+    name = "cc_layer",
+    srcs = ["cc_layer.bzl"],
+    deps = [
         "@rules_cc//cc:action_names_bzl",
         "@rules_cc//cc/common",
     ],

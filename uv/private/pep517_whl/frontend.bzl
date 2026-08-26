@@ -16,11 +16,13 @@ wraps the real frontend, applies a self-transition inside the already-exec
 configuration that resets both flags to the host's values, and forwards
 the wrapped executable and its runfiles.
 
-Nothing wires this wrapper up yet: it belongs on the cross code path only,
-where "host" is exactly where the frontend executes. Wrapping native
-builds would be wrong under remote execution — their leaked target flags
-match the worker by definition, while the host-probe constants used here
-describe the client.
+Generated sdist repos route the native rule's `tool` through this wrapper
+unconditionally: besides fixing cross builds, the reset keeps the
+frontend's own dependency resolution consistent under any target
+configuration — a plain exec edge carries the target's flags, which can
+make its venv's wheel selection unsatisfiable (or cyclic) under a cross
+transition. Local native builds are unaffected (host values equal the
+leaked ones there).
 
 The reset values default to the host probe's, which is exact when the
 execution platform is the host and an approximation otherwise: no

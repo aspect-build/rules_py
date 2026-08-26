@@ -4,6 +4,7 @@
 # imported at runtime for the host.
 
 load("@aspect_rules_py//py:defs.bzl", "py_test")
+load("//tools:collect_wheels.bzl", "collect_wheels")
 
 exports_files(["require_extension.patch"])
 
@@ -36,4 +37,55 @@ py_test(
     main = "test_pyyaml.py",
     python_version = _PY,
     deps = ["@pypi_pycross_setuptools//pyyaml"],
+)
+
+# The wheel targets under `collect_wheels` are reached through a platform
+# transition rather than a py_venv, so nothing sets the dep_group flag for
+# them — the platform carries it alongside the libc/version flags the wheel
+# resolver needs.
+_PLATFORM_FLAGS = [
+    "--@aspect_rules_py//uv/private/constraints/platform:platform_libc=glibc",
+    "--@aspect_rules_py//uv/private/constraints/platform:platform_version=2.39",
+    "--@aspect_rules_py//uv/private/constraints/dep_group:dep_group=" + _DEP_GROUP,
+    "--@aspect_rules_py//py/private/interpreter:python_version=" + _PY,
+]
+
+platform(
+    name = "amd64_linux",
+    constraint_values = [
+        "@platforms//os:linux",
+        "@platforms//cpu:x86_64",
+    ],
+    flags = _PLATFORM_FLAGS,
+)
+
+platform(
+    name = "arm64_linux",
+    constraint_values = [
+        "@platforms//os:linux",
+        "@platforms//cpu:aarch64",
+    ],
+    flags = _PLATFORM_FLAGS,
+)
+
+# Native C-extension sdists cross-compiled for both linux CPUs: the CC layer
+# extracted from the llvm toolchain drives the backend's compiler, the target
+# interpreter's sysconfig fakes the platform identity, and the produced
+# wheels' Tag metadata must name the destination platform (build_helper's
+# --target-os/--target-cpu validation fails the action otherwise).
+collect_wheels(
+    name = "setuptools_wheels",
+    expected_tags = [
+        "linux_x86_64",
+        "linux_aarch64",
+    ],
+    platforms = [
+        ":amd64_linux",
+        ":arm64_linux",
+    ],
+    wheels = [
+        "@sdist_build__pycross_setuptools__pyyaml__6_0_1//:whl",
+        "@sdist_build__pycross_setuptools__setproctitle__1_3_2//:whl",
+        "@sdist_build__pycross_setuptools__zstandard__0_22_0//:whl",
+    ],
 )

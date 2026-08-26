@@ -256,8 +256,28 @@ def _sdist_build_impl(repository_ctx):
 
     # Leave args unset: the pure rule validates anyarch wheels by default,
     # while the native rule defaults to no validation.
+    # Native-rule repos route the frontend through pep517_frontend, which
+    # resets the platform_libc/platform_version flags to the host's inside
+    # the exec configuration. One edge for every mode: the reset keeps the
+    # frontend's own dependency resolution consistent under any target
+    # configuration (a plain exec edge carries the target's flags, which can
+    # make its venv's wheel selection unsatisfiable — or cyclic — under a
+    # cross transition).
+    frontend_load = ""
+    frontend_target = ""
+    tool = ":build_tool"
+    if is_native:
+        frontend_load = "\nload(\"@aspect_rules_py//uv/private/pep517_whl:frontend.bzl\", \"pep517_frontend\")"
+        frontend_target = """
+pep517_frontend(
+    name = "frontend",
+    actual = ":build_tool",
+)
+"""
+        tool = ":frontend"
+
     repository_ctx.file("BUILD.bazel", content = """
-load("@aspect_rules_py//uv/private/pep517_whl:{rule}.bzl", "{rule}")
+load("@aspect_rules_py//uv/private/pep517_whl:{rule}.bzl", "{rule}"){frontend_load}
 load("@aspect_rules_py//py:defs.bzl", "py_binary")
 
 py_binary(
@@ -266,11 +286,11 @@ py_binary(
     srcs = ["@aspect_rules_py//uv/private/pep517_whl/tools:build_helper.py"],
     deps = {deps},
 )
-
+{frontend_target}
 {rule}(
     name = "whl",
     src = "{src}",
-    tool = ":build_tool",
+    tool = "{tool}",
     version = "{version}",{console_scripts_attr}{monitor_memory_attr}{resource_set_attr}{patch_attrs}{toolchain_attrs}
     visibility = ["//visibility:public"],
 )
@@ -285,6 +305,9 @@ exports_files(
         console_scripts_attr = console_scripts_attr,
         monitor_memory_attr = monitor_memory_attr,
         rule = "pep517_native_whl" if is_native else "pep517_whl",
+        frontend_load = frontend_load,
+        frontend_target = frontend_target,
+        tool = tool,
         version = repository_ctx.attr.version,
         resource_set_attr = resource_set_attr,
         patch_attrs = patch_attrs,
