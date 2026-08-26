@@ -462,5 +462,75 @@ class MacosDeploymentTargetTest(unittest.TestCase):
 
 
 
+class MesonCrossFileTest(unittest.TestCase):
+    def _cross_file(self, target_os: str, target_cpu: str) -> str:
+        with tempfile.TemporaryDirectory() as tmp:
+            env = {"CC": "/wrap/cc", "CXX": "/wrap/c++", "AR": "/tools/ar", "STRIP": "/tools/strip"}
+            cross_file = build_helper._generate_meson_cross_file(tmp, env, target_os, target_cpu)
+            with open(cross_file) as f:
+                return f.read()
+
+    def test_binaries_and_host_machine(self) -> None:
+        content = self._cross_file("linux", "aarch64")
+        self.assertIn("c = '/wrap/cc'", content)
+        self.assertIn("cpp = '/wrap/c++'", content)
+        self.assertIn("ar = '/tools/ar'", content)
+        self.assertIn("system = 'linux'", content)
+        self.assertIn("cpu_family = 'aarch64'", content)
+        self.assertIn("needs_exe_wrapper = true", content)
+        # Anchored to line start: "needs_exe_wrapper" contains the substring.
+        self.assertNotIn("\nexe_wrapper =", content)
+
+    def test_longdouble_property_for_known_abis(self) -> None:
+        self.assertIn("longdouble_format = 'IEEE_QUAD_LE'", self._cross_file("linux", "aarch64"))
+        self.assertIn(
+            "longdouble_format = 'INTEL_EXTENDED_16_BYTES_LE'",
+            self._cross_file("linux", "x86_64"),
+        )
+        self.assertIn("longdouble_format = 'IEEE_DOUBLE_LE'", self._cross_file("darwin", "aarch64"))
+
+    def test_no_longdouble_for_unknown_abi(self) -> None:
+        self.assertNotIn("longdouble_format", self._cross_file("linux", "arm"))
+
+
+class BuildBackendTest(unittest.TestCase):
+    def test_declared_backend(self) -> None:
+        data = {"build-system": {"build-backend": "mesonpy"}}
+        self.assertEqual("mesonpy", build_helper._build_backend(data))
+
+    def test_missing_cases(self) -> None:
+        for data in (None, {}, {"build-system": {}}, {"build-system": "bogus"}, {"build-system": {"build-backend": 3}}):
+            self.assertIsNone(build_helper._build_backend(data))
+
+
+class StaticRuntimeArchivesTest(unittest.TestCase):
+    def _wrapper(self, tmp: str, archives: list[str]) -> str:
+        echo = path.join(tmp, "echo_cc")
+        with open(echo, "w") as f:
+            f.write('#!/bin/sh\nprintf \'%s\\n\' "$@"\n')
+        os.chmod(echo, 0o755)
+        return build_helper._make_cross_compiler_wrapper(
+            tmp, "c++", echo, [], static_runtime_archives=archives
+        )
+
+    def test_shared_links_append_runtime_archives(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            wrapper = self._wrapper(tmp, ["/rt/libc++.a", "/rt/libc++abi.a"])
+            argv = _run_wrapper(wrapper, ["-shared", "a.o"])
+            self.assertEqual(["-shared", "a.o", "/rt/libc++.a", "/rt/libc++abi.a"], argv)
+
+    def test_compiles_and_probes_untouched(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            wrapper = self._wrapper(tmp, ["/rt/libc++.a"])
+            self.assertEqual(["-c", "x.cc"], _run_wrapper(wrapper, ["-c", "x.cc"]))
+            self.assertEqual(["--version"], _run_wrapper(wrapper, ["--version"]))
+
+    def test_no_archives_no_append(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            wrapper = self._wrapper(tmp, [])
+            self.assertEqual(["-shared", "a.o"], _run_wrapper(wrapper, ["-shared", "a.o"]))
+
+
+
 if __name__ == "__main__":
     unittest.main()
