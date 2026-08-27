@@ -6,12 +6,6 @@ package(default_visibility = [
 ])
 
 bzl_library(
-    name = "sha1",
-    srcs = ["sha1.bzl"],
-    deps = ["@bazel_lib//lib:strings"],
-)
-
-bzl_library(
     name = "normalize_name",
     srcs = ["normalize_name.bzl"],
     deps = [],

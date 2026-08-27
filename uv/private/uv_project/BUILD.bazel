@@ -10,7 +10,6 @@ bzl_library(
     srcs = ["repository.bzl"],
     deps = [
         ":select_gen",
-        "//uv/private:sha1",
         "//uv/private/pprint:defs",
     ],
 )
