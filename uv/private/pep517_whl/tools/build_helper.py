@@ -743,6 +743,59 @@ def _generate_meson_cross_file(
     )
 
 
+def _generate_cmake_toolchain_file(
+    tmpdir: str,
+    build_env: dict[str, str],
+    target_os: str,
+    target_cpu: str,
+) -> str:
+    """Cross toolchain file for scikit-build-core/CMake.
+
+    scikit-build-core only auto-detects macOS ARCHFLAGS cross builds; a
+    Linux-arch cross build configures as native — it compiles fine off
+    $CC/$CXX but find_program picks the host `strip`, which rejects the
+    foreign-arch .so. Setting CMAKE_SYSTEM_NAME also enables real
+    CMAKE_CROSSCOMPILING mode, so try_run probes are skipped instead of
+    executed.
+
+    Static intermediate libraries get `<CMAKE_AR> qc` followed by an
+    independently discovered CMAKE_RANLIB — the quick append may skip the
+    symbol index, which the ranlib step adds. Left unset, that is the
+    *host's* ranlib against the target's archives (e.g. GNU ranlib over an
+    LLVM Mach-O archive). `ar s` is ranlib, so CMAKE_RANLIB is a tiny
+    wrapper routing through our target-aware AR instead.
+
+    Every tool value is quoted: Bazel output roots and tool paths may
+    contain spaces, which unquoted set() would parse as list separators.
+    """
+    ar = build_env.get("AR", "ar")
+    ranlib = _write_generated_file(
+        path.join(tmpdir, "cmake_ranlib"),
+        '#!/bin/sh\nexec "{}" s "$@"\n'.format(ar),
+        executable=True,
+    )
+    return _write_generated_file(
+        path.join(tmpdir, "cross_toolchain.cmake"),
+        textwrap.dedent("""\
+            set(CMAKE_SYSTEM_NAME "{system}")
+            set(CMAKE_SYSTEM_PROCESSOR "{processor}")
+            set(CMAKE_C_COMPILER "{cc}")
+            set(CMAKE_CXX_COMPILER "{cxx}")
+            set(CMAKE_AR "{ar}")
+            set(CMAKE_RANLIB "{ranlib}")
+            set(CMAKE_STRIP "{strip}")
+            """).format(
+            system=_TITLECASE_OS.get(target_os, target_os),
+            processor=target_cpu,
+            cc=build_env["CC"],
+            cxx=build_env["CXX"],
+            ar=ar,
+            ranlib=ranlib,
+            strip=build_env.get("STRIP", "strip"),
+        ),
+    )
+
+
 def _build_backend(pyproject_data: dict[str, object] | None) -> str | None:
     """The [build-system].build-backend value, or None when undeclared."""
     build_system = (pyproject_data or {}).get("build-system", {})
@@ -963,9 +1016,14 @@ def main() -> None:
         # ARCHFLAGS/cibuildwheel shapes; everything else configures as a
         # native build and fails meson's compiler sanity checks. Hand it
         # ours (see _generate_meson_cross_file).
-        if opts.cross and _build_backend(_load_pyproject_data(t)) == "mesonpy":
-            cross_file = _generate_meson_cross_file(tmp_root, build_env, opts.target_os, opts.target_cpu)
-            cmd += ["-C", "setup-args=--cross-file=" + cross_file]
+        if opts.cross:
+            backend = _build_backend(_load_pyproject_data(t))
+            if backend == "mesonpy":
+                cross_file = _generate_meson_cross_file(tmp_root, build_env, opts.target_os, opts.target_cpu)
+                cmd += ["-C", "setup-args=--cross-file=" + cross_file]
+            elif backend == "scikit_build_core.build":
+                toolchain = _generate_cmake_toolchain_file(tmp_root, build_env, opts.target_os, opts.target_cpu)
+                cmd += ["-C", "cmake.toolchain-file=" + toolchain]
     else:
         print("Error: Unable to detect build command! Neither pyproject.toml nor setup.py found!", file=sys.stderr)
         raise SystemExit(1)

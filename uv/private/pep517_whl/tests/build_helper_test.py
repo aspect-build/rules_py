@@ -493,6 +493,54 @@ class MesonCrossFileTest(unittest.TestCase):
         self.assertNotIn("longdouble_format", self._cross_file("linux", "arm"))
 
 
+class CmakeToolchainFileTest(unittest.TestCase):
+    def _toolchain(self, target_os: str, target_cpu: str, env: dict[str, str] | None = None) -> tuple[str, str]:
+        tmp = tempfile.mkdtemp()
+        build_env = env if env is not None else {"CC": "/wrap/cc", "CXX": "/wrap/c++", "AR": "/tools/ar", "STRIP": "/tools/strip"}
+        toolchain = build_helper._generate_cmake_toolchain_file(tmp, build_env, target_os, target_cpu)
+        with open(toolchain) as f:
+            return f.read(), tmp
+
+    def test_compilers_and_system(self) -> None:
+        content, _ = self._toolchain("linux", "aarch64")
+        self.assertIn('set(CMAKE_SYSTEM_NAME "Linux")', content)
+        self.assertIn('set(CMAKE_SYSTEM_PROCESSOR "aarch64")', content)
+        self.assertIn('set(CMAKE_C_COMPILER "/wrap/cc")', content)
+        self.assertIn('set(CMAKE_CXX_COMPILER "/wrap/c++")', content)
+        self.assertIn('set(CMAKE_AR "/tools/ar")', content)
+        self.assertIn('set(CMAKE_STRIP "/tools/strip")', content)
+
+    def test_os_titlecased(self) -> None:
+        content, _ = self._toolchain("darwin", "aarch64")
+        self.assertIn('set(CMAKE_SYSTEM_NAME "Darwin")', content)
+
+    def test_unknown_os_passes_through(self) -> None:
+        content, _ = self._toolchain("freebsd", "x86_64")
+        self.assertIn('set(CMAKE_SYSTEM_NAME "freebsd")', content)
+
+    def test_ar_strip_default_to_bare_names(self) -> None:
+        content, _ = self._toolchain("linux", "x86_64", env={"CC": "/wrap/cc", "CXX": "/wrap/c++"})
+        self.assertIn('set(CMAKE_AR "ar")', content)
+        self.assertIn('set(CMAKE_STRIP "strip")', content)
+
+    def test_ranlib_routes_ar_s(self) -> None:
+        # CMake runs an auto-discovered CMAKE_RANLIB after `ar qc`; left unset
+        # that is the host's ranlib against the target's archives. The wrapper
+        # must route `ar s` (ranlib's POSIX spelling) through our AR.
+        content, tmp = self._toolchain("linux", "x86_64")
+        ranlib = path.join(tmp, "cmake_ranlib")
+        self.assertIn('set(CMAKE_RANLIB "{}")'.format(ranlib), content)
+        with open(ranlib) as f:
+            wrapper = f.read()
+        self.assertIn('exec "/tools/ar" s "$@"', wrapper)
+        self.assertTrue(os.access(ranlib, os.X_OK))
+
+    def test_paths_with_spaces_stay_quoted(self) -> None:
+        content, _ = self._toolchain("linux", "x86_64", env={"CC": "/tmp/with space/cc", "CXX": "/tmp/with space/c++"})
+        self.assertIn('set(CMAKE_C_COMPILER "/tmp/with space/cc")', content)
+        self.assertIn('set(CMAKE_CXX_COMPILER "/tmp/with space/c++")', content)
+
+
 class BuildBackendTest(unittest.TestCase):
     def test_declared_backend(self) -> None:
         data = {"build-system": {"build-backend": "mesonpy"}}
