@@ -28,9 +28,9 @@ imports pycparser through cffi, and only the project repo's py_library carries
 that transitive closure — the configure tool's `[build-system] requires`
 resolution would yield a bare `whl_install` target without it.
 
-No cross-platform `collect_wheels` matrix here (unlike pycross-pure-python):
-rebuilding these wheels for non-host targets would require a cross CC
-toolchain this workspace does not set up.
+The `collect_wheels` matrix rebuilds all three wheels for both linux CPUs
+against the workspace's llvm toolchain and asserts their WHEEL Tag
+metadata.
 
 Not ported: rules_pycross builds psycopg2 with a `pg_config` tool dep and
 zstandard against a Bazel-built system libzstd. Both need `rules_foreign_cc`

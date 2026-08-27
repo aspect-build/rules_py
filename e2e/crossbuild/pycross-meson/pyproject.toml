@@ -1,0 +1,15 @@
+[project]
+name = "pycross_meson"
+version = "0.0.0"
+requires-python = ">=3.11"
+dependencies = [
+    "build",
+    "contourpy==1.3.3",
+    "meson",
+    "meson-python",
+    "ninja",
+    "pybind11",
+]
+
+[tool.uv]
+no-binary-package = ["contourpy"]

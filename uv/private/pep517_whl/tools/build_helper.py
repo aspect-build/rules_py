@@ -168,6 +168,13 @@ while i < len(args):
 # Scanned pre-filter: the darwin spellings are host-leak-dropped from
 # `filtered` when the target is not darwin.
 is_shared = any(a in ("-shared", "-bundle", "-dynamiclib") for a in args)
+if is_link and is_shared and static_runtime_archives:
+    # A -nostdlib++ toolchain (the BCR llvm module) carries its C++/unwind
+    # runtime as toolchain inputs, never as link flags: without these
+    # archives a C++ extension links with std::__1/_Unwind_* unresolved and
+    # only explodes at dlopen time on the target. Archive semantics make
+    # this safe on pure-C links: unused members are simply not pulled.
+    filtered.extend(static_runtime_archives)
 if is_darwin and is_link and is_shared:
     # Extension modules leave _Py* unresolved until dlopen; ld64 errors on
     # them by default (ELF linkers don't), so mirror CPython's own LDSHARED
@@ -1090,6 +1097,82 @@ def _requirement_name(requirement: str) -> str:
     """PEP 508 requirement string -> bare package name, extras/specifiers/markers stripped."""
     match = _REQUIREMENT_NAME_RE.match(requirement)
     return match.group(1) if match else ""
+
+
+
+# numpy's longdouble probe outputs (numpy/_core/meson.build), keyed by the
+# target ABI: x86 keeps the 80-bit x87 format padded to 16 bytes, aarch64
+# glibc uses IEEE binary128, and Apple aarch64 aliases long double to double.
+_MESON_LONGDOUBLE_FORMAT = {
+    ("darwin", "aarch64"): "IEEE_DOUBLE_LE",
+    ("darwin", "x86_64"): "INTEL_EXTENDED_16_BYTES_LE",
+    ("linux", "aarch64"): "IEEE_QUAD_LE",
+    ("linux", "x86_64"): "INTEL_EXTENDED_16_BYTES_LE",
+}
+
+
+def _generate_meson_cross_file(
+    tmpdir: str,
+    build_env: dict[str, str],
+    target_os: str,
+    target_cpu: str,
+) -> str:
+    """Cross file for meson-python.
+
+    meson-python only auto-synthesizes a cross file for macOS
+    ARCHFLAGS/cibuildwheel/iOS; a Linux-arch cross build configures as
+    native and meson fails running its compiler sanity-check binary.
+    `needs_exe_wrapper = true` makes meson skip those runs; projects calling
+    `cc.run()` directly get meson's explicit cross-environment error — an
+    honest limitation until an emulator-backed exe_wrapper lands with the
+    execution slice.
+
+    The longdouble property is numpy's documented cross recipe: its
+    meson.build reads this external property and only falls back to a
+    cc.run() probe when it is absent (numpy gh-23972). The value is an ABI
+    constant of (os, cpu), so bake it in.
+    """
+    longdouble_line = ""
+    longdouble_format = _MESON_LONGDOUBLE_FORMAT.get((target_os, target_cpu))
+    if longdouble_format:
+        longdouble_line = "longdouble_format = '{}'\n".format(longdouble_format)
+    return _write_generated_file(
+        path.join(tmpdir, "cross_file.ini"),
+        textwrap.dedent("""\
+            [binaries]
+            c = '{cc}'
+            cpp = '{cxx}'
+            ar = '{ar}'
+            strip = '{strip}'
+
+            [host_machine]
+            system = '{system}'
+            cpu_family = '{cpu_family}'
+            cpu = '{cpu}'
+            endian = 'little'
+
+            [properties]
+            needs_exe_wrapper = true
+            {longdouble_line}""").format(
+            cc=build_env["CC"],
+            cxx=build_env["CXX"],
+            longdouble_line=longdouble_line,
+            ar=build_env.get("AR", "ar"),
+            strip=build_env.get("STRIP", "strip"),
+            system=target_os,
+            cpu_family=target_cpu,
+            cpu=target_cpu,
+        ),
+    )
+
+
+def _build_backend(pyproject_data: dict[str, object] | None) -> str | None:
+    """The [build-system].build-backend value, or None when undeclared."""
+    build_system = (pyproject_data or {}).get("build-system", {})
+    if not isinstance(build_system, dict):
+        return None
+    backend = build_system.get("build-backend")
+    return backend if isinstance(backend, str) else None
 
 
 def _legacy_metadata_conflicts_with_pyproject(worktree: str) -> bool:

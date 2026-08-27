@@ -1,4 +1,5 @@
 load("@bazel_lib//:bzl_library.bzl", "bzl_library")
+load("//py/private/interpreter:launcher.bzl", "py_interpreter_launcher")
 
 # Users can set, e.g. --@aspect_rules_py//py:python_version=3.12
 alias(
@@ -7,11 +8,11 @@ alias(
     visibility = ["//visibility:public"],
 )
 
-# Actions that need a Python executable should not need a direct rules_python
-# dependency just to use its remote-safe interpreter launcher.
-alias(
+# Actions that need a Python executable get a native launcher (built with
+# hermetic_launcher) that execs the toolchain-resolved interpreter through
+# the runfiles mechanism. No rules_python dependency, bonus works on Windows too.
+py_interpreter_launcher(
     name = "python",
-    actual = "@rules_python//python/bin:python",
     visibility = ["//visibility:public"],
 )
 

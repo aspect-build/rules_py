@@ -76,7 +76,6 @@ def extract_cc_layer(ctx, cc_toolchain):
     Called only in cross-compilation mode. The native path relies on the
     existing _cc_toolchain_inputs_and_tools + backend self-discovery.
 
-
     Args:
         ctx: The rule context. Must include CC_LAYER_ATTRS and
             fragments = ["cpp"].
@@ -183,11 +182,11 @@ def extract_cc_layer(ctx, cc_toolchain):
     # A "-nostdlib++" toolchain (the BCR llvm module) supplies its C++/unwind
     # runtime as toolchain *inputs* (static_runtime_lib), not as link-action
     # flags — get_memory_inefficient_command_line never sees them, so a PEP
-    # 517 backend linking through our wrappers produces .so's with undefined
-    # std::__1/_Unwind_* symbols that only explode at dlopen time on the
-    # target. Extract the archives so the wrapper can link them explicitly.
-    # Only probed behind the -nostdlib++ marker: self-contained drivers
-    # (gcc_toolchain) resolve their own runtime and may not define
+    # 517 backend linking C++ through our wrappers produces .so's with
+    # undefined std::__1/_Unwind_* symbols that only explode at dlopen time
+    # on the target. Extract the archives so the wrapper can link them
+    # explicitly. Only probed behind the -nostdlib++ marker: self-contained
+    # drivers (gcc_toolchain) resolve their own runtime and may not define
     # static_runtime_lib at all, which would fail the API call.
     static_runtime_files = None
     static_runtime_paths = []
