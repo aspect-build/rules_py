@@ -107,6 +107,15 @@ bzl_library(
 )
 
 bzl_library(
+    name = "launcher",
+    srcs = ["launcher.bzl"],
+    deps = [
+        "//py/private/toolchain:types",
+        "@hermetic_launcher//launcher:lib_bzl",
+    ],
+)
+
+bzl_library(
     name = "resolve",
     srcs = ["resolve.bzl"],
     deps = [":sanitize"],
