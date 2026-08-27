@@ -2,15 +2,35 @@
 Machinery specific to interacting with a uv.lock
 """
 
+load("@bazel_lib//lib:strings.bzl", "ord")
 load("//uv/private:normalize_name.bzl", "normalize_name")
 load("//uv/private:normalize_version.bzl", "normalize_version")
 load("//uv/private:parse_whl_name.bzl", "parse_whl_name")
-load("//uv/private:sha1.bzl", "sha1")
 load("//uv/private/constraints/platform:defs.bzl", "supported_platform")
 load("//uv/private/constraints/python:defs.bzl", "supported_python")
 load("//uv/private/whl_install:repository.bzl", "compatible_python_tags")
 load(":git_utils.bzl", "parse_git_url", "try_git_to_http_archive")
 load(":marker_simplify.bzl", "simplify_extra_marker")
+
+def fnv1a_64(s):
+    """FNV-1a 64-bit hash as a 16-character hex string.
+
+    Used only to generate stable, unique-ish suffixes for repository names
+    (e.g. for lockfile distributions that lack a `hash` field). It is not
+    a security or integrity mechanism, so a fast non-cryptographic hash is
+    sufficient; do not "upgrade" this back to a cryptographic hash.
+
+    Args:
+     s: str, the input string (typically a distribution URL).
+
+    Returns:
+     the 64-bit hash as a zero-padded 16-character lowercase hex string.
+    """
+    h = 0xcbf29ce484222325
+    for c in s.elems():
+        h = ((h ^ ord(c)) * 0x100000001b3) & 0xFFFFFFFFFFFFFFFF
+    hex_str = "%x" % h
+    return "0" * (16 - len(hex_str)) + hex_str
 
 def url_basename(url):
     """Returns the trailing file name of a distribution URL.
@@ -39,7 +59,7 @@ def _dist_identifier(dist):
     """
     if "hash" in dist:
         return dist["hash"].split(":")[1][:16]
-    return sha1(dist["url"])[:16]
+    return fnv1a_64(dist["url"])
 
 def normalize_deps(lock_id, lock_data):
     """Normalizes dependency specifications in a lockfile.
@@ -266,7 +286,7 @@ def collect_sdists(
         elif "git" in package["source"]:
             git_url = package["source"]["git"]
             git_cfg = parse_git_url(git_url)
-            sdist_repo_name = "sdist_git__{}__{}".format(package["name"], sha1(git_url)[:16])
+            sdist_repo_name = "sdist_git__{}__{}".format(package["name"], fnv1a_64(git_url))
 
             sdist_table[k] = "@{}//file".format(sdist_repo_name)
             sdist_cfg = try_git_to_http_archive(git_cfg)

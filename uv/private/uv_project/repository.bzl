@@ -1,7 +1,3 @@
-"""
-
-"""
-
 load("//uv/private/pprint:defs.bzl", "indent", "pprint")
 load("//uv/private/uv_project:select_gen.bzl", "build_package_select_arms")
 
