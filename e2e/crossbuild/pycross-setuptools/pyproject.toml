@@ -9,7 +9,7 @@ dependencies = [
     "cffi",
     "cython<3.0",
     "pyyaml==6.0.1",
-    "setproctitle==1.3.2",
+    "setproctitle==1.3.7",
     "zstandard==0.22.0",
 ]
 

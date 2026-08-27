@@ -85,7 +85,7 @@ collect_wheels(
     ],
     wheels = [
         "@sdist_build__pycross_setuptools__pyyaml__6_0_1//:whl",
-        "@sdist_build__pycross_setuptools__setproctitle__1_3_2//:whl",
+        "@sdist_build__pycross_setuptools__setproctitle__1_3_7//:whl",
         "@sdist_build__pycross_setuptools__zstandard__0_22_0//:whl",
     ],
 )
