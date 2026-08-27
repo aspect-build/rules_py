@@ -307,6 +307,11 @@ def _pep517_native_whl(ctx):
             env["CFLAGS"] = (env.get("CFLAGS", "") + " " + cc_layer.ccshared).strip()
             env["CXXFLAGS"] = (env.get("CXXFLAGS", "") + " " + cc_layer.ccshared).strip()
 
+        if cc_layer.static_runtime_files:
+            extra_inputs.append(cc_layer.static_runtime_files)
+        if cc_layer.static_runtime_paths:
+            env["RULES_PY_CXX_STATIC_RUNTIME"] = ":".join(cc_layer.static_runtime_paths)
+
         cross_args = [
             "--cross",
             "--target-os",

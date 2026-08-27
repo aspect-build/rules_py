@@ -76,10 +76,6 @@ def extract_cc_layer(ctx, cc_toolchain):
     Called only in cross-compilation mode. The native path relies on the
     existing _cc_toolchain_inputs_and_tools + backend self-discovery.
 
-    Reduced for setuptools-family backends: -nostdlib++ static runtime
-    extraction (BCR llvm's libc++/libunwind archives) is deferred to the
-    slice whose backends link C++ through it.
-
     Args:
         ctx: The rule context. Must include CC_LAYER_ATTRS and
             fragments = ["cpp"].
@@ -183,6 +179,27 @@ def extract_cc_layer(ctx, cc_toolchain):
 
     target_os, target_cpu = get_target_platform(ctx)
 
+    # A "-nostdlib++" toolchain (the BCR llvm module) supplies its C++/unwind
+    # runtime as toolchain *inputs* (static_runtime_lib), not as link-action
+    # flags — get_memory_inefficient_command_line never sees them, so a PEP
+    # 517 backend linking C++ through our wrappers produces .so's with
+    # undefined std::__1/_Unwind_* symbols that only explode at dlopen time
+    # on the target. Extract the archives so the wrapper can link them
+    # explicitly. Only probed behind the -nostdlib++ marker: self-contained
+    # drivers (gcc_toolchain) resolve their own runtime and may not define
+    # static_runtime_lib at all, which would fail the API call.
+    static_runtime_files = None
+    static_runtime_paths = []
+    if "-nostdlib++" in flags.get("ldshared", ""):
+        static_runtime_files = cc_toolchain.static_runtime_lib(
+            feature_configuration = feature_configuration,
+        )
+        static_runtime_paths = [
+            _EXECROOT_MARKER + "/" + f.path
+            for f in static_runtime_files.to_list()
+            if f.path.endswith(".a")
+        ]
+
     return struct(
         cc = tools.get("cc"),
         cxx = tools.get("cxx"),
@@ -194,6 +211,8 @@ def extract_cc_layer(ctx, cc_toolchain):
         ccshared = "-fPIC" if needs_pic else "",
         target_os = target_os,
         target_cpu = target_cpu,
+        static_runtime_files = static_runtime_files,
+        static_runtime_paths = static_runtime_paths,
     )
 
 # Exposed for the unit tests in tests/pep517_whl_test.bzl only.

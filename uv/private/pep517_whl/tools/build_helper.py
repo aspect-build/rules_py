@@ -16,6 +16,7 @@ import re
 import shlex
 import shutil
 import sys
+import textwrap
 from os import chmod, defpath, listdir, makedirs, path, pathsep
 from subprocess import CalledProcessError, check_call, check_output, STDOUT, run
 from tempfile import TemporaryFile
@@ -269,6 +270,7 @@ drop_pairs = {drop_pairs!r}
 drop_prefixes = {drop_prefixes!r}
 debug_flag = {debug_flag!r}
 is_darwin = {is_darwin!r}
+static_runtime_archives = {static_runtime_archives!r}
 
 # Not a link if compiling/preprocessing (-c/-E/-S/-fsyntax-only) or if this
 # is a compiler-introspection probe ("-print-*", "--version"): appending
@@ -296,6 +298,13 @@ while i < len(args):
 # Scanned pre-filter: the darwin spellings are host-leak-dropped from
 # `filtered` when the target is not darwin.
 is_shared = any(a in ("-shared", "-bundle", "-dynamiclib") for a in args)
+if is_link and is_shared and static_runtime_archives:
+    # A -nostdlib++ toolchain (the BCR llvm module) carries its C++/unwind
+    # runtime as toolchain inputs, never as link flags: without these
+    # archives a C++ extension links with std::__1/_Unwind_* unresolved and
+    # only explodes at dlopen time on the target. Archive semantics make
+    # this safe on pure-C links: unused members are simply not pulled.
+    filtered.extend(static_runtime_archives)
 if is_darwin and is_link and is_shared:
     # Extension modules leave _Py* unresolved until dlopen; ld64 errors on
     # them by default (ELF linkers don't), so mirror CPython's own LDSHARED
@@ -314,6 +323,7 @@ def _make_cross_compiler_wrapper(
     compiler_path: str,
     wrapper_flags: list[str],
     is_darwin: bool = False,
+    static_runtime_archives: list[str] | None = None,
 ) -> str:
     wrapper = path.join(tmpdir, ".aspect_rules_py_compilers", name)
 
@@ -337,6 +347,7 @@ def _make_cross_compiler_wrapper(
             drop_prefixes=list(_DROP_LINKER_PREFIXES),
             debug_flag=_DEBUG_FLAG,
             is_darwin=is_darwin,
+            static_runtime_archives=list(static_runtime_archives or []),
         ),
         executable=True,
     )
@@ -516,8 +527,23 @@ def _compiler_env(
         "RUNFILES_MANIFEST_ONLY",
     ):
         env.pop(key, None)
+    # Some build deps (meson-python's ninja, maturin) ship plain wheel-data
+    # executables under <whl_install output>/bin, which venv assembly never
+    # merges (it only merges lib/site-packages) — so they land on neither
+    # sys.path nor PATH. They are still real runfiles; walk the runfiles
+    # roots for whl_install bin/ dirs and put those on PATH.
+    bin_dirs = []
+    for runfiles_root in sys.path:
+        if not path.isdir(runfiles_root) or "runfiles" not in runfiles_root:
+            continue
+        for entry in os.listdir(runfiles_root):
+            bin_dir = path.join(runfiles_root, entry, "actual_install.install", "bin")
+            if path.isdir(bin_dir):
+                bin_dirs.append(bin_dir)
+
     env["PATH"] = pathsep.join([
         path.dirname(sys.executable),
+        *bin_dirs,
         env.get("PATH", defpath),
     ])
     env["TMP"] = tmpdir
@@ -558,8 +584,21 @@ def _compiler_env(
 
         wrapper_flags = _get_wrapper_flags(env.get("CFLAGS", ""))
         is_darwin_target = target_os == "darwin"
-        cc = _make_cross_compiler_wrapper(tmpdir, "cc", cc_path, wrapper_flags, is_darwin=is_darwin_target)
-        cxx = _make_cross_compiler_wrapper(tmpdir, "c++", cxx_path, wrapper_flags, is_darwin=is_darwin_target)
+
+        # The -nostdlib++ toolchain's C++/unwind runtime archives, extracted
+        # by cc_layer.bzl from static_runtime_lib. Ordered for single-pass
+        # archive resolution: libc++ pulls from libc++abi, which pulls from
+        # libunwind.
+        static_runtime = [
+            _absolutize_path(p)
+            for p in env.pop("RULES_PY_CXX_STATIC_RUNTIME", "").split(":")
+            if p
+        ]
+        runtime_rank = {"libc++.a": 0, "libc++abi.a": 1, "libunwind.a": 2}
+        static_runtime.sort(key=lambda p: runtime_rank.get(path.basename(p), 3))
+
+        cc = _make_cross_compiler_wrapper(tmpdir, "cc", cc_path, wrapper_flags, is_darwin=is_darwin_target, static_runtime_archives=static_runtime)
+        cxx = _make_cross_compiler_wrapper(tmpdir, "c++", cxx_path, wrapper_flags, is_darwin=is_darwin_target, static_runtime_archives=static_runtime)
     else:
         cc = _make_compiler_wrapper(tmpdir, "cc", cc_path, sysroot)
         cxx = _make_compiler_wrapper(tmpdir, "c++", cxx_path, sysroot)
@@ -635,6 +674,82 @@ def _load_pyproject_data(worktree: str) -> dict[str, object] | None:
             return tomllib.load(f)
     except (OSError, tomllib.TOMLDecodeError):
         return None
+
+
+
+# numpy's longdouble probe outputs (numpy/_core/meson.build), keyed by the
+# target ABI: x86 keeps the 80-bit x87 format padded to 16 bytes, aarch64
+# glibc uses IEEE binary128, and Apple aarch64 aliases long double to double.
+_MESON_LONGDOUBLE_FORMAT = {
+    ("darwin", "aarch64"): "IEEE_DOUBLE_LE",
+    ("darwin", "x86_64"): "INTEL_EXTENDED_16_BYTES_LE",
+    ("linux", "aarch64"): "IEEE_QUAD_LE",
+    ("linux", "x86_64"): "INTEL_EXTENDED_16_BYTES_LE",
+}
+
+
+def _generate_meson_cross_file(
+    tmpdir: str,
+    build_env: dict[str, str],
+    target_os: str,
+    target_cpu: str,
+) -> str:
+    """Cross file for meson-python.
+
+    meson-python only auto-synthesizes a cross file for macOS
+    ARCHFLAGS/cibuildwheel/iOS; a Linux-arch cross build configures as
+    native and meson fails running its compiler sanity-check binary.
+    `needs_exe_wrapper = true` makes meson skip those runs; projects calling
+    `cc.run()` directly get meson's explicit cross-environment error — an
+    honest limitation until an emulator-backed exe_wrapper lands with the
+    execution slice.
+
+    The longdouble property is numpy's documented cross recipe: its
+    meson.build reads this external property and only falls back to a
+    cc.run() probe when it is absent (numpy gh-23972). The value is an ABI
+    constant of (os, cpu), so bake it in.
+    """
+    longdouble_line = ""
+    longdouble_format = _MESON_LONGDOUBLE_FORMAT.get((target_os, target_cpu))
+    if longdouble_format:
+        longdouble_line = "longdouble_format = '{}'\n".format(longdouble_format)
+    return _write_generated_file(
+        path.join(tmpdir, "cross_file.ini"),
+        textwrap.dedent("""\
+            [binaries]
+            c = '{cc}'
+            cpp = '{cxx}'
+            ar = '{ar}'
+            strip = '{strip}'
+
+            [host_machine]
+            system = '{system}'
+            cpu_family = '{cpu_family}'
+            cpu = '{cpu}'
+            endian = 'little'
+
+            [properties]
+            needs_exe_wrapper = true
+            {longdouble_line}""").format(
+            cc=build_env["CC"],
+            cxx=build_env["CXX"],
+            longdouble_line=longdouble_line,
+            ar=build_env.get("AR", "ar"),
+            strip=build_env.get("STRIP", "strip"),
+            system=target_os,
+            cpu_family=target_cpu,
+            cpu=target_cpu,
+        ),
+    )
+
+
+def _build_backend(pyproject_data: dict[str, object] | None) -> str | None:
+    """The [build-system].build-backend value, or None when undeclared."""
+    build_system = (pyproject_data or {}).get("build-system", {})
+    if not isinstance(build_system, dict):
+        return None
+    backend = build_system.get("build-backend")
+    return backend if isinstance(backend, str) else None
 
 
 def _legacy_metadata_conflicts_with_pyproject(worktree: str) -> bool:
@@ -843,6 +958,14 @@ def main() -> None:
             "--skip-dependency-check",
             "--outdir", outdir,
         ]
+
+        # meson-python only synthesizes its own cross file for macOS
+        # ARCHFLAGS/cibuildwheel shapes; everything else configures as a
+        # native build and fails meson's compiler sanity checks. Hand it
+        # ours (see _generate_meson_cross_file).
+        if opts.cross and _build_backend(_load_pyproject_data(t)) == "mesonpy":
+            cross_file = _generate_meson_cross_file(tmp_root, build_env, opts.target_os, opts.target_cpu)
+            cmd += ["-C", "setup-args=--cross-file=" + cross_file]
     else:
         print("Error: Unable to detect build command! Neither pyproject.toml nor setup.py found!", file=sys.stderr)
         raise SystemExit(1)
