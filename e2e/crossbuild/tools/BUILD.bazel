@@ -33,8 +33,8 @@ rust_host_sysroot(
 )
 
 # Ant is architecture-independent (bytecode + launcher scripts), so unlike
-# the Rust sysroot there's no cross/native split — one $(ANT_HOME) covers
-# both.
+# the Rust sysroot there's no exec/target split — one $(ANT_HOME) covers
+# both. Used by //pycross-jdk (jpype1's build shells out to Ant).
 ant_home(
     name = "ant_home",
     all_files = "@apache_ant//:all_files",

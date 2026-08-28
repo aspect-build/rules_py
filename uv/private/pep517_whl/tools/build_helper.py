@@ -475,21 +475,40 @@ def _make_cross_compiler_wrapper(
 
 _AR_LIBTOOL_WRAPPER = """#!/usr/bin/env python3
 import os
+import subprocess
 import sys
 
 libtool = {libtool!r}
 args = sys.argv[1:]
 
-# Already libtool-style ("-static ...") or a tool probe ("--version", "-V"):
-# hand through untouched.
-if not args or args[0].startswith("-"):
+# Tool probes ("--version", "-V", ...) hand through untouched.
+if not args or args[0].startswith("--") or args[0] in ("-V", "-v", "-h"):
     os.execv(libtool, [libtool] + args)
 
-# ar-style "<ops> <archive> <members...>" (meson "csr", CMake "qc",
-# distutils "rcs"). libtool -static always rewrites the whole symbol-tabled
-# archive, so create/replace/append modifiers all collapse to the same call.
+# ar-style "<ops> <archive> <members...>" — the ops' leading dash is
+# optional (ar's grammar is [-]{{dmpqrstx}}: meson "csr", CMake "qc"/"q",
+# distutils "rcs", "ar -rcs" all mean the same). libtool -static always
+# rewrites the whole symbol-tabled archive.
+ops = args[0].lstrip("-")
 archive = args[1]
 members = args[2:]
+
+if ops and ops[0] in ("q", "r", "a", "s") and os.path.exists(archive):
+    # Append/replace/index-only keep the members already in the archive,
+    # but libtool only knows full rewrites: feed the archive back as an
+    # input. Write beside it first — reading an input while overwriting it
+    # is not a hazard to discover. ("s" alone is ranlib-mode: rewriting the
+    # archive from itself refreshes the index, which is all that mode asks.)
+    tmp = archive + ".libtool.tmp"
+    try:
+        subprocess.check_call([libtool, "-static", "-o", tmp, archive] + members)
+        os.replace(tmp, archive)
+    finally:
+        if os.path.exists(tmp):
+            os.remove(tmp)
+    sys.exit(0)
+
+# Create-from-scratch (or a missing archive): plain rewrite.
 os.execv(libtool, [libtool, "-static", "-o", archive] + members)
 """
 
