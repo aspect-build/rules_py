@@ -661,12 +661,6 @@ def _compiler_env(
         cc = _make_cross_compiler_wrapper(tmpdir, "cc", cc_path, wrapper_flags, lld_path, is_darwin=is_darwin, exe_link_flags=exe_link_flags, static_runtime_archives=static_runtime)
         cxx = _make_cross_compiler_wrapper(tmpdir, "c++", cxx_path, wrapper_flags, lld_path, is_cxx=True, is_darwin=is_darwin, exe_link_flags=exe_link_flags, static_runtime_archives=static_runtime)
 
-        # gcc_toolchain layout (<root>/xbin/gcc, <root>/sysroot/...): a
-        # target-arch binary needs THIS toolchain's glibc/loader to run.
-        # Consumed only by meson's exe_wrapper (_generate_meson_cross_file).
-        target_gcc_sysroot = path.join(path.dirname(path.dirname(cc_path)), "sysroot")
-        if not is_darwin and path.isdir(target_gcc_sysroot):
-            env["RULES_PY_TARGET_GCC_SYSROOT"] = target_gcc_sysroot
 
         # apple_support's wrapped_clang hard-fails without DEVELOPER_DIR /
         # SDKROOT; Bazel injects them only into actions with Xcode execution
@@ -790,17 +784,6 @@ def _load_pyproject_data(worktree: str) -> Optional[Dict[str, object]]:
 # sysname both use it.
 _TITLECASE_OS = {"linux": "Linux", "darwin": "Darwin", "windows": "Windows"}
 _SYS_PLATFORM = {"linux": "linux", "darwin": "darwin", "windows": "win32"}
-
-
-_MESON_EXE_WRAPPER = """#!/usr/bin/env python3
-import os
-import sys
-
-qemu_ld_prefix = {qemu_ld_prefix!r}
-if qemu_ld_prefix:
-    os.environ["QEMU_LD_PREFIX"] = qemu_ld_prefix
-os.execv(sys.argv[1], sys.argv[1:])
-"""
 
 
 # numpy's longdouble probe outputs (numpy/_core/meson.build), keyed by the

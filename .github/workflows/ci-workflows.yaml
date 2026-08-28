@@ -106,11 +106,6 @@ jobs:
             - uses: aspect-build/setup-aspect@c22a8f64fb38f82f59ce809cd7eb9f8ae096da44 # v2026.23.2
               with:
                 aspect-api-token: ${{ secrets.ASPECT_API_TOKEN }}
-            # e2e/crossbuild runs an arm64 container from this amd64 runner
-            - if: matrix.workspace.slug == 'e2e-crossbuild'
-              uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8 # v4.2.0
-              with:
-                platforms: arm64
             # Run `test //...`, then the workspace's test.sh if it has one
             - name: Test
               working-directory: ${{ matrix.workspace.path }}
@@ -188,9 +183,6 @@ jobs:
             - uses: aspect-build/setup-aspect@c22a8f64fb38f82f59ce809cd7eb9f8ae096da44 # v2026.23.2
               with:
                 aspect-api-token: ${{ secrets.ASPECT_API_TOKEN }}
-            - uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8 # v4.2.0
-              with:
-                platforms: arm64
             - name: Cross-build arm64 image tarballs
               working-directory: e2e/crossbuild
               run: |
@@ -235,9 +227,6 @@ jobs:
             - uses: aspect-build/setup-aspect@c22a8f64fb38f82f59ce809cd7eb9f8ae096da44 # v2026.23.2
               with:
                 aspect-api-token: ${{ secrets.ASPECT_API_TOKEN }}
-            - uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8 # v4.2.0
-              with:
-                platforms: amd64
             - name: Cross-build amd64 image tarballs from arm64
               working-directory: e2e/crossbuild
               run: |
