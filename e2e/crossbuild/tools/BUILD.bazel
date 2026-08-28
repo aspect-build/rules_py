@@ -1,6 +1,7 @@
 # Shared helpers consumed by //... via load("//tools:...").
 
 load("@aspect_rules_py//py:defs.bzl", "py_binary")
+load(":rust_layer.bzl", "rust_host_sysroot")
 
 # Consumed cross-package by the `collect_wheels` macro (//tools:collect_wheels.bzl),
 # which declares a py_test with this script as `main` in the caller's package.
@@ -12,5 +13,15 @@ py_binary(
     name = "collect_wheels_tool",
     srcs = ["collect_wheels.py"],
     main = "collect_wheels.py",
+    visibility = ["//visibility:public"],
+)
+
+# Re-resolves current_rust_toolchain in the exec configuration: under a
+# cross transition the plain label would return the *target*-targeting
+# toolchain, whose sysroot lacks the exec platform's rust-std that build
+# scripts/proc-macros need (see rust_layer.bzl).
+rust_host_sysroot(
+    name = "rust_host_sysroot",
+    actual = "@rules_rust//rust/toolchain:current_rust_toolchain",
     visibility = ["//visibility:public"],
 )

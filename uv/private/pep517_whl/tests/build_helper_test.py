@@ -7,9 +7,10 @@ guard — before it, importing the module ran the build.
 """
 
 import os
+import sys
 import tempfile
 import unittest
-from os import path
+from os import makedirs, path
 
 from uv.private.pep517_whl.tools import build_helper
 
@@ -108,6 +109,14 @@ class LocalCxxCompanionTest(unittest.TestCase):
             tool = _make_executable(tmp, "rustc")
             _make_executable(tmp, "rustc++")
             self.assertEqual(build_helper._local_cxx_companion(tool, tool), tool)
+
+
+class AbsolutizeToolPathsTest(unittest.TestCase):
+    def test_rust_keys_absolutized(self) -> None:
+        env = {"CARGO": "bazel-out/bin/rust/bin/cargo", "RUSTC": "bazel-out/bin/rust/bin/rustc", "RULES_PY_RUST_HOST_SYSROOT": "bazel-out/bin/rust"}
+        build_helper._absolutize_tool_paths(env)
+        for key in ("CARGO", "RUSTC", "RULES_PY_RUST_HOST_SYSROOT"):
+            self.assertTrue(path.isabs(env[key]), key)
 
 
 class OverrideToolTest(unittest.TestCase):
@@ -342,13 +351,26 @@ class CrossCompilerWrapperTest(unittest.TestCase):
     """Generates a cross wrapper around an argv-echoing fake compiler and
     asserts the transformed command line."""
 
-    def _wrapper(self, tmp: str, is_darwin: bool = False, wrapper_flags: list[str] | None = None) -> str:
+    def _wrapper(
+        self,
+        tmp: str,
+        is_darwin: bool = False,
+        wrapper_flags: list[str] | None = None,
+        static_runtime_archives: list[str] | None = None,
+        exe_link_flags: list[str] | None = None,
+    ) -> str:
         echo = path.join(tmp, "echo_cc")
         with open(echo, "w") as f:
             f.write('#!/bin/sh\nprintf \'%s\\n\' "$@"\n')
         os.chmod(echo, 0o755)
         return build_helper._make_cross_compiler_wrapper(
-            tmp, "cc", echo, wrapper_flags or [], is_darwin=is_darwin
+            tmp,
+            "cc",
+            echo,
+            wrapper_flags or [],
+            is_darwin=is_darwin,
+            static_runtime_archives=static_runtime_archives,
+            exe_link_flags=exe_link_flags,
         )
 
     def test_identity_flags_are_reinjected(self) -> None:
@@ -389,6 +411,43 @@ class CrossCompilerWrapperTest(unittest.TestCase):
             wrapper = self._wrapper(tmp)
             argv = _run_wrapper(wrapper, [build_helper._DEBUG_FLAG, "-c", "x.c"])
             self.assertEqual(["-c", "x.c"], argv)
+
+    def test_exe_link_flags_on_every_link(self) -> None:
+        # rustc invokes the wrapper as "-C linker" with cargo's own argv —
+        # $LDSHARED never reaches it, so the toolchain's crt/search-path
+        # flags must be baked in.
+        with tempfile.TemporaryDirectory() as tmp:
+            wrapper = self._wrapper(tmp, exe_link_flags=["-B/sys/lib", "--sysroot=/sys"])
+            argv = _run_wrapper(wrapper, ["main.o", "-o", "probe"])
+            self.assertEqual(["main.o", "-o", "probe", "-B/sys/lib", "--sysroot=/sys"], argv)
+
+    def test_exe_link_flags_not_on_compile_or_probe(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            wrapper = self._wrapper(tmp, exe_link_flags=["-B/sys/lib"])
+            self.assertEqual(["-c", "x.c"], _run_wrapper(wrapper, ["-c", "x.c"]))
+            self.assertEqual(["--version"], _run_wrapper(wrapper, ["--version"]))
+
+    def test_lgcc_s_dropped_with_static_runtime(self) -> None:
+        # rustc hardcodes -lgcc_s on *-linux-gnu; the llvm toolchain has no
+        # libgcc — the unwinder arrives via the static runtime archives.
+        with tempfile.TemporaryDirectory() as tmp:
+            wrapper = self._wrapper(tmp, static_runtime_archives=["/tc/libunwind.a"], exe_link_flags=["-B/sys/lib"])
+            argv = _run_wrapper(wrapper, ["main.o", "-lgcc_s", "-o", "probe"])
+            self.assertNotIn("-lgcc_s", argv)
+            self.assertEqual(["main.o", "-o", "probe", "-B/sys/lib", "/tc/libunwind.a"], argv)
+
+    def test_lgcc_s_becomes_lunwind_without_static_runtime(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            wrapper = self._wrapper(tmp, exe_link_flags=["-B/sys/lib"])
+            argv = _run_wrapper(wrapper, ["main.o", "-lgcc_s", "-o", "probe"])
+            self.assertEqual(["main.o", "-lunwind", "-o", "probe", "-B/sys/lib"], argv)
+
+    def test_shared_link_lists_static_runtime_once(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            wrapper = self._wrapper(tmp, static_runtime_archives=["/tc/libunwind.a"], exe_link_flags=["-B/sys/lib"])
+            argv = _run_wrapper(wrapper, ["a.o", "-shared", "-o", "ext.so"])
+            self.assertEqual(1, argv.count("/tc/libunwind.a"))
+            self.assertEqual(["a.o", "-shared", "-o", "ext.so", "/tc/libunwind.a", "-B/sys/lib"], argv)
 
 
 class WrapperFlagExtractionTest(unittest.TestCase):
@@ -539,6 +598,77 @@ class CmakeToolchainFileTest(unittest.TestCase):
         content, _ = self._toolchain("linux", "x86_64", env={"CC": "/tmp/with space/cc", "CXX": "/tmp/with space/c++"})
         self.assertIn('set(CMAKE_C_COMPILER "/tmp/with space/cc")', content)
         self.assertIn('set(CMAKE_CXX_COMPILER "/tmp/with space/c++")', content)
+
+
+class ConfigureCargoCrossEnvTest(unittest.TestCase):
+    def _env(self) -> dict[str, str]:
+        return {"CC": "/wrap/cc", "RUSTC": "/rust/toolchain/bin/rustc"}
+
+    def test_triple_glibc_and_musl(self) -> None:
+        env = self._env()
+        build_helper._configure_cargo_cross_env(env, tempfile.mkdtemp(), "linux", "aarch64", "glibc")
+        self.assertEqual("aarch64-unknown-linux-gnu", env["CARGO_BUILD_TARGET"])
+        self.assertEqual("/wrap/cc", env["CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER"])
+
+        env = self._env()
+        build_helper._configure_cargo_cross_env(env, tempfile.mkdtemp(), "linux", "aarch64", "musl")
+        self.assertEqual("aarch64-unknown-linux-musl", env["CARGO_BUILD_TARGET"])
+        self.assertEqual("/wrap/cc", env["CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER"])
+
+    def test_triple_darwin(self) -> None:
+        env = self._env()
+        build_helper._configure_cargo_cross_env(env, tempfile.mkdtemp(), "darwin", "aarch64", "libsystem")
+        self.assertEqual("aarch64-apple-darwin", env["CARGO_BUILD_TARGET"])
+
+    def test_unknown_libc_fails_loudly(self) -> None:
+        # A hardcoded -gnu suffix would silently target the wrong ABI; the
+        # mapping must refuse what it does not know.
+        with self.assertRaises(ValueError):
+            build_helper._configure_cargo_cross_env(self._env(), tempfile.mkdtemp(), "linux", "aarch64", "uclibc")
+
+    def test_pyo3_and_maturin_args(self) -> None:
+        env = self._env()
+        build_helper._configure_cargo_cross_env(env, tempfile.mkdtemp(), "linux", "x86_64", "glibc")
+        expected = "{}.{}".format(sys.version_info.major, sys.version_info.minor)
+        self.assertEqual(expected, env["PYO3_CROSS_PYTHON_VERSION"])
+        self.assertEqual("--interpreter python" + expected, env["MATURIN_PEP517_ARGS"])
+
+    def test_maturin_args_preserve_package_values(self) -> None:
+        env = self._env()
+        env["MATURIN_PEP517_ARGS"] = "--cargo-extra-args=--features foo"
+        build_helper._configure_cargo_cross_env(env, tempfile.mkdtemp(), "linux", "x86_64", "glibc")
+        expected = "{}.{}".format(sys.version_info.major, sys.version_info.minor)
+        self.assertEqual(
+            "--interpreter python{} --cargo-extra-args=--features foo".format(expected),
+            env["MATURIN_PEP517_ARGS"],
+        )
+
+    def test_rustc_wrapper_uses_merged_sysroot(self) -> None:
+        tmp = tempfile.mkdtemp()
+        # Fake target toolchain (bin/rustc) and host sysroot with an exec-std entry.
+        target_rustc = path.join(tmp, "target_tc", "bin", "rustc")
+        makedirs(path.dirname(target_rustc))
+        open(target_rustc, "w").close()
+        makedirs(path.join(tmp, "target_tc", "lib", "rustlib", "aarch64-unknown-linux-gnu"))
+        host_sysroot = path.join(tmp, "host_sysroot")
+        makedirs(path.join(host_sysroot, "lib", "rustlib", "aarch64-apple-darwin"))
+
+        env = self._env()
+        env["RUSTC"] = target_rustc
+        env["RULES_PY_RUST_HOST_SYSROOT"] = host_sysroot
+        build_helper._configure_cargo_cross_env(env, tmp, "linux", "aarch64", "glibc")
+
+        wrapper = env["RUSTC"]
+        self.assertNotEqual(target_rustc, wrapper)
+        with open(wrapper) as f:
+            content = f.read()
+        self.assertIn("--sysroot", content)
+        self.assertTrue(os.access(wrapper, os.X_OK))
+        # The merged sysroot exposes the host's rustlib entries (exec std for
+        # build scripts) alongside the target's.
+        merged = path.join(tmp, ".rust_sysroot", "lib", "rustlib")
+        self.assertTrue(path.islink(path.join(merged, "aarch64-apple-darwin")))
+        self.assertTrue(path.islink(path.join(merged, "aarch64-unknown-linux-gnu")))
 
 
 class BuildBackendTest(unittest.TestCase):

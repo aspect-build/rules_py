@@ -5,6 +5,7 @@ build backend the sdist declares in its `[build-system]` table.
 """
 
 load("@bazel_lib//lib:resource_sets.bzl", "resource_set")
+load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load("@rules_cc//cc:action_names.bzl", "ACTION_NAMES")
 load("@rules_cc//cc/common:cc_common.bzl", "cc_common")
 load("//py/private/interpreter:versions.bzl", "PLATFORMS")
@@ -318,6 +319,8 @@ def _pep517_native_whl(ctx):
             cc_layer.target_os or "",
             "--target-cpu",
             cc_layer.target_cpu or "",
+            "--target-libc",
+            ctx.attr._platform_libc[BuildSettingInfo].value,
         ]
 
         py_toolchain = ctx.toolchains[PY_TOOLCHAIN]
@@ -392,6 +395,10 @@ constraints of the target platform.
                   "`$(EXECROOT)/` so it remains valid after the backend changes into " +
                   "the unpacked source tree. Omit CC/CXX/AR/LD/STRIP to use the " +
                   "configured C++ action tools.",
+        ),
+        "_platform_libc": attr.label(
+            default = "//uv/private/constraints/platform:platform_libc",
+            doc = "Read in cross mode to pick the rust target triple (gnu vs musl).",
         ),
     } | CC_LAYER_ATTRS,
     fragments = ["cpp"],
