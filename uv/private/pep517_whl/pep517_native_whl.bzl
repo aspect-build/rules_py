@@ -348,15 +348,15 @@ def _pep517_native_whl(ctx):
         ),
         executable = tool,
         toolchain = None,
-        arguments = ctx.attr.args + patch_args + memory_args(ctx) + cross_args + [
+        arguments = ctx.attr.args + [patch_args] + memory_args(ctx) + cross_args + [
             "--execroot-marker",
             _EXECROOT_MARKER,
             archive.path,
             wheel_file.path,
         ],
         inputs = depset(
-            [archive] + patch_inputs,
-            transitive = extra_inputs,
+            [archive],
+            transitive = [patch_inputs] + extra_inputs,
         ),
         tools = [tool],
         outputs = [wheel_file],

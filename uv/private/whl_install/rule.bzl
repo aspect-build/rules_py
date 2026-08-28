@@ -225,10 +225,11 @@ def _whl_install(ctx):
         transitive_inputs.append(depset([ctx.file._exclude_glob_script]))
 
     # Patch application (happens before pyc compilation).
-    patch_files = [f for t in ctx.attr.patches for f in t[DefaultInfo].files.to_list()]
+    patch_files = [target[DefaultInfo].files for target in ctx.attr.patches]
     if patch_files:
         arguments.add("--patch-strip", str(ctx.attr.patch_strip))
-        arguments.add_all(patch_files, before_each = "--patch")
+        for files in patch_files:
+            arguments.add_all(files, before_each = "--patch")
         preserve_paths = {path: None for path in top_levels}
         for path in namespace_entries + namespace_dirs + regular_roots:
             root = path.split("/")[0]
@@ -258,7 +259,7 @@ def _whl_install(ctx):
             )
             arguments.add("--expected-data-files-manifest", data_files_manifest)
             transitive_inputs.append(depset([data_files_manifest]))
-        transitive_inputs.append(depset(patch_files))
+        transitive_inputs.extend(patch_files)
 
     # Optional .pyc pre-compilation (runs after patching).
     # Use the exec-configured interpreter from the exec-tools toolchain so cross-arch

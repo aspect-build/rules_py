@@ -11,6 +11,10 @@ def main() -> int:
     parser.add_argument("--link-tar", required=True)
     parser.add_argument("--link-suffix", required=True)
     parser.add_argument("--target-tar", required=True)
+    parser.add_argument(
+        "--through-file",
+        help="Assert the link points at a directory by resolving this file under it.",
+    )
     parser.add_argument("archives", nargs="+")
     args = parser.parse_args()
 
@@ -22,6 +26,8 @@ def main() -> int:
         print("FAIL: symlink was not preserved as a relative link", file=sys.stderr)
         return 1
     target = posixpath.normpath(posixpath.join(posixpath.dirname(member.name), member.linkname))
+    if args.through_file:
+        target = posixpath.join(target, args.through_file)
     with tarfile.open(target_tar, "r:*") as archive:
         target_paths = {posixpath.normpath(item.name) for item in archive.getmembers()}
     if target not in target_paths:

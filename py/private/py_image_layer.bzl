@@ -398,13 +398,18 @@ def _layer_aspect_impl(target, ctx):
     if PyWheelsInfo in target and ctx.rule.kind in ("whl_install", "py_unpacked_wheel"):
         plan = ctx.attr._layer_tier[PyLayerTierInfo]
         label = normalize_label(str(target.label))
-        install_dir = depset([w.install_tree for w in target[PyWheelsInfo].wheels.to_list()])
+        wheel_records = target[PyWheelsInfo].wheels.to_list()
+        if len(wheel_records) != 1:
+            fail("py_image_layer expected exactly one wheel record from {}, got {}".format(target.label, len(wheel_records)))
+        wheel = wheel_records[0]
+        install_dir = target[PyInfo].transitive_sources
         layers, merge_group = _build_pip_layers(ctx, plan, label, install_dir)
 
         return [_LayerInfo(
             source_files = depset(transitive = transitive_source),
             pip_packages = depset(
                 direct = [struct(
+                    artifact_key = wheel.install_tree,
                     label = label,
                     files = install_dir,
                     layers = layers,
@@ -981,14 +986,13 @@ def _py_image_layer_impl(ctx):
     infos = [binary[_LayerInfo] for binary in binaries]
     bsdtar, bsdtar_files = _tar_toolchain(ctx)
 
-    # For multiple binaries, normalized labels can collide across lock
-    # universes. Concrete paths identify each configured wheel artifact.
+    # Normalized labels can collide across lock universes, and one wheel target
+    # can produce distinct artifacts under different Python configurations.
     pkg_by_key = {}
     for info in infos:
         for pkg in info.pip_packages.to_list():
-            key = tuple(sorted([f.path for f in pkg.files.to_list()]))
-            if key not in pkg_by_key:
-                pkg_by_key[key] = pkg
+            if pkg.artifact_key not in pkg_by_key:
+                pkg_by_key[pkg.artifact_key] = pkg
     all_pkgs = pkg_by_key.values()
     pip_labels = {pkg.label: True for pkg in all_pkgs}
 
@@ -1106,9 +1110,16 @@ def _py_image_layer_impl(ctx):
     )
 
     first_party_reference_files = []
+    fp_by_group = {}
+    seen_fp_labels = {}
     for info in infos:
         for entry in info.first_party_layers.to_list():
             first_party_reference_files.append(entry.files)
+            if single_binary:
+                if entry.label in seen_fp_labels:
+                    continue
+                seen_fp_labels[entry.label] = True
+            fp_by_group.setdefault(entry.group, []).append(entry.files)
 
     # Interpreter tars are declared at the configured toolchain, so identical
     # runtimes action-share while distinct interpreter artifacts are retained.
@@ -1149,16 +1160,6 @@ def _py_image_layer_impl(ctx):
             chmod_files = source_files,
         )
         all_tars.append(tar_out)
-
-    fp_by_group = {}
-    seen_fp_labels = {}
-    for info in infos:
-        for entry in info.first_party_layers.to_list():
-            if single_binary:
-                if entry.label in seen_fp_labels:
-                    continue
-                seen_fp_labels[entry.label] = True
-            fp_by_group.setdefault(entry.group, []).append(entry.files)
 
     prebuilt_group_tars = {}
     if single_binary:
