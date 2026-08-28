@@ -48,10 +48,10 @@ bzl_library(
         "//uv/private:normalize_name",
         "//uv/private:normalize_version",
         "//uv/private:parse_whl_name",
-        "//uv/private:sha1",
         "//uv/private/constraints/platform:defs",
         "//uv/private/constraints/python:defs",
         "//uv/private/whl_install:repository",
+        "@bazel_lib//lib:strings",
     ],
 )
 

@@ -1,0 +1,33 @@
+"""scikit-build-core (CMake) cross-compilation case.
+
+awkward-cpp 55 is forced to build from its sdist (`[tool.uv]
+no-binary-package`): a pybind11 C++ project whose scikit-build-core
+backend needs the CMake toolchain file `build_helper` generates under
+cross (scikit-build-core's own cross-compile detection only covers macOS;
+otherwise it configures as native and find_program picks the host `strip`,
+which rejects the foreign-arch .so).
+
+`default_build_dependencies` supplies the whole chain: scikit-build-core
+resolves cmake and ninja from the build venv, and pybind11's headers come
+from its wheel.
+"""
+
+uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv.declare_hub(hub_name = "pypi_pycross_cmake")
+uv.project(
+    default_build_dependencies = [
+        "build",
+        "cmake",
+        "ninja",
+        "pybind11",
+        "scikit-build-core",
+    ],
+    hub_name = "pypi_pycross_cmake",
+    lock = "//pycross-cmake:uv.lock",
+    pyproject = "//pycross-cmake:pyproject.toml",
+)
+use_repo(
+    uv,
+    "pypi_pycross_cmake",
+    "sdist_build__pycross_cmake__awkward_cpp__55",
+)
