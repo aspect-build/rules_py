@@ -128,6 +128,55 @@ def _make_compiler_wrapper(
     return wrapper
 
 
+_AR_LIBTOOL_WRAPPER = """#!/usr/bin/env python3
+import os
+import subprocess
+import sys
+
+libtool = {libtool!r}
+args = sys.argv[1:]
+
+# Tool probes ("--version", "-V", ...) hand through untouched.
+if not args or args[0].startswith("--") or args[0] in ("-V", "-v", "-h"):
+    os.execv(libtool, [libtool] + args)
+
+# ar-style "<ops> <archive> <members...>" — the ops' leading dash is
+# optional (ar's grammar is [-]{{dmpqrstx}}: meson "csr", CMake "qc"/"q",
+# distutils "rcs", "ar -rcs" all mean the same). libtool -static always
+# rewrites the whole symbol-tabled archive.
+ops = args[0].lstrip("-")
+archive = args[1]
+members = args[2:]
+
+if ops and ops[0] in ("q", "r", "a", "s") and os.path.exists(archive):
+    # Append/replace/index-only keep the members already in the archive,
+    # but libtool only knows full rewrites: feed the archive back as an
+    # input. Write beside it first — reading an input while overwriting it
+    # is not a hazard to discover. ("s" alone is ranlib-mode: rewriting the
+    # archive from itself refreshes the index, which is all that mode asks.)
+    tmp = archive + ".libtool.tmp"
+    try:
+        subprocess.check_call([libtool, "-static", "-o", tmp, archive] + members)
+        os.replace(tmp, archive)
+    finally:
+        if os.path.exists(tmp):
+            os.remove(tmp)
+    sys.exit(0)
+
+# Create-from-scratch (or a missing archive): plain rewrite.
+os.execv(libtool, [libtool, "-static", "-o", archive] + members)
+"""
+
+
+def _make_ar_libtool_wrapper(tmpdir: str, libtool_path: str) -> str:
+    wrapper = path.join(tmpdir, ".aspect_rules_py_compilers", "ar")
+    return _write_generated_file(
+        wrapper,
+        _AR_LIBTOOL_WRAPPER.format(libtool=libtool_path),
+        executable=True,
+    )
+
+
 def _override_tool(env: dict[str, str], key: str, wrapper: str) -> None:
     current = env.get(key)
     if not current:
@@ -140,7 +189,7 @@ def _override_tool(env: dict[str, str], key: str, wrapper: str) -> None:
 
 def _absolutize_tool_paths(env: dict[str, str]) -> None:
     """Resolve toolchain paths before the backend changes cwd."""
-    for key in ("JAVA_HOME", "JAVA", "CARGO", "RUSTC", "RULES_PY_RUST_HOST_SYSROOT"):
+    for key in ("JAVA_HOME", "JAVA", "CARGO", "RUSTC", "RULES_PY_RUST_HOST_SYSROOT", "ANT_HOME", "RULES_PY_ANT_BIN_DIR"):
         value = env.get(key)
         if value:
             env[key] = _absolutize_path(value)
@@ -677,6 +726,20 @@ def _compiler_env(
     mpicc_path = shutil.which("mpicc", path=env["PATH"])
     if mpicc_path:
         env.setdefault("MPICC", _make_compiler_wrapper(tmpdir, "mpicc", mpicc_path, sysroot))
+    # $AR consumers (meson, distutils, CMake) all invoke it with ar-style
+    # args, but the llvm toolchain's cpp_link_static_library tool on a darwin
+    # exec host is llvm-libtool-darwin, which only accepts libtool-style
+    # `-static -o`. Prefer the sibling llvm-ar (symbol-table'd archives
+    # satisfy ld64 and ELF linkers alike), but the sandbox only mounts the
+    # toolchain's declared tool files — llvm-ar is usually not among them —
+    # so fall back to a wrapper that translates ar-style argv to libtool's.
+    ar_path = env.get("AR", "")
+    if path.basename(ar_path) == "llvm-libtool-darwin":
+        llvm_ar = path.join(path.dirname(ar_path), "llvm-ar")
+        if path.exists(llvm_ar):
+            env["AR"] = llvm_ar
+        else:
+            env["AR"] = _make_ar_libtool_wrapper(tmpdir, ar_path)
     env.setdefault("AR", "ar")
 
     for key, wrapper in [
@@ -699,6 +762,11 @@ def _compiler_env(
         cargo_home = path.join(tmpdir, ".cargo_home")
         makedirs(cargo_home, exist_ok=True)
         env.setdefault("CARGO_HOME", cargo_home)
+
+    # CMake's find_program(ANT_EXECUTABLE) (jpype1 et al.) needs ant on PATH.
+    ant_bin_dir = env.pop("RULES_PY_ANT_BIN_DIR", None)
+    if ant_bin_dir:
+        env["PATH"] = pathsep.join([ant_bin_dir, env.get("PATH", defpath)])
 
     return env
 

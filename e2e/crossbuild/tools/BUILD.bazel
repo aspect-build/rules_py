@@ -1,6 +1,7 @@
 # Shared helpers consumed by //... via load("//tools:...").
 
 load("@aspect_rules_py//py:defs.bzl", "py_binary")
+load(":ant_layer.bzl", "ant_home")
 load(":rust_layer.bzl", "rust_host_sysroot")
 
 # Consumed cross-package by the `collect_wheels` macro (//tools:collect_wheels.bzl),
@@ -23,5 +24,15 @@ py_binary(
 rust_host_sysroot(
     name = "rust_host_sysroot",
     actual = "@rules_rust//rust/toolchain:current_rust_toolchain",
+    visibility = ["//visibility:public"],
+)
+
+# Ant is architecture-independent (bytecode + launcher scripts), so unlike
+# the Rust sysroot there's no exec/target split — one $(ANT_HOME) covers
+# both. Used by //pycross-jdk (jpype1's build shells out to Ant).
+ant_home(
+    name = "ant_home",
+    all_files = "@apache_ant//:all_files",
+    ant_bin = "@apache_ant//:bin/ant",
     visibility = ["//visibility:public"],
 )

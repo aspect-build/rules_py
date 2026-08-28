@@ -111,11 +111,96 @@ class LocalCxxCompanionTest(unittest.TestCase):
             self.assertEqual(build_helper._local_cxx_companion(tool, tool), tool)
 
 
+class ArLibtoolWrapperTest(unittest.TestCase):
+    """The llvm toolchain's static-library tool on a darwin exec host is
+    llvm-libtool-darwin, which only speaks libtool-style argv; the wrapper
+    must translate ar-style calls."""
+
+    def _wrapper(self, tmp: str) -> str:
+        # A fake libtool that echoes its argv and honors -o by creating the
+        # output file, so append translations can be observed end to end.
+        echo = path.join(tmp, "echo_libtool")
+        with open(echo, "w") as f:
+            f.write(
+                '#!/bin/sh\n'
+                'out=""\n'
+                'prev=""\n'
+                'for a in "$@"; do\n'
+                '  if [ "$prev" = "-o" ]; then out="$a"; fi\n'
+                '  prev="$a"\n'
+                'done\n'
+                'printf \'%s\\n\' "$@"\n'
+                '[ -n "$out" ] && : > "$out"\n'
+                'exit 0\n'
+            )
+        os.chmod(echo, 0o755)
+        return build_helper._make_ar_libtool_wrapper(tmp, echo)
+
+    def test_ar_style_translated(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            wrapper = self._wrapper(tmp)
+            # distutils "rcs", meson "csr", CMake "qc" all collapse to the
+            # same full-archive rewrite.
+            for ops in ("rcs", "csr", "qc"):
+                # Distinct archive per iteration: an existing archive (the
+                # fake libtool creates it via -o) triggers the append path.
+                archive = path.join(tmp, "out_{}.a".format(ops))
+                argv = _run_wrapper(wrapper, [ops, archive, "a.o", "b.o"])
+                self.assertEqual(["-static", "-o", archive, "a.o", "b.o"], argv)
+
+    def test_leading_dash_ops_translated(self) -> None:
+        # ar's grammar makes the dash optional ([-]{dmpqrstx}); "-rcs" must
+        # not be mistaken for a libtool flag.
+        with tempfile.TemporaryDirectory() as tmp:
+            wrapper = self._wrapper(tmp)
+            argv = _run_wrapper(wrapper, ["-rcs", path.join(tmp, "out.a"), "a.o"])
+            self.assertEqual(["-static", "-o", path.join(tmp, "out.a"), "a.o"], argv)
+
+    def test_probes_pass_through(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            wrapper = self._wrapper(tmp)
+            self.assertEqual(["--version"], _run_wrapper(wrapper, ["--version"]))
+            self.assertEqual(["-V"], _run_wrapper(wrapper, ["-V"]))
+
+    def test_append_preserves_existing_members(self) -> None:
+        # CMake's ARCHIVE_APPEND is `ar q out.a batch2.o`: only the new
+        # batch. libtool can only rewrite whole archives, so the existing
+        # archive must be fed back as an input or its members are lost.
+        with tempfile.TemporaryDirectory() as tmp:
+            wrapper = self._wrapper(tmp)
+            archive = path.join(tmp, "out.a")
+            with open(archive, "w") as f:
+                f.write("batch1")
+            argv = _run_wrapper(wrapper, ["q", archive, "b.o"])
+            self.assertIn(archive, argv[3:], argv)
+            self.assertEqual(["-static", "-o", archive + ".libtool.tmp", archive, "b.o"], argv)
+            # The temp output replaced the archive in place.
+            self.assertTrue(path.exists(archive))
+            self.assertFalse(path.exists(archive + ".libtool.tmp"))
+
+    def test_index_only_rewrites_from_itself(self) -> None:
+        # "ar s out.a" (ranlib-mode, no members): rewriting the archive from
+        # itself refreshes the index without dropping members.
+        with tempfile.TemporaryDirectory() as tmp:
+            wrapper = self._wrapper(tmp)
+            archive = path.join(tmp, "out.a")
+            with open(archive, "w") as f:
+                f.write("members")
+            argv = _run_wrapper(wrapper, ["s", archive])
+            self.assertEqual(["-static", "-o", archive + ".libtool.tmp", archive], argv)
+
+
 class AbsolutizeToolPathsTest(unittest.TestCase):
     def test_rust_keys_absolutized(self) -> None:
         env = {"CARGO": "bazel-out/bin/rust/bin/cargo", "RUSTC": "bazel-out/bin/rust/bin/rustc", "RULES_PY_RUST_HOST_SYSROOT": "bazel-out/bin/rust"}
         build_helper._absolutize_tool_paths(env)
         for key in ("CARGO", "RUSTC", "RULES_PY_RUST_HOST_SYSROOT"):
+            self.assertTrue(path.isabs(env[key]), key)
+
+    def test_ant_keys_absolutized(self) -> None:
+        env = {"ANT_HOME": "bazel-out/bin/ant", "RULES_PY_ANT_BIN_DIR": "bazel-out/bin/ant/bin"}
+        build_helper._absolutize_tool_paths(env)
+        for key in ("ANT_HOME", "RULES_PY_ANT_BIN_DIR"):
             self.assertTrue(path.isabs(env[key]), key)
 
 
