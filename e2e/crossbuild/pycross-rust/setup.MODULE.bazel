@@ -1,0 +1,44 @@
+"""maturin (Cargo/PyO3) cross-compilation case.
+
+pydantic-core 2.47.0 is forced to build from its sdist (`[tool.uv]
+no-binary-package`): a Rust extension whose maturin backend needs the
+cargo cross env `build_helper` sets up — CARGO_BUILD_TARGET (triple keyed
+by the target's libc), CARGO_TARGET_<TRIPLE>_LINKER, PYO3_CROSS_PYTHON_VERSION,
+and a rustc wrapper whose sysroot merges the target toolchain's std with
+the exec platform's std (build scripts/proc-macros are always exec
+artifacts).
+
+The override forwards the resolved rust toolchain (CARGO/RUSTC make
+variables) and the exec platform's sysroot (//tools:rust_host_sysroot) —
+both must stay in lockstep with the helper's expectations.
+"""
+
+uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv.declare_hub(hub_name = "pypi_pycross_rust")
+uv.project(
+    default_build_dependencies = [
+        "build",
+        "maturin",
+    ],
+    hub_name = "pypi_pycross_rust",
+    lock = "//pycross-rust:uv.lock",
+    pyproject = "//pycross-rust:pyproject.toml",
+)
+uv.override_package(
+    name = "pydantic-core",
+    env = {
+        "CARGO": "$(CARGO)",
+        "RULES_PY_RUST_HOST_SYSROOT": "$(RUST_HOST_SYSROOT)",
+        "RUSTC": "$(RUSTC)",
+    },
+    lock = "//pycross-rust:uv.lock",
+    toolchains = [
+        "@rules_rust//rust/toolchain:current_rust_toolchain",
+        "//tools:rust_host_sysroot",
+    ],
+)
+use_repo(
+    uv,
+    "pypi_pycross_rust",
+    "sdist_build__pycross_rust__pydantic_core__2_47_0",
+)
