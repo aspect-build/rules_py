@@ -175,6 +175,26 @@ for source in options.sources:
         pex_builder.set_executable(src)
         executable_was_set = True
 
+    # A source can be a declared symlink (Bazel materializes it unresolved).
+    # Zipapps carry no symlinks: a directory symlink is dereferenced by
+    # storing every file under the symlink's own destination path; a dangling
+    # one is a build error rather than an obscure copy failure.
+    if os.path.islink(src) and not os.path.exists(src):
+        print(
+            "Runfiles symlink %s -> %s does not resolve within the build sandbox; "
+            "cannot package it into the PEX." % (src, os.readlink(src)),
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    if os.path.isdir(src):
+        for walk_root, _, files in os.walk(src, followlinks=True):
+            for file in files:
+                file_src = os.path.join(walk_root, file)
+                file_dest = os.path.join(dest, os.path.relpath(file_src, src))
+                pex_builder.add_source(file_src, file_dest)
+        continue
+
     pex_builder.add_source(
         src,
         dest

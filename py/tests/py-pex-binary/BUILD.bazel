@@ -2,6 +2,7 @@ load("@bazel_lib//lib:testing.bzl", "assert_contains")
 load("@bazel_lib//lib:transitions.bzl", "platform_transition_binary")
 load("@bazel_skylib//rules:build_test.bzl", "build_test")
 load("//py:defs.bzl", "py_binary", "py_pex_binary", "py_test")
+load(":dir_symlink.bzl", "dir_and_symlink")
 
 package(default_testonly = True)
 
@@ -45,6 +46,47 @@ assert_contains(
 py_binary(
     name = "noop_bin",
     srcs = ["noop.py"],
+)
+
+# A directory symlink in runfiles (outside any venv or wheel tree) must be
+# dereferenced into the PEX: zipapps carry no symlinks, so the packer walks
+# the resolved directory and stores its files under the symlink's path.
+dir_and_symlink(name = "links")
+
+py_binary(
+    name = "read_through_dir_symlink_bin",
+    srcs = ["read_through_dir_symlink.py"],
+    data = [":links"],
+    deps = ["@pypi//bazel_runfiles"],
+)
+
+# Same read through the venv launcher (no pex): runfiles materialization of
+# the directory symlink itself.
+py_test(
+    name = "read_through_dir_symlink_test",
+    srcs = ["read_through_dir_symlink.py"],
+    data = [":links"],
+    main = "read_through_dir_symlink.py",
+    deps = ["@pypi//bazel_runfiles"],
+)
+
+py_pex_binary(
+    name = "read_through_dir_symlink_pex",
+    binary = ":read_through_dir_symlink_bin",
+    python_interpreter_constraints = [],
+)
+
+genrule(
+    name = "run_read_through_dir_symlink_pex",
+    outs = ["read_through_dir_symlink_pex.out"],
+    cmd = "PEX_ROOT=.pex $(execpath read_through_dir_symlink_pex) >$@",
+    tools = ["read_through_dir_symlink_pex"],
+)
+
+assert_contains(
+    name = "test__read_through_dir_symlink_pex",
+    actual = "read_through_dir_symlink_pex.out",
+    expected = "dir-symlink-payload,nested-payload",
 )
 
 py_pex_binary(
