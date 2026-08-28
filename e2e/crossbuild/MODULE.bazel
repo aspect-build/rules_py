@@ -66,6 +66,7 @@ use_repo(uv_bin, "uv")
 
 include("//pycross-distutils-probe:setup.MODULE.bazel")
 include("//pycross-cmake:setup.MODULE.bazel")
+include("//pycross-jdk:setup.MODULE.bazel")
 include("//pycross-meson:setup.MODULE.bazel")
 include("//pycross-patches:setup.MODULE.bazel")
 include("//pycross-pure-python:setup.MODULE.bazel")
