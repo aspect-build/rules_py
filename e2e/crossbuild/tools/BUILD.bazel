@@ -1,14 +1,29 @@
 # Shared helpers consumed by //... via load("//tools:...").
 
-load("@aspect_rules_py//py:defs.bzl", "py_binary")
+load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_library", "py_test")
 load(":ant_layer.bzl", "ant_home")
 load(":rust_layer.bzl", "rust_host_sysroot")
 
 # Consumed cross-package by the `collect_wheels` macro (//tools:collect_wheels.bzl),
 # which declares a py_test with this script as `main` in the caller's package.
 exports_files([
+    "check_so_arch.py",
     "check_wheel_tags.py",
 ])
+
+py_test(
+    name = "check_so_arch_test",
+    srcs = ["check_so_arch_test.py"],
+    imports = [".."],
+    main = "check_so_arch_test.py",
+    deps = ["//tools:check_so_arch_lib"],
+)
+
+py_library(
+    name = "check_so_arch_lib",
+    srcs = ["check_so_arch.py"],
+    visibility = ["//visibility:private"],
+)
 
 py_binary(
     name = "collect_wheels_tool",

@@ -6,6 +6,9 @@ gathers the results into one directory. rules_pycross stops at "it builds";
 this version adds a runtime assertion over each wheel's WHEEL `Tag:` metadata
 so a wheel tagged for the wrong platform fails the test instead of passing
 silently.
+It also asserts, for each wheel, that every bundled native .so is an ELF whose
+e_machine matches the architecture its `Tag:` claims (see
+tools/check_so_arch.py); pure wheels are skipped.
 """
 
 load("@aspect_rules_py//py:defs.bzl", "py_test")
@@ -65,5 +68,13 @@ def collect_wheels(name, wheels, platforms, expected_tags):
         srcs = ["//tools:check_wheel_tags.py"],
         main = "//tools:check_wheel_tags.py",
         args = ["$(rootpath :{})".format(name)] + expected_tags,
+        data = [name],
+    )
+
+    py_test(
+        name = name + "_elf_test",
+        srcs = ["//tools:check_so_arch.py"],
+        main = "//tools:check_so_arch.py",
+        args = ["$(rootpath :{})".format(name)],
         data = [name],
     )
