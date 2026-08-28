@@ -34,11 +34,11 @@ def _pep517_whl(ctx):
         progress_message = "Source compiling {} to a whl".format(archive.basename),
         executable = ctx.executable.tool,
         toolchain = None,
-        arguments = ctx.attr.args + patch_args + memory_args(ctx) + [
+        arguments = ctx.attr.args + [patch_args] + memory_args(ctx) + [
             archive.path,
             wheel_file.path,
         ],
-        inputs = [archive] + patch_inputs,
+        inputs = depset([archive], transitive = [patch_inputs]),
         tools = [ctx.attr.tool[DefaultInfo].files_to_run],
         outputs = [wheel_file],
         env = common_env(ctx),

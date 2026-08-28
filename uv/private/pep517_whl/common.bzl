@@ -38,15 +38,15 @@ def common_env(ctx):
     } | default_shell_env
 
 def patch_args_and_inputs(ctx):
-    patch_args = []
+    patch_args = ctx.actions.args()
     patch_inputs = []
     if ctx.attr.pre_build_patches:
-        patch_args.extend(["--patch-strip", str(ctx.attr.pre_build_patch_strip)])
+        patch_args.add("--patch-strip", str(ctx.attr.pre_build_patch_strip))
         for target in ctx.attr.pre_build_patches:
-            for f in target[DefaultInfo].files.to_list():
-                patch_args.extend(["--patch", f.path])
-                patch_inputs.append(f)
-    return patch_args, patch_inputs
+            files = target[DefaultInfo].files
+            patch_args.add_all(files, before_each = "--patch")
+            patch_inputs.append(files)
+    return patch_args, depset(transitive = patch_inputs)
 
 def memory_args(ctx):
     return ["--monitor-memory"] if ctx.attr.monitor_memory else []
