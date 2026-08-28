@@ -1,0 +1,38 @@
+"""tiktoken: setuptools-rust sdist build.
+
+Ported from the spike workspace's //tiktoken case. The Cargo cross env/toolchain
+wiring stays identical to the other rust suites — see //tools:rust_host_sysroot
+for why CARGO/RUSTC alone are not enough.
+"""
+
+uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv.declare_hub(hub_name = "pypi_pycross_tiktoken")
+uv.project(
+    default_build_dependencies = [
+        "build",
+        "setuptools",
+        "setuptools-rust",
+        "wheel",
+    ],
+    hub_name = "pypi_pycross_tiktoken",
+    lock = "//pycross-tiktoken:uv.lock",
+    pyproject = "//pycross-tiktoken:pyproject.toml",
+)
+uv.override_package(
+    name = "tiktoken",
+    env = {
+        "CARGO": "$(CARGO)",
+        "RUSTC": "$(RUSTC)",
+        "RULES_PY_RUST_HOST_SYSROOT": "$(RUST_HOST_SYSROOT)",
+    },
+    lock = "//pycross-tiktoken:uv.lock",
+    toolchains = [
+        "@rules_rust//rust/toolchain:current_rust_toolchain",
+        "//tools:rust_host_sysroot",
+    ],
+)
+use_repo(
+    uv,
+    "pypi_pycross_tiktoken",
+    "sdist_build__pycross_tiktoken__tiktoken__0_13_0",
+)

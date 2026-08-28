@@ -1,0 +1,38 @@
+"""rpds-py: maturin/PyO3 sdist build (hub dir underscores what PyPI
+hyphenates, hence override name != hub name).
+
+The Cargo cross env/toolchains wiring mirrors the other Rust/maturin
+suites: CARGO/RUSTC are forwarded from the resolved rust toolchain and
+//tools:rust_host_sysroot supplies the exec-platform std needed by build
+scripts and proc-macros.
+"""
+
+uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv.declare_hub(hub_name = "pypi_pycross_rpds_py")
+uv.project(
+    default_build_dependencies = [
+        "build",
+        "maturin",
+    ],
+    hub_name = "pypi_pycross_rpds_py",
+    lock = "//pycross-rpds_py:uv.lock",
+    pyproject = "//pycross-rpds_py:pyproject.toml",
+)
+uv.override_package(
+    name = "rpds-py",
+    env = {
+        "CARGO": "$(CARGO)",
+        "RULES_PY_RUST_HOST_SYSROOT": "$(RUST_HOST_SYSROOT)",
+        "RUSTC": "$(RUSTC)",
+    },
+    lock = "//pycross-rpds_py:uv.lock",
+    toolchains = [
+        "@rules_rust//rust/toolchain:current_rust_toolchain",
+        "//tools:rust_host_sysroot",
+    ],
+)
+use_repo(
+    uv,
+    "pypi_pycross_rpds_py",
+    "sdist_build__pycross_rpds_py__rpds_py__2026_6_3",
+)
