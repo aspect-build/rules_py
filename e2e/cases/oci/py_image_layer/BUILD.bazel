@@ -7,7 +7,7 @@ load("@rules_oci//oci:defs.bzl", "oci_image", "oci_load")
 load("//tools:asserts.bzl", "assert_tar_listing", "assert_tar_ownership")
 load(":image_layer_analysis_tests.bzl", "image_layer_analysis_test_suite")
 load(":runtime_wrapper.bzl", "runtime_wrapper")
-load(":tree_artifact.bzl", "symlink_target", "symlink_to_target", "tree_artifact")
+load(":tree_artifact.bzl", "dir_and_symlink", "relative_symlink", "symlink_target", "symlink_to_target", "tree_artifact")
 
 platform(
     name = "aarch64_linux",
@@ -69,6 +69,73 @@ py_test(
         "@aspect_rules_py//py/tests/internal-deps/adder",
         "@pypi_oci_py_image_layer//colorama",
     ],
+)
+
+# A directory symlink in runfiles must ship as a relative link that resolves
+# to the tree artifact's files riding in the same image.
+dir_and_symlink(name = "dir_symlink")
+
+py_binary(
+    name = "dir_symlink_bin",
+    srcs = ["server.py"],
+    data = [":dir_symlink"],
+)
+
+py_image_layer(
+    name = "dir_symlink_layers",
+    binary = ":dir_symlink_bin",
+)
+
+py_test(
+    name = "dir_symlink_layers_test",
+    srcs = ["assert_layer_symlink.py"],
+    args = [
+        "--link-tar=_default.tar.gz",
+        "--link-suffix=dir_symlink_link",
+        "--target-tar=_default.tar.gz",
+        "--through-file=payload.txt",
+        "$(rootpaths :dir_symlink_layers)",
+    ],
+    data = [":dir_symlink_layers"],
+    main = "assert_layer_symlink.py",
+)
+
+# A source-layer directory symlink whose target tree ships in a grouped
+# layer must still resolve across layers in the assembled image.
+tree_artifact(name = "cross_layer_tree")
+
+relative_symlink(
+    name = "cross_layer_dir_link",
+    target_path = "cross_layer_tree_tree",
+)
+
+py_binary(
+    name = "cross_layer_dir_symlink_bin",
+    srcs = ["server.py"],
+    data = [
+        ":cross_layer_dir_link",
+        ":cross_layer_tree",
+    ],
+)
+
+py_image_layer(
+    name = "cross_layer_dir_symlink_layers",
+    binary = ":cross_layer_dir_symlink_bin",
+    groups = {":cross_layer_tree": "tree_data"},
+)
+
+py_test(
+    name = "cross_layer_dir_symlink_layers_test",
+    srcs = ["assert_layer_symlink.py"],
+    args = [
+        "--link-tar=_default.tar.gz",
+        "--link-suffix=cross_layer_dir_link",
+        "--target-tar=_tree_data.tar.gz",
+        "--through-file=tree_payload.txt",
+        "$(rootpaths :cross_layer_dir_symlink_layers)",
+    ],
+    data = [":cross_layer_dir_symlink_layers"],
+    main = "assert_layer_symlink.py",
 )
 
 # Verify a grouped symlink can target another grouped layer.
