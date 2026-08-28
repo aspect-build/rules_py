@@ -130,6 +130,7 @@ is_darwin = {is_darwin!r}
 static_libstdcxx_flags = {static_libstdcxx_flags!r}
 exe_link_flags = {exe_link_flags!r}
 static_runtime_archives = {static_runtime_archives!r}
+exe_link_flags = {exe_link_flags!r}
 
 # Not a link if compiling/preprocessing (-c/-E/-S/-fsyntax-only) or if this
 # is a compiler-introspection probe (meson runs "-E -v -", "-print-*",
@@ -184,25 +185,26 @@ if is_darwin and is_link and is_shared:
         filtered.append("-Wl,-undefined,dynamic_lookup")
 elif is_link and exe_link_flags:
     # LLVM-style toolchain (see the "-nostdlib++" detection in
-    # build_helper): clang only reaches its crt objects and glibc/libc++
-    # archives through the link action's -B/-L/--sysroot flags, and not
-    # every caller threads $LDSHARED through (rustc invokes this wrapper as
-    # "-C linker", meson links probes bare) — bake the flags into every
-    # link; duplicates are harmless to clang.
+    # _compiler_env): clang only reaches its crt objects and runtime
+    # libraries through the link action's -B/-L/--sysroot flags, and not
+    # every caller threads $LDSHARED through — rustc invokes this wrapper
+    # as "-C linker" with cargo's own argv, meson links its probes bare.
+    # Bake the flags into every link; duplicates are harmless to clang.
     # rustc hardcodes "-lgcc_s" on *-linux-gnu but this toolchain ships no
-    # libgcc; its unwinder comes from the static runtime archives below
-    # (or, without them, from folding in "-lunwind" — cargo-zigbuild's
-    # trick, same ABI surface).
-    if static_runtime_archives and not is_darwin:
+    # libgcc: the unwinder comes from the static runtime archives (or,
+    # without them, from folding in "-lunwind" — cargo-zigbuild's trick,
+    # same ABI surface).
+    if static_runtime_archives:
         filtered = [a for a in filtered if a != "-lgcc_s"]
     else:
         filtered = ["-lunwind" if a == "-lgcc_s" else a for a in filtered]
     filtered.extend(exe_link_flags)
-    if static_runtime_archives and not is_darwin:
+    if static_runtime_archives and not is_darwin and not is_shared:
         # The toolchain's C++/unwind runtime (libc++.a, libc++abi.a,
         # libunwind.a) travels as toolchain inputs, never as link flags —
         # link the archives explicitly, in dependency order, after every
-        # object. Archive semantics make this safe on pure-C links: unused
+        # object. Shared links already got them above; don't list them
+        # twice. Archive semantics make this safe on pure-C links: unused
         # members are simply not pulled.
         filtered.extend(static_runtime_archives)
     elif is_cxx:
@@ -220,6 +222,7 @@ if is_link and lld_path:
     os.environ["PATH"] = os.path.dirname(lld_path) + os.pathsep + os.environ["PATH"]
     if "-fuse-ld=lld" not in filtered:
         filtered.insert(0, "-fuse-ld=lld")
+
 
 real = {compiler_path!r}
 os.execv(real, [real] + wrapper_flags + filtered)
@@ -784,95 +787,6 @@ os.execv(sys.argv[1], sys.argv[1:])
 # numpy's longdouble probe outputs (numpy/_core/meson.build), keyed by the
 # target ABI: x86 keeps the 80-bit x87 format padded to 16 bytes, aarch64
 # glibc uses IEEE binary128, and Apple aarch64 aliases long double to double.
-_MESON_LONGDOUBLE_FORMAT = {
-    ("darwin", "aarch64"): "IEEE_DOUBLE_LE",
-    ("darwin", "x86_64"): "INTEL_EXTENDED_16_BYTES_LE",
-    ("linux", "aarch64"): "IEEE_QUAD_LE",
-    ("linux", "x86_64"): "INTEL_EXTENDED_16_BYTES_LE",
-}
-
-
-_RUST_TARGET_OS = {"linux": "unknown-linux-gnu", "darwin": "apple-darwin"}
-
-_RUSTC_WRAPPER = """#!/usr/bin/env python3
-import os
-import sys
-
-os.execv({rustc!r}, [{rustc!r}, "--sysroot", {sysroot!r}] + sys.argv[1:])
-"""
-
-
-def _merge_rust_sysroot(tmpdir: str, target_rustc: str, host_sysroot: str) -> str:
-    """Symlink-merge the target toolchain's sysroot with the host's rust-std.
-
-    A cross rust_toolchain's sysroot has no exec-platform rust-std, but
-    cargo needs one to compile build scripts/proc-macros (always host
-    artifacts regardless of --target). rustup holds every target's std side
-    by side in one install; recreate that by merging the two Bazel-fetched
-    single-target sysroots.
-    """
-    target_sysroot = path.dirname(path.dirname(target_rustc))
-    merged = path.join(tmpdir, ".rust_sysroot")
-    if path.exists(merged):
-        return merged
-    makedirs(merged)
-    for entry in os.listdir(target_sysroot):
-        if entry != "lib":
-            os.symlink(path.join(target_sysroot, entry), path.join(merged, entry))
-    merged_lib = path.join(merged, "lib")
-    makedirs(merged_lib)
-    for entry in os.listdir(path.join(target_sysroot, "lib")):
-        if entry != "rustlib":
-            os.symlink(path.join(target_sysroot, "lib", entry), path.join(merged_lib, entry))
-    merged_rustlib = path.join(merged_lib, "rustlib")
-    makedirs(merged_rustlib)
-    host_rustlib = path.join(host_sysroot, "lib", "rustlib")
-    target_rustlib = path.join(target_sysroot, "lib", "rustlib")
-    overridden = set()
-    for entry in os.listdir(host_rustlib):
-        os.symlink(path.join(host_rustlib, entry), path.join(merged_rustlib, entry))
-        overridden.add(entry)
-    for entry in os.listdir(target_rustlib):
-        if entry not in overridden:
-            os.symlink(path.join(target_rustlib, entry), path.join(merged_rustlib, entry))
-    return merged
-
-
-def _configure_cargo_cross_env(build_env: Dict[str, str], tmpdir: str, target_os: str, target_cpu: str) -> None:
-    """Cross env vars for maturin/setuptools-rust (Cargo-driven PyO3 builds).
-
-    Cargo has no cross auto-detection: it needs an explicit target triple,
-    and without CARGO_TARGET_<TRIPLE>_LINKER it links with the host driver
-    and fails.
-    """
-    os_suffix = _RUST_TARGET_OS.get(target_os, target_os)
-    triple = "{}-{}".format(target_cpu, os_suffix)
-    build_env["CARGO_BUILD_TARGET"] = triple
-    linker_var = "CARGO_TARGET_{}_LINKER".format(triple.upper().replace("-", "_"))
-    build_env[linker_var] = build_env["CC"]
-
-    # pyo3-ffi refuses to cross-compile without an explicit target Python
-    # version; maturin works around it itself, setuptools-rust does not.
-    # Unused (harmless) for non-PyO3 crates.
-    build_env["PYO3_CROSS_PYTHON_VERSION"] = "{}.{}".format(sys.version_info.major, sys.version_info.minor)
-
-    host_sysroot = build_env.get("RULES_PY_RUST_HOST_SYSROOT")
-    if host_sysroot:
-        merged_sysroot = _merge_rust_sysroot(tmpdir, build_env["RUSTC"], host_sysroot)
-        build_env["RUSTC"] = _write_generated_file(
-            path.join(tmpdir, ".aspect_rules_py_rustc", "rustc"),
-            _RUSTC_WRAPPER.format(rustc=build_env["RUSTC"], sysroot=merged_sysroot),
-            executable=True,
-        )
-
-    # In cross mode maturin name-parses its -i interpreter argument for a
-    # "pythonX.Y"-shaped basename instead of executing it; our venv's
-    # sys.executable is the generic "python" symlink, which fails that parse
-    # — point it at the versioned sibling the venv also provides.
-    build_env["MATURIN_PEP517_ARGS"] = "--interpreter python{}.{}".format(
-        sys.version_info.major,
-        sys.version_info.minor,
-    )
 
 
 _SITECUSTOMIZE_TEMPLATE = """\
@@ -1109,6 +1023,101 @@ def _generate_cmake_toolchain_file(
     )
 
 
+# Cargo triples are keyed by (os, libc): the rust target triple embeds the
+# C library (aarch64-unknown-linux-gnu vs -musl), so the target platform's
+# platform_libc — not just its OS — decides it. A target without a known
+# triple fails loudly here rather than producing a wheel for the wrong ABI.
+_RUST_TARGET_OS = {
+    ("linux", "glibc"): "unknown-linux-gnu",
+    ("linux", "musl"): "unknown-linux-musl",
+    ("darwin", "libsystem"): "apple-darwin",
+}
+
+_RUSTC_WRAPPER = """#!/usr/bin/env python3
+import os
+import sys
+
+os.execv({rustc!r}, [{rustc!r}, "--sysroot", {sysroot!r}] + sys.argv[1:])
+"""
+
+
+def _merge_rust_sysroot(tmpdir: str, target_rustc: str, host_sysroot: str) -> str:
+    """Symlink-merge the target toolchain's sysroot with the host's rust-std.
+
+    A cross rust_toolchain's sysroot has no exec-platform rust-std, but
+    cargo needs one to compile build scripts/proc-macros (always host
+    artifacts regardless of --target). rustup holds every target's std side
+    by side in one install; recreate that by merging the two Bazel-fetched
+    single-target sysroots. The host's rustlib entries win: exec-platform
+    code must resolve against exec-platform std.
+    """
+    target_sysroot = path.dirname(path.dirname(target_rustc))
+    merged = path.join(tmpdir, ".rust_sysroot")
+    if path.exists(merged):
+        return merged
+    makedirs(merged)
+    for entry in os.listdir(target_sysroot):
+        if entry != "lib":
+            os.symlink(path.join(target_sysroot, entry), path.join(merged, entry))
+    merged_lib = path.join(merged, "lib")
+    makedirs(merged_lib)
+    for entry in os.listdir(path.join(target_sysroot, "lib")):
+        if entry != "rustlib":
+            os.symlink(path.join(target_sysroot, "lib", entry), path.join(merged_lib, entry))
+    merged_rustlib = path.join(merged_lib, "rustlib")
+    makedirs(merged_rustlib)
+    host_rustlib = path.join(host_sysroot, "lib", "rustlib")
+    target_rustlib = path.join(target_sysroot, "lib", "rustlib")
+    overridden = set()
+    for entry in os.listdir(host_rustlib):
+        os.symlink(path.join(host_rustlib, entry), path.join(merged_rustlib, entry))
+        overridden.add(entry)
+    for entry in os.listdir(target_rustlib):
+        if entry not in overridden:
+            os.symlink(path.join(target_rustlib, entry), path.join(merged_rustlib, entry))
+    return merged
+
+
+def _configure_cargo_cross_env(build_env: dict[str, str], tmpdir: str, target_os: str, target_cpu: str, target_libc: str) -> None:
+    """Cross env vars for maturin/setuptools-rust (Cargo-driven PyO3 builds).
+
+    Cargo has no cross auto-detection: it needs an explicit target triple,
+    and without CARGO_TARGET_<TRIPLE>_LINKER it links with the host driver
+    and fails.
+    """
+    os_suffix = _RUST_TARGET_OS.get((target_os, target_libc))
+    if not os_suffix:
+        fail = "no rust target triple known for ({}, {})".format(target_os, target_libc or "<unset>")
+        raise ValueError(fail)
+    triple = "{}-{}".format(target_cpu, os_suffix)
+    build_env["CARGO_BUILD_TARGET"] = triple
+    linker_var = "CARGO_TARGET_{}_LINKER".format(triple.upper().replace("-", "_"))
+    build_env[linker_var] = build_env["CC"]
+
+    # pyo3-ffi refuses to cross-compile without an explicit target Python
+    # version. Unused (harmless) for non-PyO3 crates.
+    build_env["PYO3_CROSS_PYTHON_VERSION"] = "{}.{}".format(sys.version_info.major, sys.version_info.minor)
+
+    host_sysroot = build_env.get("RULES_PY_RUST_HOST_SYSROOT")
+    if host_sysroot:
+        merged_sysroot = _merge_rust_sysroot(tmpdir, build_env["RUSTC"], host_sysroot)
+        build_env["RUSTC"] = _write_generated_file(
+            path.join(tmpdir, ".aspect_rules_py_rustc", "rustc"),
+            _RUSTC_WRAPPER.format(rustc=build_env["RUSTC"], sysroot=merged_sysroot),
+            executable=True,
+        )
+
+    # In cross mode maturin name-parses its -i interpreter argument for a
+    # "pythonX.Y"-shaped basename instead of executing it; our venv's
+    # sys.executable is the generic "python" symlink, which fails that parse
+    # — point it at the versioned sibling the venv also provides.
+    # Package-supplied maturin args (uv.override_package env — e.g. cargo
+    # features) must survive; ours is prepended.
+    interpreter_arg = "--interpreter python{}.{}".format(sys.version_info.major, sys.version_info.minor)
+    existing = build_env.get("MATURIN_PEP517_ARGS", "")
+    build_env["MATURIN_PEP517_ARGS"] = (interpreter_arg + " " + existing).strip()
+
+
 def _build_backend(pyproject_data: dict[str, object] | None) -> str | None:
     """The [build-system].build-backend value, or None when undeclared."""
     build_system = (pyproject_data or {}).get("build-system", {})
@@ -1231,6 +1240,7 @@ PARSER.add_argument("--patch", action="append", default=[], dest="patches", help
 PARSER.add_argument("--execroot-marker", help="Token in env values to replace with the absolute execroot")
 PARSER.add_argument("--cross", action="store_true", help="Cross-compilation mode: target platform != exec platform")
 PARSER.add_argument("--target-os", default="", help="Target platform OS the wheel must be tagged for (linux, darwin, windows)")
+PARSER.add_argument("--target-libc", default="", help="Target platform C library the wheel must link against (glibc, musl, libsystem)")
 PARSER.add_argument("--target-cpu", default="", help="Target platform CPU the wheel must be tagged for (x86_64, aarch64, ...)")
 
 def main() -> None:
@@ -1333,7 +1343,7 @@ def main() -> None:
                 toolchain = _generate_cmake_toolchain_file(tmp_root, build_env, opts.target_os, opts.target_cpu)
                 cmd += ["-C", "cmake.toolchain-file=" + toolchain]
             elif (build_backend == "maturin" or uses_setuptools_rust) and build_env.get("CARGO"):
-                _configure_cargo_cross_env(build_env, tmp_root, opts.target_os, opts.target_cpu)
+                _configure_cargo_cross_env(build_env, tmp_root, opts.target_os, opts.target_cpu, opts.target_libc)
     else:
         # raise, not _die(): ty doesn't narrow NoReturn in module-level flow and
         # would flag `cmd` below as possibly unbound.

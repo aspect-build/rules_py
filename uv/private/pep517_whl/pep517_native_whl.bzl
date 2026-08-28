@@ -1,6 +1,7 @@
 """PEP 517 sdist to platform-specific whl build rule."""
 
 load("@bazel_lib//lib:resource_sets.bzl", "resource_set")
+load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load("@rules_cc//cc:action_names.bzl", "ACTION_NAMES")
 load("@rules_cc//cc/common:cc_common.bzl", "cc_common")
 load("//py/private/interpreter:versions.bzl", "PLATFORMS")
@@ -315,6 +316,8 @@ def _pep517_native_whl(ctx):
             cc_layer.target_os or "",
             "--target-cpu",
             cc_layer.target_cpu or "",
+            "--target-libc",
+            ctx.attr._platform_libc[BuildSettingInfo].value,
         ]
 
         py_toolchain = ctx.toolchains[PY_TOOLCHAIN]
@@ -403,6 +406,10 @@ absence is used as the cross signal.
                   "configured C++ action tools.",
         ),
         "tool": attr.label(executable = True, cfg = exec_transition),
+        "_platform_libc": attr.label(
+            default = "//uv/private/constraints/platform:platform_libc",
+            doc = "Read in cross mode to pick the rust target triple (gnu vs musl).",
+        ),
     } | CC_LAYER_ATTRS,
     fragments = ["cpp"],
     toolchains = [

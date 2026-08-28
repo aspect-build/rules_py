@@ -22,10 +22,10 @@ py_binary(
     visibility = ["//visibility:public"],
 )
 
-# The host-targeting rust_toolchain's sysroot, re-resolved under the exec
-# transition so it stays correct even when the rest of the build is
-# transitioned to another platform — see rust_layer.bzl for why plain
-# current_rust_toolchain alone isn't enough.
+# Re-resolves current_rust_toolchain in the exec configuration: under a
+# cross transition the plain label would return the *target*-targeting
+# toolchain, whose sysroot lacks the exec platform's rust-std that build
+# scripts/proc-macros need (see rust_layer.bzl).
 rust_host_sysroot(
     name = "rust_host_sysroot",
     actual = "@rules_rust//rust/toolchain:current_rust_toolchain",
