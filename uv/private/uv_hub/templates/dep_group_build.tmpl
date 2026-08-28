@@ -1,0 +1,14 @@
+alias(
+    name = "dep_group",
+    actual = "@aspect_rules_py//uv/private/constraints/dep_group:dep_group",
+    visibility = ["//visibility:public"],
+)
+
+
+%CONFIG_SETTINGS%
+
+
+exports_files(
+    ["BUILD.bazel"],
+    visibility = ["//visibility:public"],
+)
