@@ -13,6 +13,19 @@ _RPY_VERSION_BASELINE_FLAG = "@aspect_rules_py//py/private/interpreter:baseline_
 
 _BASELINE_UNSET = "<unset>"
 
+# Every terminal-attr-driven flag with its baseline shadow. The attr value
+# overrides the flag for the target's subtree; the baseline records the
+# inherited value so `reset_python_flags_transition` can restore it on
+# runtime-data edges. Adding a flag here sizes both transitions' inputs
+# and outputs; `_python_transition_impl` supplies the override logic.
+_FLAG_BASELINE_PAIRS = [
+    (PYTHON_VERSION_FLAG, _PYTHON_VERSION_BASELINE_FLAG),
+    (_RPY_VERSION_FLAG, _RPY_VERSION_BASELINE_FLAG),
+    (DEP_GROUP_FLAG, _DEP_GROUP_BASELINE_FLAG),
+]
+
+_ALL_FLAGS = [flag for pair in _FLAG_BASELINE_PAIRS for flag in pair]
+
 def _baseline(settings, flag, current):
     baseline = settings[flag]
     if baseline == _BASELINE_UNSET:
@@ -62,22 +75,8 @@ def _python_transition_impl(settings, attr):
 
 python_transition = transition(
     implementation = _python_transition_impl,
-    inputs = [
-        PYTHON_VERSION_FLAG,
-        _RPY_VERSION_FLAG,
-        _PYTHON_VERSION_BASELINE_FLAG,
-        _RPY_VERSION_BASELINE_FLAG,
-        DEP_GROUP_FLAG,
-        _DEP_GROUP_BASELINE_FLAG,
-    ],
-    outputs = [
-        PYTHON_VERSION_FLAG,
-        _RPY_VERSION_FLAG,
-        _PYTHON_VERSION_BASELINE_FLAG,
-        _RPY_VERSION_BASELINE_FLAG,
-        DEP_GROUP_FLAG,
-        _DEP_GROUP_BASELINE_FLAG,
-    ],
+    inputs = _ALL_FLAGS,
+    outputs = _ALL_FLAGS,
 )
 
 # Runtime data is outside the Python environment selected by terminal attrs.
@@ -85,43 +84,14 @@ python_transition = transition(
 # clear the scratch state so data targets share the caller's canonical
 # configuration.
 def _reset_python_flags_transition_impl(settings, _attr):
-    return {
-        PYTHON_VERSION_FLAG: _baseline(
-            settings,
-            _PYTHON_VERSION_BASELINE_FLAG,
-            settings[PYTHON_VERSION_FLAG],
-        ),
-        _RPY_VERSION_FLAG: _baseline(
-            settings,
-            _RPY_VERSION_BASELINE_FLAG,
-            settings[_RPY_VERSION_FLAG],
-        ),
-        _PYTHON_VERSION_BASELINE_FLAG: _BASELINE_UNSET,
-        _RPY_VERSION_BASELINE_FLAG: _BASELINE_UNSET,
-        DEP_GROUP_FLAG: _baseline(
-            settings,
-            _DEP_GROUP_BASELINE_FLAG,
-            settings[DEP_GROUP_FLAG],
-        ),
-        _DEP_GROUP_BASELINE_FLAG: _BASELINE_UNSET,
-    }
+    acc = {}
+    for flag, baseline_flag in _FLAG_BASELINE_PAIRS:
+        acc[flag] = _baseline(settings, baseline_flag, settings[flag])
+        acc[baseline_flag] = _BASELINE_UNSET
+    return acc
 
 reset_python_flags_transition = transition(
     implementation = _reset_python_flags_transition_impl,
-    inputs = [
-        PYTHON_VERSION_FLAG,
-        _RPY_VERSION_FLAG,
-        _PYTHON_VERSION_BASELINE_FLAG,
-        _RPY_VERSION_BASELINE_FLAG,
-        DEP_GROUP_FLAG,
-        _DEP_GROUP_BASELINE_FLAG,
-    ],
-    outputs = [
-        PYTHON_VERSION_FLAG,
-        _RPY_VERSION_FLAG,
-        _PYTHON_VERSION_BASELINE_FLAG,
-        _RPY_VERSION_BASELINE_FLAG,
-        DEP_GROUP_FLAG,
-        _DEP_GROUP_BASELINE_FLAG,
-    ],
+    inputs = _ALL_FLAGS,
+    outputs = _ALL_FLAGS,
 )
