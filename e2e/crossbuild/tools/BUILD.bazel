@@ -1,6 +1,6 @@
 # Shared helpers consumed via load("//tools:...").
 
-load("@aspect_rules_py//py:defs.bzl", "py_binary")
+load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_library", "py_test")
 load("@bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
 load("@rules_shell//shell:sh_test.bzl", "sh_test")
 load(":ant_layer.bzl", "ant_home")
@@ -9,11 +9,26 @@ load(":toolchain_test.bzl", "exec_python_path")
 
 exports_files([
     "assert_absent.py",
+    "check_so_arch.py",
     "check_so_arch.sh",
     "check_so_suffix.sh",
     "check_wheel_native.py",
     "check_wheel_tags.py",
 ])
+
+py_test(
+    name = "check_so_arch_test",
+    srcs = ["check_so_arch_test.py"],
+    imports = [".."],
+    main = "check_so_arch_test.py",
+    deps = ["//tools:check_so_arch_lib"],
+)
+
+py_library(
+    name = "check_so_arch_lib",
+    srcs = ["check_so_arch.py"],
+    visibility = ["//visibility:private"],
+)
 
 py_binary(
     name = "collect_wheels_tool",
