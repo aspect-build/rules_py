@@ -98,6 +98,7 @@ def shared_install_key(install_cfg):
         # ordering is significant and the pairs stay as an ordered list.
         install_cfg.whls.items(),
         install_cfg.exclude_glob,
+        install_cfg.testonly,
     ])
 
 def dedupe_shared_installs(install_cfgs):
@@ -246,6 +247,7 @@ def _parse_projects(module_ctx, hub_specs):
 
             has_target = override.target != None
             has_modifications = (
+                override.testonly or
                 override.console_scripts != _CONSOLE_SCRIPTS_UNSET or
                 override.pre_build_patches or
                 override.post_install_patches or
@@ -260,7 +262,7 @@ def _parse_projects(module_ctx, hub_specs):
             if has_target and has_modifications:
                 fail("uv.override_package() for '{}': `target` is mutually exclusive with modification attributes. Use `target` for full replacement OR build, patch, and data attributes for modifications, not both.".format(override.name))
             if not has_target and not has_modifications:
-                fail("uv.override_package() for '{}': must specify either `target` for full replacement or at least one modification attribute (console_scripts, pre_build_patches, post_install_patches, exclude_glob, extra_deps, extra_data, toolchains, env, monitor_memory, resource_set).".format(override.name))
+                fail("uv.override_package() for '{}': must specify either `target` for full replacement or at least one modification attribute (testonly, console_scripts, pre_build_patches, post_install_patches, exclude_glob, extra_deps, extra_data, toolchains, env, monitor_memory, resource_set).".format(override.name))
 
         unscoped_matches = {i: 0 for i, override in enumerate(mod.tags.override_package) if override.lock == None}
 
@@ -322,6 +324,7 @@ def _parse_projects(module_ctx, hub_specs):
 
             package_overrides = {}
             package_console_scripts = {}
+            testonly_packages = {}
             for i, override in enumerate(mod.tags.override_package):
                 if override.lock != None and override.lock != project.lock:
                     continue
@@ -373,6 +376,8 @@ def _parse_projects(module_ctx, hub_specs):
                 has_target = override.target != None
                 package_overrides[override_key] = override
                 package_console_scripts[override_key] = console_scripts
+                if override.testonly:
+                    testonly_packages[name] = True
 
                 k = (project_id, normalize_name(override.name), v, "__base__")
                 if has_target:
@@ -444,6 +449,23 @@ def _parse_projects(module_ctx, hub_specs):
                 for dep in deps:
                     if dep[1] not in marked_package_cfg_sccs:
                         fail("SCC {} depends on package {} without a surface alias".format(scc_id, dep[1]))
+
+            if testonly_packages:
+                for _ in range(len(scc_graph)):
+                    changed = False
+                    for scc_id, members in scc_graph.items():
+                        member_names = [member[1] for member in members]
+                        if not (
+                            any([name in testonly_packages for name in member_names]) or
+                            any([dep[1] in testonly_packages for dep in scc_deps.get(scc_id, {})])
+                        ):
+                            continue
+                        for name in member_names:
+                            if name not in testonly_packages:
+                                testonly_packages[name] = True
+                                changed = True
+                    if not changed:
+                        break
 
             # Pre-build the per-project available_deps mapping from the
             # lockfile. This gives each sdist configure tool visibility
@@ -619,6 +641,7 @@ def _parse_projects(module_ctx, hub_specs):
                     exclude_glob = exclude_glob,
                     extra_deps = extra_deps,
                     extra_data = extra_data,
+                    testonly = pkg_override.testonly if pkg_override else False,
                 )
 
             # These structures are re-keyed into JSON-serializable shapes for the
@@ -629,6 +652,7 @@ def _parse_projects(module_ctx, hub_specs):
             project_cfgs[project_id] = struct(
                 available_deps = project_available_deps if project_has_sbuilds else None,
                 dep_to_scc = marked_package_cfg_sccs,
+                testonly_packages = testonly_packages,
                 scc_deps = {
                     k: _merge_scc_dep_markers_by_surface_package(deps)
                     for k, deps in scc_deps.items()
@@ -647,7 +671,9 @@ def _parse_projects(module_ctx, hub_specs):
             hub_cfg = hub_cfgs.setdefault(project.hub_name, struct(
                 configurations = {},
                 packages = {},
+                testonly_packages = {},
             ))
+            hub_cfg.testonly_packages.update(testonly_packages)
 
             for cfg in configuration_names.keys():
                 if cfg in hub_cfg.configurations:
@@ -687,6 +713,7 @@ def _parse_projects(module_ctx, hub_specs):
                 } if pc.available_deps != None else None,
                 dep_to_scc = pc.dep_to_scc,
                 scc_deps = pc.scc_deps,
+                testonly_packages = pc.testonly_packages,
                 scc_graph = {
                     scc_id: {
                         target_remap.get(target, target): markers
@@ -832,6 +859,8 @@ def _uv_impl(module_ctx):
             install_kwargs["extra_deps"] = json.encode(install_cfg.extra_deps)
         if install_cfg.extra_data:
             install_kwargs["extra_data"] = json.encode(install_cfg.extra_data)
+        if install_cfg.testonly:
+            install_kwargs["package_testonly"] = True
         whl_install(**install_kwargs)
 
     for project_id, project_cfg in cfg.project_cfgs.items():
@@ -841,6 +870,7 @@ def _uv_impl(module_ctx):
             dep_to_scc = json.encode(project_cfg.dep_to_scc),
             scc_deps = json.encode(project_cfg.scc_deps),
             scc_graph = json.encode(project_cfg.scc_graph),
+            testonly_packages = json.encode(project_cfg.testonly_packages),
         )
 
     for hub_id, hub_cfg in cfg.hub_cfgs.items():
@@ -848,6 +878,7 @@ def _uv_impl(module_ctx):
             name = hub_id,
             configurations = hub_cfg.configurations,
             packages = json.encode(hub_cfg.packages),
+            testonly_packages = json.encode(hub_cfg.testonly_packages),
         )
 
     return module_ctx.extension_metadata(reproducible = True)
@@ -915,6 +946,10 @@ _override_package_tag = tag_class(
             doc = "The `uv.lock` this override applies to. Omit it to apply modifications across every `uv.project()` declared by the same module.",
         ),
         "name": attr.string(mandatory = True),
+        "testonly": attr.bool(
+            default = False,
+            doc = "Restrict this package and its generated Bazel targets to test-only consumers.",
+        ),
         "version": attr.string(mandatory = False),
         "target": attr.label(
             mandatory = False,
