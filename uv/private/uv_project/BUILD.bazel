@@ -10,6 +10,7 @@ bzl_library(
     srcs = ["repository.bzl"],
     deps = [
         ":select_gen",
+        "//uv/private/extension:graph_utils",
         "//uv/private/pprint:defs",
     ],
 )

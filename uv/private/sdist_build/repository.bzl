@@ -152,6 +152,8 @@ def _sdist_build_impl(repository_ctx):
     """
 
     available_deps = json.decode(repository_ctx.read(repository_ctx.attr.available_deps_file))
+    without_self = json.decode(repository_ctx.read(repository_ctx.attr.build_deps_without_self_file)) if repository_ctx.attr.build_deps_without_self_file else {}
+    available_deps.update(without_self)
     is_native_override = repository_ctx.attr.is_native
     archive_path = _resolve_archive_path(repository_ctx)
     inspection = _run_configure_tool(repository_ctx, archive_path, available_deps) if archive_path else None
@@ -197,6 +199,17 @@ def _sdist_build_impl(repository_ctx):
 
     # Resolve additional deps discovered by the configure tool
     extra_dep_labels = _resolve_extra_deps(repository_ctx, inspection, available_deps)
+    omitted_from = sorted({
+        normalize_name(name): True
+        for name in inspection.get("extra_deps", [])
+        if normalize_name(name) in without_self
+    }) if inspection else []
+    if omitted_from:
+        # buildifier: disable=print
+        print("WARNING: {} omits the package being built from the transitive runtime dependencies of discovered build requirements: {}. This avoids a potential bootstrap cycle, but the backend may still need the omitted package. Direct and explicit build requirements are unchanged.".format(
+            repository_ctx.name,
+            ", ".join(omitted_from),
+        ))
 
     # TODO: When the configure tool didn't run or failed, we may want to
     # conservatively add setuptools + wheel as fallback build deps. For now
@@ -323,6 +336,10 @@ sdist_build = repository_rule(
             mandatory = True,
             allow_single_file = [".json"],
             doc = "JSON file mapping normalized package names to build-dependency targets.",
+        ),
+        "build_deps_without_self_file": attr.label(
+            allow_single_file = [".json"],
+            doc = "Optional JSON map of discovered build requirements to closures that omit the package being built from their transitive runtime dependencies.",
         ),
         "is_native": attr.string(default = "auto", values = ["auto", "true", "false"]),
         "configure_command": attr.string_list(

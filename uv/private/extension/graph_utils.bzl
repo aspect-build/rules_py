@@ -195,6 +195,55 @@ def collect_build_deps(marker_graph):
 
     return dep_to_entry, entry_graph, entry_deps
 
+def exclude_build_dep(packages, scc_graph, excluded, prefix):
+    """Copy the build closures that need a consumer's transitive self edge removed.
+
+    Args:
+        packages: Build requirement names mapped to their install and SCC labels.
+        scc_graph: SCC IDs mapped to dependency labels and marker sets.
+        excluded: Exact install label of the package being built.
+        prefix: Label prefix for this consumer's copied SCC targets.
+
+    Returns:
+        Changed package roots and copied SCCs. Direct requirements, other installs,
+        and dependencies reached through the excluded package are preserved.
+    """
+    scc_prefix = "//private/build_deps/sccs:"
+    parents = {}
+    for scc_id, members in scc_graph.items():
+        for member in members:
+            parents.setdefault(member, []).append(scc_id)
+
+    affected = {}
+    frontier = parents.get(excluded, [])
+    for _ in range(len(scc_graph)):
+        next_frontier = []
+        for scc_id in frontier:
+            if scc_id not in affected:
+                affected[scc_id] = True
+                next_frontier.extend(parents.get(scc_prefix + scc_id, []))
+        if not next_frontier:
+            break
+        frontier = next_frontier
+
+    remap = {scc_prefix + scc_id: prefix + scc_id for scc_id in affected}
+    changed_packages = {
+        name: [deps[0], remap[deps[1]]]
+        for name, deps in packages.items()
+        if deps[0] != excluded and deps[1] in remap
+    }
+    if not changed_packages:
+        return {}, {}
+
+    return changed_packages, {
+        scc_id: {
+            remap.get(member, member): markers
+            for member, markers in scc_graph[scc_id].items()
+            if member != excluded
+        }
+        for scc_id in affected
+    }
+
 def combine_markers(lefts, rights):
     """
     Combine two sets of markers under _and_.

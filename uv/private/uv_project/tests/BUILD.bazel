@@ -1,5 +1,65 @@
+load("@bazel_lib//:bzl_library.bzl", "bzl_library")
+load("//py:defs.bzl", "py_library", "py_test", "py_unpacked_wheel")
 load(":select_gen_test.bzl", "select_gen_test_suite")
 
 package(default_testonly = True)
 
 select_gen_test_suite()
+
+bzl_library(
+    name = "self_exclusion_fixture",
+    srcs = ["self_exclusion_fixture.bzl"],
+    visibility = ["//uv:__subpackages__"],
+    deps = [
+        "//py/private/interpreter:resolve",
+        "//uv/private/sdist_build:repository",
+        "//uv/private/sdist_configure:defs",
+        "//uv/private/uv_project:repository",
+    ],
+)
+
+exports_files([
+    "self_exclusion_backend/backend.py",
+    "self_exclusion_backend/pyproject.toml",
+])
+
+# The generated project is not testonly, so its synthetic install targets
+# and their build inputs must also be usable from non-testonly targets.
+py_library(
+    name = "self_exclusion_b_install",
+    testonly = False,
+    srcs = ["self_exclusion_b.py"],
+    imports = ["."],
+    visibility = ["//visibility:public"],
+)
+
+py_library(
+    name = "self_exclusion_c_install",
+    testonly = False,
+    srcs = ["self_exclusion_c.py"],
+    imports = ["."],
+    visibility = ["//visibility:public"],
+)
+
+# The real sdist repository discovers B from the archive's pyproject.toml.
+# If B's generated closure retains A, it closes an analysis cycle here.
+py_unpacked_wheel(
+    name = "self_exclusion_a_install",
+    testonly = False,
+    src = "@uv_project_self_exclusion_sdist//:whl",
+    visibility = ["//visibility:public"],
+)
+
+py_test(
+    name = "self_exclusion_shared_graph_test",
+    srcs = ["self_exclusion_test.py"],
+    args = ["shared"],
+    deps = ["@uv_project_self_exclusion_test//private/build_deps:b"],
+)
+
+py_test(
+    name = "self_exclusion_direct_requirement_test",
+    srcs = ["self_exclusion_test.py"],
+    args = ["direct"],
+    deps = ["@uv_project_self_exclusion_test//private/build_deps:a"],
+)

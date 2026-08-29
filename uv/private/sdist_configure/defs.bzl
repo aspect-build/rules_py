@@ -41,6 +41,8 @@ the archive:
     by normalized package name. Any package in the user's lockfile can be
     referenced here. Each label includes that package's transitive runtime
     dependencies, independently of the consuming project's dependency group.
+    The package being built is omitted from those transitive dependencies to
+    avoid self-dependency cycles; direct build requirements are preserved.
 
 ## JSON output schema
 

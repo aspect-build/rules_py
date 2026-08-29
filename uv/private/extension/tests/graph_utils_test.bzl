@@ -1,5 +1,5 @@
 load("@bazel_skylib//lib:unittest.bzl", "asserts", "unittest")
-load("//uv/private/extension:graph_utils.bzl", "activate_extras", "collect_build_deps", "collect_sccs")
+load("//uv/private/extension:graph_utils.bzl", "activate_extras", "collect_build_deps", "collect_sccs", "exclude_build_dep")
 
 def _extras_test_impl(ctx):
     env = unittest.begin(ctx)
@@ -437,6 +437,118 @@ collect_build_deps_conditional_cycle_test = unittest.make(
     _collect_build_deps_conditional_cycle_test_impl,
 )
 
+def _exclude_build_dep_cycle_test_impl(ctx):
+    env = unittest.begin(ctx)
+    a = "@a__1//:install"
+    b = "@b__1//:install"
+    root = "@root__1//:install"
+    unrelated = "@unrelated__1//:install"
+    scc = "//private/build_deps/sccs:"
+    prefix = "//private/build_deps/without/a/sccs:"
+    linux = {"sys_platform == 'linux'": 1}
+    packages = {
+        "a": [a, scc + "cycle__a__b"],
+        "b": [b, scc + "cycle__a__b"],
+        "root": [root, scc + "root"],
+        "unrelated": [unrelated, scc + "unrelated"],
+    }
+
+    # A -> B -> A has been condensed into one entry shared by both roots.
+    graph = {
+        "cycle__a__b": {a: {"": 1}, b: {"": 1}},
+        "root": {root: {"": 1}, scc + "cycle__a__b": linux},
+        "unrelated": {unrelated: {"": 1}},
+    }
+    original_packages = {name: list(deps) for name, deps in packages.items()}
+    original_graph = {
+        entry: {dep: dict(markers) for dep, markers in members.items()}
+        for entry, members in graph.items()
+    }
+
+    changed, cloned = exclude_build_dep(packages, graph, a, prefix)
+    asserts.equals(env, {
+        "b": [b, prefix + "cycle__a__b"],
+        "root": [root, prefix + "root"],
+    }, changed)
+    asserts.equals(env, {
+        "cycle__a__b": {b: {"": 1}},
+        "root": {root: {"": 1}, prefix + "cycle__a__b": linux},
+    }, cloned)
+
+    # An explicit A requirement and other consumers still use the originals.
+    asserts.equals(env, original_packages, packages)
+    asserts.equals(env, original_graph, graph)
+    return unittest.end(env)
+
+exclude_build_dep_cycle_test = unittest.make(
+    _exclude_build_dep_cycle_test_impl,
+)
+
+def _exclude_build_dep_conditional_extra_test_impl(ctx):
+    env = unittest.begin(ctx)
+    a = "@a__1//:install"
+    b = "@b__1//:install"
+    descendant = "@descendant__1//:install"
+    scc = "//private/build_deps/sccs:"
+    prefix = "//private/build_deps/without/a/sccs:"
+    windows = {"sys_platform == 'win32'": 1}
+    python = {"python_version >= '3.12'": 1}
+    combined = {"(sys_platform == 'win32') and (python_version >= '3.12')": 1}
+    graph = {
+        "b": {b: {"": 1}, a: windows, scc + "a_extra": python},
+        # Extra entries can contain the same install as the base entry.
+        "a_extra": {a: {"": 1}, scc + "descendant": combined},
+        "descendant": {descendant: {"": 1}},
+    }
+
+    changed, cloned = exclude_build_dep({"b": [b, scc + "b"]}, graph, a, prefix)
+    asserts.equals(env, {"b": [b, prefix + "b"]}, changed)
+    asserts.equals(env, {
+        "b": {b: {"": 1}, prefix + "a_extra": python},
+        # Removing A must not remove dependencies reached through A's extra.
+        "a_extra": {scc + "descendant": combined},
+    }, cloned)
+    return unittest.end(env)
+
+exclude_build_dep_conditional_extra_test = unittest.make(
+    _exclude_build_dep_conditional_extra_test_impl,
+)
+
+def _exclude_build_dep_install_identity_test_impl(ctx):
+    env = unittest.begin(ctx)
+    a = "@a__1//:install"
+    other_version = "@a__2//:install"
+    override = "//overrides:a"
+    consumer = "@consumer__1//:install"
+    scc = "//private/build_deps/sccs:"
+    prefix = "//private/build_deps/without/a/sccs:"
+    packages = {
+        "a": [a, scc + "a"],
+        "other_version": [other_version, scc + "other_version"],
+        "override": [override, scc + "override"],
+        "consumer": [consumer, scc + "consumer"],
+    }
+    graph = {
+        "a": {a: {"": 1}},
+        "other_version": {other_version: {"": 1}},
+        "override": {override: {"": 1}},
+        "consumer": {consumer: {"": 1}, a: {"": 1}, other_version: {"": 1}, override: {"": 1}},
+    }
+
+    changed, cloned = exclude_build_dep(packages, graph, a, prefix)
+    asserts.equals(env, {"consumer": [consumer, prefix + "consumer"]}, changed)
+    asserts.equals(env, {consumer: {"": 1}, other_version: {"": 1}, override: {"": 1}}, cloned["consumer"])
+
+    # A direct self requirement alone remains a real requirement, and an absent
+    # install does not match a different version or an override with its name.
+    asserts.equals(env, ({}, {}), exclude_build_dep({"a": packages["a"]}, graph, a, prefix))
+    asserts.equals(env, ({}, {}), exclude_build_dep(packages, graph, "@a__3//:install", prefix))
+    return unittest.end(env)
+
+exclude_build_dep_install_identity_test = unittest.make(
+    _exclude_build_dep_install_identity_test_impl,
+)
+
 def graph_utils_test_suite():
     unittest.suite(
         "extras_activation_tests",
@@ -453,4 +565,7 @@ def graph_utils_test_suite():
         collect_sccs_self_loop_graph_test,
         collect_sccs_complex_cycle_test,
         collect_build_deps_conditional_cycle_test,
+        exclude_build_dep_cycle_test,
+        exclude_build_dep_conditional_extra_test,
+        exclude_build_dep_install_identity_test,
     )
