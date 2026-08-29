@@ -6,11 +6,17 @@ package(default_visibility = [
 ])
 
 bzl_library(
+    name = "build_deps",
+    srcs = ["build_deps.bzl"],
+    deps = ["//uv/private/pprint:defs"],
+)
+
+bzl_library(
     name = "repository",
     srcs = ["repository.bzl"],
     deps = [
+        ":build_deps",
         ":select_gen",
-        "//uv/private/extension:graph_utils",
         "//uv/private/pprint:defs",
     ],
 )

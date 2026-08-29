@@ -1,5 +1,5 @@
-load("//uv/private/extension:graph_utils.bzl", "exclude_build_dep")
 load("//uv/private/pprint:defs.bzl", "indent", "pprint")
+load("//uv/private/uv_project:build_deps.bzl", "write_build_deps")
 load("//uv/private/uv_project:select_gen.bzl", "build_package_select_arms")
 
 def _project_impl(repository_ctx):
@@ -195,6 +195,8 @@ exports_files(
     repository_ctx.file("BUILD.bazel", "\n".join(content))
     if repository_ctx.attr.available_deps_json:
         repository_ctx.file("available_deps.json", repository_ctx.attr.available_deps_json)
+    if repository_ctx.attr.build_deps_json:
+        repository_ctx.file("build_deps.json", repository_ctx.attr.build_deps_json)
 
     ################################0################################################
     # Now the slightly harder bit -- lay down the SCCs
@@ -264,68 +266,7 @@ exports_files(
     ################################################################################
     # Build requirements have their own graph, independent of runtime groups.
     if build_deps != None:
-        build_graphs = [("private/build_deps", build_deps["packages"], build_deps["scc_graph"])]
-        available_deps = json.decode(repository_ctx.attr.available_deps_json)
-        for consumer, excluded in build_deps["sdists"].items():
-            build_path = "private/build_deps/without_self/" + consumer
-            packages, graph = exclude_build_dep(
-                build_deps["packages"],
-                build_deps["scc_graph"],
-                excluded,
-                "//" + build_path + "/sccs:",
-            )
-
-            # Only replace affected automatic requirements. The shared graph,
-            # direct self requirements, and explicit build deps stay unchanged.
-            repository_ctx.file("build_deps_without_self/{}.json".format(consumer), json.encode({
-                name: "{}//{}:{}".format(available_deps[name].split("//", 1)[0], build_path, name)
-                for name in packages
-            }))
-            if packages:
-                build_graphs.append((build_path, packages, graph))
-
-        for build_path, packages, graph in build_graphs:
-            content = ["""\
-load("@aspect_rules_py//py:defs.bzl", "py_library")
-"""]
-            for scc_id, members in graph.items():
-                deps = []
-                for member, markers in members.items():
-                    deps.append(_conditionalize(
-                        member,
-                        markers,
-                        lambda: "_maybe__{}__{}".format(scc_id, _safe_name(member)),
-                        no_match = "//private/sccs:empty",
-                    ))
-                content.append("""
-py_library(
-    name = "{name}",
-    deps = {deps},
-    visibility = ["//:__subpackages__"],
-)
-""".format(
-                    name = scc_id,
-                    deps = indent(pprint(deps), " " * 4).lstrip(),
-                ))
-            repository_ctx.file(build_path + "/sccs/BUILD.bazel", "\n".join(content))
-
-            content = ["""\
-load("@aspect_rules_py//py:defs.bzl", "py_library")
-"""]
-            for package, deps in packages.items():
-                # The requested wheel is unconditional even if another member of
-                # its dependency cycle reaches it through a conditional edge.
-                content.append("""
-py_library(
-    name = "{name}",
-    deps = {deps},
-    visibility = ["//visibility:public"],
-)
-""".format(
-                    name = package,
-                    deps = indent(pprint(deps), " " * 4).lstrip(),
-                ))
-            repository_ctx.file(build_path + "/BUILD.bazel", "\n".join(content))
+        write_build_deps(repository_ctx, build_deps["packages"], build_deps["scc_graph"], marker_fn = _marker)
 
     ################################################################################
     # Finally lay down the collected markers

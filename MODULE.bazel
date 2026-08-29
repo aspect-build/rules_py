@@ -161,6 +161,7 @@ self_exclusion_fixture = use_extension(
 )
 use_repo(
     self_exclusion_fixture,
+    "uv_project_self_exclusion_layout",
     "uv_project_self_exclusion_sdist",
     "uv_project_self_exclusion_test",
 )

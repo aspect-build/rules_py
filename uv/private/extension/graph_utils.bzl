@@ -244,6 +244,33 @@ def exclude_build_dep(packages, scc_graph, excluded, prefix):
         for scc_id in affected
     }
 
+def reachable_build_deps(packages, scc_graph):
+    """Select only the SCCs needed by the discovered build requirements.
+
+    Args:
+        packages: Selected requirement names mapped to install and SCC labels.
+        scc_graph: SCC IDs mapped to dependency labels and marker sets.
+
+    Returns:
+        The reachable SCCs, including dependencies reached through omitted installs.
+    """
+    prefix = "//private/build_deps/sccs:"
+    frontier = {deps[1][len(prefix):]: True for deps in packages.values()}
+    reachable = {}
+    for _ in range(len(scc_graph)):
+        next_frontier = {}
+        for scc_id in frontier:
+            if scc_id in reachable:
+                continue
+            reachable[scc_id] = scc_graph[scc_id]
+            for dep in scc_graph[scc_id]:
+                if dep.startswith(prefix):
+                    next_frontier[dep[len(prefix):]] = True
+        if not next_frontier:
+            break
+        frontier = next_frontier
+    return reachable
+
 def combine_markers(lefts, rights):
     """
     Combine two sets of markers under _and_.

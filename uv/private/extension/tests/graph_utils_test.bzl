@@ -1,5 +1,5 @@
 load("@bazel_skylib//lib:unittest.bzl", "asserts", "unittest")
-load("//uv/private/extension:graph_utils.bzl", "activate_extras", "collect_build_deps", "collect_sccs", "exclude_build_dep")
+load("//uv/private/extension:graph_utils.bzl", "activate_extras", "collect_build_deps", "collect_sccs", "exclude_build_dep", "reachable_build_deps")
 
 def _extras_test_impl(ctx):
     env = unittest.begin(ctx)
@@ -549,6 +549,49 @@ exclude_build_dep_install_identity_test = unittest.make(
     _exclude_build_dep_install_identity_test_impl,
 )
 
+def _reachable_build_deps_test_impl(ctx):
+    env = unittest.begin(ctx)
+    a = "@a__1//:install"
+    b = "@b__1//:install"
+    c = "@c__1//:install"
+    unused = "@unused__1//:install"
+    scc = "//private/build_deps/sccs:"
+    python = {"python_version >= '3.12'": 1}
+    packages = {"b": [b, scc + "b"]}
+    graph = {
+        "a": {a: {"": 1}, scc + "c": python},
+        "b": {b: {"": 1}, scc + "a": {"": 1}},
+        "c": {c: {"": 1}},
+        # Another build root can reach A, but B never reaches it or its chain.
+        "unused": {unused: {"": 1}, scc + "unused_child": {"": 1}},
+        "unused_child": {scc + "a": {"": 1}},
+    }
+    expected = {name: graph[name] for name in ["a", "b", "c"]}
+    reachable = reachable_build_deps(packages, graph)
+    asserts.equals(env, expected, reachable)
+    asserts.equals(env, {}, reachable_build_deps({}, graph))
+
+    # Source repositories exclude from the complete graph before selecting
+    # discovered roots. Copies for undiscovered roots must not be emitted.
+    changed, copied = exclude_build_dep({
+        "b": packages["b"],
+        "unused": [unused, scc + "unused"],
+    }, graph, a, scc)
+    excluded_graph = dict(graph)
+    excluded_graph.update(copied)
+    asserts.equals(env, {
+        "a": {scc + "c": python},
+        "b": graph["b"],
+        "c": graph["c"],
+    }, reachable_build_deps({"b": changed["b"]}, excluded_graph))
+    asserts.equals(env, expected, reachable)
+    asserts.equals(env, {a: {"": 1}, scc + "c": python}, graph["a"])
+    return unittest.end(env)
+
+reachable_build_deps_test = unittest.make(
+    _reachable_build_deps_test_impl,
+)
+
 def graph_utils_test_suite():
     unittest.suite(
         "extras_activation_tests",
@@ -568,4 +611,5 @@ def graph_utils_test_suite():
         exclude_build_dep_cycle_test,
         exclude_build_dep_conditional_extra_test,
         exclude_build_dep_install_identity_test,
+        reachable_build_deps_test,
     )

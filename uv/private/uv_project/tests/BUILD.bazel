@@ -41,6 +41,13 @@ py_library(
     visibility = ["//visibility:public"],
 )
 
+py_library(
+    name = "self_exclusion_unused_install",
+    testonly = False,
+    srcs = [],
+    visibility = ["//visibility:public"],
+)
+
 # The real sdist repository discovers B from the archive's pyproject.toml.
 # If B's generated closure retains A, it closes an analysis cycle here.
 py_unpacked_wheel(
@@ -54,6 +61,7 @@ py_test(
     name = "self_exclusion_shared_graph_test",
     srcs = ["self_exclusion_test.py"],
     args = ["shared"],
+    data = ["@uv_project_self_exclusion_layout//:verified.txt"],
     deps = ["@uv_project_self_exclusion_test//private/build_deps:b"],
 )
 

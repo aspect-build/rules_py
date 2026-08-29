@@ -7,6 +7,8 @@ appropriate backend-specific build rule (e.g. pep517_whl, maturin_whl).
 """
 
 load("//uv/private:normalize_name.bzl", "normalize_name")
+load("//uv/private/extension:graph_utils.bzl", "exclude_build_dep", "reachable_build_deps")
+load("//uv/private/uv_project:build_deps.bzl", "write_build_deps")
 load(":attrs.bzl", "validate_build_attrs")
 
 # --- Configure tool invocation ---
@@ -152,7 +154,23 @@ def _sdist_build_impl(repository_ctx):
     """
 
     available_deps = json.decode(repository_ctx.read(repository_ctx.attr.available_deps_file))
-    without_self = json.decode(repository_ctx.read(repository_ctx.attr.build_deps_without_self_file)) if repository_ctx.attr.build_deps_without_self_file else {}
+    build_deps = None
+    packages = {}
+    graph = {}
+    if repository_ctx.attr.build_deps_file:
+        if not repository_ctx.attr.package_install:
+            fail("build_deps_file requires the package_install label of the package being built")
+        build_deps = json.decode(repository_ctx.read(repository_ctx.attr.build_deps_file))
+        packages, graph = exclude_build_dep(
+            build_deps["packages"],
+            build_deps["scc_graph"],
+            repository_ctx.attr.package_install,
+            "//private/build_deps/sccs:",
+        )
+    without_self = {
+        name: "@{}//private/build_deps:{}".format(repository_ctx.original_name, name)
+        for name in packages
+    }
     available_deps.update(without_self)
     is_native_override = repository_ctx.attr.is_native
     archive_path = _resolve_archive_path(repository_ctx)
@@ -205,6 +223,17 @@ def _sdist_build_impl(repository_ctx):
         if normalize_name(name) in without_self
     }) if inspection else []
     if omitted_from:
+        # Only a materialized sdist knows which requirements it needs. Keep
+        # their copied closure local, including otherwise-private SCC targets.
+        selected_packages = {name: packages[name] for name in omitted_from}
+        local_graph = dict(build_deps["scc_graph"])
+        local_graph.update(graph)
+        write_build_deps(
+            repository_ctx,
+            selected_packages,
+            reachable_build_deps(selected_packages, local_graph),
+        )
+
         # buildifier: disable=print
         print("WARNING: {} omits the package being built from the transitive runtime dependencies of discovered build requirements: {}. This avoids a potential bootstrap cycle, but the backend may still need the omitted package. Direct and explicit build requirements are unchanged.".format(
             repository_ctx.name,
@@ -337,9 +366,12 @@ sdist_build = repository_rule(
             allow_single_file = [".json"],
             doc = "JSON file mapping normalized package names to build-dependency targets.",
         ),
-        "build_deps_without_self_file": attr.label(
+        "build_deps_file": attr.label(
             allow_single_file = [".json"],
-            doc = "Optional JSON map of discovered build requirements to closures that omit the package being built from their transitive runtime dependencies.",
+            doc = "Optional shared build graph used to exclude transitive self dependencies after this sdist is requested.",
+        ),
+        "package_install": attr.string(
+            doc = "Exact install label of the package being built; required with build_deps_file.",
         ),
         "is_native": attr.string(default = "auto", values = ["auto", "true", "false"]),
         "configure_command": attr.string_list(

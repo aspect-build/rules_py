@@ -450,7 +450,6 @@ def _parse_projects(module_ctx, hub_specs):
             # into the packages within this project's dependency perimeter.
             project_available_deps = {}
             build_package_keys = {}
-            build_consumers = {}
             project_has_sbuilds = False
             for package in lock_data.get("package", []):
                 if "editable" in package.get("source", {}) or "virtual" in package.get("source", {}):
@@ -514,7 +513,6 @@ def _parse_projects(module_ctx, hub_specs):
                     )
                 if sdist:
                     project_has_sbuilds = True
-                    build_consumers[sbuild_id] = install_target
                     # HACK: Note that we resolve these LAZILY so that
                     # bdist-only or fully overridden configurations don't
                     # have to provide the build tools.
@@ -575,6 +573,7 @@ def _parse_projects(module_ctx, hub_specs):
                         pre_build_patches = pre_build_patches,
                         pre_build_patch_strip = pre_build_patch_strip,
                         project_id = project_id,
+                        package_install = install_target,
                         extra_toolchains = extra_toolchains,
                         extra_env = extra_env,
                         monitor_memory = monitor_memory,
@@ -649,7 +648,6 @@ def _parse_projects(module_ctx, hub_specs):
                 project_build_deps = {
                     "packages": build_packages,
                     "scc_graph": marked_build_scc_graph,
-                    "sdists": build_consumers,
                 }
 
             # These structures are re-keyed into JSON-serializable shapes for the
@@ -724,10 +722,6 @@ def _parse_projects(module_ctx, hub_specs):
                             for target, markers in members.items()
                         }
                         for scc_id, members in pc.build_deps["scc_graph"].items()
-                    },
-                    "sdists": {
-                        sdist: target_remap.get(target, target)
-                        for sdist, target in pc.build_deps["sdists"].items()
                     },
                 } if pc.build_deps != None else None,
                 dep_to_scc = pc.dep_to_scc,
@@ -837,7 +831,8 @@ def _uv_impl(module_ctx):
         sbuild_kwargs = {
             "name": sbuild_id,
             "available_deps_file": "@{}//:available_deps.json".format(sbuild_cfg.project_id),
-            "build_deps_without_self_file": "@{}//:build_deps_without_self/{}.json".format(sbuild_cfg.project_id, sbuild_id),
+            "build_deps_file": "@{}//:build_deps.json".format(sbuild_cfg.project_id),
+            "package_install": sbuild_cfg.package_install,
             "src": sbuild_cfg.src,
             "deps": sbuild_cfg.deps,
             "is_native": sbuild_cfg.is_native,
