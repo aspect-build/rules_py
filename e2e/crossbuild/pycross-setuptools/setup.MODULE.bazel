@@ -23,10 +23,9 @@ Each override exercises a different `uv.override_package` feature:
 - `resource_set` on zstandard declares the vendored-C compile's real memory
   footprint so Bazel does not over-parallelize it.
 
-`default_build_dependencies` names cffi explicitly: zstandard's cffi backend
-imports pycparser through cffi, and only the project repo's py_library carries
-that transitive closure — the configure tool's `[build-system] requires`
-resolution would yield a bare `whl_install` target without it.
+zstandard's `[build-system] requires` supplies cffi through source-build
+discovery. Its transitive pycparser dependency must be available without
+listing cffi in `default_build_dependencies`.
 
 The `collect_wheels` matrix rebuilds all three wheels for both linux CPUs
 against the workspace's llvm toolchain and asserts their WHEEL Tag
@@ -45,7 +44,6 @@ uv.project(
         "build",
         "setuptools",
         "wheel",
-        "cffi",
     ],
     hub_name = "pypi_pycross_setuptools",
     lock = "//pycross-setuptools:uv.lock",

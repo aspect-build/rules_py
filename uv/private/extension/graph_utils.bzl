@@ -109,6 +109,92 @@ def collect_sccs(marker_graph, id_state = None):
 
     return dep_to_scc, new_scc_graph, final_scc_deps
 
+def collect_build_deps(marker_graph):
+    """Collect build dependencies with conditions relative to each cycle entry.
+
+    Args:
+        marker_graph: Dependency tuples mapped to dependencies and marker sets.
+
+    Returns:
+        A node-to-entry map, entry-to-member markers, and entry-to-external
+        dependency markers. Entry targets only depend on other components,
+        keeping the generated Bazel graph acyclic.
+    """
+    dep_to_entry, entry_graph, entry_deps = collect_sccs(marker_graph)
+    used_ids = {scc_id: 1 for scc_id in entry_graph}
+
+    def _add_paths(paths, lefts, rights):
+        # A path is a conjunction of whole marker expressions. Canonicalize
+        # repeated conditions and absorb stronger paths to the same node.
+        for left in lefts:
+            for right in rights:
+                path = tuple(sorted({marker: 1 for marker in left + right}))
+                if any([all([marker in path for marker in existing]) for existing in paths]):
+                    continue
+                for existing in list(paths):
+                    if all([marker in existing for marker in path]):
+                        paths.pop(existing)
+                paths[path] = 1
+
+    def _markers(paths):
+        return {
+            path[0] if len(path) == 1 else " and ".join(["({})".format(marker) for marker in path]): 1
+            for path in paths
+        }
+
+    for scc_id, members in list(entry_graph.items()):
+        if all([
+            "" in markers
+            for member in members
+            for dep, markers in marker_graph.get(member, {}).items()
+            if dep in members
+        ]):
+            continue
+
+        entry_graph.pop(scc_id)
+        entry_deps.pop(scc_id)
+        for i, entry in enumerate(members):
+            entry_id = scc_id
+            if len(members) > 1:
+                stem = "{}__entry_{}".format(scc_id, i)
+                for suffix in range(len(used_ids) + 1):
+                    entry_id = stem if suffix == 0 else "{}__{}".format(stem, suffix)
+                    if entry_id not in used_ids:
+                        break
+                used_ids[entry_id] = 1
+            dep_to_entry[entry] = entry_id
+            reachable = {entry: {(): 1}}
+
+            # Every reachable member has a simple path of at most N-1 edges.
+            # Use a snapshot each round so cyclic walks cannot extend the bound.
+            for _ in range(len(members) - 1):
+                next_reachable = {member: dict(paths) for member, paths in reachable.items()}
+                for member, paths in reachable.items():
+                    for dep, markers in marker_graph.get(member, {}).items():
+                        if dep in members:
+                            _add_paths(
+                                next_reachable.setdefault(dep, {}),
+                                paths,
+                                [(marker,) if marker else () for marker in markers],
+                            )
+                if next_reachable == reachable:
+                    break
+                reachable = next_reachable
+
+            deps = {}
+            for member, paths in reachable.items():
+                for dep, markers in marker_graph.get(member, {}).items():
+                    if dep not in members:
+                        _add_paths(
+                            deps.setdefault(dep, {}),
+                            paths,
+                            [(marker,) if marker else () for marker in markers],
+                        )
+            entry_graph[entry_id] = {member: _markers(paths) for member, paths in reachable.items()}
+            entry_deps[entry_id] = {dep: _markers(paths) for dep, paths in deps.items()}
+
+    return dep_to_entry, entry_graph, entry_deps
+
 def combine_markers(lefts, rights):
     """
     Combine two sets of markers under _and_.

@@ -7,7 +7,7 @@ py_binary(
     name = "build_tool",
     main = "@aspect_rules_py//uv/private/pep517_whl/tools:build_helper.py",
     srcs = ["@aspect_rules_py//uv/private/pep517_whl/tools:build_helper.py"],
-    deps = ["@aspect_rules_py//uv/private/pep517_whl/tools:tools", "@@aspect_rules_py++uv+project__uv_sdist_fallback//:packaging", "@@aspect_rules_py++uv+project__uv_sdist_fallback//:build", "@@aspect_rules_py++uv+project__uv_sdist_fallback//:setuptools", "@whl_install__uv_sdist_fallback__setuptools__80_10_2//:install"],
+    deps = ["@aspect_rules_py//uv/private/pep517_whl/tools:tools", "@@aspect_rules_py++uv+project__uv_sdist_fallback//:packaging", "@@aspect_rules_py++uv+project__uv_sdist_fallback//:build", "@@aspect_rules_py++uv+project__uv_sdist_fallback//:setuptools", "@project__uv_sdist_fallback//private/build_deps:setuptools"],
 )
 
 pep517_frontend(

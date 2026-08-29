@@ -23,6 +23,7 @@ def _project_impl(repository_ctx):
     dep_to_scc = json.decode(repository_ctx.attr.dep_to_scc)
     scc_deps = json.decode(repository_ctx.attr.scc_deps)
     scc_graph = json.decode(repository_ctx.attr.scc_graph)
+    build_deps = json.decode(repository_ctx.attr.build_deps_json) if repository_ctx.attr.build_deps_json else None
 
     # Collect all the underlying whl installs
     installs = {}
@@ -260,6 +261,51 @@ exports_files(
     repository_ctx.file("private/sccs/BUILD.bazel", "\n".join(content))
 
     ################################################################################
+    # Build requirements have their own graph, independent of runtime groups.
+    if build_deps != None:
+        content = ["""\
+load("@aspect_rules_py//py:defs.bzl", "py_library")
+"""]
+        for scc_id, members in build_deps["scc_graph"].items():
+            deps = []
+            for member, markers in members.items():
+                deps.append(_conditionalize(
+                    member,
+                    markers,
+                    lambda: "_maybe__{}__{}".format(scc_id, _safe_name(member)),
+                    no_match = "//private/sccs:empty",
+                ))
+            content.append("""
+py_library(
+    name = "{name}",
+    deps = {deps},
+    visibility = ["//:__subpackages__"],
+)
+""".format(
+                name = scc_id,
+                deps = indent(pprint(deps), " " * 4).lstrip(),
+            ))
+        repository_ctx.file("private/build_deps/sccs/BUILD.bazel", "\n".join(content))
+
+        content = ["""\
+load("@aspect_rules_py//py:defs.bzl", "py_library")
+"""]
+        for package, deps in build_deps["packages"].items():
+            # The requested wheel is unconditional even if another member of
+            # its dependency cycle reaches it through a conditional edge.
+            content.append("""
+py_library(
+    name = "{name}",
+    deps = {deps},
+    visibility = ["//visibility:public"],
+)
+""".format(
+                name = package,
+                deps = indent(pprint(deps), " " * 4).lstrip(),
+            ))
+        repository_ctx.file("private/build_deps/BUILD.bazel", "\n".join(content))
+
+    ################################################################################
     # Finally lay down the collected markers
     content = ["""
 load("@aspect_rules_py//uv/private/markers:defs.bzl", "decide_marker")
@@ -290,6 +336,7 @@ uv_project = repository_rule(
     implementation = _project_impl,
     attrs = {
         "available_deps_json": attr.string(),
+        "build_deps_json": attr.string(),
         "dep_to_scc": attr.string(),
         "scc_deps": attr.string(),
         "scc_graph": attr.string(),

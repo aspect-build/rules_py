@@ -39,7 +39,8 @@ the archive:
 
     `available_deps` allows the tool to resolve additional build dependencies
     by normalized package name. Any package in the user's lockfile can be
-    referenced here.
+    referenced here. Each label includes that package's transitive runtime
+    dependencies, independently of the consuming project's dependency group.
 
 ## JSON output schema
 

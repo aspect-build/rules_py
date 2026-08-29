@@ -322,7 +322,7 @@ sdist_build = repository_rule(
         "available_deps_file": attr.label(
             mandatory = True,
             allow_single_file = [".json"],
-            doc = "JSON file mapping normalized package names to install labels.",
+            doc = "JSON file mapping normalized package names to build-dependency targets.",
         ),
         "is_native": attr.string(default = "auto", values = ["auto", "true", "false"]),
         "configure_command": attr.string_list(
