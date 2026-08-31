@@ -26,7 +26,8 @@ py_venv(
     srcs = ["main.py"],
     data = [":probe"],
     dep_group = "first",
-    python_version = "3.12",
+    freethreaded = True,
+    python_version = "3.13",
     tags = ["manual"],
     deps = [
         ":launcher",
@@ -40,7 +41,8 @@ terminal(
     name = "parent_terminal",
     data = [":probe"],
     dep_group = "parent",
-    python_version = "3.12",
+    freethreaded = "true",
+    python_version = "3.13",
     tags = ["manual"],
     deps = [":nested_terminal"],
 )
@@ -49,6 +51,16 @@ terminal(
     name = "nested_terminal",
     data = [":probe"],
     dep_group = "nested",
+    freethreaded = "false",
+    python_version = "3.13",
+    tags = ["manual"],
+)
+
+# No freethreaded attr under the mismatched baseline (aspect flag unset,
+# rules_python flag "yes"): inheriting must honor rules_python's flag.
+terminal(
+    name = "inherit_terminal",
+    data = [":probe"],
     python_version = "3.13",
     tags = ["manual"],
 )
@@ -58,6 +70,7 @@ py_venv(
     srcs = ["main.py"],
     data = [":probe"],
     dep_group = "second",
+    freethreaded = False,
     python_version = "3.12",
     tags = ["manual"],
     deps = [
@@ -71,6 +84,7 @@ root(
     tags = ["manual"],
     deps = [
         ":first",
+        ":inherit_terminal",
         ":parent_terminal",
         ":probe",
         ":second",

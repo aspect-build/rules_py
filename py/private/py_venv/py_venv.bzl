@@ -188,6 +188,17 @@ Only works with the Aspect rules_py uv machinery.
     "python_version": attr.string(
         doc = """Whether to build this target and its transitive deps for a specific python version.""",
     ),
+    "freethreaded": attr.string(
+        default = "",
+        values = ["", "false", "true"],
+        doc = """Select the free-threaded interpreter and native-extension ABI.
+
+"true" enables free threading, "false" disables it, and the default empty
+string inherits the caller's mode. The py_binary/py_test/py_venv macros take
+this as True/False/None instead; a configurable value must be a select() over
+the string form. Runtime data edges restore the caller's mode.
+""",
+    ),
     "package_collisions": attr.string(
         doc = """What to do when metadata-resolved wheel contents collide.
 
@@ -312,7 +323,13 @@ _py_venv_lib = rule(
 )
 
 def _wrap_with_debug(rule):
-    def helper(**kwargs):
+    # Macro callers pass freethreaded as None/True/False; the rule attr is a
+    # string tri-state ("" inherits) whose values reject anything else.
+    def helper(freethreaded = None, **kwargs):
+        if type(freethreaded) == "bool":
+            freethreaded = "true" if freethreaded else "false"
+        if freethreaded != None:
+            kwargs["freethreaded"] = freethreaded
         kwargs["debug"] = select({
             Label(":debug_venv_setting"): True,
             "//conditions:default": False,
@@ -366,7 +383,7 @@ def _split_kwargs_for_venv(kwargs, expose_venv):
                 venv_kwargs[name] = kwargs[name]
     return venv_kwargs
 
-def py_binary_with_venv(py_rule, name, main, srcs = [], deps = [], data = [], imports = [], tags = None, testonly = None, visibility = None, isolated = True, expose_venv = None, expose_venv_link = False, **kwargs):
+def py_binary_with_venv(py_rule, name, main, srcs = [], deps = [], data = [], imports = [], tags = None, testonly = None, visibility = None, isolated = True, expose_venv = None, expose_venv_link = False, freethreaded = None, **kwargs):
     """Split `py_rule(name, ...)` into a sibling py_venv target + a
     `py_rule` call routed at it via the internal `venv` rule
     attribute. Called for every `py_binary` / `py_test` macro invocation.
@@ -397,6 +414,10 @@ def py_binary_with_venv(py_rule, name, main, srcs = [], deps = [], data = [], im
         expose_venv = bool(expose_venv)
 
     venv_kwargs = _split_kwargs_for_venv(kwargs, expose_venv)
+    if type(freethreaded) == "bool":
+        freethreaded = "true" if freethreaded else "false"
+    if freethreaded != None:
+        venv_kwargs["freethreaded"] = freethreaded
     venv_kwargs["srcs"] = srcs
     venv_kwargs["deps"] = deps
     venv_kwargs["imports"] = imports

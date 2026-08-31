@@ -161,6 +161,7 @@ bzl_library(
         ":py_info",
         "//py/private/py_venv:types",
         "//py/private/toolchain:types",
+        "@bazel_skylib//rules:common_settings",
     ],
 )
 
