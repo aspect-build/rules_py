@@ -2,6 +2,7 @@
 
 _RUNTIME_TOOLCHAIN = "@bazel_tools//tools/python:toolchain_type"
 _PY_CC_TOOLCHAIN = "@aspect_rules_py//py:py_cc_toolchain_type"
+_EXEC_TOOLS_TOOLCHAIN = "@aspect_rules_py//py/private/toolchain:exec_tools_toolchain_type"
 
 def _link_library_files(provider_set):
     files = []
@@ -115,7 +116,28 @@ def _pbs_toolchain_check_impl(ctx):
         ))
     _check_cc_toolchain(ctx, cc_toolchain)
     _check_same_pbs_repo(runtime, cc_toolchain)
+    _check_exec_tools(ctx, expected_abi_flags)
     return []
+
+def _check_exec_tools(ctx, expected_abi_flags):
+    """Exec-tools resolution is gated on the freethreaded flag: build-host
+    actions (bytecode compilation) must get an interpreter matching the
+    target runtime's version and ABI, not just its major.minor."""
+    exec_runtime = ctx.toolchains[_EXEC_TOOLS_TOOLCHAIN].exec_runtime
+    version_info = exec_runtime.interpreter_version_info
+    exec_version = "{}.{}".format(version_info.major, version_info.minor)
+    if exec_version != ctx.attr.python_version:
+        fail("expected Python {} exec-tools runtime, got {}".format(
+            ctx.attr.python_version,
+            exec_version,
+        ))
+    abi_flags = exec_runtime.abi_flags or ""
+    if abi_flags != expected_abi_flags:
+        fail("expected exec-tools runtime ABI flags {}, got {} from {}".format(
+            repr(expected_abi_flags),
+            repr(abi_flags),
+            exec_runtime.interpreter.owner,
+        ))
 
 _CC_ATTRS = {
     "expect_abi3": attr.bool(mandatory = True),
@@ -131,5 +153,6 @@ pbs_toolchain_check = rule(
     toolchains = [
         _RUNTIME_TOOLCHAIN,
         _PY_CC_TOOLCHAIN,
+        _EXEC_TOOLS_TOOLCHAIN,
     ],
 )
