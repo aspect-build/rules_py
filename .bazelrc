@@ -3,6 +3,11 @@ import %workspace%/bazel/defaults.bazelrc
 common --test_output=errors
 common --incompatible_disallow_empty_glob=False
 
+# protobuf (any released version) has a protoc_authenticity run_shell action without
+# the toolchain parameter that Bazel 9 requires; fixed on protobuf main but unreleased.
+# No-op on Bazel 8. Remove once a protobuf release carries the fix.
+common --noincompatible_enable_proto_toolchain_resolution
+
 # Define value used by tests
 common --define=SOME_VAR=SOME_VALUE
 

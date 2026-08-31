@@ -1,0 +1,37 @@
+"""Stardoc API docs, written into the source tree.
+
+The stardoc targets are centralized in this dev-only package on purpose: the
+@stardoc load must never reach packages downstream consumers evaluate (//py is
+loaded by --@aspect_rules_py//py:python_version users, the current_py_cc_*
+aliases, etc., and stardoc is a dev_dependency, invisible outside the root
+module). The cost is exports_files() in py/ and uv/, scoped to this package.
+
+Usage:
+    bazel run //docs:update_docs   # regenerate docs/api/py.md and docs/api/uv.md
+    bazel test //docs:all          # diff tests fail if committed docs are stale
+"""
+
+load("@bazel_lib//lib:write_source_files.bzl", "write_source_files")
+load("@stardoc//stardoc:stardoc.bzl", "stardoc")
+
+stardoc(
+    name = "py_api",
+    out = "py_api.md",
+    input = "//py:defs.bzl",
+    deps = ["//py:defs"],
+)
+
+stardoc(
+    name = "uv_api",
+    out = "uv_api.md",
+    input = "//uv:defs.bzl",
+    deps = ["//uv:defs"],
+)
+
+write_source_files(
+    name = "update_docs",
+    files = {
+        "api/py.md": ":py_api",
+        "api/uv.md": ":uv_api",
+    },
+)

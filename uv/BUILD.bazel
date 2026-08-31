@@ -1,5 +1,12 @@
 load("@bazel_lib//:bzl_library.bzl", "bzl_library")
 
+# Consumed by //docs:uv_api (stardoc). exports_files gives the implicit .bzl file
+# target cross-package visibility; scoped to the docs package only.
+exports_files(
+    ["defs.bzl"],
+    visibility = ["//docs:__pkg__"],
+)
+
 bzl_library(
     name = "defs",
     srcs = ["defs.bzl"],

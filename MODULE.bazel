@@ -108,6 +108,13 @@ bazel_dep(name = "buildifier_prebuilt", version = "8.5.1.2", dev_dependency = Tr
 bazel_dep(name = "bazelrc-preset.bzl", version = "1.9.2", dev_dependency = True)
 bazel_dep(name = "bazel_env.bzl", version = "0.5.0", dev_dependency = True)
 bazel_dep(name = "rules_multitool", version = "1.9.0", dev_dependency = True)
+bazel_dep(name = "stardoc", version = "0.8.1", dev_dependency = True)
+
+# The stardoc renderer is this repo's only Java target; its toolchain resolution
+# validates the go toolchains registered via gazelle, and rules_go 0.51 (resolved
+# by gazelle 0.40) uses the CcInfo symbol removed in Bazel 9. 0.61.1 is the fix
+# without dragging rules_android (which rules_jvm_external pulls via newer protobuf).
+bazel_dep(name = "rules_go", version = "0.61.1", dev_dependency = True)
 
 multitool = use_extension("@rules_multitool//multitool:extension.bzl", "multitool", dev_dependency = True)
 multitool.hub(lockfile = "//tools:tools.lock.json")

@@ -1,6 +1,13 @@
 load("@bazel_lib//:bzl_library.bzl", "bzl_library")
 load("//py/private/interpreter:launcher.bzl", "py_interpreter_launcher")
 
+# Consumed by //docs:py_api (stardoc). exports_files gives the implicit .bzl file
+# target cross-package visibility; scoped to the docs package only.
+exports_files(
+    ["defs.bzl"],
+    visibility = ["//docs:__pkg__"],
+)
+
 # Users can set, e.g. --@aspect_rules_py//py:python_version=3.12
 alias(
     name = "python_version",
