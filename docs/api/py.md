@@ -693,7 +693,7 @@ ORed, `*` is fnmatch). Unknown args are rejected rather than ignored.
 <pre>
 load("@aspect_rules_py//py:defs.bzl", "py_venv")
 
-py_venv(<a href="#py_venv-kwargs">**kwargs</a>)
+py_venv(<a href="#py_venv-freethreaded">freethreaded</a>, <a href="#py_venv-kwargs">**kwargs</a>)
 </pre>
 
 
@@ -703,6 +703,7 @@ py_venv(<a href="#py_venv-kwargs">**kwargs</a>)
 
 | Name  | Description | Default Value |
 | :------------- | :------------- | :------------- |
+| <a id="py_venv-freethreaded"></a>freethreaded |  <p align="center"> - </p>   |  `None` |
 | <a id="py_venv-kwargs"></a>kwargs |  <p align="center"> - </p>   |  none |
 
 

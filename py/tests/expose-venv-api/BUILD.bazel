@@ -16,13 +16,16 @@ py_binary(
     name = "minimal_bin",
     srcs = ["main.py"],
     expose_venv = True,
+    freethreaded = True,
     main = "main.py",
 )
 
+# Configurable freethreaded uses the string form; bools are literal-only.
 py_test(
     name = "minimal_test",
     srcs = ["main.py"],
     expose_venv = True,
+    freethreaded = select({"//conditions:default": "false"}),
     main = "main.py",
 )
 
