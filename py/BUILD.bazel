@@ -83,6 +83,7 @@ bzl_library(
     srcs = ["defs.bzl"],
     visibility = ["//visibility:public"],
     deps = [
+        "//py/private:compression",
         "//py/private:providers",
         "//py/private:py_image_layer",
         "//py/private:py_info",

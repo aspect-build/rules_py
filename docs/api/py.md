@@ -70,6 +70,55 @@ bazel_env(
 | <a id="current_py_toolchain-name"></a>name |  A unique name for this target.   | <a href="https://bazel.build/concepts/labels#target-names">Name</a> | required |  |
 
 
+<a id="py_layer_compressor"></a>
+
+## py_layer_compressor
+
+<pre>
+load("@aspect_rules_py//py:defs.bzl", "py_layer_compressor")
+
+py_layer_compressor(<a href="#py_layer_compressor-name">name</a>, <a href="#py_layer_compressor-args">args</a>, <a href="#py_layer_compressor-extension">extension</a>, <a href="#py_layer_compressor-tool">tool</a>)
+</pre>
+
+A user-supplied program that compresses `py_image_layer` layer tars.
+
+bsdtar pipes the archive through `tool` (via `--use-compress-program`), so any
+program that reads an uncompressed stream on stdin and writes the compressed
+stream to stdout works — including compressors libarchive has no filter for.
+
+```starlark
+py_layer_compressor(
+    name = "pigz",
+    tool = "//tools:pigz",
+    args = ["-11"],
+    extension = ".tar.gz",
+)
+
+py_layer_tier(
+    name = "tier",
+    groups = {"@pip//torch": "heavy"},
+    compressors = {":pigz": "heavy"},
+)
+```
+
+`extension` is the only claim available about the program's output, so it also
+decides whether the layer is OCI-valid: anything but `.tar`, `.tar.gz` or
+`.tar.zst` needs `allow_non_oci_layers = True` on the tier or rule.
+
+The program runs inside the tar action, so prefer a Bazel-built binary or a
+`sh_binary` wrapper over something assumed to be on the host's PATH.
+
+**ATTRIBUTES**
+
+
+| Name  | Description | Type | Mandatory | Default |
+| :------------- | :------------- | :------------- | :------------- | :------------- |
+| <a id="py_layer_compressor-name"></a>name |  A unique name for this target.   | <a href="https://bazel.build/concepts/labels#target-names">Name</a> | required |  |
+| <a id="py_layer_compressor-args"></a>args |  Arguments passed after the program path. Each entry must be a single whitespace-free token — bsdtar splits the command line itself.   | List of strings | optional |  `[]`  |
+| <a id="py_layer_compressor-extension"></a>extension |  Extension for tars this compressor produces, e.g. '.tar.gz'. Must start with '.'. Also declares OCI validity: only '.tar', '.tar.gz' and '.tar.zst' are layer formats an image consumer can read.   | String | required |  |
+| <a id="py_layer_compressor-tool"></a>tool |  The compressor program. Reads stdin, writes compressed bytes to stdout.   | <a href="https://bazel.build/concepts/labels">Label</a> | required |  |
+
+
 <a id="py_layer_tier"></a>
 
 ## py_layer_tier
@@ -77,7 +126,8 @@ bazel_env(
 <pre>
 load("@aspect_rules_py//py:defs.bzl", "py_layer_tier")
 
-py_layer_tier(<a href="#py_layer_tier-name">name</a>, <a href="#py_layer_tier-compression">compression</a>, <a href="#py_layer_tier-group">group</a>, <a href="#py_layer_tier-groups">groups</a>, <a href="#py_layer_tier-interpreter_group">interpreter_group</a>, <a href="#py_layer_tier-owner">owner</a>, <a href="#py_layer_tier-root">root</a>, <a href="#py_layer_tier-strip_prefix">strip_prefix</a>)
+py_layer_tier(<a href="#py_layer_tier-name">name</a>, <a href="#py_layer_tier-allow_non_oci_layers">allow_non_oci_layers</a>, <a href="#py_layer_tier-compression">compression</a>, <a href="#py_layer_tier-compressors">compressors</a>, <a href="#py_layer_tier-group">group</a>, <a href="#py_layer_tier-groups">groups</a>,
+              <a href="#py_layer_tier-interpreter_group">interpreter_group</a>, <a href="#py_layer_tier-owner">owner</a>, <a href="#py_layer_tier-root">root</a>, <a href="#py_layer_tier-strip_prefix">strip_prefix</a>)
 </pre>
 
 Grouping and compression plan for `py_image_layer`.
@@ -90,7 +140,9 @@ Must not be testonly. `py_image_layer` transitions the `//py:layer_tier` flag to
 | Name  | Description | Type | Mandatory | Default |
 | :------------- | :------------- | :------------- | :------------- | :------------- |
 | <a id="py_layer_tier-name"></a>name |  A unique name for this target.   | <a href="https://bazel.build/concepts/labels#target-names">Name</a> | required |  |
-| <a id="py_layer_tier-compression"></a>compression |  Maps group name → [algorithm, level] for pip-derived layers. Applies to the whole-group tar, each subpath-split tar, and the multi-member merged tar — anything routed through py_layer_tier.groups. Example: {"heavy_pkgs": ["zstd", "1"]}. Untouched groups default to gzip -6.   | <a href="https://bazel.build/rules/lib/core/dict">Dictionary: String -> List of strings</a> | optional |  `{}`  |
+| <a id="py_layer_tier-allow_non_oci_layers"></a>allow_non_oci_layers |  Permit compression the OCI image spec has no layer format for. The spec defines only tar, gzip and zstd; rules_oci labels anything else an uncompressed tar and records the compressed digest as the layer's diffid, so the image is invalid even though the build succeeds. Set this only when the tars are consumed by something other than an OCI image.   | Boolean | optional |  `False`  |
+| <a id="py_layer_tier-compression"></a>compression |  Maps group name → [algorithm] or [algorithm, level]. Applies to every layer this tier names: the whole-group tar, each subpath-split tar, the multi-member merged tar, the interpreter tar, and first-party group tars.<br><br>`algorithm` is any bsdtar (libarchive) write filter: `none`, `gzip`, `bzip2`, `xz`, `lzma`, `lzop`, `lz4`, `lrzip`, `zstd`, or `compress`. `lzop` and `lrzip` shell out to a same-named binary that must exist inside the action — use `compressors` for a hermetic equivalent. `none` and `compress` take no level.<br><br>`level` is optional; omit it to take libarchive's default for that filter. Example: {"heavy_pkgs": ["zstd", "19"], "cold": ["xz"]}. Untouched groups default to gzip -6.   | <a href="https://bazel.build/rules/lib/core/dict">Dictionary: String -> List of strings</a> | optional |  `{}`  |
+| <a id="py_layer_tier-compressors"></a>compressors |  Maps a `py_layer_compressor` target → group name, for compressors libarchive has no filter for. bsdtar pipes the layer through the program. A group may appear here or in `compression`, not both.   | <a href="https://bazel.build/rules/lib/core/dict">Dictionary: Label -> String</a> | optional |  `{}`  |
 | <a id="py_layer_tier-group"></a>group |  Numeric gid owning every file in every layer this tier produces. Default: '0' (root).   | String | optional |  `"0"`  |
 | <a id="py_layer_tier-groups"></a>groups |  Maps @pip//package → group name (whole pip package), @pip//package:glob → group name (pip subpath split), or //some/first_party:lib → group name (first-party PyInfo target). First-party main-repo labels may be written as //pkg:name; fully-qualified forms like @@//pkg:name are also accepted. A pip package may appear as a whole-package key OR with subpath globs, not both.   | <a href="https://bazel.build/rules/lib/core/dict">Dictionary: String -> String</a> | optional |  `{}`  |
 | <a id="py_layer_tier-interpreter_group"></a>interpreter_group |  When non-empty, the Python interpreter runfiles resolved from the binary's py toolchain are emitted as their own layer under this name instead of being bundled into the default source layer.   | String | optional |  `""`  |
@@ -251,6 +303,28 @@ Python source, import-path, and virtual-dependency information for a target's de
 | <a id="PyInfo-virtual_resolutions"></a>virtual_resolutions |  depset[struct(virtual, target)] — virtual-dependency-name to concrete-target resolutions.    |
 
 
+<a id="PyLayerCompressorInfo"></a>
+
+## PyLayerCompressorInfo
+
+<pre>
+load("@aspect_rules_py//py:defs.bzl", "PyLayerCompressorInfo")
+
+PyLayerCompressorInfo(<a href="#PyLayerCompressorInfo-args">args</a>, <a href="#PyLayerCompressorInfo-executable">executable</a>, <a href="#PyLayerCompressorInfo-extension">extension</a>, <a href="#PyLayerCompressorInfo-files_to_run">files_to_run</a>)
+</pre>
+
+A custom layer compressor: a program bsdtar pipes the archive through.
+
+**FIELDS**
+
+| Name  | Description |
+| :------------- | :------------- |
+| <a id="PyLayerCompressorInfo-args"></a>args |  tuple[str] — arguments appended after the program path.    |
+| <a id="PyLayerCompressorInfo-executable"></a>executable |  File — the program bsdtar invokes via --use-compress-program.    |
+| <a id="PyLayerCompressorInfo-extension"></a>extension |  str — output file extension, e.g. '.tar.br'.    |
+| <a id="PyLayerCompressorInfo-files_to_run"></a>files_to_run |  FilesToRunProvider — the program plus its runfiles, for the tar action's `tools`.    |
+
+
 <a id="PyLayerTierInfo"></a>
 
 ## PyLayerTierInfo
@@ -258,8 +332,8 @@ Python source, import-path, and virtual-dependency information for a target's de
 <pre>
 load("@aspect_rules_py//py:defs.bzl", "PyLayerTierInfo")
 
-PyLayerTierInfo(<a href="#PyLayerTierInfo-whole_groups">whole_groups</a>, <a href="#PyLayerTierInfo-subpath_groups">subpath_groups</a>, <a href="#PyLayerTierInfo-compression">compression</a>, <a href="#PyLayerTierInfo-multi_member_groups">multi_member_groups</a>, <a href="#PyLayerTierInfo-interpreter_group">interpreter_group</a>,
-                <a href="#PyLayerTierInfo-root">root</a>, <a href="#PyLayerTierInfo-strip_prefix">strip_prefix</a>, <a href="#PyLayerTierInfo-owner">owner</a>, <a href="#PyLayerTierInfo-group">group</a>)
+PyLayerTierInfo(<a href="#PyLayerTierInfo-whole_groups">whole_groups</a>, <a href="#PyLayerTierInfo-subpath_groups">subpath_groups</a>, <a href="#PyLayerTierInfo-compression">compression</a>, <a href="#PyLayerTierInfo-compressors">compressors</a>, <a href="#PyLayerTierInfo-codecs">codecs</a>, <a href="#PyLayerTierInfo-multi_member_groups">multi_member_groups</a>,
+                <a href="#PyLayerTierInfo-interpreter_group">interpreter_group</a>, <a href="#PyLayerTierInfo-root">root</a>, <a href="#PyLayerTierInfo-strip_prefix">strip_prefix</a>, <a href="#PyLayerTierInfo-owner">owner</a>, <a href="#PyLayerTierInfo-group">group</a>)
 </pre>
 
 Layer tier for py_image_layer: how pip packages are grouped and compressed.
@@ -270,7 +344,9 @@ Layer tier for py_image_layer: how pip packages are grouped and compressed.
 | :------------- | :------------- |
 | <a id="PyLayerTierInfo-whole_groups"></a>whole_groups |  dict[str, str] — normalized pip label → group name.    |
 | <a id="PyLayerTierInfo-subpath_groups"></a>subpath_groups |  dict[str, dict[str, list[str]]] — label → {group_name: [glob_patterns]}.    |
-| <a id="PyLayerTierInfo-compression"></a>compression |  dict[str, list[str]] — group name → [algorithm, level].    |
+| <a id="PyLayerTierInfo-compression"></a>compression |  dict[str, list[str]] — group name → [algorithm, level], as written on the rule.    |
+| <a id="PyLayerTierInfo-compressors"></a>compressors |  dict[str, PyLayerCompressorInfo] — group name → custom compressor.    |
+| <a id="PyLayerTierInfo-codecs"></a>codecs |  dict[str, struct] — group name → resolved codec (bsdtar flags + file extension).    |
 | <a id="PyLayerTierInfo-multi_member_groups"></a>multi_member_groups |  dict[str, True] — group names with 2+ members in whole_groups.    |
 | <a id="PyLayerTierInfo-interpreter_group"></a>interpreter_group |  str — group name for the Python interpreter layer; '' disables.    |
 | <a id="PyLayerTierInfo-root"></a>root |  str — root path in the image (e.g. '/app').    |
@@ -399,6 +475,7 @@ workspace symlink in one step, set `expose_venv_link = True`.
 load("@aspect_rules_py//py:defs.bzl", "py_image_layer")
 
 py_image_layer(<a href="#py_image_layer-name">name</a>, <a href="#py_image_layer-binary">binary</a>, <a href="#py_image_layer-groups">groups</a>, <a href="#py_image_layer-group_execution_requirements">group_execution_requirements</a>, <a href="#py_image_layer-group_compress_levels">group_compress_levels</a>,
+               <a href="#py_image_layer-group_compression">group_compression</a>, <a href="#py_image_layer-group_compressors">group_compressors</a>, <a href="#py_image_layer-allow_non_oci_layers">allow_non_oci_layers</a>,
                <a href="#py_image_layer-warn_remote_cache_threshold_mb">warn_remote_cache_threshold_mb</a>, <a href="#py_image_layer-warn_layer_count">warn_layer_count</a>, <a href="#py_image_layer-platform">platform</a>, <a href="#py_image_layer-layer_tier">layer_tier</a>, <a href="#py_image_layer-launcher_dir">launcher_dir</a>,
                <a href="#py_image_layer-binaries">binaries</a>, <a href="#py_image_layer-kwargs">**kwargs</a>)
 </pre>
@@ -432,7 +509,10 @@ or pin a tier to a specific rule via the `py_layer_tier` attr below.
 | <a id="py_image_layer-binary"></a>binary |  A py_binary target.   |  `None` |
 | <a id="py_image_layer-groups"></a>groups |  Maps a NON-PIP dep label to a group name. Each gets its own rule-created tar. All pip-package grouping (whole-package, subpath, multi-member) belongs in py_layer_tier — subpath glob keys passed here fail loudly.   |  `{}` |
 | <a id="py_image_layer-group_execution_requirements"></a>group_execution_requirements |  Maps a group name to execution requirement strings. The group name "packages" applies to the squashed ungrouped-pip tar.   |  `{}` |
-| <a id="py_image_layer-group_compress_levels"></a>group_compress_levels |  Maps a group name to a gzip compression level (1-9) for rule-created tars (non-pip deps, squashed ungrouped pip tar, source). Default 6. Does NOT apply to aspect-created pip tars (configure via the py_layer_tier target).   |  `{}` |
+| <a id="py_image_layer-group_compress_levels"></a>group_compress_levels |  gzip-only shorthand: maps a group name to a compression level (1-9) for rule-created tars. Default 6. Ignored for any group named by `group_compression`, `group_compressors`, or the tier's `compression`.   |  `{}` |
+| <a id="py_image_layer-group_compression"></a>group_compression |  Maps a group name to `[algorithm]` or `[algorithm, level]` for rule-created tars (non-pip deps, first-party groups, the squashed ungrouped-pip tar under the name "packages", and the source layer under the name "default"). `algorithm` is any bsdtar write filter — `none`, `gzip`, `bzip2`, `xz`, `lzma`, `lzop`, `lz4`, `lrzip`, `zstd`, `compress`. Takes precedence over the tier's `compression` for the same group. Does NOT apply to aspect-created pip tars; configure those on the py_layer_tier target.   |  `{}` |
+| <a id="py_image_layer-group_compressors"></a>group_compressors |  Maps a `py_layer_compressor` target to a group name, for rule-created tars that need a compressor libarchive has no filter for. Same precedence as `group_compression`; a group may appear in one or the other, not both.   |  `{}` |
+| <a id="py_image_layer-allow_non_oci_layers"></a>allow_non_oci_layers |  Permit compression the OCI image spec has no layer format for. The spec defines only tar, gzip and zstd, and rules_oci labels anything else an uncompressed tar with the compressed digest as its diffid — the build succeeds and the image is invalid. Set this only when the tars are consumed by something other than an OCI image.   |  `False` |
 | <a id="py_image_layer-warn_remote_cache_threshold_mb"></a>warn_remote_cache_threshold_mb |  Threshold for large package warnings.   |  `200` |
 | <a id="py_image_layer-warn_layer_count"></a>warn_layer_count |  Warn when total layers exceed this. Default: 90.   |  `90` |
 | <a id="py_image_layer-platform"></a>platform |  Platform transition target.   |  `None` |

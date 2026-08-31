@@ -316,6 +316,87 @@ Cross-compile for Linux from macOS:
 bazel build //:image --platforms=//platforms:linux_amd64
 ```
 
+### Layer compression
+
+Layers are written by bsdtar, so any libarchive write filter can compress them:
+`none`, `gzip` (the default, level 6), `bzip2`, `xz`, `lzma`, `lzop`, `lz4`,
+`lrzip`, `zstd`, and `compress`. The file extension follows the filter, which is
+what image tooling reads the layer's media type from.
+
+**The OCI image spec only defines `tar`, `+gzip` and `+zstd` layers**, so those
+are the three you can put in an image. `rules_oci` identifies a layer's
+compression by sniffing its magic; a codec it cannot sniff is labelled an
+uncompressed tar and keeps the *compressed* digest as its `diffid`, which builds
+successfully and produces an invalid image. `py_image_layer` and `py_layer_tier`
+therefore reject the other filters unless you set `allow_non_oci_layers = True`,
+which declares that the tars are going somewhere other than an OCI image.
+
+`py_layer_tier` sets compression for the layers it names — pip packages, the
+interpreter, and first-party groups:
+
+```starlark
+load("@aspect_rules_py//py:defs.bzl", "py_layer_tier")
+
+py_layer_tier(
+    name = "tier",
+    groups = {
+        "@pip//torch": "heavy",
+        "//src/common": "common",
+    },
+    interpreter_group = "interpreter",
+    compression = {
+        "heavy": ["zstd", "19"],   # [algorithm, level]
+        "common": ["gzip"],        # level omitted: libarchive's default
+        "interpreter": ["none"],   # an uncompressed layer
+    },
+)
+```
+
+`py_image_layer` sets compression for the layers it creates itself — the
+`groups` tars, the squashed pip layer (`"packages"`), and the source layer
+(`"default"`) — and takes precedence over the tier for a group both name:
+
+```starlark
+py_image_layer(
+    name = "app_layers",
+    binary = ":app_bin",
+    layer_tier = ":tier",
+    group_compression = {"default": ["zstd", "3"]},
+)
+```
+
+For a different implementation of a codec — `pigz`, a tuned `zstd` — declare a
+`py_layer_compressor`. bsdtar pipes the archive through the program, so anything
+that reads stdin and writes compressed bytes to stdout works. The `extension` is
+how you declare what it emits, and it decides whether the result is OCI-valid:
+
+```starlark
+load("@aspect_rules_py//py:defs.bzl", "py_layer_compressor")
+
+py_layer_compressor(
+    name = "pigz",
+    tool = "//tools:pigz",
+    args = ["-11"],
+    extension = ".tar.gz",  # gzip bytes, so a valid OCI layer
+)
+
+py_layer_tier(
+    name = "tier",
+    groups = {"@pip//torch": "heavy"},
+    compressors = {":pigz": "heavy"},
+)
+```
+
+A compressor declaring anything other than `.tar`, `.tar.gz` or `.tar.zst` is
+treated as non-OCI and needs `allow_non_oci_layers = True` — the program's bytes
+are opaque, so the extension is the only claim available about what an image
+consumer would find.
+
+`py_image_layer` accepts the same mapping as `group_compressors` for its own
+tars. Note that `lzop` and `lrzip` are the two filters libarchive implements by
+shelling out to a same-named binary, which a sandboxed action is not guaranteed
+to have — prefer a `py_layer_compressor` there.
+
 ## IDE Integration
 
 `aspect_rules_py` generates standard virtualenv structures that IDEs understand.

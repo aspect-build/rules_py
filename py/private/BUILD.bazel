@@ -60,6 +60,7 @@ bzl_library(
     name = "py_image_layer",
     srcs = ["py_image_layer.bzl"],
     deps = [
+        ":compression",
         ":providers",
         ":py_info",
         ":py_info_interop",
@@ -180,6 +181,11 @@ bzl_library(
         ":py_info",
         "@rules_python//python:defs_bzl",
     ],
+)
+
+bzl_library(
+    name = "compression",
+    srcs = ["compression.bzl"],
 )
 
 bzl_library(
