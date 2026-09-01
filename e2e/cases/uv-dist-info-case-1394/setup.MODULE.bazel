@@ -8,6 +8,9 @@ The subdirectories lock the same package through the routes that never read a
 prebuilt wheel's `.dist-info`, and so never reach the discovery path at all.
 Each takes its own hub: `no-binary` is a per-project setting, and sharing a hub
 would let one project's install configuration decide another's.
+
+`archive-prefix` is the exception: it locks `actioneer` instead, whose filename
+is normalized and so implies a `.dist-info` the archive contradicts anyway.
 """
 
 uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
@@ -44,6 +47,22 @@ uv.override_package(
     target = "//uv-dist-info-case-1394/override-target/third_party/inquirerpy",
 )
 
+# A normalized filename implies a `.dist-info` that reads as authoritative, so
+# without the quirk it is stripped as an archive path prefix and matches no
+# member. Nothing in the filename distinguishes this wheel from a well-formed
+# one, so the defect has to be declared.
+uv.declare_hub(hub_name = "pypi_dist_info_1394_archive_prefix")
+uv.project(
+    hub_name = "pypi_dist_info_1394_archive_prefix",
+    lock = "//uv-dist-info-case-1394/archive-prefix:uv.lock",
+    pyproject = "//uv-dist-info-case-1394/archive-prefix:pyproject.toml",
+)
+uv.package_quirks(
+    name = "actioneer",
+    dist_info_name_differs = True,
+    version = "0.0.1",
+)
+
 # The wheel is in the lock but no built target resolves it, so this hub never
 # gets an install repo for the package.
 uv.declare_hub(hub_name = "pypi_dist_info_1394_unbuilt")
@@ -54,6 +73,7 @@ uv.project(
 )
 use_repo(
     uv,
+    "pypi_dist_info_1394_archive_prefix",
     "pypi_dist_info_1394_no_binary",
     "pypi_dist_info_1394_override",
     "pypi_dist_info_1394_unbuilt",

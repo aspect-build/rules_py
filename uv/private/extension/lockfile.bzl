@@ -246,16 +246,21 @@ def collect_bdists(lock_data):
         - A dictionary mapping repository names for the wheels to their bdist
           specifications.
         - A dictionary mapping the URL of each wheel to its repository label.
+        - A dictionary mapping repository names to the `(name, version)` of the
+          package that published the wheel. The repo name carries the name but
+          not the version, and `uv.package_quirks` selects on both.
     """
     bdist_specs = {}
     bdist_table = {}
+    bdist_packages = {}
     for package in lock_data.get("package", []):
         for bdist in package.get("wheels", []):
             bdist_repo_name = "whl__{}__{}".format(package["name"], _dist_identifier(bdist))
             bdist_specs[bdist_repo_name] = bdist
             bdist_table[bdist["url"]] = "@{}//:whl".format(bdist_repo_name)
+            bdist_packages[bdist_repo_name] = (package["name"], package["version"])
 
-    return bdist_specs, bdist_table
+    return bdist_specs, bdist_table, bdist_packages
 
 def collect_sdists(
         lock_id,

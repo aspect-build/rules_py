@@ -380,6 +380,16 @@ def _metadata_directory_test_impl(ctx):
     asserts.equals(env, "InquirerPy-0.3.4.dist-info", hint.directory)
     asserts.false(env, hint.authoritative)
 
+    # The inverse defect is invisible here: actioneer's filename is escaped and
+    # its version canonical, so it reads as authoritative even though the
+    # archive ships `Actioneer-0.0.1.dist-info`. Only a declared
+    # `uv.package_quirks(dist_info_name_differs = True)` overrides that -- the
+    # filename is identical in shape to a well-formed wheel's.
+    hint = metadata_directory_hint("actioneer-0.0.1-py3-none-any.whl")
+    asserts.equals(env, "actioneer-0.0.1.dist-info", hint.directory)
+    asserts.true(env, hint.authoritative)
+    asserts.true(env, metadata_directory_hint("cowsay-6.0-py3-none-any.whl").authoritative)
+
     # A dotted or repeated separator is likewise unescaped.
     asserts.false(env, metadata_directory_hint("zope.interface-5.4.0-py3-none-any.whl").authoritative)
     asserts.false(env, metadata_directory_hint("foo__bar-1.0-py3-none-any.whl").authoritative)
