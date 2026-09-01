@@ -724,8 +724,8 @@ assert_tar_ownership(
 
 # Multi-member group coverage: two pip packages mapped to the same group name
 # produce a single merged tar from both install_dirs. Binary also adds
-# pyproject_hooks to make the closure non-trivial. Zstd-compressed to exercise
-# _compression_ext.
+# pyproject_hooks to make the closure non-trivial. Zstd-compressed so the merged
+# tar carries the tier's codec and extension.
 py_binary(
     name = "my_app_multi_bin",
     srcs = ["__main__.py"],
@@ -987,6 +987,52 @@ container_structure_test(
     image = ":amd64_launchers_image",
     platform = "linux/amd64",
     tags = ["requires-docker"],
+)
+
+# The OCI spec defines tar, gzip and zstd layers, and rules_oci recognises a
+# layer's compression by sniffing its magic. A codec it cannot sniff is labelled
+# an uncompressed tar and keeps the compressed digest as its diffid, so the
+# image builds and is invalid. Build a real image over the codecs py_image_layer
+# advertises as OCI-safe and check both halves of that contract on the layout.
+py_layer_tier(
+    name = "oci_codec_tier",
+    compression = {
+        "branding": [
+            "zstd",
+            "19",
+        ],
+        "interpreter": ["none"],
+    },
+    groups = {"//oci/py_image_layer/branding": "branding"},
+    interpreter_group = "interpreter",
+)
+
+py_image_layer(
+    name = "oci_codec_layers",
+    binary = ":my_app_bin",
+    group_compression = {"default": [
+        "gzip",
+        "9",
+    ]},
+    layer_tier = ":oci_codec_tier",
+)
+
+oci_image(
+    name = "oci_codec_image",
+    base = "@ubuntu",
+    tars = [":oci_codec_layers"],
+)
+
+py_test(
+    name = "oci_codec_media_type_test",
+    srcs = ["assert_oci_layer_media_types.py"],
+    args = [
+        "--min=zstd:1",
+        "--min=gzip:1",
+        "$(rootpath :oci_codec_image)",
+    ],
+    data = [":oci_codec_image"],
+    main = "assert_oci_layer_media_types.py",
 )
 
 image_layer_analysis_test_suite()

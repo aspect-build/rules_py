@@ -30,6 +30,18 @@ Sharing model:
   - Ungrouped pip packages: squashed by the rule into one per-rule tar.
 """
 
+load(
+    "//py/private:compression.bzl",
+    "DEFAULT_ALGORITHM",
+    "DEFAULT_LEVEL",
+    "PyLayerCompressorInfo",
+    "check_oci_compatible",
+    "codec_from_compressor",
+    "codec_tar_args",
+    "codec_tools",
+    "make_codec",
+    "parse_compression",
+)
 load("//py/private:providers.bzl", "PyWheelsInfo")
 load("//py/private:py_info.bzl", "PyInfo")
 load("//py/private:py_info_interop.bzl", "has_py_info")
@@ -93,7 +105,9 @@ PyLayerTierInfo = provider(
     fields = {
         "whole_groups": "dict[str, str] — normalized pip label → group name.",
         "subpath_groups": "dict[str, dict[str, list[str]]] — label → {group_name: [glob_patterns]}.",
-        "compression": "dict[str, list[str]] — group name → [algorithm, level].",
+        "compression": "dict[str, list[str]] — group name → [algorithm, level], as written on the rule.",
+        "compressors": "dict[str, PyLayerCompressorInfo] — group name → custom compressor.",
+        "codecs": "dict[str, struct] — group name → resolved codec (bsdtar flags + file extension).",
         "multi_member_groups": "dict[str, True] — group names with 2+ members in whole_groups.",
         "interpreter_group": "str — group name for the Python interpreter layer; '' disables.",
         "root": "str — root path in the image (e.g. '/app').",
@@ -140,10 +154,38 @@ def _py_layer_tier_impl(ctx):
     _validate_numeric_id(ctx.attr.owner, "owner")
     _validate_numeric_id(ctx.attr.group, "group")
 
+    codecs = {}
+    for group_name, value in ctx.attr.compression.items():
+        codec = parse_compression(value, "py_layer_tier.compression[%r]" % group_name)
+        check_oci_compatible(codec, group_name, "py_layer_tier.compression", ctx.attr.allow_non_oci_layers)
+        codecs[group_name] = codec
+
+    compressors = {}
+    seen = {}
+    for dep, group_name in ctx.attr.compressors.items():
+        # Duplicates first: the group is already in `codecs` by then, so the
+        # `compression` check below would otherwise claim the wrong conflict.
+        if group_name in seen:
+            fail(("group %r is mapped to two py_layer_compressor targets (%s and %s) in " +
+                  "py_layer_tier.compressors. A group gets its bytes from exactly one " +
+                  "compressor.") % (group_name, seen[group_name], dep.label))
+        if group_name in codecs:
+            fail(("group %r is configured in both py_layer_tier.compression and " +
+                  "py_layer_tier.compressors. A group gets its bytes from exactly one " +
+                  "compressor — drop one of the two entries.") % group_name)
+        seen[group_name] = dep.label
+        info = dep[PyLayerCompressorInfo]
+        compressors[group_name] = info
+        codec = codec_from_compressor(info)
+        check_oci_compatible(codec, group_name, "py_layer_tier.compressors", ctx.attr.allow_non_oci_layers)
+        codecs[group_name] = codec
+
     return [PyLayerTierInfo(
         whole_groups = whole_groups,
         subpath_groups = subpath_groups,
         compression = dict(ctx.attr.compression),
+        compressors = compressors,
+        codecs = codecs,
         multi_member_groups = multi_member_groups,
         interpreter_group = ctx.attr.interpreter_group,
         root = ctx.attr.root,
@@ -172,10 +214,34 @@ py_layer_tier = rule(
         ),
         "compression": attr.string_list_dict(
             default = {},
-            doc = ("Maps group name → [algorithm, level] for pip-derived layers. " +
-                   "Applies to the whole-group tar, each subpath-split tar, and the " +
-                   "multi-member merged tar — anything routed through py_layer_tier.groups. " +
-                   "Example: {\"heavy_pkgs\": [\"zstd\", \"1\"]}. Untouched groups default to gzip -6."),
+            doc = ("Maps group name → [algorithm] or [algorithm, level]. Applies to every " +
+                   "layer this tier names: the whole-group tar, each subpath-split tar, the " +
+                   "multi-member merged tar, the interpreter tar, and first-party group tars.\n\n" +
+                   "`algorithm` is any bsdtar (libarchive) write filter: `none`, `gzip`, " +
+                   "`bzip2`, `xz`, `lzma`, `lzop`, `lz4`, `lrzip`, `zstd`, or `compress`. " +
+                   "`lzop` and `lrzip` shell out to a same-named binary that must exist inside " +
+                   "the action — use `compressors` for a hermetic equivalent. `none` and " +
+                   "`compress` take no level.\n\n" +
+                   "`level` is optional; omit it to take libarchive's default for that filter. " +
+                   "Example: {\"heavy_pkgs\": [\"zstd\", \"19\"], \"cold\": [\"xz\"]}. " +
+                   "Untouched groups default to gzip -6."),
+        ),
+        "compressors": attr.label_keyed_string_dict(
+            default = {},
+            cfg = "exec",
+            providers = [PyLayerCompressorInfo],
+            doc = ("Maps a `py_layer_compressor` target → group name, for compressors libarchive " +
+                   "has no filter for. bsdtar pipes the layer through the program. A group " +
+                   "may appear here or in `compression`, not both."),
+        ),
+        "allow_non_oci_layers": attr.bool(
+            default = False,
+            doc = ("Permit compression the OCI image spec has no layer format for. " +
+                   "The spec defines only tar, gzip and zstd; rules_oci labels anything " +
+                   "else an uncompressed tar and records the compressed digest as the " +
+                   "layer's diffid, so the image is invalid even though the build " +
+                   "succeeds. Set this only when the tars are consumed by something " +
+                   "other than an OCI image."),
         ),
         "interpreter_group": attr.string(
             default = "",
@@ -256,12 +322,13 @@ def _opaque_dep_files(rule_attr, attr_names):
                 parts.append(_runtime_files(dep))
     return parts
 
-def _compression_for(plan, group_name):
-    comp = plan.compression.get(group_name, None) if group_name else None
-    algorithm = comp[0] if comp else "gzip"
-    level = comp[1] if comp else "6"
-    ext = ".tar.zst" if algorithm == "zstd" else ".tar.gz"
-    return algorithm, level, ext
+_DEFAULT_CODEC = make_codec(DEFAULT_ALGORITHM, DEFAULT_LEVEL)
+
+def _codec_for(plan, group_name):
+    """Codec for a tier-named group; gzip -6 for groups the tier never mentions."""
+    if not group_name:
+        return _DEFAULT_CODEC
+    return plan.codecs.get(group_name, _DEFAULT_CODEC)
 
 def _tar_toolchain(ctx):
     tc = ctx.toolchains[_TAR_TOOLCHAIN]
@@ -296,8 +363,8 @@ def _build_pip_layers(ctx, plan, label, install_dir):
     if subpath_for_this:
         all_patterns = [p for pats in subpath_for_this.values() for p in pats]
         for grp_name, patterns in subpath_for_this.items():
-            algorithm, level, ext = _compression_for(plan, grp_name)
-            tar_out = ctx.actions.declare_file("_pip_layer_{}{}".format(grp_name, ext))
+            codec = _codec_for(plan, grp_name)
+            tar_out = ctx.actions.declare_file("_pip_layer_{}{}".format(grp_name, codec.ext))
             _run_tar_action(
                 ctx,
                 bsdtar,
@@ -305,16 +372,15 @@ def _build_pip_layers(ctx, plan, label, install_dir):
                 tar_out,
                 install_dir,
                 _make_glob_map_each(patterns, plan.owner, plan.group),
-                algorithm,
-                level,
+                codec,
                 {},
                 "PyImagePkgLayer",
                 "Creating pip layer %s[%s]" % (label, grp_name),
             )
             layers.append(struct(tar = tar_out, group = grp_name))
 
-        algorithm, level, ext = _compression_for(plan, whole_group)
-        rest_tar = ctx.actions.declare_file("_pip_layer_tar" + ext)
+        codec = _codec_for(plan, whole_group)
+        rest_tar = ctx.actions.declare_file("_pip_layer_tar" + codec.ext)
         _run_tar_action(
             ctx,
             bsdtar,
@@ -322,16 +388,15 @@ def _build_pip_layers(ctx, plan, label, install_dir):
             rest_tar,
             install_dir,
             _make_glob_map_each(all_patterns, plan.owner, plan.group, invert = True),
-            algorithm,
-            level,
+            codec,
             {},
             "PyImagePkgLayer",
             "Creating pip layer %s[rest]" % label,
         )
         layers.append(struct(tar = rest_tar, group = whole_group))
     else:
-        algorithm, level, ext = _compression_for(plan, whole_group)
-        tar_out = ctx.actions.declare_file("_pip_layer_tar" + ext)
+        codec = _codec_for(plan, whole_group)
+        tar_out = ctx.actions.declare_file("_pip_layer_tar" + codec.ext)
         _run_tar_action(
             ctx,
             bsdtar,
@@ -339,8 +404,7 @@ def _build_pip_layers(ctx, plan, label, install_dir):
             tar_out,
             install_dir,
             pkg_map,
-            algorithm,
-            level,
+            codec,
             {},
             "PyImagePkgLayer",
             "Creating pip layer %s" % label,
@@ -366,8 +430,8 @@ def _layer_aspect_impl(target, ctx):
         interp_layer = struct(tar = None, group = None, interpreter_files = interp_depset)
         if interp_group:
             bsdtar, bsdtar_files = _tar_toolchain(ctx)
-            algorithm, level, ext = _compression_for(plan, interp_group)
-            interp_tar = ctx.actions.declare_file("_interpreter_layer_{}{}".format(interp_group, ext))
+            codec = _codec_for(plan, interp_group)
+            interp_tar = ctx.actions.declare_file("_interpreter_layer_{}{}".format(interp_group, codec.ext))
             _run_tar_action(
                 ctx,
                 bsdtar,
@@ -375,8 +439,7 @@ def _layer_aspect_impl(target, ctx):
                 interp_tar,
                 interp_depset,
                 lambda f, d: _interpreter_file_to_mtree(f, d, plan.owner, plan.group),
-                algorithm,
-                level,
+                codec,
                 {},
                 "PyImagePkgLayer",
                 "Creating interpreter layer %s" % target.label,
@@ -548,8 +611,8 @@ def _merge_aspect_impl(target, ctx):
     merged_tars = {}
     for group_name in sorted(bucket):
         install_dirs = bucket[group_name]
-        algorithm, level, ext = _compression_for(plan, group_name)
-        tar_out = ctx.actions.declare_file("_merged_pip_layer_{}{}".format(group_name, ext))
+        codec = _codec_for(plan, group_name)
+        tar_out = ctx.actions.declare_file("_merged_pip_layer_{}{}".format(group_name, codec.ext))
         _run_tar_action(
             ctx,
             bsdtar,
@@ -557,8 +620,7 @@ def _merge_aspect_impl(target, ctx):
             tar_out,
             depset(transitive = install_dirs),
             lambda f, d: _pkg_file_to_mtree(f, d, plan.owner, plan.group),
-            algorithm,
-            level,
+            codec,
             {},
             "PyImageMergedLayer",
             "Merging %d pip packages into %s[%s]" % (len(install_dirs), target.label, group_name),
@@ -874,7 +936,7 @@ def _declare_symlink_mapping(ctx, mappings):
     )
     return mapping_out
 
-def _run_tar_action(ctx, bsdtar, bsdtar_files, tar_out, files_depset, map_each, compress, level, reqs, mnemonic, progress_msg, symlink_mappings = None, skip_files = None, chmod_files = None):
+def _run_tar_action(ctx, bsdtar, bsdtar_files, tar_out, files_depset, map_each, codec, reqs, mnemonic, progress_msg, symlink_mappings = None, skip_files = None, chmod_files = None):
     # mtree (param file) → gawk (readlinks `type=link`/`type=file content=`
     # rows; `contents=` rows pass through; END buffers, asort-sorts, and
     # writes the sorted mtree to a file) → bsdtar consumes the file.
@@ -929,16 +991,7 @@ def _run_tar_action(ctx, bsdtar, bsdtar_files, tar_out, files_depset, map_each, 
 
     tar_args = ctx.actions.args()
     tar_args.add("--create")
-    tar_args.add("--" + compress)
-    options = "{}:compression-level={}".format(compress, level)
-    if compress == "gzip":
-        # libarchive's gzip filter stores the current wall-clock time in the gzip
-        # header's MTIME field, so two executions of this action over byte-identical
-        # inputs emit different bytes — and therefore a different layer digest, which
-        # propagates into the oci_image manifest. `!timestamp` zeroes that field.
-        # zstd has no equivalent field, so this is gzip-only.
-        options += ",gzip:!timestamp"
-    tar_args.add("--options", options)
+    codec_tar_args(codec, tar_args)
     tar_args.add("--file", tar_out)
 
     # `@<file>` tells bsdtar to read the named file as an mtree archive
@@ -949,6 +1002,8 @@ def _run_tar_action(ctx, bsdtar, bsdtar_files, tar_out, files_depset, map_each, 
         inputs = depset(direct = [sorted_mtree], transitive = [files_depset, bsdtar_files.files]),
         outputs = [tar_out],
         arguments = [tar_args],
+        # bsdtar spawns a custom compressor from the execroot.
+        tools = codec_tools(codec),
         mnemonic = mnemonic,
         progress_message = progress_msg,
         execution_requirements = reqs,
@@ -956,9 +1011,42 @@ def _run_tar_action(ctx, bsdtar, bsdtar_files, tar_out, files_depset, map_each, 
         use_default_shell_env = False,
     )
 
-def _declare_group_tar(ctx, bsdtar, bsdtar_files, out_name, group_name, files, map_each, progress, symlink_mappings = None, skip_files = None, chmod_files = None):
-    tar_out = ctx.actions.declare_file(out_name)
-    level = ctx.attr.group_compress_levels.get(group_name, "6")
+def _rule_codecs(ctx):
+    """Codecs the rule's own attrs pin, group name → codec."""
+    codecs = {}
+    for group_name, value in ctx.attr.group_compression.items():
+        codec = parse_compression(value, "py_image_layer.group_compression[%r]" % group_name)
+        check_oci_compatible(codec, group_name, "py_image_layer.group_compression", ctx.attr.allow_non_oci_layers)
+        codecs[group_name] = codec
+    seen = {}
+    for dep, group_name in ctx.attr.group_compressors.items():
+        # Duplicates first, for the same reason as py_layer_tier above.
+        if group_name in seen:
+            fail(("group %r is mapped to two py_layer_compressor targets (%s and %s) in " +
+                  "py_image_layer.group_compressors. A group gets its bytes from exactly " +
+                  "one compressor.") % (group_name, seen[group_name], dep.label))
+        if group_name in codecs:
+            fail(("group %r is configured in both py_image_layer.group_compression and " +
+                  "py_image_layer.group_compressors. A group gets its bytes from exactly " +
+                  "one compressor — drop one of the two entries.") % group_name)
+        seen[group_name] = dep.label
+        codec = codec_from_compressor(dep[PyLayerCompressorInfo])
+        check_oci_compatible(codec, group_name, "py_image_layer.group_compressors", ctx.attr.allow_non_oci_layers)
+        codecs[group_name] = codec
+    return codecs
+
+def _rule_codec_for(ctx, rule_codecs, plan, group_name):
+    # Rule attrs win over the tier, so one image can deviate without forking a
+    # shared tier; `group_compress_levels` is the gzip-only fallback.
+    if group_name in rule_codecs:
+        return rule_codecs[group_name]
+    if group_name in plan.codecs:
+        return plan.codecs[group_name]
+    return make_codec(DEFAULT_ALGORITHM, ctx.attr.group_compress_levels.get(group_name, DEFAULT_LEVEL))
+
+def _declare_group_tar(ctx, rule_codecs, plan, bsdtar, bsdtar_files, out_basename, group_name, files, map_each, progress, symlink_mappings = None, skip_files = None, chmod_files = None):
+    codec = _rule_codec_for(ctx, rule_codecs, plan, group_name)
+    tar_out = ctx.actions.declare_file(out_basename + codec.ext)
     reqs = _parse_exec_requirements(ctx.attr.group_execution_requirements.get(group_name, []))
     _run_tar_action(
         ctx,
@@ -967,8 +1055,7 @@ def _declare_group_tar(ctx, bsdtar, bsdtar_files, out_name, group_name, files, m
         tar_out,
         files,
         map_each,
-        "gzip",
-        level,
+        codec,
         reqs,
         "PyImageLayer",
         progress,
@@ -999,6 +1086,7 @@ def _py_image_layer_impl(ctx):
     # `_platform_cfg` rewrites the `//py:layer_tier` flag from `attr.layer_tier`,
     # so `_layer_tier` always resolves to the effective tier.
     plan = ctx.attr._layer_tier[PyLayerTierInfo]
+    rule_codecs = _rule_codecs(ctx)
     root = plan.root
     strip_prefix = plan.strip_prefix
     owner = plan.owner
@@ -1149,9 +1237,11 @@ def _py_image_layer_impl(ctx):
     for group_name, files in rule_groups:
         tar_out = _declare_group_tar(
             ctx,
+            rule_codecs,
+            plan,
             bsdtar,
             bsdtar_files,
-            "{}_{}.tar.gz".format(ctx.attr.name, group_name),
+            "{}_{}".format(ctx.attr.name, group_name),
             group_name,
             files,
             rule_group_map,
@@ -1183,9 +1273,11 @@ def _py_image_layer_impl(ctx):
         else:
             tar_out = _declare_group_tar(
                 ctx,
+                rule_codecs,
+                plan,
                 bsdtar,
                 bsdtar_files,
-                "{}_{}.tar.gz".format(ctx.attr.name, group_name),
+                "{}_{}".format(ctx.attr.name, group_name),
                 group_name,
                 depset(transitive = fp_by_group[group_name]),
                 source_map,
@@ -1211,8 +1303,8 @@ def _py_image_layer_impl(ctx):
         all_tars.extend([tar for _group_name, tar in sorted(binaries[0][_MergedLayerInfo].merged_tars.items())])
     else:
         for group_name in sorted(merged):
-            algorithm, level, ext = _compression_for(plan, group_name)
-            tar_out = ctx.actions.declare_file("{}/merged_pip_layers/{}{}".format(ctx.attr.name, group_name, ext))
+            codec = _codec_for(plan, group_name)
+            tar_out = ctx.actions.declare_file("{}/merged_pip_layers/{}{}".format(ctx.attr.name, group_name, codec.ext))
             _run_tar_action(
                 ctx,
                 bsdtar,
@@ -1220,8 +1312,7 @@ def _py_image_layer_impl(ctx):
                 tar_out,
                 depset(transitive = merged[group_name]),
                 pkg_map,
-                algorithm,
-                level,
+                codec,
                 {},
                 "PyImageMergedLayer",
                 "Merging %d pip packages into %s[%s]" % (len(merged[group_name]), ctx.label, group_name),
@@ -1232,9 +1323,11 @@ def _py_image_layer_impl(ctx):
     if ungrouped_pkgs:
         squashed_tar = _declare_group_tar(
             ctx,
+            rule_codecs,
+            plan,
             bsdtar,
             bsdtar_files,
-            "{}_squashed.tar.gz".format(ctx.attr.name),
+            "{}_squashed".format(ctx.attr.name),
             "packages",
             depset(transitive = [p.files for p in ungrouped_pkgs]),
             pkg_map,
@@ -1248,9 +1341,11 @@ def _py_image_layer_impl(ctx):
 
     source_tar = _declare_group_tar(
         ctx,
+        rule_codecs,
+        plan,
         bsdtar,
         bsdtar_files,
-        "{}_default.tar.gz".format(ctx.attr.name),
+        "{}_default".format(ctx.attr.name),
         "default",
         source_files,
         source_map,
@@ -1326,7 +1421,14 @@ _py_image_layer = rule(
         ),
         "groups": attr.label_keyed_string_dict(default = {}),
         "group_execution_requirements": attr.string_list_dict(default = {}),
+        "allow_non_oci_layers": attr.bool(default = False),
         "group_compress_levels": attr.string_dict(default = {}),
+        "group_compression": attr.string_list_dict(default = {}),
+        "group_compressors": attr.label_keyed_string_dict(
+            default = {},
+            cfg = "exec",
+            providers = [PyLayerCompressorInfo],
+        ),
         "warn_remote_cache_threshold_mb": attr.int(default = 200),
         "warn_layer_count": attr.int(default = 90),
         "platform": attr.label(default = None, providers = [platform_common.PlatformInfo]),
@@ -1365,6 +1467,9 @@ def py_image_layer(
         groups = {},
         group_execution_requirements = {},
         group_compress_levels = {},
+        group_compression = {},
+        group_compressors = {},
+        allow_non_oci_layers = False,
         warn_remote_cache_threshold_mb = 200,
         warn_layer_count = 90,
         platform = None,
@@ -1399,9 +1504,24 @@ def py_image_layer(
             in py_layer_tier — subpath glob keys passed here fail loudly.
         group_execution_requirements: Maps a group name to execution requirement strings.
             The group name "packages" applies to the squashed ungrouped-pip tar.
-        group_compress_levels: Maps a group name to a gzip compression level (1-9) for
-            rule-created tars (non-pip deps, squashed ungrouped pip tar, source). Default 6.
-            Does NOT apply to aspect-created pip tars (configure via the py_layer_tier target).
+        group_compress_levels: gzip-only shorthand: maps a group name to a compression
+            level (1-9) for rule-created tars. Default 6. Ignored for any group named by
+            `group_compression`, `group_compressors`, or the tier's `compression`.
+        group_compression: Maps a group name to `[algorithm]` or `[algorithm, level]` for
+            rule-created tars (non-pip deps, first-party groups, the squashed ungrouped-pip
+            tar under the name "packages", and the source layer under the name "default").
+            `algorithm` is any bsdtar write filter — `none`, `gzip`, `bzip2`, `xz`, `lzma`,
+            `lzop`, `lz4`, `lrzip`, `zstd`, `compress`. Takes precedence over the tier's
+            `compression` for the same group. Does NOT apply to aspect-created pip tars;
+            configure those on the py_layer_tier target.
+        group_compressors: Maps a `py_layer_compressor` target to a group name, for rule-created
+            tars that need a compressor libarchive has no filter for. Same precedence as
+            `group_compression`; a group may appear in one or the other, not both.
+        allow_non_oci_layers: Permit compression the OCI image spec has no layer format
+            for. The spec defines only tar, gzip and zstd, and rules_oci labels anything
+            else an uncompressed tar with the compressed digest as its diffid — the build
+            succeeds and the image is invalid. Set this only when the tars are consumed by
+            something other than an OCI image.
         warn_remote_cache_threshold_mb: Threshold for large package warnings.
         warn_layer_count: Warn when total layers exceed this. Default: 90.
         platform: Platform transition target.
@@ -1439,6 +1559,9 @@ def py_image_layer(
         groups = groups,
         group_execution_requirements = group_execution_requirements,
         group_compress_levels = group_compress_levels,
+        group_compression = group_compression,
+        group_compressors = group_compressors,
+        allow_non_oci_layers = allow_non_oci_layers,
         warn_remote_cache_threshold_mb = warn_remote_cache_threshold_mb,
         warn_layer_count = warn_layer_count,
         platform = platform,

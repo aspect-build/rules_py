@@ -1,0 +1,608 @@
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+load("//py:defs.bzl", "py_binary", "py_image_layer", "py_layer_compressor", "py_layer_tier", "py_library", "py_test")
+load(
+    ":tests.bzl",
+    "codec_table_test",
+    "custom_compressor_test",
+    "expected_failure_test",
+    "oci_compressor_test",
+    "rule_attrs_test",
+    "tier_compression_test",
+)
+
+py_library(
+    name = "branding",
+    srcs = ["branding/__init__.py"],
+    imports = ["."],
+)
+
+py_binary(
+    name = "app",
+    srcs = ["main.py"],
+    main = "main.py",
+    tags = ["manual"],
+    deps = [":branding"],
+)
+
+# The interpreter dominates every layer set here. Peeling it into its own cheap
+# layer keeps the tars these tests inspect small, and covers the aspect-created
+# interpreter tar honouring the tier's codec.
+py_layer_tier(
+    name = "cheap_tier",
+    compression = {"interpreter": [
+        "gzip",
+        "1",
+    ]},
+    interpreter_group = "interpreter",
+)
+
+################################################################################
+# Every libarchive write filter, over one tiny payload each. lzop and lrzip are
+# absent: libarchive shells out to a same-named binary for those two, which no
+# sandboxed action is guaranteed to have.
+FILTERS = {
+    "f_bzip2": [
+        "bzip2",
+        "9",
+    ],
+    "f_compress": ["compress"],
+    "f_gzip": [
+        "gzip",
+        "9",
+    ],
+    "f_lz4": ["lz4"],
+    "f_lzma": [
+        "lzma",
+        "6",
+    ],
+    "f_none": ["none"],
+    "f_xz": [
+        "xz",
+        "6",
+    ],
+    "f_zstd": [
+        "zstd",
+        "19",
+    ],
+}
+
+[
+    filegroup(
+        name = group_name,
+        srcs = ["payloads/%s.txt" % group_name[len("f_"):]],
+    )
+    for group_name in FILTERS
+]
+
+py_image_layer(
+    name = "filters_layers",
+    # Deliberately off-spec: this target exists to prove every libarchive filter
+    # writes readable bytes, not to feed an oci_image.
+    allow_non_oci_layers = True,
+    binary = ":app",
+    group_compression = FILTERS,
+    groups = {":" + group_name: group_name for group_name in FILTERS},
+    layer_tier = ":cheap_tier",
+)
+
+py_test(
+    name = "filters_test",
+    srcs = ["assert_compression.py"],
+    args = [
+        "--expect=_f_none.tar",
+        "--expect=_f_gzip.tar.gz",
+        "--expect=_f_bzip2.tar.bz2",
+        "--expect=_f_xz.tar.xz",
+        "--expect=_f_lzma.tar.lzma",
+        "--expect=_f_lz4.tar.lz4",
+        "--expect=_f_zstd.tar.zst",
+        "--expect=_f_compress.tar.Z",
+        "$(rootpaths :filters_layers)",
+    ],
+    data = [":filters_layers"],
+    main = "assert_compression.py",
+)
+
+################################################################################
+# Rule attributes: group_compression / group_compress_levels precedence.
+
+filegroup(
+    name = "assets",
+    srcs = ["payloads/xz.txt"],
+)
+
+filegroup(
+    name = "extras",
+    srcs = ["payloads/gzip.txt"],
+)
+
+py_image_layer(
+    name = "rule_attrs_layers",
+    allow_non_oci_layers = True,  # "assets" is xz
+    binary = ":app",
+    group_compress_levels = {"extras": "1"},
+    group_compression = {
+        "assets": ["xz"],
+        "default": [
+            "zstd",
+            "19",
+        ],
+    },
+    groups = {
+        ":assets": "assets",
+        ":extras": "extras",
+    },
+    layer_tier = ":cheap_tier",
+)
+
+rule_attrs_test(
+    name = "rule_attrs_test",
+    target_under_test = ":rule_attrs_layers",
+)
+
+################################################################################
+# Tier compression, and the rule overriding it for one group.
+
+py_layer_tier(
+    name = "branding_tier",
+    allow_non_oci_layers = True,  # "branding" is bzip2
+    compression = {
+        "branding": [
+            "bzip2",
+            "9",
+        ],
+        "default": [
+            "zstd",
+            "3",
+        ],
+        "interpreter": [
+            "gzip",
+            "1",
+        ],
+    },
+    groups = {"//py/tests/image-layer-compression:branding": "branding"},
+    interpreter_group = "interpreter",
+)
+
+py_image_layer(
+    name = "tier_compression_layers",
+    binary = ":app",
+    group_compression = {"default": ["none"]},
+    layer_tier = ":branding_tier",
+)
+
+tier_compression_test(
+    name = "tier_compression_test",
+    target_under_test = ":tier_compression_layers",
+)
+
+################################################################################
+# A compressor libarchive has no filter for.
+
+sh_binary(
+    name = "fake_compressor",
+    srcs = ["fake_compressor.sh"],
+)
+
+py_layer_compressor(
+    name = "lolz",
+    args = ["--loud"],
+    extension = ".tar.lolz",
+    tool = ":fake_compressor",
+)
+
+py_layer_compressor(
+    name = "lolz_rival",
+    args = ["--loud"],
+    extension = ".tar.rival",
+    tool = ":fake_compressor",
+)
+
+py_layer_tier(
+    name = "custom_tier",
+    allow_non_oci_layers = True,  # :lolz declares .tar.lolz
+    compression = {"interpreter": [
+        "gzip",
+        "1",
+    ]},
+    compressors = {":lolz": "branding"},
+    groups = {"//py/tests/image-layer-compression:branding": "branding"},
+    interpreter_group = "interpreter",
+)
+
+py_image_layer(
+    name = "custom_compressor_layers",
+    allow_non_oci_layers = True,  # :lolz declares .tar.lolz
+    binary = ":app",
+    group_compressors = {":lolz": "default"},
+    layer_tier = ":custom_tier",
+)
+
+custom_compressor_test(
+    name = "custom_compressor_test",
+    target_under_test = ":custom_compressor_layers",
+)
+
+# The program has to actually run, not just appear on the command line.
+py_test(
+    name = "custom_compressor_runtime_test",
+    srcs = ["assert_compression.py"],
+    args = [
+        "--expect=_default.tar.lolz",
+        "--expect=_branding.tar.lolz",
+        "--absent=.tar.zst",
+        "$(rootpaths :custom_compressor_layers)",
+    ],
+    data = [":custom_compressor_layers"],
+    main = "assert_compression.py",
+)
+
+################################################################################
+# Pip-package layers. Declared by the layer aspects at the pip target's own
+# namespace, so they resolve their codec straight from the tier.
+
+py_binary(
+    name = "pip_app",
+    srcs = ["pip_main.py"],
+    main = "pip_main.py",
+    tags = ["manual"],
+    deps = [
+        "@pypi//colorama",
+        "@pypi//six",
+    ],
+)
+
+# Two packages in one group merge into a single tar built by the merge aspect.
+py_layer_tier(
+    name = "merged_pip_tier",
+    allow_non_oci_layers = True,  # "third_party" is xz
+    compression = {
+        "interpreter": [
+            "gzip",
+            "1",
+        ],
+        "third_party": [
+            "xz",
+            "1",
+        ],
+    },
+    groups = {
+        "@pip//colorama": "third_party",
+        "@pip//six": "third_party",
+    },
+    interpreter_group = "interpreter",
+)
+
+py_image_layer(
+    name = "merged_pip_layers",
+    binary = ":pip_app",
+    layer_tier = ":merged_pip_tier",
+)
+
+py_test(
+    name = "merged_pip_test",
+    srcs = ["assert_compression.py"],
+    args = [
+        "--expect=_merged_pip_layer_third_party.tar.xz",
+        "$(rootpaths :merged_pip_layers)",
+    ],
+    data = [":merged_pip_layers"],
+    main = "assert_compression.py",
+)
+
+# A single-member group gets its own tar, and can use a custom compressor.
+py_layer_tier(
+    name = "solo_pip_tier",
+    allow_non_oci_layers = True,  # colorama is lz4, six uses :lolz
+    compression = {
+        "colorama": ["lz4"],
+        "interpreter": [
+            "gzip",
+            "1",
+        ],
+    },
+    compressors = {":lolz": "six"},
+    groups = {
+        "@pip//colorama": "colorama",
+        "@pip//six": "six",
+    },
+    interpreter_group = "interpreter",
+)
+
+py_image_layer(
+    name = "solo_pip_layers",
+    binary = ":pip_app",
+    layer_tier = ":solo_pip_tier",
+)
+
+py_test(
+    name = "solo_pip_test",
+    srcs = ["assert_compression.py"],
+    args = [
+        "--expect=_pip_layer_tar.tar.lz4",
+        "--expect=_pip_layer_tar.tar.lolz",
+        "$(rootpaths :solo_pip_layers)",
+    ],
+    data = [":solo_pip_layers"],
+    main = "assert_compression.py",
+)
+
+################################################################################
+# OCI compatibility. The spec defines tar, gzip and zstd layers; rules_oci
+# sniffs only the gzip and zstd magics and labels anything else an uncompressed
+# tar with the compressed digest as its diffid, so the image is invalid while
+# the build succeeds. Non-OCI codecs are therefore opt-in.
+
+py_layer_tier(
+    name = "oci_default_tier",
+    compression = {
+        "branding": [
+            "zstd",
+            "19",
+        ],
+        "interpreter": ["none"],
+    },
+    groups = {"//py/tests/image-layer-compression:branding": "branding"},
+    interpreter_group = "interpreter",
+)
+
+# The OCI-valid codecs need no opt-in; building this target is the assertion.
+py_image_layer(
+    name = "oci_default_layers",
+    binary = ":app",
+    group_compression = {"default": [
+        "gzip",
+        "9",
+    ]},
+    layer_tier = ":oci_default_tier",
+)
+
+py_test(
+    name = "oci_default_test",
+    srcs = ["assert_compression.py"],
+    args = [
+        "--expect=_branding.tar.zst",
+        "--expect=_default.tar.gz",
+        "--expect=_interpreter_layer_interpreter.tar",
+        "$(rootpaths :oci_default_layers)",
+    ],
+    data = [":oci_default_layers"],
+    main = "assert_compression.py",
+)
+
+py_layer_tier(
+    name = "non_oci_tier",
+    compression = {"grp": [
+        "bzip2",
+        "9",
+    ]},
+    tags = ["manual"],
+)
+
+expected_failure_test(
+    name = "non_oci_tier_test",
+    expected_error = "is not an OCI layer format",
+    target_under_test = ":non_oci_tier",
+)
+
+py_image_layer(
+    name = "non_oci_layers",
+    binary = ":app",
+    group_compression = {"default": ["xz"]},
+    layer_tier = ":cheap_tier",
+)
+
+expected_failure_test(
+    name = "non_oci_layers_test",
+    expected_error = "set allow_non_oci_layers = True",
+    target_under_test = ":non_oci_layers",
+)
+
+# A custom compressor is judged by the extension it declares: the program's
+# bytes are opaque, so `.tar.lolz` is assumed unreadable by an image consumer.
+py_image_layer(
+    name = "non_oci_compressor_layers",
+    binary = ":app",
+    group_compressors = {":lolz": "default"},
+    layer_tier = ":cheap_tier",
+)
+
+expected_failure_test(
+    name = "non_oci_compressor_test",
+    expected_error = "a py_layer_compressor declaring extension \".tar.lolz\"",
+    target_under_test = ":non_oci_compressor_layers",
+)
+
+# ...and one declaring .tar.gz (a pigz or tuned-gzip stand-in) needs no opt-in.
+py_layer_compressor(
+    name = "custom_gzip",
+    args = ["--loud"],
+    extension = ".tar.gz",
+    tool = ":fake_compressor",
+)
+
+py_image_layer(
+    name = "oci_compressor_layers",
+    binary = ":app",
+    group_compressors = {":custom_gzip": "default"},
+    layer_tier = ":cheap_tier",
+)
+
+oci_compressor_test(
+    name = "oci_compressor_test",
+    target_under_test = ":oci_compressor_layers",
+)
+
+################################################################################
+# Misconfigurations, all rejected during analysis.
+
+py_layer_tier(
+    name = "unknown_algorithm_tier",
+    compression = {"grp": [
+        "brotli",
+        "9",
+    ]},
+    tags = ["manual"],
+)
+
+expected_failure_test(
+    name = "unknown_algorithm_test",
+    expected_error = "unknown compression algorithm \"brotli\"",
+    target_under_test = ":unknown_algorithm_tier",
+)
+
+py_layer_tier(
+    name = "level_out_of_range_tier",
+    compression = {"grp": [
+        "zstd",
+        "99",
+    ]},
+    tags = ["manual"],
+)
+
+expected_failure_test(
+    name = "level_out_of_range_test",
+    expected_error = "compression level 99 is out of range for \"zstd\"",
+    target_under_test = ":level_out_of_range_tier",
+)
+
+py_layer_tier(
+    name = "non_numeric_level_tier",
+    compression = {"grp": [
+        "gzip",
+        "highest",
+    ]},
+    tags = ["manual"],
+)
+
+expected_failure_test(
+    name = "non_numeric_level_test",
+    expected_error = "compression level must be an integer",
+    target_under_test = ":non_numeric_level_tier",
+)
+
+py_layer_tier(
+    name = "levelless_algorithm_tier",
+    allow_non_oci_layers = True,
+    compression = {"grp": [
+        "compress",
+        "3",
+    ]},
+    tags = ["manual"],
+)
+
+expected_failure_test(
+    name = "levelless_algorithm_test",
+    expected_error = "the \"compress\" compressor takes no compression level",
+    target_under_test = ":levelless_algorithm_tier",
+)
+
+py_layer_tier(
+    name = "double_booked_tier",
+    allow_non_oci_layers = True,
+    compression = {"branding": ["xz"]},
+    compressors = {":lolz": "branding"},
+    tags = ["manual"],
+)
+
+expected_failure_test(
+    name = "double_booked_tier_test",
+    expected_error = "both py_layer_tier.compression and py_layer_tier.compressors",
+    target_under_test = ":double_booked_tier",
+)
+
+py_image_layer(
+    name = "double_booked_layers",
+    allow_non_oci_layers = True,
+    binary = ":app",
+    group_compression = {"default": ["xz"]},
+    group_compressors = {":lolz": "default"},
+    layer_tier = ":cheap_tier",
+)
+
+expected_failure_test(
+    name = "double_booked_layers_test",
+    expected_error = "both py_image_layer.group_compression and py_image_layer.group_compressors",
+    target_under_test = ":double_booked_layers",
+)
+
+# lz4 is the one filter that rejects level 0 outright, so the shared 0..9 range
+# would have let an unbuildable layer through.
+py_layer_tier(
+    name = "lz4_zero_tier",
+    allow_non_oci_layers = True,
+    compression = {"grp": [
+        "lz4",
+        "0",
+    ]},
+    tags = ["manual"],
+)
+
+expected_failure_test(
+    name = "lz4_zero_test",
+    expected_error = "compression level 0 is out of range for \"lz4\"",
+    target_under_test = ":lz4_zero_tier",
+)
+
+py_image_layer(
+    name = "rival_compressors_layers",
+    allow_non_oci_layers = True,
+    binary = ":app",
+    group_compressors = {
+        ":lolz": "default",
+        ":lolz_rival": "default",
+    },
+    layer_tier = ":cheap_tier",
+)
+
+expected_failure_test(
+    name = "rival_compressors_test",
+    expected_error = "mapped to two py_layer_compressor targets",
+    target_under_test = ":rival_compressors_layers",
+)
+
+py_layer_tier(
+    name = "rival_compressors_tier",
+    allow_non_oci_layers = True,
+    compressors = {
+        ":lolz": "branding",
+        ":lolz_rival": "branding",
+    },
+    groups = {"//py/tests/image-layer-compression:branding": "branding"},
+    tags = ["manual"],
+)
+
+expected_failure_test(
+    name = "rival_compressors_tier_test",
+    expected_error = "mapped to two py_layer_compressor targets",
+    target_under_test = ":rival_compressors_tier",
+)
+
+py_layer_compressor(
+    name = "bare_extension",
+    extension = "lolz",
+    tags = ["manual"],
+    tool = ":fake_compressor",
+)
+
+expected_failure_test(
+    name = "bare_extension_test",
+    expected_error = "py_layer_compressor.extension must start with '.'",
+    target_under_test = ":bare_extension",
+)
+
+py_layer_compressor(
+    name = "spaced_args",
+    args = ["-q 11"],
+    extension = ".tar.lolz",
+    tags = ["manual"],
+    tool = ":fake_compressor",
+)
+
+expected_failure_test(
+    name = "spaced_args_test",
+    expected_error = "must be single whitespace-free",
+    target_under_test = ":spaced_args",
+)
+
+codec_table_test(name = "codec_table_test")
