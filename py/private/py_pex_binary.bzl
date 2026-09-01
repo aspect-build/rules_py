@@ -69,6 +69,11 @@ def _label_targets(attr_val):
         return [attr_val]
     return []
 
+def _single_target(value):
+    if type(value) == "list":
+        return value[0] if len(value) == 1 else None
+    return value
+
 def _closure_aspect_impl(target, ctx):
     # Toolchain node, reached via toolchains_aspects: surface the interpreter's
     # repo roots and version for the venv node below to read under its config.
@@ -114,7 +119,7 @@ def _closure_aspect_impl(target, ctx):
 
     # py_venv_exec (what the py_binary macro expands to) routes srcs/deps onto a
     # sibling py_venv reached via `venv`; that venv also carries VirtualenvInfo.
-    venv = getattr(ctx.rule.attr, "venv", None)
+    venv = _single_target(getattr(ctx.rule.attr, "venv", None))
     if venv != None:
         if _PexClosureInfo in venv:
             wheels.append(venv[_PexClosureInfo].wheels)

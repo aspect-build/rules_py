@@ -1,6 +1,7 @@
 load("//py:defs.bzl", "py_venv")
 load("//py/private/py_venv:defs.bzl", "py_venv_exec_test")
 load(":env_inherit_test.bzl", "contextual_keys_not_inherited_test", "env_inherit_test")
+load(":freethreaded_flag_test.bzl", "freethreaded_flag_test")
 
 package(default_testonly = True)
 
@@ -56,6 +57,61 @@ py_venv_exec_test(
     name = "test_entry_b",
     main = "entry_b.py",
     venv = ":shared_venv",
+)
+
+# One py_venv label, resolved in two consumer configurations. A materialized
+# venv cannot be shared across interpreter versions, but Bazel configures this
+# label independently for each launcher's `python_version`.
+py_venv(
+    name = "shared_versioned_venv",
+    srcs = ["entry_versioned.py"],
+    imports = ["."],
+)
+
+py_venv_exec_test(
+    name = "test_python_312",
+    main = "entry_versioned.py",
+    python_version = "3.12",
+    venv = ":shared_versioned_venv",
+)
+
+py_venv_exec_test(
+    name = "test_python_313",
+    main = "entry_versioned.py",
+    python_version = "3.13",
+    venv = ":shared_versioned_venv",
+)
+
+py_venv_exec_test(
+    name = "test_python_313_freethreaded",
+    freethreaded = "true",
+    main = "entry_versioned.py",
+    python_version = "3.13",
+    venv = ":shared_versioned_venv",
+)
+
+# Regression: the launcher edge must not validate intermediate flag combos.
+# Under a global freethreaded flag this venv pins GIL mode back off; a
+# launcher choosing only python_version passes through an intermediate
+# "freethreaded 3.12" configuration that the venv's own transition resolves.
+py_venv(
+    name = "gil_pinned_venv",
+    srcs = ["entry_versioned.py"],
+    freethreaded = False,
+    imports = ["."],
+)
+
+py_venv_exec_test(
+    name = "test_python_312_gil_pinned",
+    main = "entry_versioned.py",
+    python_version = "3.12",
+    tags = ["manual"],
+    venv = ":gil_pinned_venv",
+)
+
+freethreaded_flag_test(
+    name = "test_gil_pinned_under_freethreaded_flag",
+    binary = ":test_python_312_gil_pinned",
 )
 
 # Same main, different consumer-level `env`: each sets MODE to its own

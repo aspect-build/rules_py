@@ -279,6 +279,13 @@ _LayerInfo = provider(
     },
 )
 
+def _terminal_venv(ctx):
+    """The launcher's sibling venv Target; its transitioned label attr may present as a single-element list."""
+    value = getattr(ctx.rule.attr, "venv", None)
+    if type(value) == "list":
+        return value[0] if len(value) == 1 else None
+    return value
+
 def _collect_from_deps(ctx, provider):
     """Walk deps/data/actual/venv and return a list of provider values from each matching dep."""
     results = []
@@ -290,7 +297,7 @@ def _collect_from_deps(ctx, provider):
     # `py_venv_exec` (the rule the `py_binary` macro expands to) routes srcs /
     # deps onto a sibling `py_venv` reached via the `venv` attr, so the aspect
     # must hop through it to see the binary's actual dep closure.
-    venv = getattr(ctx.rule.attr, "venv", None)
+    venv = _terminal_venv(ctx)
     if venv != None and provider in venv:
         results.append(venv[provider])
     actual = getattr(ctx.rule.attr, "actual", None)
@@ -546,7 +553,7 @@ def _layer_aspect_impl(target, ctx):
     if is_binary:
         # The venv propagates the interpreter layer declared at its toolchain so
         # the binary uses the exact interpreter that built the venv.
-        venv = getattr(ctx.rule.attr, "venv", None)
+        venv = _terminal_venv(ctx)
         if venv != None and _LayerInfo in venv:
             interpreter_layer = venv[_LayerInfo].interpreter_layer
 

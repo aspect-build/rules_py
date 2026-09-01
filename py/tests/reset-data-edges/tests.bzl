@@ -35,7 +35,10 @@ def _probe_aspect_impl(target, ctx):
     for attr_name in ["data", "deps"]:
         deps.extend(getattr(ctx.rule.attr, attr_name, []))
     venv = getattr(ctx.rule.attr, "venv", None)
-    if venv != None:
+    if type(venv) == "list":
+        # A transitioned label attr presents as a single-element list.
+        deps.extend(venv)
+    elif venv != None:
         deps.append(venv)
     for dep in deps:
         if _ProbeFilesInfo in dep:
