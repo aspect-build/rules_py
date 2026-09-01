@@ -1,0 +1,49 @@
+load("@aspect_rules_py//py:defs.bzl", "py_library")
+
+exports_files([
+    "a.uv.lock",
+    "b.uv.lock",
+    "pyproject_a.toml",
+    "pyproject_b.toml",
+])
+
+# Referenced by the generated build-dependency graphs, never built. Distinct
+# targets per forky version keep the fork choice observable in the queries.
+[
+    py_library(
+        name = name,
+        srcs = [],
+        visibility = ["//visibility:public"],
+    )
+    for name in [
+        "override_install",
+        "forky_1_install",
+        "forky_2_install",
+        "extradep_install",
+    ]
+]
+
+# Both cycle members resolve to one override target; the entry SCC of each
+# must still provide it unconditionally, so no _maybe__* alias or //private/
+# sccs:empty fallback may appear. Depth 2 stops before any wheel file repo.
+genquery(
+    name = "cycle_override_deps",
+    expression = "filter('build.graph', deps(@project__build_graph_a//private/build_deps:foo, 3) + deps(@project__build_graph_a//private/build_deps:bar, 3))",
+    scope = [
+        "@project__build_graph_a//private/build_deps:foo",
+        "@project__build_graph_a//private/build_deps:bar",
+    ],
+    visibility = ["//:__pkg__"],
+)
+
+# The two locks differ only in fork record order, so both projects must
+# resolve `forky` to the same record and closure.
+genquery(
+    name = "fork_order_deps",
+    expression = "filter('build.graph', deps(@project__build_graph_a//private/build_deps:forky, 3) + deps(@project__build_graph_b//private/build_deps:forky, 3))",
+    scope = [
+        "@project__build_graph_a//private/build_deps:forky",
+        "@project__build_graph_b//private/build_deps:forky",
+    ],
+    visibility = ["//:__pkg__"],
+)

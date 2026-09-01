@@ -1,0 +1,8 @@
+//uv-build-graph:extradep_install
+//uv-build-graph:forky_2_install
+@@aspect_rules_py++uv+project__build_graph_a//private/build_deps:forky
+@@aspect_rules_py++uv+project__build_graph_a//private/build_deps/sccs:extradep__1_0
+@@aspect_rules_py++uv+project__build_graph_a//private/build_deps/sccs:forky__2_0
+@@aspect_rules_py++uv+project__build_graph_b//private/build_deps:forky
+@@aspect_rules_py++uv+project__build_graph_b//private/build_deps/sccs:extradep__1_0
+@@aspect_rules_py++uv+project__build_graph_b//private/build_deps/sccs:forky__2_0

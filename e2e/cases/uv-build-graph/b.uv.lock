@@ -1,0 +1,79 @@
+version = 1
+revision = 3
+requires-python = ">=3.9"
+resolution-markers = [
+    "python_full_version >= '3.11'",
+    "python_full_version < '3.11'",
+]
+
+[[package]]
+name = "build-graph-b"
+version = "0.0.0"
+source = { virtual = "." }
+dependencies = [
+    { name = "gate" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "gate", specifier = "==1.0" }]
+
+[[package]]
+name = "gate"
+version = "1.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://example.invalid/gate-1.0.tar.gz", hash = "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", size = 1000 }
+
+[[package]]
+name = "foo"
+version = "1.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "bar", marker = "sys_platform == 'linux'" },
+]
+wheels = [
+    { url = "https://example.invalid/foo-1.0-py3-none-any.whl", hash = "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", size = 1000 },
+]
+
+[[package]]
+name = "bar"
+version = "1.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "foo" },
+]
+wheels = [
+    { url = "https://example.invalid/bar-1.0-py3-none-any.whl", hash = "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc", size = 1000 },
+]
+
+[[package]]
+name = "forky"
+version = "2.0"
+source = { registry = "https://pypi.org/simple" }
+resolution-markers = [
+    "python_full_version >= '3.11'",
+]
+dependencies = [
+    { name = "extradep" },
+]
+wheels = [
+    { url = "https://example.invalid/forky-2.0-py3-none-any.whl", hash = "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee", size = 1000 },
+]
+
+[[package]]
+name = "forky"
+version = "1.0"
+source = { registry = "https://pypi.org/simple" }
+resolution-markers = [
+    "python_full_version < '3.11'",
+]
+wheels = [
+    { url = "https://example.invalid/forky-1.0-py3-none-any.whl", hash = "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd", size = 1000 },
+]
+
+[[package]]
+name = "extradep"
+version = "1.0"
+source = { registry = "https://pypi.org/simple" }
+wheels = [
+    { url = "https://example.invalid/extradep-1.0-py3-none-any.whl", hash = "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", size = 1000 },
+]
