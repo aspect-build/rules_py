@@ -447,10 +447,10 @@ def _exclude_build_dep_cycle_test_impl(ctx):
     prefix = "//private/build_deps/without/a/sccs:"
     linux = {"sys_platform == 'linux'": 1}
     packages = {
-        "a": [a, scc + "cycle__a__b"],
-        "b": [b, scc + "cycle__a__b"],
-        "root": [root, scc + "root"],
-        "unrelated": [unrelated, scc + "unrelated"],
+        "a": [{"deps": [a, scc + "cycle__a__b"], "markers": {"": 1}}],
+        "b": [{"deps": [b, scc + "cycle__a__b"], "markers": {"": 1}}],
+        "root": [{"deps": [root, scc + "root"], "markers": {"": 1}}],
+        "unrelated": [{"deps": [unrelated, scc + "unrelated"], "markers": {"": 1}}],
     }
 
     # A -> B -> A has been condensed into one entry shared by both roots.
@@ -459,7 +459,10 @@ def _exclude_build_dep_cycle_test_impl(ctx):
         "root": {root: {"": 1}, scc + "cycle__a__b": linux},
         "unrelated": {unrelated: {"": 1}},
     }
-    original_packages = {name: list(deps) for name, deps in packages.items()}
+    original_packages = {
+        name: [{"deps": list(candidate["deps"]), "markers": dict(candidate["markers"])} for candidate in candidates]
+        for name, candidates in packages.items()
+    }
     original_graph = {
         entry: {dep: dict(markers) for dep, markers in members.items()}
         for entry, members in graph.items()
@@ -467,8 +470,8 @@ def _exclude_build_dep_cycle_test_impl(ctx):
 
     changed, cloned = exclude_build_dep(packages, graph, a, prefix)
     asserts.equals(env, {
-        "b": [b, prefix + "cycle__a__b"],
-        "root": [root, prefix + "root"],
+        "b": [{"deps": [b, prefix + "cycle__a__b"], "markers": {"": 1}}],
+        "root": [{"deps": [root, prefix + "root"], "markers": {"": 1}}],
     }, changed)
     asserts.equals(env, {
         "cycle__a__b": {b: {"": 1}},
@@ -501,8 +504,8 @@ def _exclude_build_dep_conditional_extra_test_impl(ctx):
         "descendant": {descendant: {"": 1}},
     }
 
-    changed, cloned = exclude_build_dep({"b": [b, scc + "b"]}, graph, a, prefix)
-    asserts.equals(env, {"b": [b, prefix + "b"]}, changed)
+    changed, cloned = exclude_build_dep({"b": [{"deps": [b, scc + "b"], "markers": {"": 1}}]}, graph, a, prefix)
+    asserts.equals(env, {"b": [{"deps": [b, prefix + "b"], "markers": {"": 1}}]}, changed)
     asserts.equals(env, {
         "b": {b: {"": 1}, prefix + "a_extra": python},
         # Removing A must not remove dependencies reached through A's extra.
@@ -522,26 +525,46 @@ def _exclude_build_dep_install_identity_test_impl(ctx):
     consumer = "@consumer__1//:install"
     scc = "//private/build_deps/sccs:"
     prefix = "//private/build_deps/without/a/sccs:"
+    before = {"python_full_version < '3.11'": 1}
+    after = {"python_full_version >= '3.11'": 1}
     packages = {
-        "a": [a, scc + "a"],
-        "other_version": [other_version, scc + "other_version"],
-        "override": [override, scc + "override"],
-        "consumer": [consumer, scc + "consumer"],
+        "a": [
+            {"deps": [a, scc + "a"], "markers": before},
+            {"deps": [other_version, scc + "other_version"], "markers": after},
+        ],
+        "override": [{"deps": [override, scc + "override"], "markers": {"": 1}}],
+        "consumer": [{"deps": [consumer, scc + "consumer"], "markers": {"": 1}}],
+    }
+    original_packages = {
+        name: [{"deps": list(candidate["deps"]), "markers": dict(candidate["markers"])} for candidate in candidates]
+        for name, candidates in packages.items()
     }
     graph = {
         "a": {a: {"": 1}},
-        "other_version": {other_version: {"": 1}},
+        "other_version": {other_version: {"": 1}, a: {"": 1}},
         "override": {override: {"": 1}},
         "consumer": {consumer: {"": 1}, a: {"": 1}, other_version: {"": 1}, override: {"": 1}},
     }
 
     changed, cloned = exclude_build_dep(packages, graph, a, prefix)
-    asserts.equals(env, {"consumer": [consumer, prefix + "consumer"]}, changed)
+
+    # Redirecting one fork must retain every candidate and its markers,
+    # including the other fork's explicit requirement on the exact self install.
+    asserts.equals(env, {
+        "a": [
+            {"deps": [a, scc + "a"], "markers": before},
+            {"deps": [other_version, prefix + "other_version"], "markers": after},
+        ],
+        "consumer": [{"deps": [consumer, prefix + "consumer"], "markers": {"": 1}}],
+    }, changed)
+    asserts.equals(env, {other_version: {"": 1}}, cloned["other_version"])
     asserts.equals(env, {consumer: {"": 1}, other_version: {"": 1}, override: {"": 1}}, cloned["consumer"])
+    asserts.equals(env, original_packages, packages)
+    asserts.equals(env, {other_version: {"": 1}, a: {"": 1}}, graph["other_version"])
 
     # A direct self requirement alone remains a real requirement, and an absent
     # install does not match a different version or an override with its name.
-    asserts.equals(env, ({}, {}), exclude_build_dep({"a": packages["a"]}, graph, a, prefix))
+    asserts.equals(env, ({}, {}), exclude_build_dep({"a": packages["a"][:1]}, graph, a, prefix))
     asserts.equals(env, ({}, {}), exclude_build_dep(packages, graph, "@a__3//:install", prefix))
     return unittest.end(env)
 
@@ -553,20 +576,29 @@ def _reachable_build_deps_test_impl(ctx):
     env = unittest.begin(ctx)
     a = "@a__1//:install"
     b = "@b__1//:install"
+    b2 = "@b__2//:install"
     c = "@c__1//:install"
     unused = "@unused__1//:install"
     scc = "//private/build_deps/sccs:"
     python = {"python_version >= '3.12'": 1}
-    packages = {"b": [b, scc + "b"]}
+    packages = {
+        "b": [
+            {"deps": [b, scc + "b"], "markers": {"python_full_version < '3.11'": 1}},
+            {"deps": [b2, scc + "b2"], "markers": {"python_full_version >= '3.11'": 1}},
+        ],
+    }
     graph = {
         "a": {a: {"": 1}, scc + "c": python},
         "b": {b: {"": 1}, scc + "a": {"": 1}},
+        "b2": {b2: {"": 1}},
         "c": {c: {"": 1}},
         # Another build root can reach A, but B never reaches it or its chain.
         "unused": {unused: {"": 1}, scc + "unused_child": {"": 1}},
         "unused_child": {scc + "a": {"": 1}},
     }
-    expected = {name: graph[name] for name in ["a", "b", "c"]}
+
+    # Marker evaluation happens later, so both candidate roots must survive.
+    expected = {name: graph[name] for name in ["a", "b", "b2", "c"]}
     reachable = reachable_build_deps(packages, graph)
     asserts.equals(env, expected, reachable)
     asserts.equals(env, {}, reachable_build_deps({}, graph))
@@ -575,13 +607,14 @@ def _reachable_build_deps_test_impl(ctx):
     # discovered roots. Copies for undiscovered roots must not be emitted.
     changed, copied = exclude_build_dep({
         "b": packages["b"],
-        "unused": [unused, scc + "unused"],
+        "unused": [{"deps": [unused, scc + "unused"], "markers": {"": 1}}],
     }, graph, a, scc)
     excluded_graph = dict(graph)
     excluded_graph.update(copied)
     asserts.equals(env, {
         "a": {scc + "c": python},
         "b": graph["b"],
+        "b2": graph["b2"],
         "c": graph["c"],
     }, reachable_build_deps({"b": changed["b"]}, excluded_graph))
     asserts.equals(env, expected, reachable)

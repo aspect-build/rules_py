@@ -120,7 +120,10 @@ def _self_exclusion_fixture_impl(module_ctx):
         }),
         build_deps_json = json.encode({
             "packages": {
-                name: [install, "//private/build_deps/sccs:" + name]
+                name: [{
+                    "deps": [install, "//private/build_deps/sccs:" + name],
+                    "markers": {"": 1},
+                }]
                 for name, install in installs.items()
             },
             "scc_graph": {

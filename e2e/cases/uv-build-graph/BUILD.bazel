@@ -36,8 +36,8 @@ genquery(
     visibility = ["//:__pkg__"],
 )
 
-# The two locks differ only in fork record order, so both projects must
-# resolve `forky` to the same record and closure.
+# Both lock orders must retain the same marked forks and closures.
+# test.sh checks which fork is selected for each Python version.
 genquery(
     name = "fork_order_deps",
     expression = "filter('build.graph', deps(@project__build_graph_a//private/build_deps:forky, 3) + deps(@project__build_graph_b//private/build_deps:forky, 3))",

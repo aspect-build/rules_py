@@ -122,6 +122,26 @@ def dedupe_shared_installs(install_cfgs):
         install_cfgs.pop(dropped)
     return id_remap
 
+def map_scc_installs(scc_graph, install_table):
+    """Map SCC members to install labels, merging markers for shared targets.
+
+    Args:
+        scc_graph: SCC IDs mapped to member dependencies and marker sets.
+        install_table: Dependency tuples mapped to their install labels.
+
+    Returns:
+        SCC IDs mapped to install labels and their combined marker sets.
+        Members without installs, such as extra pseudo-packages, are omitted.
+    """
+    mapped = {}
+    for scc_id, members in scc_graph.items():
+        installs = {}
+        for member, markers in members.items():
+            if member in install_table:
+                installs.setdefault(install_table[member], {}).update(markers)
+        mapped[scc_id] = installs
+    return mapped
+
 def parse_declared_console_script(name, entry_point):
     """Canonicalize one override_package console-script declaration.
 
@@ -455,7 +475,11 @@ def _parse_projects(module_ctx, hub_specs):
                 if "editable" in package.get("source", {}) or "virtual" in package.get("source", {}):
                     continue
                 pkg_name = normalize_name(package["name"])
-                build_package_keys[pkg_name] = (project_id, pkg_name, package["version"], "__base__")
+                package_key = (project_id, pkg_name, package["version"], "__base__")
+                build_package_keys.setdefault(pkg_name, {}).setdefault(package_key, {}).update({
+                    marker: 1
+                    for marker in package.get("resolution-markers") or [""]
+                })
                 project_available_deps[pkg_name] = "@{}//private/build_deps:{}".format(project_id, pkg_name)
 
             for package in lock_data.get("package", []):
@@ -627,20 +651,19 @@ def _parse_projects(module_ctx, hub_specs):
                 build_dep_to_scc, build_scc_graph, build_scc_deps = collect_build_deps(marker_graph)
                 build_packages = {
                     pkg_name: [
-                        install_table[package_key],
-                        "//private/build_deps/sccs:" + build_dep_to_scc[package_key],
+                        {
+                            "deps": [
+                                install_table[package_key],
+                                "//private/build_deps/sccs:" + build_dep_to_scc[package_key],
+                            ],
+                            "markers": versions[package_key],
+                        }
+                        for package_key in sorted(versions)
                     ]
-                    for pkg_name, package_key in build_package_keys.items()
+                    for pkg_name, versions in build_package_keys.items()
                 }
 
-                marked_build_scc_graph = {
-                    scc_id: {
-                        install_table[m]: dict(markers)
-                        for m, markers in members.items()
-                        if m in install_table
-                    }
-                    for scc_id, members in build_scc_graph.items()
-                }
+                marked_build_scc_graph = map_scc_installs(build_scc_graph, install_table)
                 for scc_id, deps in build_scc_deps.items():
                     for dep, markers in deps.items():
                         marked_build_scc_graph[scc_id].setdefault("//private/build_deps/sccs:" + build_dep_to_scc[dep], {}).update(markers)
@@ -713,8 +736,14 @@ def _parse_projects(module_ctx, hub_specs):
                 available_deps = pc.available_deps,
                 build_deps = {
                     "packages": {
-                        package: [target_remap.get(target, target) for target in deps]
-                        for package, deps in pc.build_deps["packages"].items()
+                        package: [
+                            {
+                                "deps": [target_remap.get(target, target) for target in candidate["deps"]],
+                                "markers": candidate["markers"],
+                            }
+                            for candidate in candidates
+                        ]
+                        for package, candidates in pc.build_deps["packages"].items()
                     },
                     "scc_graph": {
                         scc_id: {

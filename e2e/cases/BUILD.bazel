@@ -97,7 +97,7 @@ write_source_files(
         # closure has no _maybe__* alias, marker, or empty fallback.
         "snapshots/build_graph.cycle_override.query": "//uv-build-graph:cycle_override_deps",
         # The a/b locks differ only in the order of the two forked `forky`
-        # records, so both projects must pin the same fork and closure.
+        # records, so both projects must retain the same marked alternatives.
         "snapshots/build_graph.fork_order.query": "//uv-build-graph:fork_order_deps",
 
         # @whl_install for grpcio with bare linux_* wheels

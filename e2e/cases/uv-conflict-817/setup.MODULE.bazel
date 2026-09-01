@@ -5,4 +5,4 @@ uv.project(
     lock = "//uv-conflict-817:uv.lock",
     pyproject = "//uv-conflict-817:pyproject.toml",
 )
-use_repo(uv, "pypi_uv_conflict_817")
+use_repo(uv, "project__ambig", "pypi_uv_conflict_817")

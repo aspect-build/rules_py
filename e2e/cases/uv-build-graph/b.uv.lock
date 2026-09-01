@@ -1,9 +1,9 @@
 version = 1
 revision = 3
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 resolution-markers = [
     "python_full_version >= '3.11'",
-    "python_full_version < '3.11'",
+    "python_full_version >= '3.10' and python_full_version < '3.11'",
 ]
 
 [[package]]
@@ -64,7 +64,7 @@ name = "forky"
 version = "1.0"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "python_full_version < '3.11'",
+    "python_full_version >= '3.10' and python_full_version < '3.11'",
 ]
 wheels = [
     { url = "https://example.invalid/forky-1.0-py3-none-any.whl", hash = "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd", size = 1000 },

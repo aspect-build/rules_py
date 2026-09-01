@@ -199,7 +199,7 @@ def exclude_build_dep(packages, scc_graph, excluded, prefix):
     """Copy the build closures that need a consumer's transitive self edge removed.
 
     Args:
-        packages: Build requirement names mapped to their install and SCC labels.
+        packages: Build requirement names mapped to candidates with deps and markers.
         scc_graph: SCC IDs mapped to dependency labels and marker sets.
         excluded: Exact install label of the package being built.
         prefix: Label prefix for this consumer's copied SCC targets.
@@ -227,11 +227,20 @@ def exclude_build_dep(packages, scc_graph, excluded, prefix):
         frontier = next_frontier
 
     remap = {scc_prefix + scc_id: prefix + scc_id for scc_id in affected}
-    changed_packages = {
-        name: [deps[0], remap[deps[1]]]
-        for name, deps in packages.items()
-        if deps[0] != excluded and deps[1] in remap
-    }
+    changed_packages = {}
+    for name, candidates in packages.items():
+        changed = False
+        mapped = []
+        for candidate in candidates:
+            deps = candidate["deps"]
+            if deps[0] != excluded and deps[1] in remap:
+                deps = [deps[0], remap[deps[1]]]
+                changed = True
+            mapped.append({"deps": deps, "markers": candidate["markers"]})
+        if changed:
+            # The source repository redirects the whole package name, so it
+            # must retain the forks that did not need a copied closure too.
+            changed_packages[name] = mapped
     if not changed_packages:
         return {}, {}
 
@@ -248,14 +257,18 @@ def reachable_build_deps(packages, scc_graph):
     """Select only the SCCs needed by the discovered build requirements.
 
     Args:
-        packages: Selected requirement names mapped to install and SCC labels.
+        packages: Selected requirement names mapped to candidates with deps and markers.
         scc_graph: SCC IDs mapped to dependency labels and marker sets.
 
     Returns:
         The reachable SCCs, including dependencies reached through omitted installs.
     """
     prefix = "//private/build_deps/sccs:"
-    frontier = {deps[1][len(prefix):]: True for deps in packages.values()}
+    frontier = {
+        candidate["deps"][1][len(prefix):]: True
+        for candidates in packages.values()
+        for candidate in candidates
+    }
     reachable = {}
     for _ in range(len(scc_graph)):
         next_frontier = {}

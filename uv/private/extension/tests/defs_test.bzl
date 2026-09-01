@@ -1,7 +1,8 @@
 """Unit tests for helpers in defs.bzl"""
 
 load("@bazel_skylib//lib:unittest.bzl", "asserts", "unittest")
-load("//uv/private/extension:defs.bzl", "dedupe_shared_installs", "parse_declared_console_script", "shared_install_key")
+load("//uv/private/extension:defs.bzl", "dedupe_shared_installs", "map_scc_installs", "parse_declared_console_script", "shared_install_key")
+load("//uv/private/extension:graph_utils.bzl", "collect_build_deps")
 load("//uv/private/extension:lockfile.bzl", "url_basename")
 
 def _url_basename_test_impl(ctx):
@@ -157,6 +158,53 @@ def _dedupe_shared_installs_test_impl(ctx):
 
 dedupe_shared_installs_test = unittest.make(_dedupe_shared_installs_test_impl)
 
+def _map_scc_installs_transitive_cycle_test_impl(ctx):
+    env = unittest.begin(ctx)
+    r, a, b = [("proj", name, "1", "__base__") for name in ["r", "a", "b"]]
+    windows = "sys_platform == 'win32'"
+    shared = "//overrides:shared"
+    entries, members, deps = collect_build_deps({
+        r: {a: {"": 1}},
+        a: {b: {windows: 1}},
+        b: {a: {"": 1}},
+    })
+    mapped = map_scc_installs(members, {r: "@r//:install", a: shared, b: shared})
+
+    # R reaches A through an SCC edge, not A's package root. Its own install
+    # cannot protect the shared override if B overwrites A's no-op marker.
+    asserts.equals(
+        env,
+        {a: {shared: {"": 1, windows: 1}}},
+        {dep: mapped[entries[dep]] for dep in deps[entries[r]]},
+    )
+    return unittest.end(env)
+
+map_scc_installs_transitive_cycle_test = unittest.make(_map_scc_installs_transitive_cycle_test_impl)
+
+def _map_scc_installs_conditional_union_test_impl(ctx):
+    env = unittest.begin(ctx)
+    a, b = [("proj", name, "1", "__base__") for name in ["a", "b"]]
+    extra = ("proj", "a", "1", "extra")
+    linux = "sys_platform == 'linux'"
+    windows = "sys_platform == 'win32'"
+    shared = "//overrides:shared"
+    members = {
+        "cycle": {a: {linux: 1}, b: {windows: 1}, extra: {"": 1}},
+        "extra_only": {extra: {"": 1}},
+    }
+    mapped = map_scc_installs(members, {a: shared, b: shared})
+
+    asserts.equals(env, {
+        "cycle": {shared: {linux: 1, windows: 1}},
+        "extra_only": {},
+    }, mapped)
+
+    # The merge must not add B's markers to A's original marker dictionary.
+    asserts.equals(env, {linux: 1}, members["cycle"][a])
+    return unittest.end(env)
+
+map_scc_installs_conditional_union_test = unittest.make(_map_scc_installs_conditional_union_test_impl)
+
 def defs_test_suite():
     unittest.suite(
         "url_basename_tests",
@@ -173,4 +221,9 @@ def defs_test_suite():
     unittest.suite(
         "dedupe_shared_installs_tests",
         dedupe_shared_installs_test,
+    )
+    unittest.suite(
+        "map_scc_installs_tests",
+        map_scc_installs_transitive_cycle_test,
+        map_scc_installs_conditional_union_test,
     )
