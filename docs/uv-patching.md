@@ -40,14 +40,17 @@ uv.override_package(
 Where `patches/nvidia-strip-init.patch` might look like:
 
 ```diff
---- a/install/lib/python3.12/site-packages/nvidia/__init__.py
-+++ b/install/lib/python3.12/site-packages/nvidia/__init__.py
+--- a/lib/python3.12/site-packages/nvidia/__init__.py
++++ b/lib/python3.12/site-packages/nvidia/__init__.py
 @@ -1,5 +1 @@
 -# Some conflicting namespace init
 -from nvidia._init import *
 -__all__ = [...]
 +# Stripped by aspect_rules_py override
 ```
+
+Post-install patch paths are relative to the install prefix, which holds
+`lib/python<M>.<m>/site-packages/`, `bin/`, and any `.data/data/` prefix files.
 
 The file remains in place, so `nvidia` stays a regular package. Post-install
 patches may not remove retained package roots or change retained packages
