@@ -7,6 +7,7 @@ import tarfile
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--contains", action="append", default=[])
+    parser.add_argument("--absent", action="append", default=[])
     parser.add_argument("--count", action="append", default=[])
     parser.add_argument("--tar-contains", action="append", default=[])
     parser.add_argument("--tar-absent", action="append", default=[])
@@ -23,6 +24,10 @@ def main() -> int:
     for expected in args.contains:
         if not any(expected in path for path in paths):
             parser.error("missing path containing {!r}".format(expected))
+
+    for unexpected in args.absent:
+        if any(path.endswith(unexpected) for path in paths):
+            parser.error("unexpected path ending in {!r}".format(unexpected))
 
     for spec in args.count:
         expected, separator, count = spec.rpartition("=")

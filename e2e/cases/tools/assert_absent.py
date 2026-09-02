@@ -1,4 +1,4 @@
-"""Fail if a tar-listing file contains any forbidden path substring.
+"""Fail if a tar-listing file contains any forbidden path pattern (regex).
 
 Docker-free guard wired into `assert_tar_listing`: it scans the same layer
 listing the snapshot test diffs, but asserts an *invariant* rather than exact
@@ -16,6 +16,7 @@ container:
 Usage (from the macro): assert_absent.py <listing-file> <forbidden>...
 """
 
+import re
 import sys
 
 
@@ -23,7 +24,7 @@ def main(argv: list[str]) -> None:
     if len(argv) < 3:
         sys.exit("usage: assert_absent.py <listing-file> <forbidden>...")
     listing_path = argv[1]
-    forbidden = argv[2:]
+    forbidden = [re.compile(pat) for pat in argv[2:]]
 
     with open(listing_path, encoding="utf-8") as f:
         lines = f.read().splitlines()
@@ -31,8 +32,8 @@ def main(argv: list[str]) -> None:
     failures = []
     for line in lines:
         for pat in forbidden:
-            if pat in line:
-                failures.append((pat, line.strip()))
+            if pat.search(line):
+                failures.append((pat.pattern, line.strip()))
 
     if failures:
         msg = ["{} forbidden path(s) in {}:".format(len(failures), listing_path)]
@@ -42,7 +43,7 @@ def main(argv: list[str]) -> None:
             msg.append("  ... ({} more)".format(len(failures) - 20))
         sys.exit("\n".join(msg))
 
-    print("assert_absent: ok ({} lines, none matched {})".format(len(lines), forbidden))
+    print("assert_absent: ok ({} lines, none matched {})".format(len(lines), [p.pattern for p in forbidden]))
 
 
 if __name__ == "__main__":

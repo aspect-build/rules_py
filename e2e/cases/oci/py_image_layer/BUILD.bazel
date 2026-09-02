@@ -9,6 +9,11 @@ load(":image_layer_analysis_tests.bzl", "image_layer_analysis_test_suite")
 load(":runtime_wrapper.bzl", "runtime_wrapper")
 load(":tree_artifact.bzl", "dir_and_symlink", "relative_symlink", "symlink_target", "symlink_to_target", "tree_artifact")
 
+exports_files(
+    ["assert_tar_paths.py"],
+    visibility = ["//visibility:public"],
+)
+
 platform(
     name = "aarch64_linux",
     constraint_values = [
