@@ -100,21 +100,19 @@ def _assemble_venv_target(ctx):
         ],
     )
 
-    return struct(
-        info = VirtualenvInfo(
-            bin_python = assembled.bin_python,
-            imports = imports_depset,
-            transitive_sources = srcs_depset,
-            runtime_files = runtime_files,
-        ),
-        runfiles = runfiles,
+    return VirtualenvInfo(
+        bin_python = assembled.bin_python,
+        imports = imports_depset,
+        runtime_runfiles = runfiles,
+        transitive_sources = srcs_depset,
+        runtime_files = runtime_files,
     )
 
 def _venv_providers(ctx, venv, executable = None, include_sources = False):
     """Providers emitted by both the executable and lib variants."""
-    runfiles = venv.runfiles
+    runfiles = venv.runtime_runfiles
     if include_sources:
-        runfiles = runfiles.merge(ctx.runfiles(transitive_files = venv.info.transitive_sources))
+        runfiles = runfiles.merge(ctx.runfiles(transitive_files = venv.transitive_sources))
     return [
         DefaultInfo(
             files = depset([executable]) if executable != None else None,
@@ -122,7 +120,7 @@ def _venv_providers(ctx, venv, executable = None, include_sources = False):
             runfiles = runfiles,
         ),
         # Deliberately no PyInfo: a venv is a terminal artifact, not a source of imports.
-        venv.info,
+        venv,
         # `bazel coverage` finds this by walking the consumer's `venv` attr.
         coverage_common.instrumented_files_info(
             ctx,
@@ -144,7 +142,7 @@ def _py_venv_rule_impl(ctx):
         substitutions = {
             "{{BASH_RLOCATION_FN}}": BASH_RLOCATION_FUNCTION.strip(),
             "{{INTERPRETER_FLAGS}}": " ".join(_interpreter_flags(ctx)),
-            "{{ARG_VENV_PYTHON}}": to_rlocation_path(ctx, venv.info.bin_python),
+            "{{ARG_VENV_PYTHON}}": to_rlocation_path(ctx, venv.bin_python),
             "{{DEBUG}}": str(ctx.attr.debug).lower(),
         },
         is_executable = True,
@@ -163,7 +161,7 @@ def _py_venv_rule_impl(ctx):
 
     # `VIRTUAL_ENV` as the venv root's rootpath. `venv.tmpl.sh`
     # overrides with its own absolute value when invoked directly.
-    passed_env["VIRTUAL_ENV"] = venv_root(venv.info.bin_python)
+    passed_env["VIRTUAL_ENV"] = venv_root(venv.bin_python)
 
     return _venv_providers(ctx, venv, executable = ctx.outputs.executable, include_sources = True) + [
         # Read by the sibling `expose_venv = True` py_binary/py_test;
