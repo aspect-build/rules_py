@@ -19,7 +19,7 @@ uv.override_package(
     env = {"DEMO": "1"},
     lock = "//:uv.lock",
     monitor_memory = True,
-    pre_build_patch_strip = 1,
+    pre_build_patch_strip = 2,
     pre_build_patches = ["//:noop.patch"],
     resource_set = "mem_1g",
     toolchains = ["@bazel_tools//tools/cpp:current_cc_toolchain"],

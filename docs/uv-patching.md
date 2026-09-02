@@ -33,15 +33,14 @@ uv.override_package(
     lock = "//:uv.lock",
     name = "nvidia-cublas-cu12",
     post_install_patches = ["//patches:nvidia-strip-init.patch"],
-    post_install_patch_strip = 1,
 )
 ```
 
 Where `patches/nvidia-strip-init.patch` might look like:
 
 ```diff
---- a/lib/python3.12/site-packages/nvidia/__init__.py
-+++ b/lib/python3.12/site-packages/nvidia/__init__.py
+--- a/nvidia/__init__.py
++++ b/nvidia/__init__.py
 @@ -1,5 +1 @@
 -# Some conflicting namespace init
 -from nvidia._init import *
@@ -49,8 +48,9 @@ Where `patches/nvidia-strip-init.patch` might look like:
 +# Stripped by aspect_rules_py override
 ```
 
-Post-install patch paths are relative to the install prefix, which holds
-`lib/python<M>.<m>/site-packages/`, `bin/`, and any `.data/data/` prefix files.
+Post-install patch paths are site-packages-relative, like `exclude_glob`. A
+diff taken inside a real venv (`a/lib/python3.12/site-packages/...`) applies
+unchanged with `post_install_patch_strip = 4`.
 
 The file remains in place, so `nvidia` stays a regular package. Post-install
 patches may not remove retained package roots or change retained packages
@@ -66,7 +66,6 @@ Use a Starlark list comprehension:
     lock = "//:uv.lock",
     name = pkg,
     post_install_patches = ["//patches:nvidia-strip-init.patch"],
-    post_install_patch_strip = 1,
 ) for pkg in [
     "nvidia-cublas-cu12",
     "nvidia-cuda-runtime-cu12",
@@ -85,7 +84,6 @@ Omit `lock` to apply a modification wherever a package is present in the
 uv.override_package(
     name = "nvidia-cublas-cu12",
     post_install_patches = ["//patches:nvidia-strip-init.patch"],
-    post_install_patch_strip = 1,
 )
 ```
 
@@ -102,7 +100,6 @@ uv.override_package(
     lock = "//:uv.lock",
     name = "legacy-package",
     pre_build_patches = ["//patches:legacy-fix-setup.patch"],
-    pre_build_patch_strip = 1,
 )
 ```
 
@@ -111,6 +108,24 @@ Pre-build patches are applied to the extracted source tree after archive extract
 - Fixing `setup.py` or `pyproject.toml` issues
 - Removing problematic native build dependencies
 - Patching source code that affects the build output
+
+### Pre-build versus post-install paths
+
+Pre-build patch paths are relative to the sdist root; post-install paths are
+relative to site-packages. Both strip counts default to 1, matching `git diff`
+output. For a flat-layout sdist the two trees agree on package files, so one
+patch can serve as `pre_build_patches` when the package builds from source and
+as `post_install_patches` when it resolves to a wheel:
+
+```text
+sdist root:     foo/__init__.py   setup.py
+site-packages:  foo/__init__.py   foo-1.0.dist-info/
+```
+
+A `src/` layout breaks the overlap: the pre-build path is `src/foo/__init__.py`
+while the post-install path stays `foo/__init__.py`. Build files such as
+`setup.py` exist only pre-build, and `.dist-info/` and compiled extensions only
+post-install.
 
 ### Adding extra dependencies or data
 
@@ -211,8 +226,8 @@ uv.override_package(
   package in the lockfile. Without `lock`, it must match at least one lock.
 - Modification attributes cannot apply to virtual packages or the project's
   editable workspace package because neither produces an installed wheel.
-- `pre_build_patch_strip` requires `pre_build_patches`, and
-  `post_install_patch_strip` requires `post_install_patches`.
+- `pre_build_patch_strip` and `post_install_patch_strip` default to 1. A
+  non-default value requires the matching patches attribute.
 - `exclude_glob` removes site-packages-relative paths after installation and
   patching. `*` matches within one path segment, and `**` matches zero or more
   path segments. Matching a directory removes its subtree. Exclusions must
@@ -238,13 +253,10 @@ uv.override_package(
   not enumerated by this validation and may not be visible to venv consumers.
   Source-built wheel topology is unavailable during analysis and remains
   unvalidated.
-- Post-install patches to prebuilt wheels must not change the set of PEP 427
-  `.data/data/` files a wheel installs into the venv prefix (`share/`, `etc/`,
-  ...). Venv assembly settles that set during analysis from the wheel's
-  `RECORD`, and nothing re-reads the tree afterwards, so an added file would be
-  missing from `sys.prefix` and a removed or renamed one would leave a dangling
-  symlink; either is rejected. Editing the contents of an existing data file is
-  supported.
+- Post-install patches reach only site-packages. Files a wheel installs into
+  the venv prefix (`share/`, `etc/`, `bin/`, ...) are settled during analysis
+  from the wheel's `RECORD`; a patch that escapes site-packages and adds or
+  removes one is rejected.
 - Gazelle indexes the raw wheel as an unfiltered superset. Preserving top-level
   import roots keeps ordinary mappings valid, but precise mappings for shared
   namespaces or excluded submodules can remain in the generated manifest.

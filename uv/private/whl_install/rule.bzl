@@ -382,10 +382,10 @@ lighter weight since the toolchain's files aren't inputs.
         "patches": attr.label_list(
             default = [],
             allow_files = [".patch", ".diff"],
-            doc = "Patch files to apply after installation, in order.",
+            doc = "Patch files to apply after installation, in order. Paths are site-packages-relative.",
         ),
         "patch_strip": attr.int(
-            default = 0,
+            default = 1,
             doc = "Strip count for patches (-p flag).",
         ),
         "exclude_glob": attr.string_list(

@@ -24,7 +24,6 @@ uv.project(
 )
 uv.override_package(
     name = "boltons",
-    post_install_patch_strip = 1,
     post_install_patches = ["//uv-all-lock-overrides:post_install.patch"],
     version = "25.0.0",
 )

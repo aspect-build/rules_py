@@ -14,7 +14,6 @@ uv.override_package(
         "cowsay-6.0.dist-info/LICENSE.txt",
     ],
     lock = "//uv-exclusions:uv.lock",
-    post_install_patch_strip = 1,
     post_install_patches = ["//uv-exclusions/patches:nested_test.patch"],
 )
 uv.override_package(

@@ -5,7 +5,8 @@ Installs a single wheel into::
     <into>/lib/python<M>.<m>/site-packages/
 
 following PEP 427 ``.data/`` routing for scripts, headers, and data files.
-Optionally applies patch files and pre-compiles ``.pyc`` bytecode.
+Optionally applies site-packages-relative patch files and pre-compiles ``.pyc``
+bytecode.
 
 Invoked by Bazel as::
 
@@ -451,7 +452,7 @@ class _Args:
 
     def __init__(self) -> None:
         self.patches: list[Path] = []
-        self.patch_strip = 0
+        self.patch_strip = 1
         self.patch_tool = Path("patch")
         self.preserve_path: list[str] = []
         self.expected_data_files_manifest: Path | None = None
@@ -559,7 +560,7 @@ def main() -> None:
                     "--no-backup-if-mismatch",
                     "-p{}".format(args.patch_strip),
                     "-d",
-                    str(args.into),
+                    str(site_packages),
                 ],
                 stdin=patch_stream,
             )

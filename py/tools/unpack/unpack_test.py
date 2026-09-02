@@ -561,21 +561,21 @@ def main() -> None:
         content_patch = root / "content.patch"
         content_patch.write_text(
             f"""\
---- a/{site_packages_relative}/fixture/__init__.py
-+++ b/{site_packages_relative}/fixture/__init__.py
+--- a/fixture/__init__.py
++++ b/fixture/__init__.py
 @@ -1 +1 @@
 -VALUE = 1
 +VALUE = 2
 --- /dev/null
-+++ b/{site_packages_relative}/fixture-1.0.dist-info/__init__.py
++++ b/fixture-1.0.dist-info/__init__.py
 @@ -0,0 +1 @@
 +# Metadata directories are not import packages.
 --- /dev/null
-+++ b/{site_packages_relative}/fixture/added.py
++++ b/fixture/added.py
 @@ -0,0 +1 @@
 +VALUE = 3
 --- /dev/null
-+++ b/{site_packages_relative}/fixture/__pycache__/added.{sys.implementation.cache_tag}.pyc
++++ b/fixture/__pycache__/added.{sys.implementation.cache_tag}.pyc
 @@ -0,0 +1 @@
 +outdated bytecode
 """
@@ -639,7 +639,7 @@ def main() -> None:
         add_init_patch.write_text(
             f"""\
 --- /dev/null
-+++ b/{site_packages_relative}/fixture_ns/__init__.py
++++ b/fixture_ns/__init__.py
 @@ -0,0 +1 @@
 +VALUE = 1
 """
@@ -705,7 +705,7 @@ else:
         )
         excluded_native = root / "excluded_native.patch"
         excluded_native.write_text(
-            f"write-native\n{site_packages_relative}/fixture/tests/native_extension.so\n"
+            f"write-native\nfixture/tests/native_extension.so\n"
         )
         accepted = _run_unpack(
             unpack,
@@ -725,7 +725,7 @@ else:
         assert accepted.returncode == 0, accepted.stdout + accepted.stderr
         excluded_init = root / "excluded_init.patch"
         excluded_init.write_text(
-            f"unlink\n{site_packages_relative}/fixture/__init__.py\n"
+            f"unlink\nfixture/__init__.py\n"
         )
         accepted = _run_unpack(
             unpack,
@@ -750,7 +750,7 @@ else:
         # its only data file. A patch that REMOVES it is rejected: its projected
         # symlink would dangle.
         remove_data_patch = root / "remove_data.patch"
-        remove_data_patch.write_text("unlink\nshare/supplied.pyc\n")
+        remove_data_patch.write_text("unlink\n../../../share/supplied.pyc\n")
         removed_data = _run_unpack(
             unpack,
             good_wheel,
@@ -772,7 +772,7 @@ else:
         # projects only the pre-patch set, so the new file would be missing from
         # sys.prefix. Fail loudly rather than silently omit it.
         add_data_patch = root / "add_data.patch"
-        add_data_patch.write_text("write-native\nshare/added.bin\n")
+        add_data_patch.write_text("write-native\n../../../share/added.bin\n")
         added_data = _run_unpack(
             unpack,
             good_wheel,
@@ -794,9 +794,9 @@ else:
         # files) is rejected on both halves: the old path dangles and the new one
         # is unprojected.
         rename_unlink_patch = root / "rename_unlink.patch"
-        rename_unlink_patch.write_text("unlink\nshare/supplied.pyc\n")
+        rename_unlink_patch.write_text("unlink\n../../../share/supplied.pyc\n")
         rename_write_patch = root / "rename_write.patch"
-        rename_write_patch.write_text("write-native\nshare/renamed.pyc\n")
+        rename_write_patch.write_text("write-native\n../../../share/renamed.pyc\n")
         renamed_data = _run_unpack(
             unpack,
             good_wheel,
@@ -820,7 +820,7 @@ else:
         # symlink resolves through to the patched bytes, so only the path set is
         # guarded.
         edit_data_patch = root / "edit_data.patch"
-        edit_data_patch.write_text("rewrite\nshare/supplied.pyc\n")
+        edit_data_patch.write_text("rewrite\n../../../share/supplied.pyc\n")
         edited_data_dir = root / "edited-data"
         edited_data = _run_unpack(
             unpack,
@@ -898,7 +898,7 @@ else:
         # `pyvenv.cfg` is unambiguous on disk, so it stays in the comparison and
         # a patch removing it is still rejected.
         remove_cfg_patch = root / "remove_cfg.patch"
-        remove_cfg_patch.write_text("unlink\npyvenv.cfg\n")
+        remove_cfg_patch.write_text("unlink\n../../../pyvenv.cfg\n")
         removed_cfg = _run_unpack(
             unpack,
             owned_wheel,
@@ -1001,19 +1001,15 @@ else:
         filter_patch = root / "filter.patch"
         filter_patch.write_text(
             f"""\
---- a/{site_packages_relative}/demo/keep.py
-+++ b/{site_packages_relative}/demo/keep.py
+--- a/demo/keep.py
++++ b/demo/keep.py
 @@ -1 +1 @@
 -VALUE = 2
 +VALUE = 3
 --- /dev/null
-+++ b/{site_packages_relative}/demo/tests/from_patch.py
++++ b/demo/tests/from_patch.py
 @@ -0,0 +1 @@
 +raise AssertionError()
---- /dev/null
-+++ b/share/demo/from_patch.txt
-@@ -0,0 +1 @@
-+patched data
 """
         )
         filtered_out = root / "filtered"
@@ -1072,7 +1068,6 @@ else:
         recorded = {str(path): path for path in distribution.files}
         assert "demo/keep.py" in recorded
         assert "../../../share/demo/retained.txt" in recorded
-        assert "../../../share/demo/from_patch.txt" in recorded
         assert "demo/tests/test_root.py" not in recorded
         assert "demo/tests/from_patch.py" not in recorded
         assert "demo/nested/tests/test_nested.py" not in recorded
@@ -1220,7 +1215,7 @@ else:
         ]:
             mutation = root / f"{name}.patch"
             mutation.write_text(
-                f"{operation}\n{site_packages_relative}/{changed_path}\n"
+                f"{operation}\n{changed_path}\n"
             )
             rejected = _run_unpack(
                 unpack,

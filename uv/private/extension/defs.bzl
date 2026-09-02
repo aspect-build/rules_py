@@ -259,9 +259,9 @@ def _parse_projects(module_ctx, hub_specs):
                     mod.name,
                 ))
 
-            if override.pre_build_patch_strip and not override.pre_build_patches:
+            if override.pre_build_patch_strip != 1 and not override.pre_build_patches:
                 fail("uv.override_package() for '{}': `pre_build_patch_strip` requires `pre_build_patches`.".format(override.name))
-            if override.post_install_patch_strip and not override.post_install_patches:
+            if override.post_install_patch_strip != 1 and not override.post_install_patches:
                 fail("uv.override_package() for '{}': `post_install_patch_strip` requires `post_install_patches`.".format(override.name))
 
             has_target = override.target != None
@@ -571,7 +571,7 @@ def _parse_projects(module_ctx, hub_specs):
                     build_deps = sets.to_list(sets.make(build_deps + lock_build_deps))
 
                     pre_build_patches = []
-                    pre_build_patch_strip = 0
+                    pre_build_patch_strip = 1
                     if pkg_override and pkg_override.pre_build_patches:
                         pre_build_patches = [str(p) for p in pkg_override.pre_build_patches]
                         pre_build_patch_strip = pkg_override.pre_build_patch_strip
@@ -607,7 +607,7 @@ def _parse_projects(module_ctx, hub_specs):
                     has_sbuild = True
 
                 post_install_patches = []
-                post_install_patch_strip = 0
+                post_install_patch_strip = 1
                 exclude_glob = []
                 extra_deps = []
                 extra_data = []
@@ -1022,16 +1022,16 @@ _override_package_tag = tag_class(
             doc = "Patch files to apply to the sdist source tree before building a wheel.",
         ),
         "pre_build_patch_strip": attr.int(
-            default = 0,
+            default = 1,
             doc = "Strip count for pre-build patches (-p flag to the patch tool).",
         ),
         "post_install_patches": attr.label_list(
             default = [],
             allow_files = [".patch", ".diff"],
-            doc = "Patch files to apply to the installed package after wheel unpacking.",
+            doc = "Patch files to apply to the installed package after wheel unpacking. Paths are site-packages-relative.",
         ),
         "post_install_patch_strip": attr.int(
-            default = 0,
+            default = 1,
             doc = "Strip count for post-install patches (-p flag to the patch tool).",
         ),
         "exclude_glob": attr.string_list(
