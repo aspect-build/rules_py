@@ -1,6 +1,7 @@
 """Render a build-dependency graph in a project or source-build repository."""
 
 load("//uv/private/pprint:defs.bzl", "indent", "pprint")
+load("//uv/private/uv_project:select_gen.bzl", "EMPTY_LIBRARY", "conditional_dep", "marker_interner", "safe_name", "write_markers")
 
 def _unresolved_build_requirement_impl(ctx):
     fail("Build requirement '{}' has multiple locked versions without disjoint resolution markers.".format(ctx.attr.requirement))
@@ -9,10 +10,6 @@ unresolved_build_requirement = rule(
     implementation = _unresolved_build_requirement_impl,
     attrs = {"requirement": attr.string(mandatory = True)},
 )
-
-def _safe_name(s):
-    """Project a label or package string into a target-name-safe string."""
-    return "".join([c if c.isalnum() or c in "._-" else "_" for c in s.elems()])
 
 def write_build_deps(repository_ctx, packages, scc_graph, marker_fn = None):
     """Write the build requirements and their SCC dependency graph.
@@ -27,40 +24,16 @@ def write_build_deps(repository_ctx, packages, scc_graph, marker_fn = None):
             generated in this repository.
     """
     marker_table = {}
+    _marker = marker_fn or marker_interner(marker_table)
 
-    def _marker(expr):
-        if marker_fn != None:
-            return marker_fn(expr)
-        if expr not in marker_table:
-            marker_table[expr] = "marker_{}".format(len(marker_table))
-        return "//private/markers:" + marker_table[expr]
-
-    needs_empty = False
     content = ["""\
 load("@aspect_rules_py//py:defs.bzl", "py_library")
 """]
     for scc_id, members in scc_graph.items():
-        deps = []
-        for member, markers in members.items():
-            if "" in markers:
-                deps.append(member)
-                continue
-
-            needs_empty = True
-            cases = {_marker(marker): member for marker in markers.keys()}
-            cases["//conditions:default"] = "//private/sccs:empty"
-            cond_id = "_maybe__{}__{}".format(scc_id, _safe_name(member))
-            content.append("""
-alias(
-    name = "{name}",
-    actual = select({arms}),
-    visibility = ["//:__subpackages__"],
-)
-""".format(
-                name = cond_id,
-                arms = indent(pprint(cases), " " * 4).lstrip(),
-            ))
-            deps.append(":" + cond_id)
+        deps = [
+            conditional_dep(content, member, markers, "_maybe__{}__{}".format(scc_id, safe_name(member)), _marker, "//private/sccs:empty")
+            for member, markers in members.items()
+        ]
         content.append("""
 py_library(
     name = "{name}",
@@ -125,33 +98,6 @@ py_library(
         ))
     repository_ctx.file("private/build_deps/BUILD.bazel", "\n".join(content))
 
-    if marker_fn != None:
-        return
-
-    if needs_empty:
-        repository_ctx.file("private/sccs/BUILD.bazel", """\
-load("@aspect_rules_py//py:defs.bzl", "py_library")
-
-py_library(
-    name = "empty",
-    srcs = [],
-    deps = [],
-    imports = [],
-    visibility = ["//:__subpackages__"],
-)
-""")
-
-    if marker_table:
-        content = ["""
-load("@aspect_rules_py//uv/private/markers:defs.bzl", "decide_marker")
-
-"""]
-        for marker_expr, marker_id in marker_table.items():
-            content.append("""
-decide_marker(
-    name = "{name}",
-    marker = {marker},
-    visibility = ["//:__subpackages__"],
-)
-""".format(name = marker_id, marker = repr(marker_expr)))
-        repository_ctx.file("private/markers/BUILD.bazel", "\n".join(content))
+    if marker_fn == None and marker_table:
+        repository_ctx.file("private/sccs/BUILD.bazel", EMPTY_LIBRARY)
+        write_markers(repository_ctx, marker_table)

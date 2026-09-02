@@ -8,7 +8,10 @@ package(default_visibility = [
 bzl_library(
     name = "build_deps",
     srcs = ["build_deps.bzl"],
-    deps = ["//uv/private/pprint:defs"],
+    deps = [
+        ":select_gen",
+        "//uv/private/pprint:defs",
+    ],
 )
 
 bzl_library(
@@ -24,4 +27,5 @@ bzl_library(
 bzl_library(
     name = "select_gen",
     srcs = ["select_gen.bzl"],
+    deps = ["//uv/private/pprint:defs"],
 )
