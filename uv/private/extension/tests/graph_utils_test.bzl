@@ -1,5 +1,5 @@
 load("@bazel_skylib//lib:unittest.bzl", "asserts", "unittest")
-load("//uv/private/extension:graph_utils.bzl", "activate_extras", "collect_sccs")
+load("//uv/private/extension:graph_utils.bzl", "activate_extras", "collect_build_deps", "collect_sccs", "exclude_build_dep", "reachable_build_deps")
 
 def _extras_test_impl(ctx):
     env = unittest.begin(ctx)
@@ -396,6 +396,232 @@ collect_sccs_complex_cycle_test = unittest.make(
     _collect_sccs_complex_cycle_test_impl,
 )
 
+def _collect_build_deps_conditional_cycle_test_impl(ctx):
+    env = unittest.begin(ctx)
+    a, b, c, d, root = [("proj", name, "1", "__base__") for name in ["a", "b", "c", "d", "root"]]
+    a2, b2, c2 = [("proj", name, "2", "__base__") for name in ["a", "b", "c"]]
+    entry_0 = ("proj", "entry_0", "1", "__base__")
+    windows = "sys_platform == 'win32'"
+    python = "python_version >= '3.12'"
+    marker_graph = {
+        a: {b: {windows: 1}},
+        b: {c: {"": 1}, d: {python: 1}},
+        c: {a: {"": 1}},
+        d: {},
+        root: {b: {"": 1}},
+        # This component's ID collides with A's natural entry-target name.
+        a2: {b2: {"": 1}},
+        b2: {c2: {"": 1}},
+        c2: {entry_0: {"": 1}},
+        entry_0: {a2: {"": 1}},
+    }
+    entries, members, deps = collect_build_deps(marker_graph)
+
+    # Starting at A, neither C nor the outgoing dependency D is reachable
+    # when the first edge's Windows condition is false.
+    asserts.equals(env, {a: {"": 1}, b: {windows: 1}, c: {windows: 1}}, members[entries[a]])
+    asserts.equals(env, {d: {"({}) and ({})".format(python, windows): 1}}, deps[entries[a]])
+
+    # Starting at B bypasses that condition, including when another
+    # component enters the cycle through B.
+    asserts.equals(env, {a: {"": 1}, b: {"": 1}, c: {"": 1}}, members[entries[b]])
+    asserts.equals(env, {d: {python: 1}}, deps[entries[b]])
+    asserts.equals(env, {b: {"": 1}}, deps[entries[root]])
+    asserts.true(env, entries[a] != entries[b])
+
+    asserts.equals(env, {a2: {"": 1}, b2: {"": 1}, c2: {"": 1}, entry_0: {"": 1}}, members[entries[a2]])
+    asserts.true(env, entries[a] != entries[a2])
+    return unittest.end(env)
+
+collect_build_deps_conditional_cycle_test = unittest.make(
+    _collect_build_deps_conditional_cycle_test_impl,
+)
+
+def _exclude_build_dep_cycle_test_impl(ctx):
+    env = unittest.begin(ctx)
+    a = "@a__1//:install"
+    b = "@b__1//:install"
+    root = "@root__1//:install"
+    unrelated = "@unrelated__1//:install"
+    scc = "//private/build_deps/sccs:"
+    linux = {"sys_platform == 'linux'": 1}
+    packages = {
+        "a": [{"deps": [a, scc + "cycle__a__b"], "markers": {"": 1}}],
+        "b": [{"deps": [b, scc + "cycle__a__b"], "markers": {"": 1}}],
+        "root": [{"deps": [root, scc + "root"], "markers": {"": 1}}],
+        "unrelated": [{"deps": [unrelated, scc + "unrelated"], "markers": {"": 1}}],
+    }
+
+    # A -> B -> A has been condensed into one entry shared by both roots.
+    graph = {
+        "cycle__a__b": {a: {"": 1}, b: {"": 1}},
+        "root": {root: {"": 1}, scc + "cycle__a__b": linux},
+        "unrelated": {unrelated: {"": 1}},
+    }
+    original_packages = {
+        name: [{"deps": list(candidate["deps"]), "markers": dict(candidate["markers"])} for candidate in candidates]
+        for name, candidates in packages.items()
+    }
+    original_graph = {
+        entry: {dep: dict(markers) for dep, markers in members.items()}
+        for entry, members in graph.items()
+    }
+
+    changed, cloned = exclude_build_dep(packages, graph, a)
+    asserts.equals(env, {
+        "b": [{"deps": [b, scc + "cycle__a__b"], "markers": {"": 1}}],
+        "root": [{"deps": [root, scc + "root"], "markers": {"": 1}}],
+    }, changed)
+    asserts.equals(env, {
+        "cycle__a__b": {b: {"": 1}},
+        "root": {root: {"": 1}, scc + "cycle__a__b": linux},
+    }, cloned)
+
+    # An explicit A requirement and other consumers still use the originals.
+    asserts.equals(env, original_packages, packages)
+    asserts.equals(env, original_graph, graph)
+    return unittest.end(env)
+
+exclude_build_dep_cycle_test = unittest.make(
+    _exclude_build_dep_cycle_test_impl,
+)
+
+def _exclude_build_dep_conditional_extra_test_impl(ctx):
+    env = unittest.begin(ctx)
+    a = "@a__1//:install"
+    b = "@b__1//:install"
+    descendant = "@descendant__1//:install"
+    scc = "//private/build_deps/sccs:"
+    windows = {"sys_platform == 'win32'": 1}
+    python = {"python_version >= '3.12'": 1}
+    combined = {"(sys_platform == 'win32') and (python_version >= '3.12')": 1}
+    graph = {
+        "b": {b: {"": 1}, a: windows, scc + "a_extra": python},
+        # Extra entries can contain the same install as the base entry.
+        "a_extra": {a: {"": 1}, scc + "descendant": combined},
+        "descendant": {descendant: {"": 1}},
+    }
+
+    changed, cloned = exclude_build_dep({"b": [{"deps": [b, scc + "b"], "markers": {"": 1}}]}, graph, a)
+    asserts.equals(env, {"b": [{"deps": [b, scc + "b"], "markers": {"": 1}}]}, changed)
+    asserts.equals(env, {
+        "b": {b: {"": 1}, scc + "a_extra": python},
+        # Removing A must not remove dependencies reached through A's extra.
+        "a_extra": {scc + "descendant": combined},
+    }, cloned)
+    return unittest.end(env)
+
+exclude_build_dep_conditional_extra_test = unittest.make(
+    _exclude_build_dep_conditional_extra_test_impl,
+)
+
+def _exclude_build_dep_install_identity_test_impl(ctx):
+    env = unittest.begin(ctx)
+    a = "@a__1//:install"
+    other_version = "@a__2//:install"
+    override = "//overrides:a"
+    consumer = "@consumer__1//:install"
+    scc = "//private/build_deps/sccs:"
+    before = {"python_full_version < '3.11'": 1}
+    after = {"python_full_version >= '3.11'": 1}
+    packages = {
+        "a": [
+            {"deps": [a, scc + "a"], "markers": before},
+            {"deps": [other_version, scc + "other_version"], "markers": after},
+        ],
+        "override": [{"deps": [override, scc + "override"], "markers": {"": 1}}],
+        "consumer": [{"deps": [consumer, scc + "consumer"], "markers": {"": 1}}],
+    }
+    original_packages = {
+        name: [{"deps": list(candidate["deps"]), "markers": dict(candidate["markers"])} for candidate in candidates]
+        for name, candidates in packages.items()
+    }
+    graph = {
+        "a": {a: {"": 1}},
+        "other_version": {other_version: {"": 1}, a: {"": 1}},
+        "override": {override: {"": 1}},
+        "consumer": {consumer: {"": 1}, a: {"": 1}, other_version: {"": 1}, override: {"": 1}},
+    }
+
+    changed, cloned = exclude_build_dep(packages, graph, a)
+
+    # Redirecting one fork must retain every candidate and its markers,
+    # including the other fork's explicit requirement on the exact self install.
+    asserts.equals(env, {
+        "a": [
+            {"deps": [a, scc + "a"], "markers": before},
+            {"deps": [other_version, scc + "other_version"], "markers": after},
+        ],
+        "consumer": [{"deps": [consumer, scc + "consumer"], "markers": {"": 1}}],
+    }, changed)
+    asserts.equals(env, {other_version: {"": 1}}, cloned["other_version"])
+    asserts.equals(env, {consumer: {"": 1}, other_version: {"": 1}, override: {"": 1}}, cloned["consumer"])
+    asserts.equals(env, original_packages, packages)
+    asserts.equals(env, {other_version: {"": 1}, a: {"": 1}}, graph["other_version"])
+
+    # A direct self requirement alone remains a real requirement, and an absent
+    # install does not match a different version or an override with its name.
+    asserts.equals(env, ({}, {}), exclude_build_dep({"a": packages["a"][:1]}, graph, a))
+    asserts.equals(env, ({}, {}), exclude_build_dep(packages, graph, "@a__3//:install"))
+    return unittest.end(env)
+
+exclude_build_dep_install_identity_test = unittest.make(
+    _exclude_build_dep_install_identity_test_impl,
+)
+
+def _reachable_build_deps_test_impl(ctx):
+    env = unittest.begin(ctx)
+    a = "@a__1//:install"
+    b = "@b__1//:install"
+    b2 = "@b__2//:install"
+    c = "@c__1//:install"
+    unused = "@unused__1//:install"
+    scc = "//private/build_deps/sccs:"
+    python = {"python_version >= '3.12'": 1}
+    packages = {
+        "b": [
+            {"deps": [b, scc + "b"], "markers": {"python_full_version < '3.11'": 1}},
+            {"deps": [b2, scc + "b2"], "markers": {"python_full_version >= '3.11'": 1}},
+        ],
+    }
+    graph = {
+        "a": {a: {"": 1}, scc + "c": python},
+        "b": {b: {"": 1}, scc + "a": {"": 1}},
+        "b2": {b2: {"": 1}},
+        "c": {c: {"": 1}},
+        # Another build root can reach A, but B never reaches it or its chain.
+        "unused": {unused: {"": 1}, scc + "unused_child": {"": 1}},
+        "unused_child": {scc + "a": {"": 1}},
+    }
+
+    # Marker evaluation happens later, so both candidate roots must survive.
+    expected = {name: graph[name] for name in ["a", "b", "b2", "c"]}
+    reachable = reachable_build_deps(packages, graph)
+    asserts.equals(env, expected, reachable)
+    asserts.equals(env, {}, reachable_build_deps({}, graph))
+
+    # Source repositories exclude from the complete graph before selecting
+    # discovered roots. Copies for undiscovered roots must not be emitted.
+    changed, copied = exclude_build_dep({
+        "b": packages["b"],
+        "unused": [{"deps": [unused, scc + "unused"], "markers": {"": 1}}],
+    }, graph, a)
+    excluded_graph = dict(graph)
+    excluded_graph.update(copied)
+    asserts.equals(env, {
+        "a": {scc + "c": python},
+        "b": graph["b"],
+        "b2": graph["b2"],
+        "c": graph["c"],
+    }, reachable_build_deps({"b": changed["b"]}, excluded_graph))
+    asserts.equals(env, expected, reachable)
+    asserts.equals(env, {a: {"": 1}, scc + "c": python}, graph["a"])
+    return unittest.end(env)
+
+reachable_build_deps_test = unittest.make(
+    _reachable_build_deps_test_impl,
+)
+
 def graph_utils_test_suite():
     unittest.suite(
         "extras_activation_tests",
@@ -411,4 +637,9 @@ def graph_utils_test_suite():
         collect_sccs_single_node_graph_test,
         collect_sccs_self_loop_graph_test,
         collect_sccs_complex_cycle_test,
+        collect_build_deps_conditional_cycle_test,
+        exclude_build_dep_cycle_test,
+        exclude_build_dep_conditional_extra_test,
+        exclude_build_dep_install_identity_test,
+        reachable_build_deps_test,
     )

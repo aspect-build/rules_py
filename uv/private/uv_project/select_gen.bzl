@@ -1,4 +1,71 @@
-"""Helpers for building select() arm dicts used in hub alias generation."""
+"""Helpers for generating select()-based aliases and their markers."""
+
+load("//uv/private/pprint:defs.bzl", "indent", "pprint")
+
+# Selected by aliases when no marker matches. Visibility must be
+# //:__subpackages__ because those aliases live in //:.
+EMPTY_LIBRARY = """\
+load("@aspect_rules_py//py:defs.bzl", "py_library")
+
+py_library(
+    name = "empty",
+    srcs = [],
+    deps = [],
+    imports = [],
+    visibility = ["//:__subpackages__"],
+)
+"""
+
+def safe_name(s):
+    """Project a label or package string into a target-name-safe string."""
+    return "".join([c if c.isalnum() or c in "._-" else "_" for c in s.elems()])
+
+def marker_interner(marker_table):
+    """Return a marker_fn interning expressions into `marker_table` as //private/markers labels."""
+
+    def _marker(expr):
+        if expr not in marker_table:
+            marker_table[expr] = "marker_{}".format(len(marker_table))
+        return "//private/markers:" + marker_table[expr]
+
+    return _marker
+
+def write_markers(repository_ctx, marker_table):
+    """Lay down the decide_marker() targets for an interned marker table."""
+    content = ["""
+load("@aspect_rules_py//uv/private/markers:defs.bzl", "decide_marker")
+
+"""]
+    for marker_expr, marker_id in marker_table.items():
+        content.append("""
+decide_marker(
+    name = "{name}",
+    marker = {marker},
+    visibility = ["//:__subpackages__"],
+)
+""".format(name = marker_id, marker = repr(marker_expr)))
+    content.append("""
+exports_files(
+    ["BUILD.bazel"],
+    visibility = ["//visibility:public"],
+)
+""")
+    repository_ctx.file("private/markers/BUILD.bazel", "\n".join(content))
+
+def conditional_dep(content, dep, markers, cond_id, marker_fn, no_match):
+    """Return `dep` when unconditional, else append a select() alias to `content` and return its label."""
+    if "" in markers:
+        return dep
+    cases = {marker_fn(marker): dep for marker in markers}
+    cases["//conditions:default"] = no_match
+    content.append("""
+alias(
+    name = "{name}",
+    actual = select({arms}),
+    visibility = ["//:__subpackages__"],
+)
+""".format(name = cond_id, arms = indent(pprint(cases), " " * 4).lstrip()))
+    return ":" + cond_id
 
 def build_package_select_arms(scc_cfgs, scc_graph, package, marker_fn):
     """Build cfg_arms and whl_cfg_arms for a single per-dep-group package alias.

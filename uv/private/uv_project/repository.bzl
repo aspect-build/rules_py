@@ -1,5 +1,6 @@
 load("//uv/private/pprint:defs.bzl", "indent", "pprint")
-load("//uv/private/uv_project:select_gen.bzl", "build_package_select_arms")
+load("//uv/private/uv_project:build_deps.bzl", "write_build_deps")
+load("//uv/private/uv_project:select_gen.bzl", "EMPTY_LIBRARY", "build_package_select_arms", "conditional_dep", "marker_interner", "safe_name", "write_markers")
 
 def _project_impl(repository_ctx):
     """Materializes the dependency graph for a single project.
@@ -23,6 +24,7 @@ def _project_impl(repository_ctx):
     dep_to_scc = json.decode(repository_ctx.attr.dep_to_scc)
     scc_deps = json.decode(repository_ctx.attr.scc_deps)
     scc_graph = json.decode(repository_ctx.attr.scc_graph)
+    build_deps = json.decode(repository_ctx.attr.build_deps_json) if repository_ctx.attr.build_deps_json else None
 
     # Collect all the underlying whl installs
     installs = {}
@@ -32,50 +34,7 @@ def _project_impl(repository_ctx):
 
     # As we go for simplicity we collect markers
     marker_table = {}
-
-    def _marker(expr):
-        """
-        Given a marker expression, get a label for it.
-        Interns the marker expression into the marker table as needed.
-        The id is only referenced within this generated repository, and the
-        decide_marker() it names carries the full expression.
-        """
-        if expr not in marker_table:
-            marker_table[expr] = "marker_{}".format(len(marker_table))
-        marker_id = marker_table[expr]
-        return "//private/markers:" + marker_id
-
-    def _safe_name(s):
-        """Project a label or package string into a target-name-safe string."""
-        acc = []
-        for c in s.elems():
-            acc.append(c if c.isalnum() or c in "._-" else "_")
-        return "".join(acc)
-
-    def _conditionalize(it, markers, cond_id_thunk, no_match = None):
-        if "" in markers:
-            return it
-        else:
-            # This is a dep which is conditional
-            cases = {}
-            for marker in markers.keys():
-                cases[_marker(marker)] = it
-
-            if no_match:
-                cases["//conditions:default"] = no_match
-
-            cond_id = cond_id_thunk()
-            content.append("""
-alias(
-    name = "{name}",
-    actual = select({arms}),
-    visibility = ["//:__subpackages__"],
-)
-""".format(
-                name = cond_id,
-                arms = indent(pprint(cases), " " * 4).lstrip(),
-            ))
-            return ":" + cond_id
+    _marker = marker_interner(marker_table)
 
     ################################################################################
     # Lay down the //private/dep_group:BUILD.bazel file with config flags
@@ -193,23 +152,13 @@ exports_files(
     repository_ctx.file("BUILD.bazel", "\n".join(content))
     if repository_ctx.attr.available_deps_json:
         repository_ctx.file("available_deps.json", repository_ctx.attr.available_deps_json)
+    if repository_ctx.attr.build_deps_json:
+        repository_ctx.file("build_deps.json", repository_ctx.attr.build_deps_json)
 
     ################################0################################################
     # Now the slightly harder bit -- lay down the SCCs
 
-    # `empty` is selected by root-package aliases when no marker matches.
-    # Visibility must be //:__subpackages__ because those aliases live in //:.
-    content = ["""\
-load("@aspect_rules_py//py:defs.bzl", "py_library")
-
-py_library(
-    name = "empty",
-    srcs = [],
-    deps = [],
-    imports = [],
-    visibility = ["//:__subpackages__"],
-)
-"""]
+    content = [EMPTY_LIBRARY]
 
     for scc_id, members in scc_graph.items():
         this_scc_deps = scc_deps.get(scc_id, {})
@@ -223,21 +172,11 @@ py_library(
 """.format(scc_id, indent(pprint(members), "# "), indent(pprint(this_scc_deps), "# ")))
 
         for member, markers in members.items():
-            deps.append(_conditionalize(
-                member,
-                markers,
-                lambda: "_maybe__{}__{}".format(scc_id, _safe_name(member)),
-                no_match = ":empty",
-            ))
+            deps.append(conditional_dep(content, member, markers, "_maybe__{}__{}".format(scc_id, safe_name(member)), _marker, ":empty"))
 
+        # SCC deps are mapped back to surface packages
         for dep, markers in this_scc_deps.items():
-            deps.append(_conditionalize(
-                # Note that we map these back to surface packages
-                "//:" + dep,
-                markers,
-                lambda: "_maybe__{}__{}".format(scc_id, _safe_name(dep)),
-                no_match = ":empty",
-            ))
+            deps.append(conditional_dep(content, "//:" + dep, markers, "_maybe__{}__{}".format(scc_id, safe_name(dep)), _marker, ":empty"))
 
         content.append("""
 py_library(
@@ -260,29 +199,13 @@ exports_files(
     repository_ctx.file("private/sccs/BUILD.bazel", "\n".join(content))
 
     ################################################################################
+    # Build requirements have their own graph, independent of runtime groups.
+    if build_deps != None:
+        write_build_deps(repository_ctx, build_deps["packages"], build_deps["scc_graph"], marker_fn = _marker)
+
+    ################################################################################
     # Finally lay down the collected markers
-    content = ["""
-load("@aspect_rules_py//uv/private/markers:defs.bzl", "decide_marker")
-
-"""]
-
-    for marker_expr, marker_id in marker_table.items():
-        content.append("""
-decide_marker(
-    name = "{name}",
-    marker = {marker},
-    visibility = ["//:__subpackages__"],
-)
-""".format(name = marker_id, marker = repr(marker_expr)))
-
-    content.append("""
-exports_files(
-    ["BUILD.bazel"],
-    visibility = ["//visibility:public"],
-)
-""")
-
-    repository_ctx.file("private/markers/BUILD.bazel", "\n".join(content))
+    write_markers(repository_ctx, marker_table)
 
     return repository_ctx.repo_metadata(reproducible = True)
 
@@ -290,6 +213,7 @@ uv_project = repository_rule(
     implementation = _project_impl,
     attrs = {
         "available_deps_json": attr.string(),
+        "build_deps_json": attr.string(),
         "dep_to_scc": attr.string(),
         "scc_deps": attr.string(),
         "scc_graph": attr.string(),

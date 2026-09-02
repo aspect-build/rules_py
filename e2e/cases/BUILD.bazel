@@ -90,6 +90,16 @@ write_source_files(
         # the odd-one-out separate. See dedup-installs/setup.MODULE.bazel.
         "snapshots/dedup_installs.shared_install_repos.query": "//dedup-installs:shared_install_repos",
 
+        # Build-dependency graph invariants (see uv-build-graph/setup.MODULE.bazel).
+        # ----------------------------------------------------------------
+        # Both cycle members are overridden to one install target, and foo's
+        # own membership in its entry SCC is unconditional, so the pinned
+        # closure has no _maybe__* alias, marker, or empty fallback.
+        "snapshots/build_graph.cycle_override.query": "//uv-build-graph:cycle_override_deps",
+        # The two forked `forky` records appear in opposite orders, so both
+        # projects must retain the same marked alternatives.
+        "snapshots/build_graph.fork_order.query": "//uv-build-graph:fork_order_deps",
+
         # @whl_install for grpcio with bare linux_* wheels
         # ----------------------------------------------------------------
         # grpcio 1.80.0 ships bare linux_armv7l wheels alongside manylinux/

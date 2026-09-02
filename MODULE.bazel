@@ -160,3 +160,15 @@ use_repo(
     "whl_install__aspect_rules_py__attrs__23_2_0",
     "whl_install__aspect_rules_py__numpy__1_26_4",
 )
+
+self_exclusion_fixture = use_extension(
+    "//uv/private/uv_project/tests:self_exclusion_fixture.bzl",
+    "self_exclusion_fixture",
+    dev_dependency = True,
+)
+use_repo(
+    self_exclusion_fixture,
+    "uv_project_self_exclusion_layout",
+    "uv_project_self_exclusion_sdist",
+    "uv_project_self_exclusion_test",
+)

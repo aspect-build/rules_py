@@ -1,0 +1,4 @@
+[build-system]
+requires = ["b"]
+build-backend = "backend"
+backend-path = ["."]

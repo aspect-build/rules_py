@@ -1,0 +1,7 @@
+[project]
+name = "build-graph-a"
+version = "0.0.0"
+requires-python = ">=3.10"
+dependencies = [
+    "gate==1.0",
+]
