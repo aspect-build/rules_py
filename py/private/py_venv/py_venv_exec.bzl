@@ -123,14 +123,16 @@ def _py_venv_exec_impl(ctx):
         for target in ctx.attr.data
         if has_py_info(target)
     ]
+
+    # First-party import sources attach explicitly; everything else the venv
+    # needs at runtime (venv files, wheels, data) comes from its
+    # runtime_runfiles, so a terminal can substitute the source set without
+    # re-deriving the rest.
     runfiles = ctx.runfiles(
         files = ctx.files.data + [main],
-        transitive_files = depset(
-            transitive = [vinfo.transitive_sources] + data_sources,
-        ),
-    ).merge_all(
-        [target[DefaultInfo].default_runfiles for target in ctx.attr.data] +
-        [venv[DefaultInfo].default_runfiles],
+        transitive_files = depset(transitive = [vinfo.transitive_sources] + data_sources),
+    ).merge(vinfo.runtime_runfiles).merge_all(
+        [target[DefaultInfo].default_runfiles for target in ctx.attr.data],
     )
 
     instrumented_files_info = coverage_common.instrumented_files_info(
@@ -200,7 +202,7 @@ user-facing attribute — direct settings on the rule are blocked at
 the macro layer in `//py:defs.bzl`.
 
 The binary's launcher exec's the referenced venv's `bin/python`; its
-runfiles inherit the venv's default_runfiles for wheels and runtime data,
+runfiles inherit the venv's runtime runfiles for wheels and runtime data,
 and add first-party sources from `VirtualenvInfo.transitive_sources` at
 their usual rlocation paths. The edge transition forwards this launcher's
 `python_version` / `freethreaded` choices to the venv's configuration, so
