@@ -11,7 +11,7 @@ load("@bazel_lib//lib:write_source_files.bzl", "write_source_file")
 # invariant, not exact bytes, so it survives snapshot regeneration.
 _FORBIDDEN_LAYER_PATHS = [
     "__pycache__",
-    ".pyc",
+    "[.]pyc",
     "/_wheels/",
 ]
 
