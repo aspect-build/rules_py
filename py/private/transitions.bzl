@@ -62,6 +62,9 @@ def _freethreaded_available(version):
     return (int(parts[0]), int(parts[1])) >= (3, 13)
 
 def _python_transition_impl(settings, attr):
+    return _python_transition_base(settings, attr, validate = True)
+
+def _python_transition_base(settings, attr, validate):
     acc = {}
     acc[_FREETHREADED_BASELINE_FLAG] = _baseline(
         settings,
@@ -94,7 +97,7 @@ def _python_transition_impl(settings, attr):
     else:
         version = _python_version(settings)
 
-    if mode == "true" and version and not _freethreaded_available(version):
+    if validate and mode == "true" and version and not _freethreaded_available(version):
         fail("{}: free-threaded mode requires Python 3.13+, but the selected python_version is \"{}\"; set freethreaded = False or raise python_version".format(
             attr.name,
             version,
@@ -123,6 +126,23 @@ def _python_transition_impl(settings, attr):
 
 python_transition = transition(
     implementation = _python_transition_impl,
+    inputs = _ALL_FLAGS,
+    outputs = _ALL_FLAGS,
+)
+
+# The launcher -> venv edge. With no launcher `python_version` or
+# `freethreaded` the inherited settings pass through untouched. Validation
+# never runs here: the edge produces an intermediate configuration, and the
+# venv's own rule transition — which always applies next and may override
+# either half of a version/GIL combination — is the sole authority for
+# rejecting an incompatible final configuration.
+def _venv_python_transition_impl(settings, attr):
+    if not attr.python_version and not attr.freethreaded:
+        return {flag: settings[flag] for flag in _ALL_FLAGS}
+    return _python_transition_base(settings, attr, validate = False)
+
+venv_python_transition = transition(
+    implementation = _venv_python_transition_impl,
     inputs = _ALL_FLAGS,
     outputs = _ALL_FLAGS,
 )
