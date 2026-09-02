@@ -475,7 +475,7 @@ def _parse_projects(module_ctx, hub_specs):
                 if "editable" in package.get("source", {}) or "virtual" in package.get("source", {}):
                     continue
                 pkg_name = normalize_name(package["name"])
-                package_key = (project_id, pkg_name, package["version"], "__base__")
+                package_key = (project_id, package["name"], package["version"], "__base__")
                 build_package_keys.setdefault(pkg_name, {}).setdefault(package_key, {}).update({
                     marker: 1
                     for marker in package.get("resolution-markers") or [""]
