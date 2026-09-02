@@ -20,12 +20,16 @@ exports_files([
         "forky_1_install",
         "forky_2_install",
         "extradep_install",
+        "cycleroot_install",
+        "cyclea_install",
+        "cycleb_install",
+        "cyclec_install",
     ]
 ]
 
-# Both cycle members resolve to one override target, so the SCC must provide
-# it unconditionally and no _maybe__* alias or //private/sccs:empty fallback
-# may appear. Depth 3 stops before any wheel file repo.
+# Both cycle members resolve to one override target; the entry SCC of each
+# must still provide it unconditionally, so no _maybe__* alias or //private/
+# sccs:empty fallback may appear. Depth 3 stops before any wheel file repo.
 genquery(
     name = "cycle_override_deps",
     expression = "filter('build.graph', deps(@project__build_graph_a//private/build_deps:foo, 3) + deps(@project__build_graph_a//private/build_deps:bar, 3))",

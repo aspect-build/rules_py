@@ -2,7 +2,7 @@
 
 load("@bazel_skylib//lib:unittest.bzl", "asserts", "unittest")
 load("//uv/private/extension:defs.bzl", "dedupe_shared_installs", "map_scc_installs", "parse_declared_console_script", "shared_install_key")
-load("//uv/private/extension:graph_utils.bzl", "collect_sccs")
+load("//uv/private/extension:graph_utils.bzl", "collect_build_deps")
 load("//uv/private/extension:lockfile.bzl", "url_basename")
 
 def _url_basename_test_impl(ctx):
@@ -163,7 +163,7 @@ def _map_scc_installs_transitive_cycle_test_impl(ctx):
     r, a, b = [("proj", name, "1", "__base__") for name in ["r", "a", "b"]]
     windows = "sys_platform == 'win32'"
     shared = "//overrides:shared"
-    entries, members, deps = collect_sccs({
+    entries, members, deps = collect_build_deps({
         r: {a: {"": 1}},
         a: {b: {windows: 1}},
         b: {a: {"": 1}},
