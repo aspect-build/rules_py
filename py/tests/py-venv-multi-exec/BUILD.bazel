@@ -1,7 +1,9 @@
-load("//py:defs.bzl", "py_venv")
+load("@rules_python//python:defs.bzl", "py_library")
+load("//py:defs.bzl", "py_library", "py_venv")
 load("//py/private/py_venv:defs.bzl", "py_venv_exec_test")
 load(":env_inherit_test.bzl", "contextual_keys_not_inherited_test", "env_inherit_test")
 load(":freethreaded_flag_test.bzl", "freethreaded_flag_test")
+load(":runfiles_mapping.bzl", "runfiles_mapping")
 
 package(default_testonly = True)
 
@@ -43,6 +45,71 @@ py_venv(
     deps = [
         "@pypi//cowsay",
     ],
+)
+
+# A venv may list a source file exported by another package; it ships at its
+# owning package's runfiles path.
+py_venv(
+    name = "foreign_source_venv",
+    srcs = [
+        "entry_foreign.py",
+        "//py/tests/py-venv-multi-exec/cross-pkg:foreign_source.py",
+    ],
+    imports = ["."],
+)
+
+py_venv_exec_test(
+    name = "test_foreign_source",
+    main = "entry_foreign.py",
+    venv = ":foreign_source_venv",
+)
+
+# A .py explicitly carried as a library's runtime `data` is data, not an
+# import: it ships as a plain file, reached only through the deps closure.
+py_library(
+    name = "runtime_data_library",
+    srcs = ["runtime_data_owner.py"],
+    data = ["runtime_data.py"],
+)
+
+py_venv(
+    name = "runtime_data_venv",
+    srcs = ["entry_runtime_data.py"],
+    imports = ["."],
+    deps = [":runtime_data_library"],
+)
+
+py_venv_exec_test(
+    name = "test_runtime_data",
+    main = "entry_runtime_data.py",
+    venv = ":runtime_data_venv",
+)
+
+# A `.py` used strictly as data must never be parsed or imported.
+filegroup(
+    name = "broken_python_data",
+    srcs = ["broken_data.py"],
+)
+
+py_venv_exec_test(
+    name = "test_broken_python_data",
+    data = [":broken_python_data"],
+    main = "entry_broken_data.py",
+    venv = ":shared_venv",
+)
+
+# Data targets may contribute runfiles symlinks/root_symlinks; the launcher's
+# runfiles merge must preserve both mappings.
+runfiles_mapping(
+    name = "entry_a_mapping",
+    src = "entry_a.py",
+)
+
+py_venv_exec_test(
+    name = "test_runfiles_mapping_data",
+    data = [":entry_a_mapping"],
+    main = "entry_mapped.py",
+    venv = ":shared_venv",
 )
 
 # Same shared venv, two different `main` entry points. Both reach

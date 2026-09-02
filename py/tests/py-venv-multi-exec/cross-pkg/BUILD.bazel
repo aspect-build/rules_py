@@ -2,6 +2,11 @@ load("//py/private/py_venv:defs.bzl", "py_venv_exec_test")
 
 package(default_testonly = True)
 
+exports_files(
+    ["foreign_source.py"],
+    visibility = ["//visibility:public"],
+)
+
 # A py_venv_exec_test consuming a `:shared_venv` defined in a sibling
 # package. Exercises cross-package visibility of the venv label and
 # rlocation paths spanning two packages: the venv's runfiles tree
