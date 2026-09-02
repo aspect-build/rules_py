@@ -92,9 +92,9 @@ write_source_files(
 
         # Build-dependency graph invariants (see uv-build-graph/setup.MODULE.bazel).
         # ----------------------------------------------------------------
-        # Both cycle members are overridden to one install target, and foo's
-        # own membership in its entry SCC is unconditional, so the pinned
-        # closure has no _maybe__* alias, marker, or empty fallback.
+        # Both cycle members are overridden to one install target, so the
+        # shared install is unconditional and the pinned closure has no
+        # _maybe__* alias, marker, or empty fallback.
         "snapshots/build_graph.cycle_override.query": "//uv-build-graph:cycle_override_deps",
         # The a/b locks differ only in the order of the two forked `forky`
         # records, so both projects must retain the same marked alternatives.

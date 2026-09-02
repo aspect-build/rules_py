@@ -1,5 +1,5 @@
 load("@bazel_skylib//lib:unittest.bzl", "asserts", "unittest")
-load("//uv/private/extension:graph_utils.bzl", "activate_extras", "collect_build_deps", "collect_sccs", "exclude_build_dep", "reachable_build_deps")
+load("//uv/private/extension:graph_utils.bzl", "activate_extras", "collect_sccs", "exclude_build_dep", "reachable_build_deps")
 
 def _extras_test_impl(ctx):
     env = unittest.begin(ctx)
@@ -396,47 +396,6 @@ collect_sccs_complex_cycle_test = unittest.make(
     _collect_sccs_complex_cycle_test_impl,
 )
 
-def _collect_build_deps_conditional_cycle_test_impl(ctx):
-    env = unittest.begin(ctx)
-    a, b, c, d, root = [("proj", name, "1", "__base__") for name in ["a", "b", "c", "d", "root"]]
-    a2, b2, c2 = [("proj", name, "2", "__base__") for name in ["a", "b", "c"]]
-    entry_0 = ("proj", "entry_0", "1", "__base__")
-    windows = "sys_platform == 'win32'"
-    python = "python_version >= '3.12'"
-    marker_graph = {
-        a: {b: {windows: 1}},
-        b: {c: {"": 1}, d: {python: 1}},
-        c: {a: {"": 1}},
-        d: {},
-        root: {b: {"": 1}},
-        # This component's ID collides with A's natural entry-target name.
-        a2: {b2: {"": 1}},
-        b2: {c2: {"": 1}},
-        c2: {entry_0: {"": 1}},
-        entry_0: {a2: {"": 1}},
-    }
-    entries, members, deps = collect_build_deps(marker_graph)
-
-    # Starting at A, neither C nor the outgoing dependency D is reachable
-    # when the first edge's Windows condition is false.
-    asserts.equals(env, {a: {"": 1}, b: {windows: 1}, c: {windows: 1}}, members[entries[a]])
-    asserts.equals(env, {d: {"({}) and ({})".format(python, windows): 1}}, deps[entries[a]])
-
-    # Starting at B bypasses that condition, including when another
-    # component enters the cycle through B.
-    asserts.equals(env, {a: {"": 1}, b: {"": 1}, c: {"": 1}}, members[entries[b]])
-    asserts.equals(env, {d: {python: 1}}, deps[entries[b]])
-    asserts.equals(env, {b: {"": 1}}, deps[entries[root]])
-    asserts.true(env, entries[a] != entries[b])
-
-    asserts.equals(env, {a2: {"": 1}, b2: {"": 1}, c2: {"": 1}, entry_0: {"": 1}}, members[entries[a2]])
-    asserts.true(env, entries[a] != entries[a2])
-    return unittest.end(env)
-
-collect_build_deps_conditional_cycle_test = unittest.make(
-    _collect_build_deps_conditional_cycle_test_impl,
-)
-
 def _exclude_build_dep_cycle_test_impl(ctx):
     env = unittest.begin(ctx)
     a = "@a__1//:install"
@@ -640,7 +599,6 @@ def graph_utils_test_suite():
         collect_sccs_single_node_graph_test,
         collect_sccs_self_loop_graph_test,
         collect_sccs_complex_cycle_test,
-        collect_build_deps_conditional_cycle_test,
         exclude_build_dep_cycle_test,
         exclude_build_dep_conditional_extra_test,
         exclude_build_dep_install_identity_test,

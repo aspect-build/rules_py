@@ -68,7 +68,7 @@ load("//uv/private/uv_project:repository.bzl", "uv_project")
 load("//uv/private/whl_install:dist_repository.bzl", "whl_dist")
 load("//uv/private/whl_install:metadata.bzl", "parse_console_script")
 load("//uv/private/whl_install:repository.bzl", "whl_install")
-load(":graph_utils.bzl", "activate_extras", "collect_build_deps", "collect_sccs")
+load(":graph_utils.bzl", "activate_extras", "collect_sccs")
 load(":lockfile.bzl", "build_marker_graph", "collect_bdists", "collect_configurations", "collect_sdists", "normalize_deps", "url_basename")
 load(":projectfile.bzl", "collate_versions_by_name", "collect_activated_extras", "extract_requirement_marker_pairs")
 
@@ -648,7 +648,7 @@ def _parse_projects(module_ctx, hub_specs):
             # Keep this graph separate from the runtime aliases and Gazelle index.
             project_build_deps = None
             if project_has_sbuilds:
-                build_dep_to_scc, build_scc_graph, build_scc_deps = collect_build_deps(marker_graph)
+                build_dep_to_scc, build_scc_graph, build_scc_deps = collect_sccs(marker_graph)
                 build_packages = {
                     pkg_name: [
                         {

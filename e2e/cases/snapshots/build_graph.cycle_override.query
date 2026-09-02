@@ -1,5 +1,4 @@
 //uv-build-graph:override_install
 @@aspect_rules_py++uv+project__build_graph_a//private/build_deps:bar
 @@aspect_rules_py++uv+project__build_graph_a//private/build_deps:foo
-@@aspect_rules_py++uv+project__build_graph_a//private/build_deps/sccs:cycle__bar__foo__entry_0
-@@aspect_rules_py++uv+project__build_graph_a//private/build_deps/sccs:cycle__bar__foo__entry_1
+@@aspect_rules_py++uv+project__build_graph_a//private/build_deps/sccs:cycle__bar__foo
