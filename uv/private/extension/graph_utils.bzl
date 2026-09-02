@@ -109,18 +109,18 @@ def collect_sccs(marker_graph, id_state = None):
 
     return dep_to_scc, new_scc_graph, final_scc_deps
 
-def exclude_build_dep(packages, scc_graph, excluded, prefix):
-    """Copy the build closures that need a consumer's transitive self edge removed.
+def exclude_build_dep(packages, scc_graph, excluded):
+    """Remove a consumer's transitive self edge from the build closures that carry it.
 
     Args:
         packages: Build requirement names mapped to candidates with deps and markers.
         scc_graph: SCC IDs mapped to dependency labels and marker sets.
         excluded: Exact install label of the package being built.
-        prefix: Label prefix for this consumer's copied SCC targets.
 
     Returns:
-        Changed package roots and copied SCCs. Direct requirements, other installs,
-        and dependencies reached through the excluded package are preserved.
+        The package roots reaching the excluded install through their SCC, and
+        those SCCs without it. Direct requirements, other installs, and
+        dependencies reached through the excluded package are preserved.
     """
     scc_prefix = "//private/build_deps/sccs:"
     parents = {}
@@ -140,27 +140,22 @@ def exclude_build_dep(packages, scc_graph, excluded, prefix):
             break
         frontier = next_frontier
 
-    remap = {scc_prefix + scc_id: prefix + scc_id for scc_id in affected}
-    changed_packages = {}
-    for name, candidates in packages.items():
-        changed = False
-        mapped = []
-        for candidate in candidates:
-            deps = candidate["deps"]
-            if deps[0] != excluded and deps[1] in remap:
-                deps = [deps[0], remap[deps[1]]]
-                changed = True
-            mapped.append({"deps": deps, "markers": candidate["markers"]})
-        if changed:
-            # The source repository redirects the whole package name, so it
-            # must retain the forks that did not need a copied closure too.
-            changed_packages[name] = mapped
-    if not changed_packages:
+    # The source repository redirects the whole package name, so every fork
+    # of an affected package comes along.
+    affected_packages = {
+        name: candidates
+        for name, candidates in packages.items()
+        if any([
+            candidate["deps"][0] != excluded and candidate["deps"][1][len(scc_prefix):] in affected
+            for candidate in candidates
+        ])
+    }
+    if not affected_packages:
         return {}, {}
 
-    return changed_packages, {
+    return affected_packages, {
         scc_id: {
-            remap.get(member, member): markers
+            member: markers
             for member, markers in scc_graph[scc_id].items()
             if member != excluded
         }

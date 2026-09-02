@@ -165,7 +165,6 @@ def _sdist_build_impl(repository_ctx):
             build_deps["packages"],
             build_deps["scc_graph"],
             repository_ctx.attr.package_install,
-            "//private/build_deps/sccs:",
         )
     without_self = {
         name: "@{}//private/build_deps:{}".format(repository_ctx.original_name, name)

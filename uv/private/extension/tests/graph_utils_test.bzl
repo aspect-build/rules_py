@@ -403,7 +403,6 @@ def _exclude_build_dep_cycle_test_impl(ctx):
     root = "@root__1//:install"
     unrelated = "@unrelated__1//:install"
     scc = "//private/build_deps/sccs:"
-    prefix = "//private/build_deps/without/a/sccs:"
     linux = {"sys_platform == 'linux'": 1}
     packages = {
         "a": [{"deps": [a, scc + "cycle__a__b"], "markers": {"": 1}}],
@@ -427,14 +426,14 @@ def _exclude_build_dep_cycle_test_impl(ctx):
         for entry, members in graph.items()
     }
 
-    changed, cloned = exclude_build_dep(packages, graph, a, prefix)
+    changed, cloned = exclude_build_dep(packages, graph, a)
     asserts.equals(env, {
-        "b": [{"deps": [b, prefix + "cycle__a__b"], "markers": {"": 1}}],
-        "root": [{"deps": [root, prefix + "root"], "markers": {"": 1}}],
+        "b": [{"deps": [b, scc + "cycle__a__b"], "markers": {"": 1}}],
+        "root": [{"deps": [root, scc + "root"], "markers": {"": 1}}],
     }, changed)
     asserts.equals(env, {
         "cycle__a__b": {b: {"": 1}},
-        "root": {root: {"": 1}, prefix + "cycle__a__b": linux},
+        "root": {root: {"": 1}, scc + "cycle__a__b": linux},
     }, cloned)
 
     # An explicit A requirement and other consumers still use the originals.
@@ -452,7 +451,6 @@ def _exclude_build_dep_conditional_extra_test_impl(ctx):
     b = "@b__1//:install"
     descendant = "@descendant__1//:install"
     scc = "//private/build_deps/sccs:"
-    prefix = "//private/build_deps/without/a/sccs:"
     windows = {"sys_platform == 'win32'": 1}
     python = {"python_version >= '3.12'": 1}
     combined = {"(sys_platform == 'win32') and (python_version >= '3.12')": 1}
@@ -463,10 +461,10 @@ def _exclude_build_dep_conditional_extra_test_impl(ctx):
         "descendant": {descendant: {"": 1}},
     }
 
-    changed, cloned = exclude_build_dep({"b": [{"deps": [b, scc + "b"], "markers": {"": 1}}]}, graph, a, prefix)
-    asserts.equals(env, {"b": [{"deps": [b, prefix + "b"], "markers": {"": 1}}]}, changed)
+    changed, cloned = exclude_build_dep({"b": [{"deps": [b, scc + "b"], "markers": {"": 1}}]}, graph, a)
+    asserts.equals(env, {"b": [{"deps": [b, scc + "b"], "markers": {"": 1}}]}, changed)
     asserts.equals(env, {
-        "b": {b: {"": 1}, prefix + "a_extra": python},
+        "b": {b: {"": 1}, scc + "a_extra": python},
         # Removing A must not remove dependencies reached through A's extra.
         "a_extra": {scc + "descendant": combined},
     }, cloned)
@@ -483,7 +481,6 @@ def _exclude_build_dep_install_identity_test_impl(ctx):
     override = "//overrides:a"
     consumer = "@consumer__1//:install"
     scc = "//private/build_deps/sccs:"
-    prefix = "//private/build_deps/without/a/sccs:"
     before = {"python_full_version < '3.11'": 1}
     after = {"python_full_version >= '3.11'": 1}
     packages = {
@@ -505,16 +502,16 @@ def _exclude_build_dep_install_identity_test_impl(ctx):
         "consumer": {consumer: {"": 1}, a: {"": 1}, other_version: {"": 1}, override: {"": 1}},
     }
 
-    changed, cloned = exclude_build_dep(packages, graph, a, prefix)
+    changed, cloned = exclude_build_dep(packages, graph, a)
 
     # Redirecting one fork must retain every candidate and its markers,
     # including the other fork's explicit requirement on the exact self install.
     asserts.equals(env, {
         "a": [
             {"deps": [a, scc + "a"], "markers": before},
-            {"deps": [other_version, prefix + "other_version"], "markers": after},
+            {"deps": [other_version, scc + "other_version"], "markers": after},
         ],
-        "consumer": [{"deps": [consumer, prefix + "consumer"], "markers": {"": 1}}],
+        "consumer": [{"deps": [consumer, scc + "consumer"], "markers": {"": 1}}],
     }, changed)
     asserts.equals(env, {other_version: {"": 1}}, cloned["other_version"])
     asserts.equals(env, {consumer: {"": 1}, other_version: {"": 1}, override: {"": 1}}, cloned["consumer"])
@@ -523,8 +520,8 @@ def _exclude_build_dep_install_identity_test_impl(ctx):
 
     # A direct self requirement alone remains a real requirement, and an absent
     # install does not match a different version or an override with its name.
-    asserts.equals(env, ({}, {}), exclude_build_dep({"a": packages["a"][:1]}, graph, a, prefix))
-    asserts.equals(env, ({}, {}), exclude_build_dep(packages, graph, "@a__3//:install", prefix))
+    asserts.equals(env, ({}, {}), exclude_build_dep({"a": packages["a"][:1]}, graph, a))
+    asserts.equals(env, ({}, {}), exclude_build_dep(packages, graph, "@a__3//:install"))
     return unittest.end(env)
 
 exclude_build_dep_install_identity_test = unittest.make(
@@ -567,7 +564,7 @@ def _reachable_build_deps_test_impl(ctx):
     changed, copied = exclude_build_dep({
         "b": packages["b"],
         "unused": [{"deps": [unused, scc + "unused"], "markers": {"": 1}}],
-    }, graph, a, scc)
+    }, graph, a)
     excluded_graph = dict(graph)
     excluded_graph.update(copied)
     asserts.equals(env, {
