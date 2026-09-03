@@ -1,0 +1,94 @@
+# python-geohash has no prebuilt wheel — this package covers the actual
+# cross-compilation of its C++ extension for linux/amd64 and linux/arm64.
+
+load("@aspect_rules_py//py:defs.bzl", "py_test")
+load("//tools:collect_wheels.bzl", "collect_wheels")
+load("//tools:wheel_export.bzl", "pycross_wheel_export")
+
+exports_files(["require_cxx_driver.patch"])
+
+_PY = "3.12"
+
+_DEP_GROUP = "pycross_geohash"
+
+py_test(
+    name = "test_geohash",
+    srcs = ["test_geohash.py"],
+    dep_group = _DEP_GROUP,
+    main = "test_geohash.py",
+    python_version = _PY,
+    deps = ["@pypi_pycross_geohash//python_geohash"],
+)
+
+_PLATFORM_FLAGS = [
+    "--@aspect_rules_py//uv/private/constraints/platform:platform_libc=glibc",
+    "--@aspect_rules_py//uv/private/constraints/platform:platform_version=2.39",
+    "--@aspect_rules_py//uv/private/constraints/dep_group:dep_group=" + _DEP_GROUP,
+    "--@aspect_rules_py//py/private/interpreter:python_version=" + _PY,
+]
+
+platform(
+    name = "amd64_linux",
+    constraint_values = [
+        "@platforms//os:linux",
+        "@platforms//cpu:x86_64",
+    ],
+    flags = _PLATFORM_FLAGS,
+)
+
+platform(
+    name = "arm64_linux",
+    constraint_values = [
+        "@platforms//os:linux",
+        "@platforms//cpu:aarch64",
+    ],
+    flags = _PLATFORM_FLAGS,
+)
+
+collect_wheels(
+    name = "geohash_wheels",
+    expected_tags = [
+        "linux_x86_64",
+        "linux_aarch64",
+    ],
+    platforms = [
+        ":amd64_linux",
+        ":arm64_linux",
+    ],
+    wheels = [
+        "@sdist_build__pycross_geohash__python_geohash__0_8_5//:whl",
+    ],
+)
+
+pycross_wheel_export(
+    name = "geohash",
+    amd64_platform = ":amd64_linux",
+    arm64_platform = ":arm64_linux",
+    main = "test_geohash.py",
+    wheel = "@sdist_build__pycross_geohash__python_geohash__0_8_5//:whl",
+)
+
+# macOS arm64 -> macOS amd64 cross target, exercised only from a real macOS
+# host by //:test.sh. Manual rather than target_compatible_with: the
+# transition always resolves to os:macos, so the constraint cannot tell a
+# Linux host apart from a macOS one. No libc flags: the target is not Linux.
+platform(
+    name = "amd64_macos",
+    constraint_values = [
+        "@platforms//os:macos",
+        "@platforms//cpu:x86_64",
+    ],
+    flags = [
+        "--@aspect_rules_py//uv/private/constraints/dep_group:dep_group=" + _DEP_GROUP,
+        "--@aspect_rules_py//py/private/interpreter:python_version=" + _PY,
+    ],
+)
+
+collect_wheels(
+    name = "geohash_macos_wheels",
+    check_elf = False,
+    expected_tags = ["macosx_"],
+    platforms = [":amd64_macos"],
+    tags = ["manual"],
+    wheels = ["@sdist_build__pycross_geohash__python_geohash__0_8_5//:whl"],
+)

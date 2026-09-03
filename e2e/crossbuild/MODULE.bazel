@@ -3,22 +3,15 @@ bazel_dep(name = "bazel_features", version = "1.38.0")
 bazel_dep(name = "bazel_skylib", version = "1.4.2")
 bazel_dep(name = "bazel_lib", version = "3.0.0")
 bazel_dep(name = "rules_cc", version = "0.2.16")
-bazel_dep(name = "tar.bzl", version = "0.10.1")
 bazel_dep(name = "platforms", version = "1.0.0")
 bazel_dep(name = "gcc_toolchain", version = "0.11.0")
 bazel_dep(name = "llvm", version = "0.8.3")
-bazel_dep(name = "rules_oci", version = "2.2.7")
 bazel_dep(name = "rules_shell", version = "0.4.1")
 bazel_dep(name = "rules_rust", version = "0.68.0")
 
 local_path_override(
     module_name = "aspect_rules_py",
     path = "../..",
-)
-
-single_version_override(
-    module_name = "aspect_bazel_lib",
-    version = "2.22.5",
 )
 
 interpreters = use_extension("@aspect_rules_py//py:extensions.bzl", "python_interpreters")
@@ -65,8 +58,8 @@ register_toolchains(
 # host cross-building the linux cases locally (exec=darwin → target=linux).
 register_toolchains("@llvm//toolchain:all")
 
-# Shared by the four rust suites (bcrypt, pydantic_core, rpds_py, tiktoken)
-# and //tools:rust_host_sysroot.
+# Shared by the rust suites (pycross-bcrypt, pycross-rpds_py, pycross-rust,
+# pycross-tiktoken) through uv.project(rust_toolchain = ...).
 rust = use_extension("@rules_rust//rust:extensions.bzl", "rust")
 rust.toolchain(
     edition = "2021",
@@ -80,44 +73,22 @@ use_repo(rust, "rust_toolchains")
 
 register_toolchains("@rust_toolchains//:all")
 
-# Base image for every suite's container smoke test (tools/cross_case.bzl).
-oci = use_extension("@rules_oci//oci:extensions.bzl", "oci")
-oci.pull(
-    name = "ubuntu",
-    digest = "sha256:c35e29c9450151419d9448b0fd75374fec4fff364a27f176fb458d472dfc9e54",
-    image = "public.ecr.aws/docker/library/ubuntu",
-    platforms = [
-        "linux/arm64/v8",
-        "linux/amd64",
-    ],
-    tag = "latest",
-)
-use_repo(oci, "ubuntu", "ubuntu_linux_amd64", "ubuntu_linux_arm64_v8")
-
-# Used by tools/asserts.bzl to unpack images/wheels across suites.
-bazel_lib_toolchains = use_extension("@tar.bzl//tar:extensions.bzl", "toolchains", dev_dependency = True)
-use_repo(bazel_lib_toolchains, "bsd_tar_toolchains")
-
 uv_bin = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv_bin")
 uv_bin.toolchain(version = "0.11.21")
 use_repo(uv_bin, "uv")
 
-include("//awkward_cpp:setup.MODULE.bazel")
-include("//bcrypt:setup.MODULE.bazel")
-include("//contourpy:setup.MODULE.bazel")
-include("//geohash:setup.MODULE.bazel")
-include("//msgpack:setup.MODULE.bazel")
-include("//numpy:setup.MODULE.bazel")
-include("//psutil:setup.MODULE.bazel")
 include("//pycross-distutils-probe:setup.MODULE.bazel")
 include("//pycross-cmake:setup.MODULE.bazel")
 include("//pycross-jdk:setup.MODULE.bazel")
 include("//pycross-meson:setup.MODULE.bazel")
+include("//pycross-msgpack:setup.MODULE.bazel")
 include("//pycross-patches:setup.MODULE.bazel")
 include("//pycross-pure-python:setup.MODULE.bazel")
 include("//pycross-rust:setup.MODULE.bazel")
 include("//pycross-setuptools:setup.MODULE.bazel")
-include("//pydantic_core:setup.MODULE.bazel")
-include("//rpds_py:setup.MODULE.bazel")
-include("//tiktoken:setup.MODULE.bazel")
-include("//zstandard:setup.MODULE.bazel")
+include("//pycross-psutil:setup.MODULE.bazel")
+include("//pycross-geohash:setup.MODULE.bazel")
+include("//pycross-bcrypt:setup.MODULE.bazel")
+include("//pycross-numpy:setup.MODULE.bazel")
+include("//pycross-tiktoken:setup.MODULE.bazel")
+include("//pycross-rpds_py:setup.MODULE.bazel")

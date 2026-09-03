@@ -8,9 +8,10 @@ and a rustc wrapper whose sysroot merges the target toolchain's std with
 the exec platform's std (build scripts/proc-macros are always exec
 artifacts).
 
-The override forwards the resolved rust toolchain (CARGO/RUSTC make
-variables) and the exec platform's sysroot (//tools:rust_host_sysroot) —
-both must stay in lockstep with the helper's expectations.
+`uv.project(rust_toolchain = ...)` is all the Rust wiring: sdist_build
+detects the maturin backend and emits the toolchain plus an exec-configured
+rust_host_sysroot into the generated pep517_native_whl, whose make variables
+pep517_native_whl maps to CARGO/RUSTC/RULES_PY_RUST_HOST_SYSROOT.
 """
 
 uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")

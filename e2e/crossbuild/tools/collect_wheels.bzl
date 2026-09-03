@@ -15,7 +15,7 @@ load("@aspect_rules_py//py:defs.bzl", "py_test")
 load("@bazel_lib//lib:run_binary.bzl", "run_binary")
 load("@bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
 
-def collect_wheels(name, wheels, platforms, expected_tags):
+def collect_wheels(name, wheels, platforms, expected_tags, tags = [], check_elf = True):
     """Builds `wheels` once per entry in `platforms` and collects them.
 
     Args:
@@ -24,6 +24,10 @@ def collect_wheels(name, wheels, platforms, expected_tags):
         platforms: Platform labels to build each wheel for.
         expected_tags: Substrings that must each appear in at least one
             collected wheel's `Tag:` metadata, asserted by `<name>_tags_test`.
+        tags: Tags applied to every generated target (e.g. `["manual"]` for a
+            collection only a specific host can build).
+        check_elf: Also generate `<name>_elf_test`; False for non-ELF targets
+            such as macOS wheels.
 
     The inner `<name>_wheels` filegroup is tagged manual: it is only reachable
     through the platform transitions declared here, which are what supply the
@@ -33,7 +37,7 @@ def collect_wheels(name, wheels, platforms, expected_tags):
     native.filegroup(
         name = name + "_wheels",
         srcs = wheels,
-        tags = ["manual"],
+        tags = ["manual"] + [t for t in tags if t != "manual"],
     )
 
     all_srcs = []
@@ -42,6 +46,7 @@ def collect_wheels(name, wheels, platforms, expected_tags):
         platform_transition_filegroup(
             name = transition_name,
             srcs = [name + "_wheels"],
+            tags = tags,
             target_platform = platform,
         )
         all_srcs.append(":" + transition_name)
@@ -49,6 +54,7 @@ def collect_wheels(name, wheels, platforms, expected_tags):
     native.filegroup(
         name = name + "_all_transitions",
         srcs = all_srcs,
+        tags = tags,
     )
 
     run_binary(
@@ -60,6 +66,7 @@ def collect_wheels(name, wheels, platforms, expected_tags):
             "$(execpaths :{}_all_transitions)".format(name),
         ],
         out_dirs = [name],
+        tags = tags,
         tool = "//tools:collect_wheels_tool",
     )
 
@@ -69,7 +76,11 @@ def collect_wheels(name, wheels, platforms, expected_tags):
         main = "//tools:check_wheel_tags.py",
         args = ["$(rootpath :{})".format(name)] + expected_tags,
         data = [name],
+        tags = tags,
     )
+
+    if not check_elf:
+        return
 
     py_test(
         name = name + "_elf_test",
@@ -77,4 +88,5 @@ def collect_wheels(name, wheels, platforms, expected_tags):
         main = "//tools:check_so_arch.py",
         args = ["$(rootpath :{})".format(name)],
         data = [name],
+        tags = tags,
     )

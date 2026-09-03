@@ -1,17 +1,6 @@
-package(default_visibility = [
-    "//awkward_cpp:__pkg__",
-    "//bcrypt:__pkg__",
-    "//contourpy:__pkg__",
-    "//geohash:__pkg__",
-    "//msgpack:__pkg__",
-    "//numpy:__pkg__",
-    "//psutil:__pkg__",
-    "//pydantic_core:__pkg__",
-    "//rpds_py:__pkg__",
-    "//tiktoken:__pkg__",
-    "//tools:__pkg__",
-    "//zstandard:__pkg__",
-])
+# Only //tools needs a workspace-level linux platform (exec toolchain
+# resolution test); each case declares its own flag-carrying platforms.
+package(default_visibility = ["//tools:__pkg__"])
 
 platform(
     name = "arm64_linux",
@@ -23,35 +12,5 @@ platform(
         "--@aspect_rules_py//uv/private/constraints/platform:platform_libc=glibc",
         "--@aspect_rules_py//uv/private/constraints/platform:platform_version=2.39",
         "--stripopt=--strip-all",
-    ],
-)
-
-platform(
-    name = "amd64_linux",
-    constraint_values = [
-        "@platforms//os:linux",
-        "@platforms//cpu:x86_64",
-    ],
-    flags = [
-        "--@aspect_rules_py//uv/private/constraints/platform:platform_libc=glibc",
-        "--@aspect_rules_py//uv/private/constraints/platform:platform_version=2.39",
-        "--stripopt=--strip-all",
-    ],
-)
-
-# Used only from a macOS host — see test.sh.
-platform(
-    name = "arm64_macos",
-    constraint_values = [
-        "@platforms//os:macos",
-        "@platforms//cpu:aarch64",
-    ],
-)
-
-platform(
-    name = "amd64_macos",
-    constraint_values = [
-        "@platforms//os:macos",
-        "@platforms//cpu:x86_64",
     ],
 )

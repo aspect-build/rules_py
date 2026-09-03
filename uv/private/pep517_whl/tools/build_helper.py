@@ -905,7 +905,6 @@ def _requirement_name(requirement: str) -> str:
     return match.group(1) if match else ""
 
 
-
 # numpy's longdouble probe outputs (numpy/_core/meson.build), keyed by the
 # target ABI: x86 keeps the 80-bit x87 format padded to 16 bytes, aarch64
 # glibc uses IEEE binary128, and Apple aarch64 aliases long double to double.
@@ -1129,6 +1128,21 @@ def _build_backend(pyproject_data: dict[str, object] | None) -> str | None:
     return backend if isinstance(backend, str) else None
 
 
+def _uses_setuptools_rust(pyproject_data: dict[str, object] | None) -> bool:
+    """setuptools-rust has no build-backend of its own (it's
+    setuptools.build_meta plus a build requirement) — detect it there."""
+    build_system = (pyproject_data or {}).get("build-system", {})
+    if not isinstance(build_system, dict):
+        return False
+    backend = build_system.get("build-backend")
+    if (backend if isinstance(backend, str) else None) not in _SETUPTOOLS_BACKENDS:
+        return False
+    requires = build_system.get("requires", [])
+    if not isinstance(requires, list):
+        return False
+    return any(isinstance(req, str) and _requirement_name(req) == "setuptools-rust" for req in requires)
+
+
 def _legacy_metadata_conflicts_with_pyproject(worktree: str) -> bool:
     setup_py = path.join(worktree, "setup.py")
     pyproject_data = _load_pyproject_data(worktree)
@@ -1317,34 +1331,29 @@ def main() -> None:
             "--skip-dependency-check",
             "--outdir", outdir,
         ]
-        build_system = (pyproject_data or {}).get("build-system", {})
-        build_backend = build_system.get("build-backend") if isinstance(build_system, dict) else None
+        backend = _build_backend(pyproject_data)
 
         # Packages needing -D setup-args (numpy's -Dblas=none — the hermetic
-        # venv has no system BLAS in native mode either) pass them via this env
-        # var. `build`'s -C accumulates repeated keys, so it can't collide with
-        # the --cross-file the cross branch adds separately.
-        if build_backend == "mesonpy":
+        # venv has no system BLAS) pass them via this env var. `build`'s -C
+        # accumulates repeated keys, so it can't collide with the
+        # --cross-file the cross branch adds separately. Native too: the
+        # setup-args are about the package, not the mode.
+        if backend == "mesonpy":
             for arg in shlex.split(build_env.get("RULES_PY_MESON_SETUP_ARGS", "")):
                 cmd += ["-C", "setup-args=" + arg]
 
+        # meson-python only synthesizes its own cross file for macOS
+        # ARCHFLAGS/cibuildwheel shapes; everything else configures as a
+        # native build and fails meson's compiler sanity checks. Hand it
+        # ours (see _generate_meson_cross_file).
         if opts.cross:
-            build_requires = build_system.get("requires", []) if isinstance(build_system, dict) else []
-            if not isinstance(build_requires, list):
-                build_requires = []
-            # setuptools-rust has no build-backend value of its own (it's
-            # setuptools.build_meta plus a requirement) and relies on
-            # $CARGO_BUILD_TARGET, same as maturin.
-            uses_setuptools_rust = build_backend in _SETUPTOOLS_BACKENDS and any(
-                isinstance(req, str) and _requirement_name(req) == "setuptools-rust" for req in build_requires
-            )
-            if build_backend == "mesonpy":
+            if backend == "mesonpy":
                 cross_file = _generate_meson_cross_file(tmp_root, build_env, opts.target_os, opts.target_cpu)
                 cmd += ["-C", "setup-args=--cross-file=" + cross_file]
-            elif build_backend == "scikit_build_core.build":
+            elif backend == "scikit_build_core.build":
                 toolchain = _generate_cmake_toolchain_file(tmp_root, build_env, opts.target_os, opts.target_cpu)
                 cmd += ["-C", "cmake.toolchain-file=" + toolchain]
-            elif (build_backend == "maturin" or uses_setuptools_rust) and build_env.get("CARGO"):
+            elif (backend == "maturin" or _uses_setuptools_rust(pyproject_data)) and build_env.get("CARGO"):
                 _configure_cargo_cross_env(build_env, tmp_root, opts.target_os, opts.target_cpu, opts.target_libc)
     else:
         # raise, not _die(): ty doesn't narrow NoReturn in module-level flow and

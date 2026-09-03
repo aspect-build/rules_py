@@ -5,6 +5,7 @@
 
 load("@aspect_rules_py//py:defs.bzl", "py_test")
 load("//tools:collect_wheels.bzl", "collect_wheels")
+load("//tools:wheel_export.bzl", "pycross_wheel_export")
 
 exports_files(["require_extension.patch"])
 
@@ -88,4 +89,14 @@ collect_wheels(
         "@sdist_build__pycross_setuptools__setproctitle__1_3_7//:whl",
         "@sdist_build__pycross_setuptools__zstandard__0_22_0//:whl",
     ],
+)
+
+# Execution verification: the cross-built wheel is installed and the case's
+# standalone test is run on a native runner of the target architecture.
+pycross_wheel_export(
+    name = "setproctitle",
+    amd64_platform = ":amd64_linux",
+    arm64_platform = ":arm64_linux",
+    main = "test_setproctitle.py",
+    wheel = "@sdist_build__pycross_setuptools__setproctitle__1_3_7//:whl",
 )

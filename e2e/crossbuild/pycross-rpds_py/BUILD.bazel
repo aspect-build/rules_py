@@ -1,6 +1,5 @@
-# meson-python cross case: contourpy (pybind11 C++, meson-python backend)
-# built from its sdist for the host at runtime, and cross-compiled for both
-# linux CPUs with the generated meson cross file.
+# maturin (Cargo/PyO3) cross case: rpds-py built from its sdist for the host
+# at runtime, and cross-compiled for both linux CPUs with the cargo cross env.
 
 load("@aspect_rules_py//py:defs.bzl", "py_test")
 load("//tools:collect_wheels.bzl", "collect_wheels")
@@ -8,21 +7,17 @@ load("//tools:wheel_export.bzl", "pycross_wheel_export")
 
 _PY = "3.12"
 
-_DEP_GROUP = "pycross_meson"
+_DEP_GROUP = "pycross_rpds_py"
 
 py_test(
-    name = "test_contourpy",
-    srcs = ["test_contourpy.py"],
+    name = "test_rpds_py",
+    srcs = ["test_rpds_py.py"],
     dep_group = _DEP_GROUP,
-    main = "test_contourpy.py",
+    main = "test_rpds_py.py",
     python_version = _PY,
-    deps = ["@pypi_pycross_meson//contourpy"],
+    deps = ["@pypi_pycross_rpds_py//rpds_py"],
 )
 
-# The wheel targets under `collect_wheels` are reached through a platform
-# transition rather than a py_venv, so nothing sets the dep_group flag for
-# them — the platform carries it alongside the libc/version flags the wheel
-# resolver needs.
 _PLATFORM_FLAGS = [
     "--@aspect_rules_py//uv/private/constraints/platform:platform_libc=glibc",
     "--@aspect_rules_py//uv/private/constraints/platform:platform_version=2.39",
@@ -49,7 +44,7 @@ platform(
 )
 
 collect_wheels(
-    name = "meson_wheels",
+    name = "rpds_py_wheels",
     expected_tags = [
         "linux_x86_64",
         "linux_aarch64",
@@ -58,15 +53,13 @@ collect_wheels(
         ":amd64_linux",
         ":arm64_linux",
     ],
-    wheels = ["@sdist_build__pycross_meson__contourpy__1_3_3//:whl"],
+    wheels = ["@sdist_build__pycross_rpds_py__rpds_py__2026_6_3//:whl"],
 )
 
-# Execution verification: the cross-built wheel is installed and the case's
-# standalone test is run on a native runner of the target architecture.
 pycross_wheel_export(
-    name = "contourpy",
+    name = "rpds_py",
     amd64_platform = ":amd64_linux",
     arm64_platform = ":arm64_linux",
-    main = "test_contourpy.py",
-    wheel = "@sdist_build__pycross_meson__contourpy__1_3_3//:whl",
+    main = "test_rpds_py.py",
+    wheel = "@sdist_build__pycross_rpds_py__rpds_py__2026_6_3//:whl",
 )

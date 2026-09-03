@@ -329,14 +329,15 @@ an explicit `env` entry.
 
 A working end-to-end suite lives in `e2e/crossbuild/`: real packages forced
 to build from sdist (`[tool.uv] no-binary-package`) and cross-compiled for
-linux/amd64 and linux/arm64, covering setuptools (`python-geohash`,
-`msgpack`, `psutil`), setuptools+CFFI (`zstandard`), setuptools-rust
-(`tiktoken`, `bcrypt`), maturin/PyO3 (`pydantic_core`, `rpds_py`),
-meson-python (`contourpy`, `numpy`), and scikit-build-core/CMake
-(`awkward_cpp`, `jpype1`). Each case asserts the ELF architecture of the
-produced `.so` (and its `EXT_SUFFIX`, where the filename carries one) and
-then actually runs the resulting container image (QEMU for arm64). `//geohash` additionally covers a
-macOS arm64 → macOS amd64 cross target when run from a macOS host (see
+linux/amd64 and linux/arm64, covering setuptools (`pycross-geohash`,
+`pycross-msgpack`, `pycross-psutil`, `pycross-setuptools`), setuptools-rust
+(`pycross-tiktoken`, `pycross-bcrypt`), maturin/PyO3 (`pycross-rust`,
+`pycross-rpds_py`), meson-python (`pycross-meson`, `pycross-numpy`), and
+scikit-build-core/CMake (`pycross-cmake`, `pycross-jdk`). Each case asserts
+the produced wheels' `Tag:` metadata and the ELF architecture of every bundled
+`.so`, and exports a wheel bundle that CI installs and runs on a native runner
+of the target architecture. `pycross-geohash` additionally covers a macOS
+arm64 → macOS amd64 cross target when run from a macOS host (see
 `e2e/crossbuild/test.sh`).
 
 Current limitations:
