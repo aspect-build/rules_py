@@ -93,6 +93,22 @@ python_transition = transition(
     outputs = _ALL_FLAGS,
 )
 
+# The `py_library.deps` edge. Resolving hub packages under a dependency group
+# here keeps the library, its consumers and their non-Python dependencies in
+# the caller's configuration.
+def _dep_group_transition_impl(settings, attr):
+    dep_group = attr.dep_group or settings[_DEP_GROUP_FLAG]
+    return {
+        _DEP_GROUP_FLAG: dep_group,
+        _DEP_GROUP_BASELINE_FLAG: _capture_baseline(settings, _DEP_GROUP_FLAG, _DEP_GROUP_BASELINE_FLAG, dep_group),
+    }
+
+dep_group_transition = transition(
+    implementation = _dep_group_transition_impl,
+    inputs = [_DEP_GROUP_FLAG, _DEP_GROUP_BASELINE_FLAG],
+    outputs = [_DEP_GROUP_FLAG, _DEP_GROUP_BASELINE_FLAG],
+)
+
 # The launcher -> venv edge. Validation never runs here: the venv's own rule
 # transition always applies next, may override either half of a version/GIL
 # combination, and is the sole authority for rejecting the final configuration.
