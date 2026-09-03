@@ -216,6 +216,15 @@ class OverrideToolTest(unittest.TestCase):
         self.assertEqual(env["LDSHARED"], "/wrap/cc -shared -pthread")
 
 
+class NeedsCargoCrossEnvTest(unittest.TestCase):
+    def test_cargo_wired_by_the_rule_is_the_signal(self) -> None:
+        self.assertTrue(build_helper._needs_cargo_cross_env({"CARGO": "/tc/bin/cargo", "RUSTC": "/tc/bin/rustc"}))
+
+    def test_no_rust_toolchain_no_cargo_env(self) -> None:
+        self.assertFalse(build_helper._needs_cargo_cross_env({}))
+        self.assertFalse(build_helper._needs_cargo_cross_env({"CARGO": ""}), "an empty CARGO is not a toolchain")
+
+
 class MakeCompilerWrapperTest(unittest.TestCase):
     def test_wrapper_is_executable_and_bakes_the_driver(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
