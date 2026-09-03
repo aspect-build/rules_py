@@ -46,7 +46,7 @@ register_toolchains("@llvm//toolchain:all")
 
 # Cross rust toolchain for the maturin case: the extra triples give cargo a
 # target std for each linux CPU; the exec platform's std comes from the
-# ambient toolchain (see //tools:rust_host_sysroot).
+# ambient toolchain (see rules_py's rust_layer.bzl).
 rust = use_extension("@rules_rust//rust:extensions.bzl", "rust")
 rust.toolchain(
     edition = "2021",

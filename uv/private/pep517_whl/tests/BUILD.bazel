@@ -7,6 +7,7 @@ load("//py:defs.bzl", "py_binary", "py_test")
 load("//uv/private/pep517_whl:frontend.bzl", "pep517_frontend")
 load("//uv/private/pep517_whl:pep517_native_whl.bzl", "pep517_native_whl")
 load("//uv/private/pep517_whl:pep517_whl.bzl", "pep517_whl")
+load("//uv/private/pep517_whl:rust_layer.bzl", "rust_host_sysroot")
 load(
     ":exec_platform_steering_test.bzl",
     "exec_platform_prefers_native_match_test",
@@ -25,6 +26,7 @@ load(
     "absolutize_flag_test",
     "cross_decision_test",
     "execroot_collision_toolchain",
+    "fake_rust_toolchain",
     "hostile_python_env_target",
     "interpreter_platform_triple_test",
     "pep517_native_whl_cross_mode_test",
@@ -33,6 +35,7 @@ load(
     "pep517_native_whl_toolchain_env_test",
     "pep517_whl_console_scripts_test",
     "python_host_platform_test",
+    "rust_host_sysroot_test",
     "target_python_artifacts_test",
 )
 
@@ -295,6 +298,18 @@ pep517_native_whl_derived_env_test(
     derived_keys = ["JAVA"],
     expected_env = {"JAVA_HOME": "/explicit/java_home"},
     target_under_test = ":__derived_env_override_fixture",
+)
+
+fake_rust_toolchain(name = "__fake_rust_toolchain")
+
+rust_host_sysroot(
+    name = "__rust_host_sysroot",
+    actual = ":__fake_rust_toolchain",
+)
+
+rust_host_sysroot_test(
+    name = "rust_host_sysroot_test",
+    target_under_test = ":__rust_host_sysroot",
 )
 
 execroot_collision_toolchain(name = "__execroot_collision_toolchain")
