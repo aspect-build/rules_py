@@ -274,6 +274,7 @@ def _parse_projects(module_ctx, hub_specs):
                 override.extra_data or
                 override.toolchains or
                 override.env or
+                override.config_settings or
                 override.monitor_memory or
                 override.resource_set != "default"
             )
@@ -524,6 +525,7 @@ def _parse_projects(module_ctx, hub_specs):
                         console_scripts = sbuild_console_scripts,
                         resource_set = pkg_override.resource_set,
                         env = pkg_override.env,
+                        config_settings = pkg_override.config_settings,
                         error = "uv.override_package() for '{}=={}' in lock '{}': build-only attributes require a source distribution, but the lock record has only wheels: {{}}".format(
                             package["name"],
                             package["version"],
@@ -581,11 +583,13 @@ def _parse_projects(module_ctx, hub_specs):
                     # they don't replace them. Empty == no augmentation.
                     extra_toolchains = []
                     extra_env = {}
+                    config_settings = {}
                     monitor_memory = False
                     resource_set = "default"
                     if pkg_override:
                         extra_toolchains = [str(t) for t in pkg_override.toolchains]
                         extra_env = pkg_override.env
+                        config_settings = pkg_override.config_settings
                         monitor_memory = pkg_override.monitor_memory
                         resource_set = pkg_override.resource_set
 
@@ -600,6 +604,7 @@ def _parse_projects(module_ctx, hub_specs):
                         package_install = install_target,
                         extra_toolchains = extra_toolchains,
                         extra_env = extra_env,
+                        config_settings = config_settings,
                         monitor_memory = monitor_memory,
                         resource_set = resource_set,
                     )
@@ -878,6 +883,8 @@ def _uv_impl(module_ctx):
             sbuild_kwargs["extra_toolchains"] = sbuild_cfg.extra_toolchains
         if sbuild_cfg.extra_env:
             sbuild_kwargs["extra_env"] = sbuild_cfg.extra_env
+        if sbuild_cfg.config_settings:
+            sbuild_kwargs["config_settings"] = sbuild_cfg.config_settings
         if sbuild_cfg.monitor_memory:
             sbuild_kwargs["monitor_memory"] = True
         if sbuild_cfg.resource_set != "default":
@@ -1015,6 +1022,10 @@ _override_package_tag = tag_class(
         "env": attr.string_dict(
             default = {},
             doc = "Extra environment variables merged into the build action's `env` dict. Values may reference $(VAR) make-variables sourced from extra `toolchains` listed above. Prefix an execroot-relative path with `$(EXECROOT)/` so it remains valid after the backend changes into the unpacked source tree. Omit CC/CXX/AR/LD/STRIP to use the configured C++ action tools.",
+        ),
+        "config_settings": attr.string_list_dict(
+            default = {},
+            doc = "PEP 517 config settings handed to the build backend through the frontend's `-C key=value`, one flag per listed value; a key with several values reaches the backend as a list. Backend-specific by nature, e.g. `{\"setup-args\": [\"-Dblas=none\"]}` for meson-python or `{\"cmake.define.FOO\": [\"1\"]}` for scikit-build-core. Applies to pure and native source builds.",
         ),
         "pre_build_patches": attr.label_list(
             default = [],

@@ -400,6 +400,33 @@ reads; `$(ANT_HOME)` and `$(ANT_BIN_DIR)` likewise. Any other make-variable a
 toolchain exports still needs an explicit `env` entry (`"FOO": "$(FOO)"`),
 and an explicit entry always wins over the derived value.
 
+### Backend config settings
+
+PEP 517 backends take free-form `config_settings`; the `build` frontend
+spells them `-C key=value`. Declare them per package on the override and they
+reach the backend unchanged, for pure and native source builds alike:
+
+```starlark
+uv.override_package(
+    lock = "//:uv.lock",
+    name = "numpy",
+    config_settings = {
+        "setup-args": [
+            "-Dblas=none",
+            "-Dlapack=none",
+        ],
+    },
+)
+```
+
+Each listed value becomes one `-C key=value`; a key with several values
+reaches the backend as a list, a single value as a string. The keys are
+backend-specific: `setup-args` for meson-python, `cmake.define.<VAR>` or
+`cmake.args` for scikit-build-core, `--build-option` for setuptools. Packages
+that fall back to `setup.py bdist_wheel` (a `pyproject.toml` without the
+dynamic metadata setuptools still reads from `setup.py`) cannot take config
+settings and fail the build with an explicit error.
+
 ## Best practices
 
 **Consolidate your hubs**. In `rules_python`, environments with multiple depsets
