@@ -1,0 +1,24 @@
+load("//py:defs.bzl", "py_library")
+load(":pyi_propagation_test.bzl", "pyi_propagation_test", "rules_python_pyi_fixture")
+
+package(default_testonly = True)
+
+rules_python_pyi_fixture(
+    name = "rules_python_library",
+    srcs = ["library.pyi"],
+)
+
+py_library(
+    name = "rules_py_library",
+    deps = [":rules_python_library"],
+)
+
+py_library(
+    name = "rules_py_consumer",
+    deps = [":rules_py_library"],
+)
+
+pyi_propagation_test(
+    name = "pyi_propagation_test",
+    target_under_test = ":rules_py_consumer",
+)
