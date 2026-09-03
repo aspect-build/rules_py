@@ -132,6 +132,30 @@ py_binary(
 )
 ```
 
+`dep_group` on a `py_binary` / `py_test` is an incoming transition: every
+target beneath it, including shared native libraries, is analyzed again per
+group. To keep the group on the hub edge alone, set `dep_group` on the
+`py_library` that lists the hub packages. Only that library's `deps` resolve
+under the group; the library itself, its consumers and their other dependencies
+share the caller's configuration.
+
+```starlark
+py_library(
+    name = "vendored_pip",
+    dep_group = "vendored_say",
+    deps = ["@pypi//cowsay"],
+)
+
+py_binary(
+    name = "say_vendored",
+    srcs = ["__main__.py_"],
+    deps = [
+        ":vendored_pip",
+        "//lib:shared_native",  # analyzed once, whatever group the pip deps use
+    ],
+)
+```
+
 Targets that need every dependency in one dependency group can use the
 group-specific lists generated in `defs.bzl`. The `group_deps()` helper follows
 the consuming target's `dep_group`, so the group name is never repeated:

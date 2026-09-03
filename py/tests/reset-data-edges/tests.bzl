@@ -12,14 +12,23 @@ _FREETHREADED_FLAG = "@aspect_rules_py//py/private/interpreter:freethreaded"
 _RPY_FREETHREADED_FLAG = "@rules_python//python/config_settings:py_freethreaded"
 
 _ProbeInfo = provider(fields = ["file"])
-_ProbeFilesInfo = provider(fields = ["files", "modes", "bin_dirs"])
+_ProbeFilesInfo = provider(fields = ["files", "modes", "bin_dirs", "groups"])
 
 def _probe_impl(ctx):
     out = ctx.actions.declare_file(ctx.label.name + ".txt")
     ctx.actions.write(out, "probe")
-    return [_ProbeInfo(
-        file = out,
-    )]
+    return [
+        _ProbeInfo(
+            file = out,
+        ),
+        # Lets py_library list the probe in `deps`.
+        PyInfo(
+            imports = depset(),
+            transitive_sources = depset(),
+            virtual_dependencies = depset(),
+            virtual_resolutions = depset(),
+        ),
+    ]
 
 probe = rule(
     implementation = _probe_impl,
@@ -35,6 +44,7 @@ def _probe_aspect_impl(target, ctx):
     transitive = []
     transitive_modes = []
     transitive_bin_dirs = []
+    transitive_groups = []
     deps = []
     for attr_name in ["data", "deps"]:
         deps.extend(getattr(ctx.rule.attr, attr_name, []))
@@ -49,6 +59,7 @@ def _probe_aspect_impl(target, ctx):
             transitive.append(dep[_ProbeFilesInfo].files)
             transitive_modes.append(dep[_ProbeFilesInfo].modes)
             transitive_bin_dirs.append(dep[_ProbeFilesInfo].bin_dirs)
+            transitive_groups.append(dep[_ProbeFilesInfo].groups)
 
     # Record every visited target; the test impl filters to the names it
     # asserts on, keeping the fixture-name coupling in one place.
@@ -61,16 +72,19 @@ def _probe_aspect_impl(target, ctx):
     # bin_dir carries the configuration's output segment, so equal paths mean
     # one configuration.
     bin_dirs = [(ctx.label.name, ctx.bin_dir.path)]
+    groups = [(ctx.label.name, ctx.attr._dep_group[BuildSettingInfo].value)]
     return [_ProbeFilesInfo(
         files = depset(direct = direct, transitive = transitive),
         modes = depset(direct = modes, transitive = transitive_modes),
         bin_dirs = depset(direct = bin_dirs, transitive = transitive_bin_dirs),
+        groups = depset(direct = groups, transitive = transitive_groups),
     )]
 
 _probe_aspect = aspect(
     implementation = _probe_aspect_impl,
     attr_aspects = ["data", "deps", "venv"],
     attrs = {
+        "_dep_group": attr.label(default = _DEP_GROUP_FLAG),
         "_freethreaded": attr.label(default = _FREETHREADED_FLAG),
         "_rpy_freethreaded": attr.label(default = _RPY_FREETHREADED_FLAG),
     },
@@ -105,6 +119,7 @@ def _root_impl(ctx):
         files = depset(transitive = transitive),
         modes = depset(transitive = [dep[_ProbeFilesInfo].modes for dep in ctx.attr.deps]),
         bin_dirs = depset(transitive = [dep[_ProbeFilesInfo].bin_dirs for dep in ctx.attr.deps]),
+        groups = depset(transitive = [dep[_ProbeFilesInfo].groups for dep in ctx.attr.deps]),
     )]
 
 def _baseline_transition_impl(settings, attr):
@@ -225,6 +240,27 @@ def _shared_binaries_test_impl(ctx):
 
 _shared_binaries_test = analysistest.make(_shared_binaries_test_impl)
 
+def _scoped_library_test_impl(ctx):
+    env = analysistest.begin(ctx)
+    under_test = analysistest.target_under_test(env)[_ProbeFilesInfo]
+    asserts.equals(
+        env,
+        2,
+        len(under_test.files.to_list()),
+        "the probe should analyze once in the caller's group and once under the library's deps",
+    )
+    expected = [
+        ("probe", "baseline"),
+        ("probe", "scoped"),
+        ("scoped_library", "baseline"),
+    ]
+    tracked = {name: True for name, _ in expected}
+    groups = [group for group in under_test.groups.to_list() if group[0] in tracked]
+    asserts.equals(env, sorted(expected), sorted(groups))
+    return analysistest.end(env)
+
+_scoped_library_test = analysistest.make(_scoped_library_test_impl)
+
 def reset_data_edges_test_suite():
     _reset_data_edges_test(
         name = "reset_data_edges_test",
@@ -237,4 +273,8 @@ def reset_data_edges_test_suite():
     _shared_binaries_test(
         name = "shared_binaries_test",
         target_under_test = ":binaries_root",
+    )
+    _scoped_library_test(
+        name = "scoped_library_test",
+        target_under_test = ":scoped_root",
     )

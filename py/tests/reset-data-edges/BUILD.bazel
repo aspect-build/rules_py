@@ -161,4 +161,23 @@ root(
     ],
 )
 
+# py_library's dep_group reaches only its deps edge: the library and its data
+# stay in the caller's group.
+py_library(
+    name = "scoped_library",
+    data = [":probe"],
+    dep_group = "scoped",
+    tags = ["manual"],
+    deps = [":probe"],
+)
+
+root(
+    name = "scoped_root",
+    tags = ["manual"],
+    deps = [
+        ":probe",
+        ":scoped_library",
+    ],
+)
+
 reset_data_edges_test_suite()
