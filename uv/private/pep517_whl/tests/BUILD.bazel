@@ -28,6 +28,7 @@ load(
     "hostile_python_env_target",
     "interpreter_platform_triple_test",
     "pep517_native_whl_cross_mode_test",
+    "pep517_native_whl_derived_env_test",
     "pep517_native_whl_execroot_collision_test",
     "pep517_native_whl_toolchain_env_test",
     "pep517_whl_console_scripts_test",
@@ -255,6 +256,45 @@ pep517_whl_console_scripts_test(
     name = "console_scripts_native_test",
     expected_console_scripts = ["detected-native=demo.cli:native"],
     target_under_test = ":__toolchain_env_fixture",
+)
+
+# Listing the Java runtime is enough: its JAVA/JAVABASE make-variables reach
+# the action as JAVA/JAVA_HOME with no `env` entry. JAVABASE itself is a
+# make-variable name, not an env key.
+pep517_native_whl(
+    name = "__derived_env_fixture",
+    src = ":__stub_sdist",
+    tags = ["manual"],
+    tool = ":__stub_tool",
+    toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
+    version = "0.0.1",
+)
+
+pep517_native_whl_derived_env_test(
+    name = "derived_env_test",
+    absent_keys = ["JAVABASE"],
+    derived_keys = [
+        "JAVA",
+        "JAVA_HOME",
+    ],
+    target_under_test = ":__derived_env_fixture",
+)
+
+pep517_native_whl(
+    name = "__derived_env_override_fixture",
+    src = ":__stub_sdist",
+    env = {"JAVA_HOME": "/explicit/java_home"},
+    tags = ["manual"],
+    tool = ":__stub_tool",
+    toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
+    version = "0.0.1",
+)
+
+pep517_native_whl_derived_env_test(
+    name = "derived_env_explicit_wins_test",
+    derived_keys = ["JAVA"],
+    expected_env = {"JAVA_HOME": "/explicit/java_home"},
+    target_under_test = ":__derived_env_override_fixture",
 )
 
 execroot_collision_toolchain(name = "__execroot_collision_toolchain")

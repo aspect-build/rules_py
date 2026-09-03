@@ -8,9 +8,10 @@ and a rustc wrapper whose sysroot merges the target toolchain's std with
 the exec platform's std (build scripts/proc-macros are always exec
 artifacts).
 
-The override forwards the resolved rust toolchain (CARGO/RUSTC make
-variables) and the exec platform's sysroot (//tools:rust_host_sysroot) —
-both must stay in lockstep with the helper's expectations.
+The override lists the resolved rust toolchain and the exec platform's
+sysroot (//tools:rust_host_sysroot); pep517_native_whl maps their
+CARGO/RUSTC/RUST_HOST_SYSROOT make variables into the helper's env, so no
+`env` entry spells them out.
 """
 
 uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
@@ -26,11 +27,6 @@ uv.project(
 )
 uv.override_package(
     name = "pydantic-core",
-    env = {
-        "CARGO": "$(CARGO)",
-        "RULES_PY_RUST_HOST_SYSROOT": "$(RUST_HOST_SYSROOT)",
-        "RUSTC": "$(RUSTC)",
-    },
     lock = "//pycross-rust:uv.lock",
     toolchains = [
         "@rules_rust//rust/toolchain:current_rust_toolchain",

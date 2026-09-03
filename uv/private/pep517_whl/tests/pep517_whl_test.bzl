@@ -310,3 +310,32 @@ def _absolutize_flag_test_impl(ctx):
     return unittest.end(env)
 
 absolutize_flag_test = unittest.make(_absolutize_flag_test_impl)
+
+def _derived_env_test_impl(ctx):
+    env = analysistest.begin(ctx)
+    target = analysistest.target_under_test(env)
+    build_actions = [a for a in target.actions if a.mnemonic == "PySdistNativeBuild"]
+    asserts.equals(env, 1, len(build_actions), "expected exactly one PySdistNativeBuild action")
+    if not build_actions:
+        return analysistest.end(env)
+    action_env = build_actions[0].env
+    for key in ctx.attr.derived_keys:
+        asserts.true(
+            env,
+            action_env.get(key),
+            "{} must be derived from the listed toolchain's make-variables; env keys: {}".format(key, sorted(action_env.keys())),
+        )
+    for key, value in ctx.attr.expected_env.items():
+        asserts.equals(env, value, action_env.get(key), "explicit env must win over the derived value for " + key)
+    for key in ctx.attr.absent_keys:
+        asserts.false(env, key in action_env, "{} must not leak into the action env".format(key))
+    return analysistest.end(env)
+
+pep517_native_whl_derived_env_test = analysistest.make(
+    _derived_env_test_impl,
+    attrs = {
+        "derived_keys": attr.string_list(doc = "Env keys that must be present and non-empty without an explicit `env` entry."),
+        "expected_env": attr.string_dict(doc = "Env entries that must hold exactly these (explicit) values."),
+        "absent_keys": attr.string_list(doc = "Env keys that must not appear (make-variable names are not env keys)."),
+    },
+)
