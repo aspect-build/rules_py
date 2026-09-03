@@ -33,9 +33,8 @@ py_unpacked_wheel(
     ],
 )
 
-# Exercises the console-script wrappers that py_binary/py_test generate under
-# <venv>/bin/<name> from each wheel's `[console_scripts]` entry points, and
-# the launcher's $PATH manipulation that makes them discoverable at runtime.
+# Exercises the console-script wrappers that `include_console_scripts = True` puts
+# under <venv>/bin/<name> and the launcher's $PATH manipulation.
 #
 # Failure modes this test catches:
 #   - Wrapper file not written (PyWheelInfo plumbing broken)
@@ -45,9 +44,19 @@ py_unpacked_wheel(
 py_test(
     name = "test_console_scripts",
     srcs = ["test_console_scripts.py"],
+    include_console_scripts = True,
     deps = [
         ":dotted_entry",
         # cowsay declares a `cowsay` console-script entry point in its wheel.
+        "@pypi//cowsay",
+    ],
+)
+
+py_test(
+    name = "test_internal_venv_has_no_console_scripts",
+    srcs = ["test_internal_venv_has_no_console_scripts.py"],
+    deps = [
+        ":dotted_entry",
         "@pypi//cowsay",
     ],
 )

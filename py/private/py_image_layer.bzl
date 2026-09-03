@@ -559,6 +559,8 @@ def _layer_aspect_impl(target, ctx):
 
         own_source.append(target[DefaultInfo].files)
         own_source.extend(_opaque_dep_files(ctx.rule.attr, ("data",)))
+        if venv != None and getattr(ctx.rule.attr, "include_console_scripts", False):
+            own_source.append(venv[VirtualenvInfo].console_scripts)
 
     return [_LayerInfo(
         source_files = depset(transitive = transitive_source + own_source),
@@ -1505,7 +1507,8 @@ def py_image_layer(
 
     Args:
         name: Name of the generated target.
-        binary: A py_binary target.
+        binary: A py_binary target. Its venv's `bin/<name>` console-script wrappers
+            land in the image only when the binary sets `include_console_scripts = True`.
         groups: Maps a NON-PIP dep label to a group name. Each gets its own rule-created
             tar. All pip-package grouping (whole-package, subpath, multi-member) belongs
             in py_layer_tier — subpath glob keys passed here fail loudly.

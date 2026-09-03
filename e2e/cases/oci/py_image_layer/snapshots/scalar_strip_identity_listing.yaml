@@ -1,7 +1,6 @@
 ---
 layer: 0
 files:
-  - -rwxr-xr-x  0 0      0        2126 Jan  1  2023 ./app.runfiles/_main/oci/py_image_layer/.__scalar_strip_identity.venv/bin/activate
   - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/_main/oci/py_image_layer/.__scalar_strip_identity.venv/bin/python3 -> python
   - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/_main/oci/py_image_layer/.__scalar_strip_identity.venv/bin/python3.11 -> python
   - -rwxr-xr-x  0 0      0         270 Jan  1  2023 ./app.runfiles/_main/oci/py_image_layer/.__scalar_strip_identity.venv/lib/python3.11/site-packages/__scalar_strip_identity.venv.pth

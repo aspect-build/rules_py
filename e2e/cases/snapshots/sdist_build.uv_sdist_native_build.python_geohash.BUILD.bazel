@@ -8,6 +8,7 @@ py_binary(
     main = "@aspect_rules_py//uv/private/pep517_whl/tools:build_helper.py",
     srcs = ["@aspect_rules_py//uv/private/pep517_whl/tools:build_helper.py"],
     deps = ["@@aspect_rules_py++uv+project__uv_sdist_native_build//:build", "@@aspect_rules_py++uv+project__uv_sdist_native_build//:setuptools", "@project__uv_sdist_native_build//private/build_deps:setuptools"],
+    include_console_scripts = True,
 )
 
 pep517_frontend(

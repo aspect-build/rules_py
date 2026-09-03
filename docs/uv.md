@@ -376,6 +376,10 @@ metadata remains authoritative. The package layout remains unknown at analysis
 time, so the complete source-built wheel still participates in the normal
 `.pth` fallback.
 
+A `py_binary` / `py_test` carries no wrappers in its runfiles unless it sets
+`include_console_scripts = True`; a `py_venv` always has them, along with
+`bin/activate`, for `bazel run :name.venv`.
+
 An explicit `console_scripts = {}` suppresses all detected scripts, which is
 useful when a pre-build patch removes stale entry-point metadata.
 

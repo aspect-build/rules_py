@@ -134,6 +134,8 @@ def _py_venv_exec_impl(ctx):
     ).merge(vinfo.runtime_runfiles).merge_all(
         [target[DefaultInfo].default_runfiles for target in ctx.attr.data],
     )
+    if ctx.attr.include_console_scripts:
+        runfiles = runfiles.merge(ctx.runfiles(transitive_files = vinfo.console_scripts))
 
     instrumented_files_info = coverage_common.instrumented_files_info(
         ctx,
@@ -182,6 +184,12 @@ _attrs = dict({
     "env_inherit": attr.string_list(
         doc = "Names of environment variables to pass through from the invoking environment.",
         default = [],
+    ),
+    "include_console_scripts": attr.bool(
+        default = False,
+        doc = """Add the venv's wheel-declared `bin/<name>` console-script wrappers to this
+binary's runfiles so subprocesses can invoke them by name via `PATH`. Off by default: each
+wrapper is one action and one runfile per binary and most binaries never spawn one.""",
     ),
     "main": attr.label(
         allow_single_file = True,

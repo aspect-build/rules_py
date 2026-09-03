@@ -1,36 +1,70 @@
 ---
 layer: 0
 files:
-  - -rwxr-xr-x  0 0      0       17158 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__colorama__0_4_6/actual_install.install/lib/python3.11/site-packages/colorama-0.4.6.dist-info/METADATA
-  - -rwxr-xr-x  0 0      0        1491 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__colorama__0_4_6/actual_install.install/lib/python3.11/site-packages/colorama-0.4.6.dist-info/licenses/LICENSE.txt
-  - -rwxr-xr-x  0 0      0         266 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__colorama__0_4_6/actual_install.install/lib/python3.11/site-packages/colorama/__init__.py
-  - -rwxr-xr-x  0 0      0        2522 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__colorama__0_4_6/actual_install.install/lib/python3.11/site-packages/colorama/ansi.py
-  - -rwxr-xr-x  0 0      0       11128 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__colorama__0_4_6/actual_install.install/lib/python3.11/site-packages/colorama/ansitowin32.py
-  - -rwxr-xr-x  0 0      0        3325 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__colorama__0_4_6/actual_install.install/lib/python3.11/site-packages/colorama/initialise.py
-  - -rwxr-xr-x  0 0      0          75 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__colorama__0_4_6/actual_install.install/lib/python3.11/site-packages/colorama/tests/__init__.py
-  - -rwxr-xr-x  0 0      0        2839 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__colorama__0_4_6/actual_install.install/lib/python3.11/site-packages/colorama/tests/ansi_test.py
-  - -rwxr-xr-x  0 0      0       10678 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__colorama__0_4_6/actual_install.install/lib/python3.11/site-packages/colorama/tests/ansitowin32_test.py
-  - -rwxr-xr-x  0 0      0        6741 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__colorama__0_4_6/actual_install.install/lib/python3.11/site-packages/colorama/tests/initialise_test.py
-  - -rwxr-xr-x  0 0      0        1866 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__colorama__0_4_6/actual_install.install/lib/python3.11/site-packages/colorama/tests/isatty_test.py
-  - -rwxr-xr-x  0 0      0        1079 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__colorama__0_4_6/actual_install.install/lib/python3.11/site-packages/colorama/tests/utils.py
-  - -rwxr-xr-x  0 0      0        3709 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__colorama__0_4_6/actual_install.install/lib/python3.11/site-packages/colorama/tests/winterm_test.py
-  - -rwxr-xr-x  0 0      0        6181 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__colorama__0_4_6/actual_install.install/lib/python3.11/site-packages/colorama/win32.py
-  - -rwxr-xr-x  0 0      0        7134 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__colorama__0_4_6/actual_install.install/lib/python3.11/site-packages/colorama/winterm.py
+  - -rwxr-xr-x  0 0      0         256 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__build__1_4_0/actual_install.install/bin/pyproject-build
+  - -rwxr-xr-x  0 0      0        5777 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__build__1_4_0/actual_install.install/lib/python3.11/site-packages/build-1.4.0.dist-info/METADATA
+  - -rwxr-xr-x  0 0      0         105 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__build__1_4_0/actual_install.install/lib/python3.11/site-packages/build-1.4.0.dist-info/entry_points.txt
+  - -rwxr-xr-x  0 0      0        1113 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__build__1_4_0/actual_install.install/lib/python3.11/site-packages/build-1.4.0.dist-info/licenses/LICENSE
+  - -rwxr-xr-x  0 0      0         837 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__build__1_4_0/actual_install.install/lib/python3.11/site-packages/build/__init__.py
+  - -rwxr-xr-x  0 0      0       18816 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__build__1_4_0/actual_install.install/lib/python3.11/site-packages/build/__main__.py
+  - -rwxr-xr-x  0 0      0       13469 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__build__1_4_0/actual_install.install/lib/python3.11/site-packages/build/_builder.py
+  - -rwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__build__1_4_0/actual_install.install/lib/python3.11/site-packages/build/_compat/__init__.py
+  - -rwxr-xr-x  0 0      0         467 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__build__1_4_0/actual_install.install/lib/python3.11/site-packages/build/_compat/importlib.py
+  - -rwxr-xr-x  0 0      0         765 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__build__1_4_0/actual_install.install/lib/python3.11/site-packages/build/_compat/tarfile.py
+  - -rwxr-xr-x  0 0      0         255 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__build__1_4_0/actual_install.install/lib/python3.11/site-packages/build/_compat/tomllib.py
+  - -rwxr-xr-x  0 0      0        2710 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__build__1_4_0/actual_install.install/lib/python3.11/site-packages/build/_ctx.py
+  - -rwxr-xr-x  0 0      0        1625 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__build__1_4_0/actual_install.install/lib/python3.11/site-packages/build/_exceptions.py
+  - -rwxr-xr-x  0 0      0         553 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__build__1_4_0/actual_install.install/lib/python3.11/site-packages/build/_types.py
+  - -rwxr-xr-x  0 0      0        2325 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__build__1_4_0/actual_install.install/lib/python3.11/site-packages/build/_util.py
+  - -rwxr-xr-x  0 0      0       14271 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__build__1_4_0/actual_install.install/lib/python3.11/site-packages/build/env.py
+  - -rwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__build__1_4_0/actual_install.install/lib/python3.11/site-packages/build/py.typed
+  - -rwxr-xr-x  0 0      0        1840 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__build__1_4_0/actual_install.install/lib/python3.11/site-packages/build/util.py
+  - -rwxr-xr-x  0 0      0        3309 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__packaging__26_0/actual_install.install/lib/python3.11/site-packages/packaging-26.0.dist-info/METADATA
+  - -rwxr-xr-x  0 0      0         197 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__packaging__26_0/actual_install.install/lib/python3.11/site-packages/packaging-26.0.dist-info/licenses/LICENSE
+  - -rwxr-xr-x  0 0      0       10174 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__packaging__26_0/actual_install.install/lib/python3.11/site-packages/packaging-26.0.dist-info/licenses/LICENSE.APACHE
+  - -rwxr-xr-x  0 0      0        1344 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__packaging__26_0/actual_install.install/lib/python3.11/site-packages/packaging-26.0.dist-info/licenses/LICENSE.BSD
+  - -rwxr-xr-x  0 0      0         494 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__packaging__26_0/actual_install.install/lib/python3.11/site-packages/packaging/__init__.py
+  - -rwxr-xr-x  0 0      0        3211 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__packaging__26_0/actual_install.install/lib/python3.11/site-packages/packaging/_elffile.py
+  - -rwxr-xr-x  0 0      0        9559 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__packaging__26_0/actual_install.install/lib/python3.11/site-packages/packaging/_manylinux.py
+  - -rwxr-xr-x  0 0      0        2707 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__packaging__26_0/actual_install.install/lib/python3.11/site-packages/packaging/_musllinux.py
+  - -rwxr-xr-x  0 0      0       10518 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__packaging__26_0/actual_install.install/lib/python3.11/site-packages/packaging/_parser.py
+  - -rwxr-xr-x  0 0      0        1514 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__packaging__26_0/actual_install.install/lib/python3.11/site-packages/packaging/_structures.py
+  - -rwxr-xr-x  0 0      0        5421 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__packaging__26_0/actual_install.install/lib/python3.11/site-packages/packaging/_tokenizer.py
+  - -rwxr-xr-x  0 0      0        5819 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__packaging__26_0/actual_install.install/lib/python3.11/site-packages/packaging/licenses/__init__.py
+  - -rwxr-xr-x  0 0      0       51122 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__packaging__26_0/actual_install.install/lib/python3.11/site-packages/packaging/licenses/_spdx.py
+  - -rwxr-xr-x  0 0      0       12771 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__packaging__26_0/actual_install.install/lib/python3.11/site-packages/packaging/markers.py
+  - -rwxr-xr-x  0 0      0       39360 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__packaging__26_0/actual_install.install/lib/python3.11/site-packages/packaging/metadata.py
+  - -rwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__packaging__26_0/actual_install.install/lib/python3.11/site-packages/packaging/py.typed
+  - -rwxr-xr-x  0 0      0       22537 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__packaging__26_0/actual_install.install/lib/python3.11/site-packages/packaging/pylock.py
+  - -rwxr-xr-x  0 0      0        2870 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__packaging__26_0/actual_install.install/lib/python3.11/site-packages/packaging/requirements.py
+  - -rwxr-xr-x  0 0      0       40797 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__packaging__26_0/actual_install.install/lib/python3.11/site-packages/packaging/specifiers.py
+  - -rwxr-xr-x  0 0      0       22856 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__packaging__26_0/actual_install.install/lib/python3.11/site-packages/packaging/tags.py
+  - -rwxr-xr-x  0 0      0        5040 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__packaging__26_0/actual_install.install/lib/python3.11/site-packages/packaging/utils.py
+  - -rwxr-xr-x  0 0      0       23272 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__packaging__26_0/actual_install.install/lib/python3.11/site-packages/packaging/version.py
+  - -rwxr-xr-x  0 0      0        1081 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__pyproject_hooks__1_2_0/actual_install.install/lib/python3.11/site-packages/pyproject_hooks-1.2.0.dist-info/LICENSE
+  - -rwxr-xr-x  0 0      0        1288 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__pyproject_hooks__1_2_0/actual_install.install/lib/python3.11/site-packages/pyproject_hooks-1.2.0.dist-info/METADATA
+  - -rwxr-xr-x  0 0      0         691 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__pyproject_hooks__1_2_0/actual_install.install/lib/python3.11/site-packages/pyproject_hooks/__init__.py
+  - -rwxr-xr-x  0 0      0       14936 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__pyproject_hooks__1_2_0/actual_install.install/lib/python3.11/site-packages/pyproject_hooks/_impl.py
+  - -rwxr-xr-x  0 0      0         557 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__pyproject_hooks__1_2_0/actual_install.install/lib/python3.11/site-packages/pyproject_hooks/_in_process/__init__.py
+  - -rwxr-xr-x  0 0      0       12216 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__pyproject_hooks__1_2_0/actual_install.install/lib/python3.11/site-packages/pyproject_hooks/_in_process/_in_process.py
+  - -rwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/aspect_rules_py++uv+whl_install__images__pyproject_hooks__1_2_0/actual_install.install/lib/python3.11/site-packages/pyproject_hooks/py.typed
 ---
 layer: 1
 files:
   - -rwxr-xr-x  0 0      0       18856 Jan  1  2023 ./app
-  - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/_main/oci/py_image_layer/._my_app_bin.venv/bin/python -> ../../../../../aspect_rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/bin/python3
-  - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/_main/oci/py_image_layer/._my_app_bin.venv/bin/python3 -> python
-  - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/_main/oci/py_image_layer/._my_app_bin.venv/bin/python3.11 -> python
-  - -rwxr-xr-x  0 0      0         517 Jan  1  2023 ./app.runfiles/_main/oci/py_image_layer/._my_app_bin.venv/lib/python3.11/site-packages/_my_app_bin.venv.pth
-  - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/_main/oci/py_image_layer/._my_app_bin.venv/lib/python3.11/site-packages/colorama -> ../../../../../../../aspect_rules_py++uv+whl_install__images__colorama__0_4_6/actual_install.install/lib/python3.11/site-packages/colorama
-  - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/_main/oci/py_image_layer/._my_app_bin.venv/lib/python3.11/site-packages/colorama-0.4.6.dist-info -> ../../../../../../../aspect_rules_py++uv+whl_install__images__colorama__0_4_6/actual_install.install/lib/python3.11/site-packages/colorama-0.4.6.dist-info
-  - -rwxr-xr-x  0 0      0         111 Jan  1  2023 ./app.runfiles/_main/oci/py_image_layer/._my_app_bin.venv/pyvenv.cfg
+  - -rwxr-xr-x  0 0      0         303 Jan  1  2023 ./app.runfiles/_main/oci/py_image_layer/._console_scripts_bin.venv/bin/pyproject-build
+  - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/_main/oci/py_image_layer/._console_scripts_bin.venv/bin/python -> ../../../../../aspect_rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/bin/python3
+  - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/_main/oci/py_image_layer/._console_scripts_bin.venv/bin/python3 -> python
+  - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/_main/oci/py_image_layer/._console_scripts_bin.venv/bin/python3.11 -> python
+  - -rwxr-xr-x  0 0      0         327 Jan  1  2023 ./app.runfiles/_main/oci/py_image_layer/._console_scripts_bin.venv/lib/python3.11/site-packages/_console_scripts_bin.venv.pth
+  - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/_main/oci/py_image_layer/._console_scripts_bin.venv/lib/python3.11/site-packages/build -> ../../../../../../../aspect_rules_py++uv+whl_install__images__build__1_4_0/actual_install.install/lib/python3.11/site-packages/build
+  - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/_main/oci/py_image_layer/._console_scripts_bin.venv/lib/python3.11/site-packages/build-1.4.0.dist-info -> ../../../../../../../aspect_rules_py++uv+whl_install__images__build__1_4_0/actual_install.install/lib/python3.11/site-packages/build-1.4.0.dist-info
+  - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/_main/oci/py_image_layer/._console_scripts_bin.venv/lib/python3.11/site-packages/packaging -> ../../../../../../../aspect_rules_py++uv+whl_install__images__packaging__26_0/actual_install.install/lib/python3.11/site-packages/packaging
+  - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/_main/oci/py_image_layer/._console_scripts_bin.venv/lib/python3.11/site-packages/packaging-26.0.dist-info -> ../../../../../../../aspect_rules_py++uv+whl_install__images__packaging__26_0/actual_install.install/lib/python3.11/site-packages/packaging-26.0.dist-info
+  - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/_main/oci/py_image_layer/._console_scripts_bin.venv/lib/python3.11/site-packages/pyproject_hooks -> ../../../../../../../aspect_rules_py++uv+whl_install__images__pyproject_hooks__1_2_0/actual_install.install/lib/python3.11/site-packages/pyproject_hooks
+  - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/_main/oci/py_image_layer/._console_scripts_bin.venv/lib/python3.11/site-packages/pyproject_hooks-1.2.0.dist-info -> ../../../../../../../aspect_rules_py++uv+whl_install__images__pyproject_hooks__1_2_0/actual_install.install/lib/python3.11/site-packages/pyproject_hooks-1.2.0.dist-info
+  - -rwxr-xr-x  0 0      0         111 Jan  1  2023 ./app.runfiles/_main/oci/py_image_layer/._console_scripts_bin.venv/pyvenv.cfg
   - -rwxr-xr-x  0 0      0         276 Jan  1  2023 ./app.runfiles/_main/oci/py_image_layer/__main__.py
-  - -rwxr-xr-x  0 0      0          42 Jan  1  2023 ./app.runfiles/_main/oci/py_image_layer/branding/__init__.py
-  - -rwxr-xr-x  0 0      0          31 Jan  1  2023 ./app.runfiles/_main/oci/py_image_layer/branding/palette.txt
-  - -rwxr-xr-x  0 0      0        6709 Jan  1  2023 ./app.runfiles/_main/tools/verify_venv/verify_venv.py
   - -rwxr-xr-x  0 0      0 * Jan  1  2023 ./app.runfiles/_repo_mapping
   - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/aspect_rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/bin/2to3 -> 2to3-3.11
   - -rwxr-xr-x  0 0      0         158 Jan  1  2023 ./app.runfiles/aspect_rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/bin/2to3-3.11
@@ -2055,5 +2089,3 @@ files:
   - -rwxr-xr-x  0 0      0       25855 Jan  1  2023 ./app.runfiles/aspect_rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/lib/tk9.0/xmfbox.tcl
   - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/aspect_rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/share/man/man1/python3.1 -> python3.11.1
   - -rwxr-xr-x  0 0      0       20280 Jan  1  2023 ./app.runfiles/aspect_rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/share/man/man1/python3.11.1
-  - -rwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/aspect_rules_py+/py/tests/internal-deps/adder/__init__.py
-  - -rwxr-xr-x  0 0      0          32 Jan  1  2023 ./app.runfiles/aspect_rules_py+/py/tests/internal-deps/adder/add.py
