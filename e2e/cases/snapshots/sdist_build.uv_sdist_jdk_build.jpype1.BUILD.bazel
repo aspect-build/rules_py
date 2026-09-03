@@ -23,10 +23,6 @@ pep517_native_whl(
     toolchains = [
         "@@bazel_tools//tools/jdk:current_java_runtime",
     ],
-    env = {
-        "JAVA": "$(JAVA)",
-        "JAVA_HOME": "$(JAVABASE)",
-    },
     visibility = ["//visibility:public"],
 )
 

@@ -59,3 +59,9 @@ bzl_library(
     srcs = ["exec_transition.bzl"],
     deps = ["@aspect_rules_py_uv_host//:defs"],
 )
+
+bzl_library(
+    name = "rust_layer",
+    srcs = ["rust_layer.bzl"],
+    visibility = ["//visibility:public"],
+)

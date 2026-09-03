@@ -139,6 +139,17 @@ def _resolve_archive_path(repository_ctx):
 
 # --- Repository rule implementation ---
 
+def _normalize_requirement(name):
+    return name.lower().replace("_", "-").replace(".", "-")
+
+def _is_rust_build(inspection):
+    """maturin backend, or setuptools with setuptools-rust among its build requirements."""
+    if not inspection:
+        return False
+    if inspection.get("build_backend") == "maturin":
+        return True
+    return "setuptools-rust" in [_normalize_requirement(r) for r in inspection.get("build_requires", [])]
+
 def _sdist_build_impl(repository_ctx):
     """Prepares a repository for building a wheel from a source distribution (sdist).
 
@@ -267,9 +278,29 @@ def _sdist_build_impl(repository_ctx):
     # AR, LD, and STRIP make variables can be synthetic. Only forward explicit
     # toolchains/env for JDK, Rust, and other package-specific overrides.
     toolchain_attrs = ""
+    rust_layer_load = ""
+    rust_layer_target = ""
     if is_native:
-        toolchains = repository_ctx.attr.extra_toolchains
+        toolchains = list(repository_ctx.attr.extra_toolchains)
         extra_env = repository_ctx.attr.extra_env
+
+        # Backend-driven defaults: the configure tool already detected the
+        # build backend and its declared requirements, so a Rust-based build
+        # (maturin, or setuptools + setuptools-rust) gets the project's Rust
+        # toolchain plus the exec-configured sysroot layer without the user
+        # spelling either out per package. The generated pep517_native_whl
+        # derives CARGO/RUSTC/RULES_PY_RUST_HOST_SYSROOT from their
+        # make-variables.
+        rust_toolchain = repository_ctx.attr.rust_toolchain
+        if rust_toolchain and _is_rust_build(inspection):
+            rust_layer_load = "\nload(\"@aspect_rules_py//uv/private/pep517_whl:rust_layer.bzl\", \"rust_host_sysroot\")"
+            rust_layer_target = """
+rust_host_sysroot(
+    name = "rust_host_sysroot",
+    actual = "{rust_toolchain}",
+)
+""".format(rust_toolchain = rust_toolchain)
+            toolchains = [rust_toolchain, ":rust_host_sysroot"] + [t for t in toolchains if t != rust_toolchain]
         env_attr = ""
         if extra_env:
             env_attr = """
@@ -318,7 +349,7 @@ pep517_frontend(
         tool = ":frontend"
 
     repository_ctx.file("BUILD.bazel", content = """
-load("@aspect_rules_py//uv/private/pep517_whl:{rule}.bzl", "{rule}"){frontend_load}
+load("@aspect_rules_py//uv/private/pep517_whl:{rule}.bzl", "{rule}"){frontend_load}{rust_layer_load}
 load("@aspect_rules_py//py:defs.bzl", "py_binary")
 
 py_binary(
@@ -327,7 +358,7 @@ py_binary(
     srcs = ["@aspect_rules_py//uv/private/pep517_whl/tools:build_helper.py"],
     deps = {deps},
 )
-{frontend_target}
+{frontend_target}{rust_layer_target}
 {rule}(
     name = "whl",
     src = "{src}",
@@ -347,6 +378,8 @@ exports_files(
         monitor_memory_attr = monitor_memory_attr,
         rule = "pep517_native_whl" if is_native else "pep517_whl",
         frontend_load = frontend_load,
+        rust_layer_load = rust_layer_load,
+        rust_layer_target = rust_layer_target,
         frontend_target = frontend_target,
         tool = tool,
         version = repository_ctx.attr.version,
@@ -393,6 +426,10 @@ sdist_build = repository_rule(
         ),
         "pre_build_patches": attr.label_list(default = []),
         "pre_build_patch_strip": attr.int(default = 0),
+        "rust_toolchain": attr.string(
+            default = "",
+            doc = "Project-level Rust toolchain label; applied when the sdist's build backend is Rust-based.",
+        ),
         "extra_toolchains": attr.string_list(
             default = [],
             doc = "Toolchain labels forwarded to the generated pep517_native_whl(...) `toolchains` list. Set via `uv.override_package(toolchains = [...])`.",

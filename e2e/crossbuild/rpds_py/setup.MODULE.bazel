@@ -16,18 +16,6 @@ uv.project(
     hub_name = "pypi_crossbuild_rpds_py",
     lock = "//rpds_py:uv.lock",
     pyproject = "//rpds_py:pyproject.toml",
-)
-uv.override_package(
-    name = "rpds-py",
-    env = {
-        "CARGO": "$(CARGO)",
-        "RUSTC": "$(RUSTC)",
-        "RULES_PY_RUST_HOST_SYSROOT": "$(RUST_HOST_SYSROOT)",
-    },
-    lock = "//rpds_py:uv.lock",
-    toolchains = [
-        "@rules_rust//rust/toolchain:current_rust_toolchain",
-        "//tools:rust_host_sysroot",
-    ],
+    rust_toolchain = "@rules_rust//rust/toolchain:current_rust_toolchain",
 )
 use_repo(uv, "pypi_crossbuild_rpds_py")

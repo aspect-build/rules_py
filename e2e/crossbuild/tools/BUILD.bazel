@@ -4,7 +4,6 @@ load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_library", "py_test")
 load("@bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
 load("@rules_shell//shell:sh_test.bzl", "sh_test")
 load(":ant_layer.bzl", "ant_home")
-load(":rust_layer.bzl", "rust_host_sysroot")
 load(":toolchain_test.bzl", "exec_python_path")
 
 exports_files([
@@ -34,16 +33,6 @@ py_binary(
     name = "collect_wheels_tool",
     srcs = ["collect_wheels.py"],
     main = "collect_wheels.py",
-    visibility = ["//visibility:public"],
-)
-
-# Re-resolves current_rust_toolchain in the exec configuration: under a
-# cross transition the plain label would return the *target*-targeting
-# toolchain, whose sysroot lacks the exec platform's rust-std that build
-# scripts/proc-macros need (see rust_layer.bzl).
-rust_host_sysroot(
-    name = "rust_host_sysroot",
-    actual = "@rules_rust//rust/toolchain:current_rust_toolchain",
     visibility = ["//visibility:public"],
 )
 

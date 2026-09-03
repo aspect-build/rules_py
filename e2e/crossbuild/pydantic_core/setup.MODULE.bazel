@@ -16,18 +16,6 @@ uv.project(
     hub_name = "pypi_crossbuild_pydantic_core",
     lock = "//pydantic_core:uv.lock",
     pyproject = "//pydantic_core:pyproject.toml",
-)
-uv.override_package(
-    name = "pydantic-core",
-    env = {
-        "CARGO": "$(CARGO)",
-        "RUSTC": "$(RUSTC)",
-        "RULES_PY_RUST_HOST_SYSROOT": "$(RUST_HOST_SYSROOT)",
-    },
-    lock = "//pydantic_core:uv.lock",
-    toolchains = [
-        "@rules_rust//rust/toolchain:current_rust_toolchain",
-        "//tools:rust_host_sysroot",
-    ],
+    rust_toolchain = "@rules_rust//rust/toolchain:current_rust_toolchain",
 )
 use_repo(uv, "pypi_crossbuild_pydantic_core")

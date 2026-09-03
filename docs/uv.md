@@ -313,6 +313,20 @@ Under cross mode the build action:
 4. Validates the produced wheel's platform tag against the target OS/CPU and
    fails the action if the backend leaked the exec platform into the tag.
 
+Cargo-based backends need a Rust toolchain that runs on the exec platform.
+Declare it once per project with
+`uv.project(rust_toolchain = "@rules_rust//rust/toolchain:current_rust_toolchain")`;
+sdist repos whose build backend is maturin, or whose build requirements
+include setuptools-rust, then receive `CARGO`, `RUSTC` and the exec-platform
+sysroot automatically. No per-package `uv.override_package` `env` or
+`toolchains` entries are needed for Rust.
+
+Other build-time toolchains are still layered per package through
+`uv.override_package(toolchains = [...])`. Toolchains exporting the JDK
+(`$(JAVA)`, `$(JAVABASE)`) or Ant (`$(ANT_HOME)`) make variables are mapped
+into the build environment automatically; any other make variable still needs
+an explicit `env` entry.
+
 A working end-to-end suite lives in `e2e/crossbuild/`: real packages forced
 to build from sdist (`[tool.uv] no-binary-package`) and cross-compiled for
 linux/amd64 and linux/arm64, covering setuptools (`python-geohash`,

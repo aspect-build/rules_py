@@ -17,18 +17,6 @@ uv.project(
     hub_name = "pypi_crossbuild_tiktoken",
     lock = "//tiktoken:uv.lock",
     pyproject = "//tiktoken:pyproject.toml",
-)
-uv.override_package(
-    name = "tiktoken",
-    env = {
-        "CARGO": "$(CARGO)",
-        "RUSTC": "$(RUSTC)",
-        "RULES_PY_RUST_HOST_SYSROOT": "$(RUST_HOST_SYSROOT)",
-    },
-    lock = "//tiktoken:uv.lock",
-    toolchains = [
-        "@rules_rust//rust/toolchain:current_rust_toolchain",
-        "//tools:rust_host_sysroot",
-    ],
+    rust_toolchain = "@rules_rust//rust/toolchain:current_rust_toolchain",
 )
 use_repo(uv, "pypi_crossbuild_tiktoken")
