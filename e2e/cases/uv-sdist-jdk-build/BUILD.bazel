@@ -6,7 +6,7 @@
 # detection but then fails needing `ant` on PATH — this hub has no Ant
 # vendored. The full, working end-to-end version (real Eclipse Temurin JDK,
 # hermetically vendored Apache Ant, actual cross-compile + QEMU execution)
-# lives in `//e2e/crossbuild/jpype1`; that's the real regression coverage
+# lives in `e2e/crossbuild/pycross-jdk`; that's the real regression coverage
 # for this toolchain combination now. This target and its analysis-level
 # siblings (//uv/private/pep517_whl:toolchain_env_test, //:snapshots_*_test)
 # stay for the narrower "does the env/toolchain plumbing reach the action"

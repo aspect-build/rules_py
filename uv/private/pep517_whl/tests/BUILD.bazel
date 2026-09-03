@@ -62,8 +62,8 @@ config_setting(
     ],
 )
 
-# Minimal fixture: no extra toolchains, so cross-configuration analysis
-# tests observe only the rule's own behavior.
+# Minimal fixture: no extra toolchains, so under the cross transition the
+# only analysis-time failure can be the rule's own cross-unsupported error.
 pep517_native_whl(
     name = "__cross_fixture",
     src = ":__stub_sdist",
@@ -119,6 +119,13 @@ py_test(
 )
 
 py_test(
+    name = "build_helper_test",
+    srcs = ["build_helper_test.py"],
+    main = "build_helper_test.py",
+    deps = ["//uv/private/pep517_whl/tools"],
+)
+
+py_test(
     name = "build_helper_cross_test",
     srcs = ["build_helper_cross_test.py"],
     data = ["//uv/private/pep517_whl/tools:build_helper.py"],
@@ -128,13 +135,6 @@ py_test(
         "@pypi//build",
         "@pypi//setuptools",
     ],
-)
-
-py_test(
-    name = "build_helper_test",
-    srcs = ["build_helper_test.py"],
-    main = "build_helper_test.py",
-    deps = ["//uv/private/pep517_whl/tools"],
 )
 
 py_test(

@@ -13,7 +13,6 @@ load(
     "common_env",
     "memory_args",
     "patch_args_and_inputs",
-    "tool_files_to_run",
     "wheel_providers",
 )
 
@@ -30,18 +29,17 @@ def _pep517_whl(ctx):
     # the action sandbox, which means the venv shim can find the interpreter
     # via the standard runfiles mechanism regardless of whether the interpreter
     # comes from an external repo or the main workspace.
-    tool = tool_files_to_run(ctx)
     ctx.actions.run(
         mnemonic = "PySdistBuild",
         progress_message = "Source compiling {} to a whl".format(archive.basename),
-        executable = tool,
+        executable = ctx.executable.tool,
         toolchain = None,
         arguments = ctx.attr.args + [patch_args] + memory_args(ctx) + [
             archive.path,
             wheel_file.path,
         ],
         inputs = depset([archive], transitive = [patch_inputs]),
-        tools = [tool],
+        tools = [ctx.attr.tool[DefaultInfo].files_to_run],
         outputs = [wheel_file],
         env = common_env(ctx),
         exec_group = TARGET_EXEC_GROUP,

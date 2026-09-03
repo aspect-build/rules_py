@@ -62,16 +62,11 @@ def _frontend_exec_config_test_impl(ctx):
     action = _build_action(env)
     if action:
         tool_path = action.argv[0]
-
-        # SPIKE DIVERGENCE from main: exec_transition is a target-config
-        # transition pinned to --host_platform, so the frontend does NOT
-        # live in an -exec output directory. Known RBE limitation of the
-        # spike; main asserts the opposite.
         asserts.true(
             env,
-            "-exec" not in tool_path,
-            "exec_transition pins the frontend to the host in target " +
-            "configuration; got: " + tool_path,
+            "-exec" in tool_path,
+            "the frontend must be built in an exec configuration " +
+            "(its binary runs on the execution platform); got: " + tool_path,
         )
     return analysistest.end(env)
 
@@ -81,8 +76,6 @@ def _frontend_libc_leak_test_impl(ctx):
     env = analysistest.begin(ctx)
     action = _build_action(env)
     if action:
-        # On the spike both resets agree: the tool attr's exec_transition and
-        # the pep517_frontend wrapper each pin the flag to the host's value.
         asserts.equals(
             env,
             CURRENT_PLATFORM_LIBC,

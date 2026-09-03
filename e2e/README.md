@@ -35,36 +35,24 @@ workspace above must not carry: its `.bazelrc` turns on the rules_python provide
 compatibility layer, so rules_python `py_*` targets can depend on a rules_py `py_library`.
 Its `test.sh` asserts the same dependency is rejected with the flag off.
 
-`crossbuild` covers `pep517_native_whl`'s cross-compilation path across five
-PEP 517 backends, each with more than one real, popular package so no
-backend's cross support rests on a single lucky case: two plain
-setuptools/distutils C extensions (`geohash`, `psutil`), `contourpy`
-(meson-python), two scikit-build-core/CMake packages (`awkward_cpp`,
-`jpype1` — the latter also needing a real Eclipse Temurin JDK and a
-hermetically vendored Apache Ant, both fetched directly rather than relying
-on rules_java's default remotejdk, which is actually Azul Zulu, or a system
-`ant`), two maturin/PyO3 Rust packages (`rpds_py`, `pydantic_core`), and
-`bcrypt` (setuptools-rust — a different real-world Rust-in-Python
-integration than maturin, with no build-backend value of its own to detect
-it by). Every case is built and packaged for linux/amd64 and linux/arm64.
-In-suite verification is structural (ELF arch, ABI tags, byte-diffs);
-execution happens in CI's crossbuild-verify pipelines, which upload each
-case's OCI tarball and `docker run` it on NATIVE amd64 and arm64 runners —
-no emulation in the verdict. The same workspace hosts the rules_pycross
-ports (`pycross-*`), which force packages to build from their sdists and
-assert properties of the resulting wheels, including rebuilding them under
-non-host target platforms via `collect_wheels`. One more package
-(`zstandard`) also ships official prebuilt wheels; its case diffs our
-cross-compiled output against theirs byte-for-byte instead of checking
-against a hardcoded expected value. These suites are isolated rather than
-packages under `e2e/cases` because their pip hubs need package-specific
-configuration (`default_build_dependencies`, pre-build patches, a larger
-`resource_set`) that would otherwise leak onto unrelated packages sharing
-the hub — see the module docstring in its `MODULE.bazel`. On a macOS runner
-(the `smoke` job, see below) it additionally builds and runs for
-arm64/amd64 macOS via the Xcode SDK, executing the amd64 one under
-Rosetta 2 — see its `test.sh` for why that half can't just be more
-`platform_transition_filegroup` targets under `//...`.
+`crossbuild` covers `pep517_native_whl`'s cross-compilation path across the
+PEP 517 backends, each with more than one real package so no backend's cross
+support rests on a single case: setuptools/distutils C extensions
+(`pycross-geohash`, `pycross-psutil`, `pycross-msgpack`, `pycross-setuptools`),
+meson-python (`pycross-meson`, `pycross-numpy`), scikit-build-core/CMake
+(`pycross-cmake`, `pycross-jdk` — the latter also needing a JDK and a
+hermetically vendored Apache Ant), maturin/PyO3 (`pycross-rust`,
+`pycross-rpds_py`) and setuptools-rust (`pycross-bcrypt`, `pycross-tiktoken`).
+Every case builds for linux/amd64 and linux/arm64; in-suite verification is
+structural (`Tag:` metadata, ELF arch of every bundled `.so`), and each case
+exports a wheel bundle that CI installs and runs on NATIVE amd64 and arm64
+runners — no emulation in the verdict. The suites are isolated from
+`e2e/cases` because their hubs need package-specific configuration
+(`default_build_dependencies`, pre-build patches, a larger `resource_set`)
+that would otherwise leak onto unrelated packages sharing the hub. On a macOS
+host, `test.sh` additionally cross-builds `pycross-geohash` for macOS amd64
+(a manual target: the platform transition always resolves to os:macos, so
+`target_compatible_with` cannot tell hosts apart).
 
 Each isolated workspace points back at repo-root rules_py with
 `local_path_override(path = "../..")`.
