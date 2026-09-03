@@ -288,7 +288,7 @@ from the already extracted whl file.
 <pre>
 load("@aspect_rules_py//py:defs.bzl", "PyInfo")
 
-PyInfo(<a href="#PyInfo-transitive_sources">transitive_sources</a>, <a href="#PyInfo-imports">imports</a>, <a href="#PyInfo-virtual_dependencies">virtual_dependencies</a>, <a href="#PyInfo-virtual_resolutions">virtual_resolutions</a>)
+PyInfo(<a href="#PyInfo-transitive_sources">transitive_sources</a>, <a href="#PyInfo-transitive_pyi_files">transitive_pyi_files</a>, <a href="#PyInfo-imports">imports</a>, <a href="#PyInfo-virtual_dependencies">virtual_dependencies</a>, <a href="#PyInfo-virtual_resolutions">virtual_resolutions</a>)
 </pre>
 
 Python source, import-path, and virtual-dependency information for a target's dependency closure.
@@ -298,6 +298,7 @@ Python source, import-path, and virtual-dependency information for a target's de
 | Name  | Description |
 | :------------- | :------------- |
 | <a id="PyInfo-transitive_sources"></a>transitive_sources |  depset[File] — postorder depset of first-party `.py` sources in the transitive closure.    |
+| <a id="PyInfo-transitive_pyi_files"></a>transitive_pyi_files |  depset[File] — postorder depset of `.pyi` type stubs in the transitive closure.    |
 | <a id="PyInfo-imports"></a>imports |  depset[str] — import roots to place on `sys.path` (rlocation-root-relative).    |
 | <a id="PyInfo-virtual_dependencies"></a>virtual_dependencies |  depset[str] — names of required virtual dependencies, independent of their resolution status.    |
 | <a id="PyInfo-virtual_resolutions"></a>virtual_resolutions |  depset[struct(virtual, target)] — virtual-dependency-name to concrete-target resolutions.    |
