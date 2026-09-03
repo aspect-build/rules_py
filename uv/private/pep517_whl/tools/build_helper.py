@@ -966,6 +966,21 @@ def _merge_rust_sysroot(tmpdir: str, target_rustc: str, host_sysroot: str) -> st
     return merged
 
 
+def _needs_cargo_cross_env(build_env: dict[str, str]) -> bool:
+    """Whether this cross build compiles Rust.
+
+    The decision is made once, at repository-generation time: sdist_build
+    wires the project's Rust toolchain into the build only for maturin
+    backends and setuptools-rust requirements (declared or inferred), and
+    pep517_native_whl turns its make-variables into CARGO/RUSTC. Their
+    presence is therefore the signal; the helper does not re-derive it from
+    pyproject.toml, which would miss inferred setuptools-rust builds. A Rust
+    toolchain listed on a package that never invokes cargo costs an unused
+    environment, nothing more.
+    """
+    return bool(build_env.get("CARGO"))
+
+
 def _configure_cargo_cross_env(build_env: dict[str, str], tmpdir: str, target_os: str, target_cpu: str, target_libc: str) -> None:
     """Cross env vars for maturin (Cargo-driven PyO3 builds).
 
@@ -1251,7 +1266,7 @@ def main() -> None:
             elif backend == "scikit_build_core.build":
                 toolchain = _generate_cmake_toolchain_file(tmp_root, build_env, opts.target_os, opts.target_cpu)
                 cmd += ["-C", "cmake.toolchain-file=" + toolchain]
-            elif backend == "maturin" and build_env.get("CARGO"):
+            if _needs_cargo_cross_env(build_env):
                 _configure_cargo_cross_env(build_env, tmp_root, opts.target_os, opts.target_cpu, opts.target_libc)
     else:
         print("Error: Unable to detect build command! Neither pyproject.toml nor setup.py found!", file=sys.stderr)
