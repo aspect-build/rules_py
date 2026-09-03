@@ -158,7 +158,7 @@ Must not be testonly. `py_image_layer` transitions the `//py:layer_tier` flag to
 <pre>
 load("@aspect_rules_py//py:defs.bzl", "py_library")
 
-py_library(<a href="#py_library-name">name</a>, <a href="#py_library-deps">deps</a>, <a href="#py_library-srcs">srcs</a>, <a href="#py_library-data">data</a>, <a href="#py_library-imports">imports</a>, <a href="#py_library-resolutions">resolutions</a>, <a href="#py_library-virtual_deps">virtual_deps</a>)
+py_library(<a href="#py_library-name">name</a>, <a href="#py_library-deps">deps</a>, <a href="#py_library-srcs">srcs</a>, <a href="#py_library-data">data</a>, <a href="#py_library-dep_group">dep_group</a>, <a href="#py_library-imports">imports</a>, <a href="#py_library-resolutions">resolutions</a>, <a href="#py_library-virtual_deps">virtual_deps</a>)
 </pre>
 
 
@@ -172,6 +172,7 @@ py_library(<a href="#py_library-name">name</a>, <a href="#py_library-deps">deps<
 | <a id="py_library-deps"></a>deps |  Targets that produce Python code, commonly `py_library` rules.   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional |  `[]`  |
 | <a id="py_library-srcs"></a>srcs |  Python source files.   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional |  `[]`  |
 | <a id="py_library-data"></a>data |  Runtime dependencies of the program.<br><br>The transitive closure of the `data` dependencies will be available in the `.runfiles` folder for this binary/test. The program may optionally use the Runfiles lookup library to locate the data files, see https://pypi.org/project/bazel-runfiles/. Data is analyzed in the inherited caller configuration. Put artifacts that must match the terminal's Python environment in `deps`.   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional |  `[]`  |
+| <a id="py_library-dep_group"></a>dep_group |  Resolve `deps` within the named dependency group of the uv hub.<br><br>Only the `deps` edge changes configuration: this library, its `srcs` and `data`, and every consumer stay in the caller's configuration. Listing hub packages in a library with `dep_group` set keeps shared native dependencies out of per-group configurations, unlike `dep_group` on `py_binary` / `py_test`, which transitions the whole subtree. Empty inherits the caller's group.   | String | optional |  `""`  |
 | <a id="py_library-imports"></a>imports |  List of import directories to be added to the PYTHONPATH.   | List of strings | optional |  `[]`  |
 | <a id="py_library-resolutions"></a>resolutions |  Satisfy a virtual_dep with a mapping from external package name to the label of an installed package that provides it. See virtual_deps.   | Dictionary: String -> Label | optional |  `{}`  |
 | <a id="py_library-virtual_deps"></a>virtual_deps |  -   | List of strings | optional |  `[]`  |
