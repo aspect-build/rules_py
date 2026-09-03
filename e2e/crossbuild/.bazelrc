@@ -1,6 +1,14 @@
-# Without this, sdist build actions run with no PATH and clang can't find
-# `ld` (not bundled with the hermetic LLVM toolchain).
+# Match Bazel 9's default. Without this, PySdistNativeBuild actions on
+# Bazel 8 run without a default PATH, and clang's compiled-in default
+# linker (`ld`, not bundled with the hermetic LLVM toolchain) can't be
+# located. With it on, Bazel injects a static PATH=/bin:/usr/bin:/usr/local/bin
+# so clang's PATH search hits the runner's /usr/bin/ld.
 common --incompatible_strict_action_env
+
+# Enable path mapping so WhlInstall actions are exercised with
+# supports-path-mapping. Actions that declare the execution requirement get
+# configuration-stripped cache keys; those that don't still work normally.
+build --experimental_output_paths=strip
 
 # Build without the bytes
 common:ci --remote_download_outputs=minimal
