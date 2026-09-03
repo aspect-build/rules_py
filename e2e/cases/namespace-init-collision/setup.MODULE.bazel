@@ -5,4 +5,11 @@ uv.project(
     lock = "//namespace-init-collision:uv.lock",
     pyproject = "//namespace-init-collision:pyproject.toml",
 )
-use_repo(uv, "pypi_namespace_init_collision")
+use_repo(
+    uv,
+    "pypi_namespace_init_collision",
+    # Per-wheel repos snapshotted to pin the namespace layout the extractor
+    # derives from each stub — see e2e/cases/BUILD.bazel.
+    "whl__backports_shutil_get_terminal_size__0975ba55054c15e3",
+    "whl__backports_weakref__81bc9b51c0abc58e",
+)

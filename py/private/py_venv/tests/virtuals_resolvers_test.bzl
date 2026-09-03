@@ -575,7 +575,38 @@ def _namespace_entry_collapse_skips_entryless_dirs_test_impl(ctx):
     asserts.equals(env, [], collisions)
     return unittest.end(env)
 
+def _pkgutil_namespace_stub_test_impl(ctx):
+    env = unittest.begin(ctx)
+    mock_ctx = _mock_ctx(ctx.label)
+    sp_a = "external/pypi_a/site-packages"
+    sp_b = "external/pypi_b/site-packages"
+    wheels = [
+        _make_wheel(
+            site_packages_rfpath = sp_a,
+            top_levels = ["ns"],
+            tl_claims = [("ns", _claim(sp_a, is_ns = True, is_dir = True, ns_entries = ["ns/__init__.py", "ns/a.py"]))],
+        ),
+        _make_wheel(
+            site_packages_rfpath = sp_b,
+            top_levels = ["ns"],
+            tl_claims = [("ns", _claim(sp_b, is_ns = True, is_dir = True, ns_entries = ["ns/__init__.py", "ns/b.py"]))],
+        ),
+    ]
+    top_level, fully_covered, _cs, merge_groups, _data, collisions = resolve_wheel_collisions(mock_ctx, wheels)
+
+    # Both stubs are interchangeable: the later wins silently and neither
+    # wheel falls back to `.pth`.
+    asserts.equals(env, [], collisions)
+    asserts.equals(env, [], merge_groups)
+    asserts.equals(env, sp_b, top_level["ns/__init__.py"])
+    asserts.equals(env, sp_a, top_level["ns/a.py"])
+    asserts.equals(env, sp_b, top_level["ns/b.py"])
+    asserts.true(env, sp_a in fully_covered)
+    asserts.true(env, sp_b in fully_covered)
+    return unittest.end(env)
+
 _single_wheel_test = unittest.make(_single_wheel_test_impl)
+_pkgutil_namespace_stub_test = unittest.make(_pkgutil_namespace_stub_test_impl)
 _namespace_merge_test = unittest.make(_namespace_merge_test_impl)
 _console_script_collision_test = unittest.make(_console_script_collision_test_impl)
 _regular_collision_keeps_fallback_test = unittest.make(_regular_collision_keeps_fallback_test_impl)
@@ -607,4 +638,5 @@ def virtuals_resolvers_test_suite(name):
         _namespace_entry_collapse_test,
         _namespace_entry_collapse_respects_losers_test,
         _namespace_entry_collapse_skips_entryless_dirs_test,
+        _pkgutil_namespace_stub_test,
     )
