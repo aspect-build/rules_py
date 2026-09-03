@@ -5,7 +5,7 @@ load("@bazel_skylib//rules:write_file.bzl", "write_file")
 load("//py/private:providers.bzl", "PyWheelsInfo")
 load("//py/tools/unpack:exclude_glob_test_vectors.bzl", "CACHE_SOURCE_VECTORS", "EXCLUDE_GLOB_VECTORS", "RECORD_PATH_EXCLUDE_VECTORS")
 load("//uv/private:source_built_wheel.bzl", "SourceBuiltWheelInfo")
-load("//uv/private/whl_install:metadata.bzl", "cache_source_path", "canonical_version", "data_directory_for", "data_scheme_segments", "data_segments_contained", "exclude_glob_matches", "metadata_directory_hint", "native_roots_for_segments", "parse_console_script", "parse_exclude_glob", "parse_record", "parse_record_path", "record_path_excluded", "site_packages_segments")
+load("//uv/private/whl_install:metadata.bzl", "cache_source_path", "canonical_version", "data_directory_for", "data_scheme_segments", "data_segments_contained", "derive_layout", "exclude_glob_matches", "is_pkgutil_namespace_stub", "metadata_directory_hint", "native_roots_for_segments", "parse_console_script", "parse_exclude_glob", "parse_record", "parse_record_path", "parse_record_size", "pkgutil_namespace_top_levels", "record_path_excluded", "site_packages_segments")
 load("//uv/private/whl_install:repository.bzl", "compatible_python_tags", "select_key", "sort_select_arms", "source_specificity")
 load("//uv/private/whl_install:rule.bzl", "pyc_compile_version_compatible", "source_built_wheel", "whl_dist", "whl_install")
 
@@ -127,6 +127,11 @@ def _record_path_test_impl(ctx):
     #   and an unterminated quote consumes the rest of the row.
     asserts.equals(env, "unterminated,1", parse_record_path("\"unterminated,1"))
 
+    asserts.equals(env, 12, parse_record_size("pkg/__init__.py,sha256=abc,12"))
+    asserts.equals(env, 12, parse_record_size("\"pkg/a,b.py\",sha256=abc,12"))
+    asserts.equals(env, -1, parse_record_size("pkg-1.0.dist-info/RECORD,,"))
+    asserts.equals(env, -1, parse_record_size("plain.py"))
+
     return unittest.end(env)
 
 record_path_test = unittest.make(_record_path_test_impl)
@@ -235,9 +240,82 @@ def _parse_record_test_impl(ctx):
     # entry survives — no `.data/` member of any category, and not the escaping
     # `../../bin/` script.
     asserts.equals(env, [["respkg", "__init__.py"]], parsed.record_segments)
+    asserts.equals(env, {"respkg": 10}, parsed.top_level_init_sizes)
     return unittest.end(env)
 
 parse_record_test = unittest.make(_parse_record_test_impl)
+
+def _pkgutil_namespace_stub_test_impl(ctx):
+    env = unittest.begin(ctx)
+
+    for stub in [
+        "__path__ = __import__('pkgutil').extend_path(__path__, __name__)\n",
+        "__path__ = __import__(\"pkgutil\").extend_path(__path__, __name__)\r\n",
+        "__import__('pkg_resources').declare_namespace(__name__)",
+        "from pkgutil import extend_path\n__path__ = extend_path(__path__, __name__)\n",
+        "import pkgutil\n__path__=pkgutil.extend_path( __path__ , __name__ )\n",
+        "from pkg_resources import declare_namespace\ndeclare_namespace(__name__)\n",
+        "try:\n    __import__('pkg_resources').declare_namespace(__name__)\nexcept ImportError:\n    __path__ = __import__('pkgutil').extend_path(__path__, __name__)\n",
+        "try:\n    import pkg_resources\n    pkg_resources.declare_namespace(__name__)\nexcept ImportError:\n    from pkgutil import extend_path\n    __path__ = extend_path(__path__, __name__)\n",
+        "\"\"\"Namespace package.\"\"\"\n# See https://pypi.python.org/pypi/backports\n\nfrom pkgutil import extend_path\n__path__ = extend_path(__path__, __name__)  # noqa\n",
+    ]:
+        asserts.true(env, is_pkgutil_namespace_stub(stub), stub)
+
+    for code in [
+        "",
+        "# only a comment\n",
+        "import pkgutil\n",
+        "from pkgutil import extend_path\n__path__ = extend_path(__path__, __name__)\nX = 1\n",
+        "import os\n__path__ = __import__('pkgutil').extend_path(__path__, __name__)\n",
+        "__path__ = __import__('pkgutil').extend_path(__path__)\n",
+        "from pkgutil import extend_path as ep\n__path__ = ep(__path__, __name__)\n",
+        "\"\"\"Multi\nline docstring\"\"\"\n__path__ = __import__('pkgutil').extend_path(__path__, __name__)\n",
+        "__version__ = '1.0'\n",
+    ]:
+        asserts.false(env, is_pkgutil_namespace_stub(code), code)
+
+    return unittest.end(env)
+
+pkgutil_namespace_stub_test = unittest.make(_pkgutil_namespace_stub_test_impl)
+
+def _derive_layout_pkgutil_namespace_test_impl(ctx):
+    env = unittest.begin(ctx)
+    segments = [
+        ["backports", "__init__.py"],
+        ["backports", "weakref.py"],
+        ["backports", "sub", "__init__.py"],
+        ["backports", "sub", "mod.py"],
+        ["backports.weakref-1.0.dist-info", "RECORD"],
+    ]
+
+    # Without the stub hint the top-level is a regular package.
+    layout = derive_layout(segments)
+    asserts.equals(env, [], layout.namespace_top_levels)
+    asserts.equals(env, [], pkgutil_namespace_top_levels(layout))
+    asserts.equals(env, [], layout.namespace_entries)
+
+    # With it the stub becomes one namespace entry among the others, and
+    # nothing below the top-level is a regular root.
+    layout = derive_layout(segments, ["backports"])
+    asserts.equals(env, ["backports"], layout.namespace_top_levels)
+    asserts.equals(env, ["backports"], pkgutil_namespace_top_levels(layout))
+    asserts.equals(env, ["backports"], layout.top_level_dirs)
+    asserts.equals(
+        env,
+        ["backports/__init__.py", "backports/sub", "backports/weakref.py"],
+        layout.namespace_entries,
+    )
+    asserts.equals(env, ["backports/sub"], layout.regular_roots)
+
+    # A hint for a top-level whose stub was excluded is dropped: the
+    # top-level is a plain PEP 420 namespace.
+    layout = derive_layout([s for s in segments if s != ["backports", "__init__.py"]], ["backports"])
+    asserts.equals(env, ["backports"], layout.namespace_top_levels)
+    asserts.equals(env, [], pkgutil_namespace_top_levels(layout))
+
+    return unittest.end(env)
+
+derive_layout_pkgutil_namespace_test = unittest.make(_derive_layout_pkgutil_namespace_test_impl)
 
 def _exclude_glob_test_impl(ctx):
     env = unittest.begin(ctx)
@@ -1191,6 +1269,14 @@ def whl_install_suite():
     unittest.suite(
         "parse_record_tests",
         parse_record_test,
+    )
+    unittest.suite(
+        "pkgutil_namespace_stub_tests",
+        pkgutil_namespace_stub_test,
+    )
+    unittest.suite(
+        "derive_layout_pkgutil_namespace_tests",
+        derive_layout_pkgutil_namespace_test,
     )
     unittest.suite(
         "exclude_glob_tests",

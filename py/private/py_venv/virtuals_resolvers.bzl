@@ -154,10 +154,19 @@ def _resolve_entry_owners(claimants, tl, exclude_roots, state, complain):
     """Assign each namespace entry to the last distinct wheel claiming it.
 
     An earlier wheel shipping the same entry is a genuine collision
-    (same subpackage twice) — the perdedor is reported and routed to
+    (same subpackage twice) — the loser is reported and routed to
     ``.pth``.  Entries under *exclude_roots* are owned by a direct native
-    projection or physical merge and are skipped here.
+    projection or physical merge and are skipped here.  A namespace
+    top-level only carries ``__init__.py`` as an entry when it is a legacy
+    ``pkgutil`` stub, so two namespace claimants sharing it are not in
+    conflict: each copy only extends ``__path__`` and the last is projected.
+    Same outcome as uv, whose flat install overwrites the stub in place
+    (``OnExistingDirectory::Merge``, crates/uv-fs/src/link.rs) and whose
+    module-conflict check exempts a shared namespace ``__init__.py``
+    (``warn_package_conflicts``, crates/uv-install-wheel/src/linker.rs):
+    https://github.com/astral-sh/uv/blob/main/crates/uv-install-wheel/src/linker.rs
     """
+    stub = tl + "/__init__.py"
     entry_owner = {}
     for c in claimants:
         for entry in c.ns_entries:
@@ -165,6 +174,8 @@ def _resolve_entry_owners(claimants, tl, exclude_roots, state, complain):
                 continue
             prior = entry_owner.get(entry)
             if prior == None:
+                entry_owner[entry] = c
+            elif entry == stub and prior.is_ns and c.is_ns:
                 entry_owner[entry] = c
             elif prior.site_packages != c.site_packages:
                 complain("namespace entry", entry, prior.site_packages, c.site_packages)
