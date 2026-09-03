@@ -139,6 +139,26 @@ def _resolve_archive_path(repository_ctx):
 
 # --- Repository rule implementation ---
 
+def _env_attr(env):
+    """Renders the generated rule call's `env` attribute, or "" when unset."""
+    if not env:
+        return ""
+
+    # repr() on both sides: user-supplied keys and values (a CFLAGS with quotes,
+    # a Windows path) must survive into the BUILD as valid Starlark literals.
+    lines = ["        {}: {},".format(repr(key), repr(env[key])) for key in sorted(env)]
+    return "\n    env = {{\n{}\n    }},".format("\n".join(lines))
+
+def _config_settings_attr(config_settings):
+    """Renders the generated rule call's `config_settings` attribute, or "" when unset."""
+    if not config_settings:
+        return ""
+
+    # repr() on both sides: keys are backend-defined free-form strings, so a
+    # quote or backslash in one must survive as a valid Starlark literal.
+    lines = ["        {}: {},".format(repr(key), repr(config_settings[key])) for key in sorted(config_settings)]
+    return "\n    config_settings = {{\n{}\n    }},".format("\n".join(lines))
+
 def _sdist_build_impl(repository_ctx):
     """Prepares a repository for building a wheel from a source distribution (sdist).
 
@@ -201,11 +221,13 @@ def _sdist_build_impl(repository_ctx):
             console_scripts = None,
             resource_set = repository_ctx.attr.resource_set,
             env = repository_ctx.attr.extra_env,
+            config_settings = repository_ctx.attr.config_settings,
             error = "sdist_build for '{}': the generated pure-Python `pep517_whl(...)` call cannot apply these native-build attributes: {{}}. Remove them, or configure this source distribution as native.".format(repository_ctx.name),
             monitor_memory = repository_ctx.attr.monitor_memory,
             pre_build_patches = repository_ctx.attr.pre_build_patches,
             pre_build_patch_strip = repository_ctx.attr.pre_build_patch_strip,
             supported = [
+                "config_settings",
                 "monitor_memory",
                 "pre_build_patches",
                 "pre_build_patch_strip",
@@ -270,22 +292,14 @@ def _sdist_build_impl(repository_ctx):
     if is_native:
         toolchains = repository_ctx.attr.extra_toolchains
         extra_env = repository_ctx.attr.extra_env
-        env_attr = ""
-        if extra_env:
-            env_attr = """
-    env = {{
-{env}
-    }},""".format(
-                env = "\n".join(["        \"{}\": \"{}\",".format(k, v) for k, v in sorted(extra_env.items())]),
-            )
         if toolchains:
             toolchain_attrs = """
     toolchains = [
 {toolchains}
     ],""".format(
-                toolchains = "\n".join(["        \"{}\",".format(t) for t in toolchains]),
+                toolchains = "\n".join(["        {},".format(repr(t)) for t in toolchains]),
             )
-        toolchain_attrs += env_attr
+        toolchain_attrs += _env_attr(extra_env)
 
     resource_set_attr = ""
     if repository_ctx.attr.resource_set != "default":
@@ -294,6 +308,7 @@ def _sdist_build_impl(repository_ctx):
     console_scripts_attr = ""
     if inspection and inspection.get("console_scripts"):
         console_scripts_attr = "\n    console_scripts = {},".format(repr(inspection["console_scripts"]))
+    config_settings_attr = _config_settings_attr(repository_ctx.attr.config_settings)
 
     # Leave args unset: the pure rule validates anyarch wheels by default,
     # while the native rule defaults to no validation.
@@ -332,7 +347,7 @@ py_binary(
     name = "whl",
     src = "{src}",
     tool = "{tool}",
-    version = "{version}",{console_scripts_attr}{monitor_memory_attr}{resource_set_attr}{patch_attrs}{toolchain_attrs}
+    version = "{version}",{console_scripts_attr}{config_settings_attr}{monitor_memory_attr}{resource_set_attr}{patch_attrs}{toolchain_attrs}
     visibility = ["//visibility:public"],
 )
 
@@ -344,6 +359,7 @@ exports_files(
         src = repository_ctx.attr.src,
         deps = repr(all_deps),
         console_scripts_attr = console_scripts_attr,
+        config_settings_attr = config_settings_attr,
         monitor_memory_attr = monitor_memory_attr,
         rule = "pep517_native_whl" if is_native else "pep517_whl",
         frontend_load = frontend_load,
@@ -401,5 +417,14 @@ sdist_build = repository_rule(
             default = {},
             doc = "Environment variables forwarded to the generated pep517_native_whl(...) `env` dict. Values may reference $(VAR) make-variables from extra toolchains. Prefix an execroot-relative path with `$(EXECROOT)/` so it remains valid after the backend changes into the unpacked source tree. Set via `uv.override_package(env = {...})`.",
         ),
+        "config_settings": attr.string_list_dict(
+            default = {},
+            doc = "PEP 517 config settings forwarded to the generated pep517_*whl(...) `config_settings` attribute. Set via `uv.override_package(config_settings = {...})`.",
+        ),
     },
+)
+
+sdist_build_test_util = struct(
+    config_settings_attr = _config_settings_attr,
+    env_attr = _env_attr,
 )

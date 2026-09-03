@@ -16,6 +16,7 @@ load(
     "PEP517_WHL_ATTRS",
     "TARGET_EXEC_GROUP",
     "common_env",
+    "config_setting_args",
     "memory_args",
     "patch_args_and_inputs",
     "wheel_providers",
@@ -346,7 +347,7 @@ def _pep517_native_whl(ctx):
         progress_message = "Native source compiling {} to a whl".format(archive.basename),
         executable = tool,
         toolchain = None,
-        arguments = ctx.attr.args + [patch_args] + memory_args(ctx) + cross_args + [
+        arguments = ctx.attr.args + [patch_args] + memory_args(ctx) + config_setting_args(ctx) + cross_args + [
             "--execroot-marker",
             _EXECROOT_MARKER,
             archive.path,
