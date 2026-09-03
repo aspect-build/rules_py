@@ -46,8 +46,13 @@ def _interpreter_flags(ctx):
 
     return args
 
-def _assemble_venv_target(ctx):
-    """Assemble a venv and its provider-facing runtime metadata."""
+def _assemble_venv_target(ctx, executable, console_scripts):
+    """Assemble a venv and its provider-facing runtime metadata.
+
+    Returns (VirtualenvInfo, venv_only): `venv_only` lists the `bin/` entries
+    kept out of `runtime_runfiles` — present for `bazel run` on the venv
+    itself, opt-in for consuming launchers.
+    """
     py_toolchain = _py_semantics.resolve_toolchain(ctx)
     virtual_resolution = _py_library.resolve_virtuals(ctx)
     imports_depset = _py_library.make_imports_depset(
@@ -75,11 +80,12 @@ def _assemble_venv_target(ctx):
         package_collisions = ctx.attr.package_collisions,
         include_system_site_packages = ctx.attr.include_system_site_packages,
         default_env = default_env,
-        venv_activate_tmpl = ctx.file._venv_activate_tmpl,
+        venv_activate_tmpl = ctx.file._venv_activate_tmpl if executable else None,
         site_merge_script_py = ctx.file._site_merge_script,
-        console_script_tmpl = ctx.file._console_script_tmpl,
+        console_script_tmpl = ctx.file._console_script_tmpl if console_scripts else None,
         venv_name = ".{}".format(venv_stem),
     )
+    venv_only = assembled.console_scripts + ([assembled.activate] if assembled.activate != None else [])
 
     srcs_depset = _py_library.make_srcs_depset(
         ctx,
@@ -106,11 +112,12 @@ def _assemble_venv_target(ctx):
         runtime_runfiles = runfiles,
         transitive_sources = srcs_depset,
         runtime_files = runtime_files,
-    )
+        console_scripts = depset(assembled.console_scripts),
+    ), venv_only
 
-def _venv_providers(ctx, venv, executable = None, include_sources = False):
+def _venv_providers(ctx, venv, venv_only, executable = None, include_sources = False):
     """Providers emitted by both the executable and lib variants."""
-    runfiles = venv.runtime_runfiles
+    runfiles = venv.runtime_runfiles.merge(ctx.runfiles(files = venv_only))
     if include_sources:
         runfiles = runfiles.merge(ctx.runfiles(transitive_files = venv.transitive_sources))
     return [
@@ -134,7 +141,7 @@ def _py_venv_rule_impl(ctx):
     """A virtualenv target whose own executable activates the venv and
     exec's the interpreter — a `bazel run :name`-able venv."""
 
-    venv = _assemble_venv_target(ctx)
+    venv, venv_only = _assemble_venv_target(ctx, executable = True, console_scripts = True)
 
     ctx.actions.expand_template(
         template = ctx.file._run_tmpl,
@@ -163,7 +170,7 @@ def _py_venv_rule_impl(ctx):
     # overrides with its own absolute value when invoked directly.
     passed_env["VIRTUAL_ENV"] = venv_root(venv.bin_python)
 
-    return _venv_providers(ctx, venv, executable = ctx.outputs.executable, include_sources = True) + [
+    return _venv_providers(ctx, venv, venv_only, executable = ctx.outputs.executable, include_sources = True) + [
         # Read by the sibling `expose_venv = True` py_binary/py_test;
         # the binary's own `env` wins on key conflicts (py_venv_exec.bzl).
         RunEnvironmentInfo(
@@ -220,6 +227,10 @@ does not reinsert a wheel.
         default = False,
         doc = """`pyvenv.cfg` feature flag for the `include-system-site-packages` key.""",
     ),
+    "_console_script_tmpl": attr.label(
+        allow_single_file = True,
+        default = "//py/private/py_venv:templates/console_script.tmpl.sh",
+    ),
     # Required for py_version attribute
     "_allowlist_function_transition": attr.label(
         default = "@bazel_tools//tools/allowlists/function_transition_allowlist",
@@ -232,11 +243,6 @@ does not reinsert a wheel.
     "_freethreaded_flag": attr.label(
         default = "//py/private/interpreter:freethreaded",
     ),
-    # Shared with py_binary via the venv-assembly helper.
-    "_venv_activate_tmpl": attr.label(
-        allow_single_file = True,
-        default = "//py/private/py_venv:templates/venv_activate.tmpl.sh",
-    ),
     "_windows_constraint": attr.label(
         default = "@platforms//os:windows",
     ),
@@ -247,10 +253,6 @@ does not reinsert a wheel.
     "_site_merge_script": attr.label(
         allow_single_file = True,
         default = "//py/tools/site_merge:site_merge.py",
-    ),
-    "_console_script_tmpl": attr.label(
-        allow_single_file = True,
-        default = "//py/private/py_venv:templates/console_script.tmpl.sh",
     ),
 })
 
@@ -282,6 +284,10 @@ environment. Forwarded to the sibling py_binary/py_test consumer
         allow_single_file = True,
         default = "//py/private/py_venv:templates/venv.tmpl.sh",
     ),
+    "_venv_activate_tmpl": attr.label(
+        allow_single_file = True,
+        default = "//py/private/py_venv:templates/venv_activate.tmpl.sh",
+    ),
 })
 
 _venv_toolchains = [
@@ -307,15 +313,17 @@ def _py_venv_lib_rule_impl(ctx):
     launcher and no RunEnvironmentInfo (Bazel rejects it on
     non-executable targets; py_venv_exec.bzl gates its read on
     `if RunEnvironmentInfo in venv`)."""
-    venv = _assemble_venv_target(ctx)
-    return _venv_providers(ctx, venv)
+    venv, venv_only = _assemble_venv_target(ctx, executable = False, console_scripts = ctx.attr.include_console_scripts)
+    return _venv_providers(ctx, venv, venv_only)
 
 # Internal-only non-executable variant. Uses `_lib_attrs` — the
 # launcher-only attrs (`debug`, `interpreter_options`, `_run_tmpl`,
 # `env`, `env_inherit`) aren't part of its rule contract.
 _py_venv_lib = rule(
     implementation = _py_venv_lib_rule_impl,
-    attrs = _lib_attrs,
+    attrs = _lib_attrs | {
+        "include_console_scripts": attr.bool(default = False),
+    },
     toolchains = _venv_toolchains,
     cfg = python_transition,
 )
@@ -412,6 +420,8 @@ def py_binary_with_venv(py_rule, name, main, srcs = [], deps = [], data = [], im
         expose_venv = bool(expose_venv)
 
     venv_kwargs = _split_kwargs_for_venv(kwargs, expose_venv)
+    if not expose_venv:
+        venv_kwargs["include_console_scripts"] = kwargs.get("include_console_scripts", False)
     if type(freethreaded) == "bool":
         freethreaded = "true" if freethreaded else "false"
     if freethreaded != None:

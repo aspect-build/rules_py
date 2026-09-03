@@ -234,6 +234,11 @@ write_source_files(
         "snapshots/firebase_admin.test_tool.venv.pth": "//firebase-admin-import:test_tool.venv.pth",
         "snapshots/wheel_root_pth.venv.pth": "//uv-include-group:wheel_root_pth_test.venv.pth",
         "snapshots/multi_addsitedir.venv.pth": "//uv-include-group:multi_addsitedir_test.venv.pth",
+        # Side by side: a py_binary(expose_venv) carries no console-script
+        # wrappers or `activate`; its `.venv` sibling carries both.
+        "snapshots/venv_bin_scripts_423.exposed_bin.bin.txt": "//venv-bin-scripts-423:exposed_bin.bin.txt",
+        "snapshots/venv_bin_scripts_423.exposed_bin.venv.bin.txt": "//venv-bin-scripts-423:exposed_bin.venv.bin.txt",
+        "snapshots/venv_bin_scripts_423.opt_in_bin.bin.txt": "//venv-bin-scripts-423:opt_in_bin.bin.txt",
         "snapshots/pth_install_tree_fallback.venv.pth": "//pth-install-tree-fallback:test.venv.pth",
         "snapshots/pth_install_tree_fallback_namespace.venv.pth": "//pth-install-tree-fallback:namespace_test.venv.pth",
 

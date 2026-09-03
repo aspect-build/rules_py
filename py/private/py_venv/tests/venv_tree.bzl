@@ -27,7 +27,7 @@ def _venv_tree_impl(ctx):
     venv = ctx.attr.venv[0]
     bin_python = venv[VirtualenvInfo].bin_python
     ctx.actions.run_shell(
-        inputs = venv[DefaultInfo].default_runfiles.files,
+        inputs = venv[VirtualenvInfo].runtime_files if ctx.attr.runtime else venv[DefaultInfo].default_runfiles.files,
         outputs = [output],
         arguments = [output.path, bin_python.path],
         command = r"""
@@ -73,6 +73,9 @@ venv_tree = rule(
             mandatory = True,
             cfg = _snapshot_platform_transition,
             doc = "A `py_venv` target whose venv tree to snapshot.",
+        ),
+        "runtime": attr.bool(
+            doc = "Snapshot what a consuming launcher sees (`VirtualenvInfo.runtime_files`) instead of the venv's own runfiles.",
         ),
         "_allowlist_function_transition": attr.label(
             default = "@bazel_tools//tools/allowlists/function_transition_allowlist",
