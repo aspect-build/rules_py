@@ -1,0 +1,76 @@
+"""Invariants of the generated build-dependency graph.
+
+Two lock universes carry the same forked `forky` records in opposite orders.
+Project A also includes a conditional cycle with distinct installs for test.sh.
+The cycle members foo and bar are both overridden to one local target, so no
+distribution is ever fetched. The //:snapshots entries pin depth-limited
+queries over the generated `private/build_deps` targets of both projects.
+"""
+
+uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv.declare_hub(hub_name = "pypi_build_graph")
+uv.project(
+    default_build_dependencies = [],
+    hub_name = "pypi_build_graph",
+    lock = "//uv-build-graph:a.uv.lock",
+    pyproject = "//uv-build-graph:pyproject_a.toml",
+)
+uv.project(
+    default_build_dependencies = [],
+    hub_name = "pypi_build_graph",
+    lock = "//uv-build-graph:b.uv.lock",
+    pyproject = "//uv-build-graph:pyproject_b.toml",
+)
+uv.override_package(
+    name = "foo",
+    lock = "//uv-build-graph:a.uv.lock",
+    target = "//uv-build-graph:override_install",
+    version = "1.0",
+)
+uv.override_package(
+    name = "bar",
+    lock = "//uv-build-graph:a.uv.lock",
+    target = "//uv-build-graph:override_install",
+    version = "1.0",
+)
+uv.override_package(
+    name = "foo",
+    lock = "//uv-build-graph:b.uv.lock",
+    target = "//uv-build-graph:override_install",
+    version = "1.0",
+)
+uv.override_package(
+    name = "bar",
+    lock = "//uv-build-graph:b.uv.lock",
+    target = "//uv-build-graph:override_install",
+    version = "1.0",
+)
+
+# Local stand-ins so the snapshot queries load no wheel repos.
+[
+    uv.override_package(
+        name = name,
+        lock = "//uv-build-graph:{}.uv.lock".format(lock),
+        target = "//uv-build-graph:{}_install".format(target),
+        version = version,
+    )
+    for lock in ("a", "b")
+    for name, version, target in (
+        ("forky", "1.0", "forky_1"),
+        ("forky", "2.0", "forky_2"),
+        ("extradep", "1.0", "extradep"),
+    )
+]
+
+# Separate installs expose missing or extra members of the conditional cycle.
+[
+    uv.override_package(
+        name = name,
+        lock = "//uv-build-graph:a.uv.lock",
+        target = "//uv-build-graph:{}_install".format(name),
+        version = "1.0",
+    )
+    for name in ("cycleroot", "cyclea", "cycleb", "cyclec")
+]
+
+use_repo(uv, "project__build_graph_a", "project__build_graph_b")

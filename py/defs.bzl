@@ -20,6 +20,11 @@ load("@rules_python//python:packaging.bzl", _py_wheel = "py_wheel")
 load("@rules_python//python:pip.bzl", _whl_filegroup = "whl_filegroup")
 load("@rules_python//python:py_runtime.bzl", _py_runtime = "py_runtime")
 load("@rules_python//python:py_runtime_pair.bzl", _py_runtime_pair = "py_runtime_pair")
+load(
+    "//py/private:compression.bzl",
+    _PyLayerCompressorInfo = "PyLayerCompressorInfo",
+    _py_layer_compressor = "py_layer_compressor",
+)
 load("//py/private:providers.bzl", _PyWheelsInfo = "PyWheelsInfo")
 load(
     "//py/private:py_image_layer.bzl",
@@ -63,7 +68,9 @@ py_unpacked_wheel = _py_unpacked_wheel
 
 py_image_layer = _py_image_layer
 py_layer_tier = _py_layer_tier
+py_layer_compressor = _py_layer_compressor
 PyLayerTierInfo = _PyLayerTierInfo
+PyLayerCompressorInfo = _PyLayerCompressorInfo
 
 # The PyInfo provider used by rules_py
 PyInfo = _PyInfo

@@ -19,6 +19,7 @@ py_pex_binary(
 """
 
 load("@bazel_lib//lib:paths.bzl", "to_rlocation_path")
+load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load("//py/private:providers.bzl", "PyWheelsInfo")
 load("//py/private:py_info.bzl", "PyInfo")
 load("//py/private/py_venv:types.bzl", "PY_VENV_KINDS", "VirtualenvInfo", "venv_root")
@@ -53,6 +54,7 @@ _PexClosureInfo = provider(
         "venv_roots": "depset[str] — runfiles-relative roots of every sibling py_venv in the closure.",
         "interpreter_roots": "depset[str] — runfiles-relative repo roots (`../<repo>/`) of every py_venv toolchain's hermetic interpreter in the closure.",
         "version": "struct(major, minor, micro) | None — the binary's own interpreter version; propagated only along the `venv`/`actual` edge, so it is the version the PEX is built for.",
+        "freethreaded": "bool | None — whether the binary's venv resolved under free-threaded mode; propagated with `version`.",
     },
 )
 
@@ -66,6 +68,11 @@ def _label_targets(attr_val):
     if type(attr_val) == "Target":
         return [attr_val]
     return []
+
+def _single_target(value):
+    if type(value) == "list":
+        return value[0] if len(value) == 1 else None
+    return value
 
 def _closure_aspect_impl(target, ctx):
     # Toolchain node, reached via toolchains_aspects: surface the interpreter's
@@ -83,6 +90,7 @@ def _closure_aspect_impl(target, ctx):
             venv_roots = depset(),
             interpreter_roots = depset(roots.keys()),
             version = version,
+            freethreaded = None,
         )]
 
     wheels = []
@@ -91,8 +99,9 @@ def _closure_aspect_impl(target, ctx):
 
     # `version` is the binary's own interpreter version: it flows only from the
     # `venv`/`actual` hop or a venv node's toolchain, never from deps/data (which
-    # carry other binaries' interpreters).
+    # carry other binaries' interpreters). `freethreaded` travels with it.
     version = None
+    freethreaded = None
     for attr_name in ["deps", "data"]:
         for dep in _label_targets(getattr(ctx.rule.attr, attr_name, None)):
             if _PexClosureInfo in dep:
@@ -110,13 +119,14 @@ def _closure_aspect_impl(target, ctx):
 
     # py_venv_exec (what the py_binary macro expands to) routes srcs/deps onto a
     # sibling py_venv reached via `venv`; that venv also carries VirtualenvInfo.
-    venv = getattr(ctx.rule.attr, "venv", None)
+    venv = _single_target(getattr(ctx.rule.attr, "venv", None))
     if venv != None:
         if _PexClosureInfo in venv:
             wheels.append(venv[_PexClosureInfo].wheels)
             roots.append(venv[_PexClosureInfo].venv_roots)
             interp.append(venv[_PexClosureInfo].interpreter_roots)
             version = venv[_PexClosureInfo].version
+            freethreaded = venv[_PexClosureInfo].freethreaded
         if VirtualenvInfo in venv:
             roots.append(depset([venv_root(venv[VirtualenvInfo].bin_python)]))
 
@@ -129,6 +139,8 @@ def _closure_aspect_impl(target, ctx):
         interp.append(actual[_PexClosureInfo].interpreter_roots)
         if version == None:
             version = actual[_PexClosureInfo].version
+        if freethreaded == None:
+            freethreaded = actual[_PexClosureInfo].freethreaded
 
     # Fires on every py_library, not just wheel leaves: its PyWheelsInfo already
     # aggregates deps + `resolutions`, which is the only path by which
@@ -142,11 +154,16 @@ def _closure_aspect_impl(target, ctx):
             interp.append(py_tc[_PexClosureInfo].interpreter_roots)
             version = py_tc[_PexClosureInfo].version
 
+        # The venv node analyzes under its own transitioned configuration, so
+        # the flag here reflects the binary's resolved free-threaded mode.
+        freethreaded = ctx.attr._freethreaded[BuildSettingInfo].value
+
     return [_PexClosureInfo(
         wheels = depset(transitive = wheels),
         venv_roots = depset(transitive = roots),
         interpreter_roots = depset(transitive = interp),
         version = version,
+        freethreaded = freethreaded,
     )]
 
 _closure_aspect = aspect(
@@ -154,6 +171,9 @@ _closure_aspect = aspect(
     attr_aspects = ["deps", "data", "actual", "venv"],
     # Lets the aspect read `ctx.rule.toolchains[PY_TOOLCHAIN]` at py_venv nodes.
     toolchains_aspects = [PY_TOOLCHAIN],
+    attrs = {
+        "_freethreaded": attr.label(default = "//py/private/interpreter:freethreaded"),
+    },
     provides = [_PexClosureInfo],
 )
 
@@ -178,6 +198,12 @@ def _py_python_pex_impl(ctx):
     closure = binary[_PexClosureInfo]
     if closure.version == None:
         fail("py_pex_binary {}: could not resolve the binary's interpreter version from its venv toolchain.".format(ctx.label))
+
+    # PEX interpreter constraints cannot express the free-threaded ABI, so a
+    # standard (GIL) interpreter of the same version would accept the PEX and
+    # fail at import time on its cpXYt wheels.
+    if closure.freethreaded:
+        fail("py_pex_binary {}: `binary` targets a free-threaded interpreter, which PEX interpreter constraints cannot express; use freethreaded = False on the binary.".format(ctx.label))
 
     wheels = closure.wheels
     wheels_list = wheels.to_list()

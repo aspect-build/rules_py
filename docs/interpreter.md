@@ -199,6 +199,32 @@ bazel build \
 `interpreters.toolchain()` chooses Python versions; the build setting above
 selects runtime mode.
 
+Python terminals can override this setting with `freethreaded = True` or
+`freethreaded = False`, alongside `python_version`. The default (`None`)
+inherits the caller's mode. For example:
+
+```starlark
+py_binary(
+    name = "free_threaded_app",
+    srcs = ["app.py"],
+    python_version = "3.13",
+    freethreaded = True,
+)
+```
+
+The transition keeps Aspect's interpreter setting and rules_python's
+`py_freethreaded` native-extension setting synchronized. When inheriting a
+mode, either flag set to free-threaded selects it, mirroring how
+`python_version` falls back to rules_python's version flag. Runtime `data`
+edges restore the original caller's mode, including across nested terminal
+overrides; Python-dependent native extensions belong in `deps`.
+
+Free-threaded mode requires Python 3.13 or newer. Free-threaded interpreters
+cannot load standard (GIL) native extensions, so wheel selection demands the
+`t` ABI (e.g. `cp313t`) — including for the build requirements of sdists,
+whose PEP 517 backends run under the target interpreter. Each native package
+in the closure needs a free-threaded wheel or an sdist in the lock.
+
 ## Build configuration
 
 PBS publishes each interpreter in several build configurations. `configure()`
@@ -273,6 +299,8 @@ This interpreter provisioning is designed to coexist with `rules_python`:
   registration, so these interpreters work with all existing Python rules.
 - The `@rules_python//python/config_settings:python_version` flag is kept in
   sync with our own version flag via build transitions.
+- The `@rules_python//python/config_settings:py_freethreaded` flag is likewise
+  synchronized with Aspect's free-threading setting inside Python terminals.
 - File-based runtimes registered with `rules_python`'s `py_runtime` /
   `py_runtime_pair` remain usable by rules_py rules, which read the runtime
   fields structurally. System interpreters (a `py_runtime` with

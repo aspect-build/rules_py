@@ -12,7 +12,7 @@ load("@hermetic_launcher//launcher:lib.bzl", "launcher")
 load("//py/private:py_info.bzl", "PyInfo")
 load("//py/private:py_info_interop.bzl", "RulesPythonPyInfo", "get_py_info", "has_py_info")
 load("//py/private:py_semantics.bzl", _py_semantics = "semantics")
-load("//py/private:transitions.bzl", "reset_python_flags_transition")
+load("//py/private:transitions.bzl", "reset_python_flags_transition", "venv_python_transition")
 load(":types.bzl", "VirtualenvInfo", "venv_root")
 
 # Identifiers the launcher always sets to the analysing rule's contextual
@@ -20,6 +20,14 @@ load(":types.bzl", "VirtualenvInfo", "venv_root")
 # `env_inherit` entry can't let an outer shell shadow the contextual
 # label at run time.
 _CONTEXTUAL_ENV_KEYS = ("BAZEL_TARGET", "BAZEL_WORKSPACE", "BAZEL_TARGET_NAME")
+
+def _single_venv(value):
+    # A transitioned label attr may present as a single-element list.
+    if type(value) == "list":
+        if len(value) != 1:
+            fail("venv must resolve to exactly one target, got {}".format(len(value)))
+        return value[0]
+    return value
 
 def _py_venv_exec_impl(ctx):
     # The launcher itself doesn't need a python toolchain — it just
@@ -37,7 +45,7 @@ def _py_venv_exec_impl(ctx):
     if not main.basename.endswith(".py"):
         fail("main must end in '.py', got: " + main.basename)
 
-    venv = ctx.attr.venv
+    venv = _single_venv(ctx.attr.venv)
     vinfo = venv[VirtualenvInfo]
 
     # Merge env vars: start from the venv's `env` (if any), then
@@ -115,14 +123,16 @@ def _py_venv_exec_impl(ctx):
         for target in ctx.attr.data
         if has_py_info(target)
     ]
+
+    # First-party import sources attach explicitly; everything else the venv
+    # needs at runtime (venv files, wheels, data) comes from its
+    # runtime_runfiles, so a terminal can substitute the source set without
+    # re-deriving the rest.
     runfiles = ctx.runfiles(
         files = ctx.files.data + [main],
-        transitive_files = depset(
-            transitive = [vinfo.transitive_sources] + data_sources,
-        ),
-    ).merge_all(
-        [target[DefaultInfo].default_runfiles for target in ctx.attr.data] +
-        [venv[DefaultInfo].default_runfiles],
+        transitive_files = depset(transitive = [vinfo.transitive_sources] + data_sources),
+    ).merge(vinfo.runtime_runfiles).merge_all(
+        [target[DefaultInfo].default_runfiles for target in ctx.attr.data],
     )
 
     instrumented_files_info = coverage_common.instrumented_files_info(
@@ -184,6 +194,7 @@ Required. Must be a label pointing to a `.py` source file.
     "venv": attr.label(
         providers = [[VirtualenvInfo]],
         mandatory = True,
+        cfg = venv_python_transition,
         doc = """Internal: set by the `py_binary_with_venv` macro for
 every public `py_binary` / `py_test` invocation (the macro splits the
 call into a py_venv target + a rule call routed at it). Not a
@@ -191,10 +202,25 @@ user-facing attribute — direct settings on the rule are blocked at
 the macro layer in `//py:defs.bzl`.
 
 The binary's launcher exec's the referenced venv's `bin/python`; its
-runfiles inherit the venv's default_runfiles for wheels and runtime data,
+runfiles inherit the venv's runtime runfiles for wheels and runtime data,
 and add first-party sources from `VirtualenvInfo.transitive_sources` at
-their usual rlocation paths.
+their usual rlocation paths. The edge transition forwards this launcher's
+`python_version` / `freethreaded` choices to the venv's configuration, so
+several launchers can resolve one venv label under different interpreter
+versions or GIL modes; unset, the inherited configuration passes through
+untouched.
 """,
+    ),
+    "python_version": attr.string(
+        default = "",
+        doc = "Python version for this direct py_venv_exec consumer. Usually set on py_binary/py_test instead.",
+    ),
+    "freethreaded": attr.string(
+        default = "",
+        values = ["", "false", "true"],
+        doc = """Free-threaded interpreter mode for this direct py_venv_exec
+consumer, in the tri-state string form of py_venv's attribute ("" inherits).
+Usually set on py_binary/py_test instead.""",
     ),
     "interpreter_options": attr.string_list(
         doc = "Additional options to pass to the Python interpreter in addition to -B and -I passed by rules_py",

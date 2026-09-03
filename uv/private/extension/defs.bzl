@@ -68,7 +68,7 @@ load("//uv/private/uv_project:repository.bzl", "uv_project")
 load("//uv/private/whl_install:dist_repository.bzl", "whl_dist")
 load("//uv/private/whl_install:metadata.bzl", "parse_console_script")
 load("//uv/private/whl_install:repository.bzl", "whl_install")
-load(":graph_utils.bzl", "activate_extras", "collect_sccs")
+load(":graph_utils.bzl", "activate_extras", "collect_build_deps", "collect_sccs")
 load(":lockfile.bzl", "build_marker_graph", "collect_bdists", "collect_configurations", "collect_sdists", "normalize_deps", "url_basename")
 load(":projectfile.bzl", "collate_versions_by_name", "collect_activated_extras", "extract_requirement_marker_pairs")
 
@@ -121,6 +121,26 @@ def dedupe_shared_installs(install_cfgs):
     for dropped in id_remap:
         install_cfgs.pop(dropped)
     return id_remap
+
+def map_scc_installs(scc_graph, install_table):
+    """Map SCC members to install labels, merging markers for shared targets.
+
+    Args:
+        scc_graph: SCC IDs mapped to member dependencies and marker sets.
+        install_table: Dependency tuples mapped to their install labels.
+
+    Returns:
+        SCC IDs mapped to install labels and their combined marker sets.
+        Members without installs, such as extra pseudo-packages, are omitted.
+    """
+    mapped = {}
+    for scc_id, members in scc_graph.items():
+        installs = {}
+        for member, markers in members.items():
+            if member in install_table:
+                installs.setdefault(install_table[member], {}).update(markers)
+        mapped[scc_id] = installs
+    return mapped
 
 def parse_declared_console_script(name, entry_point):
     """Canonicalize one override_package console-script declaration.
@@ -449,17 +469,18 @@ def _parse_projects(module_ctx, hub_specs):
             # lockfile. This gives each sdist configure tool visibility
             # into the packages within this project's dependency perimeter.
             project_available_deps = {}
+            build_package_keys = {}
             project_has_sbuilds = False
             for package in lock_data.get("package", []):
                 if "editable" in package.get("source", {}) or "virtual" in package.get("source", {}):
                     continue
                 pkg_name = normalize_name(package["name"])
-                pkg_stamp = "whl_install__{}__{}__{}".format(
-                    project_stamp,
-                    package["name"],
-                    normalize_version(package["version"]),
-                )
-                project_available_deps[pkg_name] = "@{}//:install".format(pkg_stamp)
+                package_key = (project_id, package["name"], package["version"], "__base__")
+                build_package_keys.setdefault(pkg_name, {}).setdefault(package_key, {}).update({
+                    marker: 1
+                    for marker in package.get("resolution-markers") or [""]
+                })
+                project_available_deps[pkg_name] = "@{}//private/build_deps:{}".format(project_id, pkg_name)
 
             for package in lock_data.get("package", []):
                 install_key = (project_id, package["name"], package["version"], "__base__")
@@ -576,6 +597,7 @@ def _parse_projects(module_ctx, hub_specs):
                         pre_build_patches = pre_build_patches,
                         pre_build_patch_strip = pre_build_patch_strip,
                         project_id = project_id,
+                        package_install = install_target,
                         extra_toolchains = extra_toolchains,
                         extra_env = extra_env,
                         monitor_memory = monitor_memory,
@@ -621,6 +643,36 @@ def _parse_projects(module_ctx, hub_specs):
                     extra_data = extra_data,
                 )
 
+            # Build requirements need their runtime dependencies even when
+            # neither is activated by the consuming project's dependency group.
+            # Keep this graph separate from the runtime aliases and Gazelle index.
+            project_build_deps = None
+            if project_has_sbuilds:
+                build_dep_to_scc, build_scc_graph, build_scc_deps = collect_build_deps(marker_graph)
+                build_packages = {
+                    pkg_name: [
+                        {
+                            "deps": [
+                                install_table[package_key],
+                                "//private/build_deps/sccs:" + build_dep_to_scc[package_key],
+                            ],
+                            "markers": versions[package_key],
+                        }
+                        for package_key in sorted(versions)
+                    ]
+                    for pkg_name, versions in build_package_keys.items()
+                }
+
+                marked_build_scc_graph = map_scc_installs(build_scc_graph, install_table)
+                for scc_id, deps in build_scc_deps.items():
+                    for dep, markers in deps.items():
+                        marked_build_scc_graph[scc_id].setdefault("//private/build_deps/sccs:" + build_dep_to_scc[dep], {}).update(markers)
+
+                project_build_deps = {
+                    "packages": build_packages,
+                    "scc_graph": marked_build_scc_graph,
+                }
+
             # These structures are re-keyed into JSON-serializable shapes for the
             # repo-rule boundary. Structured keys are preserved verbatim and
             # re-parsed on the other side; mangling happens there as needed.
@@ -628,6 +680,7 @@ def _parse_projects(module_ctx, hub_specs):
             # FIXME: extract a re-keying helper.
             project_cfgs[project_id] = struct(
                 available_deps = project_available_deps if project_has_sbuilds else None,
+                build_deps = project_build_deps,
                 dep_to_scc = marked_package_cfg_sccs,
                 scc_deps = {
                     k: _merge_scc_dep_markers_by_surface_package(deps)
@@ -670,9 +723,8 @@ def _parse_projects(module_ctx, hub_specs):
                 fail("uv.override_package() for '{}' matches no uv.project() locks in module '{}'.".format(override.name, mod.name))
 
     # Collapse installs that resolve identically across lock universes into one
-    # repo, then rewrite the two carriers of `@id//:install` labels — SCC graph
-    # keys and project available_deps — so dropped ids leave no dangling
-    # reference.
+    # repo, then rewrite install labels in the runtime and build-dependency
+    # graphs so dropped ids leave no dangling references.
     id_remap = dedupe_shared_installs(install_cfgs)
     if id_remap:
         target_remap = {
@@ -681,10 +733,26 @@ def _parse_projects(module_ctx, hub_specs):
         }
         project_cfgs = {
             project_id: struct(
-                available_deps = {
-                    package: target_remap.get(target, target)
-                    for package, target in pc.available_deps.items()
-                } if pc.available_deps != None else None,
+                available_deps = pc.available_deps,
+                build_deps = {
+                    "packages": {
+                        package: [
+                            {
+                                "deps": [target_remap.get(target, target) for target in candidate["deps"]],
+                                "markers": candidate["markers"],
+                            }
+                            for candidate in candidates
+                        ]
+                        for package, candidates in pc.build_deps["packages"].items()
+                    },
+                    "scc_graph": {
+                        scc_id: {
+                            target_remap.get(target, target): markers
+                            for target, markers in members.items()
+                        }
+                        for scc_id, members in pc.build_deps["scc_graph"].items()
+                    },
+                } if pc.build_deps != None else None,
                 dep_to_scc = pc.dep_to_scc,
                 scc_deps = pc.scc_deps,
                 scc_graph = {
@@ -792,6 +860,8 @@ def _uv_impl(module_ctx):
         sbuild_kwargs = {
             "name": sbuild_id,
             "available_deps_file": "@{}//:available_deps.json".format(sbuild_cfg.project_id),
+            "build_deps_file": "@{}//:build_deps.json".format(sbuild_cfg.project_id),
+            "package_install": sbuild_cfg.package_install,
             "src": sbuild_cfg.src,
             "deps": sbuild_cfg.deps,
             "is_native": sbuild_cfg.is_native,
@@ -838,6 +908,7 @@ def _uv_impl(module_ctx):
         uv_project(
             name = project_id,
             available_deps_json = json.encode(project_cfg.available_deps) if project_cfg.available_deps != None else "",
+            build_deps_json = json.encode(project_cfg.build_deps) if project_cfg.build_deps != None else "",
             dep_to_scc = json.encode(project_cfg.dep_to_scc),
             scc_deps = json.encode(project_cfg.scc_deps),
             scc_graph = json.encode(project_cfg.scc_graph),

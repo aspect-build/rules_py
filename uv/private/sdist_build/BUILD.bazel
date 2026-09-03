@@ -11,6 +11,8 @@ bzl_library(
     deps = [
         ":attrs",
         "//uv/private:normalize_name",
+        "//uv/private/extension:graph_utils",
+        "//uv/private/uv_project:build_deps",
     ],
 )
 

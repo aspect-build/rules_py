@@ -109,6 +109,176 @@ def collect_sccs(marker_graph, id_state = None):
 
     return dep_to_scc, new_scc_graph, final_scc_deps
 
+def collect_build_deps(marker_graph):
+    """Collect build dependencies with conditions relative to each cycle entry.
+
+    Args:
+        marker_graph: Dependency tuples mapped to dependencies and marker sets.
+
+    Returns:
+        A node-to-entry map, entry-to-member markers, and entry-to-external
+        dependency markers. Entry targets only depend on other components,
+        keeping the generated Bazel graph acyclic.
+    """
+    dep_to_entry, entry_graph, entry_deps = collect_sccs(marker_graph)
+    used_ids = {scc_id: 1 for scc_id in entry_graph}
+
+    def _add_paths(paths, lefts, rights):
+        # A path is a conjunction of whole marker expressions. Canonicalize
+        # repeated conditions and absorb stronger paths to the same node.
+        for left in lefts:
+            for right in rights:
+                path = tuple(sorted({marker: 1 for marker in left + right}))
+                if any([all([marker in path for marker in existing]) for existing in paths]):
+                    continue
+                for existing in list(paths):
+                    if all([marker in existing for marker in path]):
+                        paths.pop(existing)
+                paths[path] = 1
+
+    def _markers(paths):
+        return {
+            path[0] if len(path) == 1 else " and ".join(["({})".format(marker) for marker in path]): 1
+            for path in paths
+        }
+
+    for scc_id, members in list(entry_graph.items()):
+        if all([
+            "" in markers
+            for member in members
+            for dep, markers in marker_graph.get(member, {}).items()
+            if dep in members
+        ]):
+            continue
+
+        entry_graph.pop(scc_id)
+        entry_deps.pop(scc_id)
+        for i, entry in enumerate(members):
+            entry_id = scc_id
+            if len(members) > 1:
+                stem = "{}__entry_{}".format(scc_id, i)
+                for suffix in range(len(used_ids) + 1):
+                    entry_id = stem if suffix == 0 else "{}__{}".format(stem, suffix)
+                    if entry_id not in used_ids:
+                        break
+                used_ids[entry_id] = 1
+            dep_to_entry[entry] = entry_id
+            reachable = {entry: {(): 1}}
+
+            # Every reachable member has a simple path of at most N-1 edges.
+            # Use a snapshot each round so cyclic walks cannot extend the bound.
+            for _ in range(len(members) - 1):
+                next_reachable = {member: dict(paths) for member, paths in reachable.items()}
+                for member, paths in reachable.items():
+                    for dep, markers in marker_graph.get(member, {}).items():
+                        if dep in members:
+                            _add_paths(
+                                next_reachable.setdefault(dep, {}),
+                                paths,
+                                [(marker,) if marker else () for marker in markers],
+                            )
+                if next_reachable == reachable:
+                    break
+                reachable = next_reachable
+
+            deps = {}
+            for member, paths in reachable.items():
+                for dep, markers in marker_graph.get(member, {}).items():
+                    if dep not in members:
+                        _add_paths(
+                            deps.setdefault(dep, {}),
+                            paths,
+                            [(marker,) if marker else () for marker in markers],
+                        )
+            entry_graph[entry_id] = {member: _markers(paths) for member, paths in reachable.items()}
+            entry_deps[entry_id] = {dep: _markers(paths) for dep, paths in deps.items()}
+
+    return dep_to_entry, entry_graph, entry_deps
+
+def exclude_build_dep(packages, scc_graph, excluded):
+    """Remove a consumer's transitive self edge from the build closures that carry it.
+
+    Args:
+        packages: Build requirement names mapped to candidates with deps and markers.
+        scc_graph: SCC IDs mapped to dependency labels and marker sets.
+        excluded: Exact install label of the package being built.
+
+    Returns:
+        The package roots reaching the excluded install through their SCC, and
+        those SCCs without it. Direct requirements, other installs, and
+        dependencies reached through the excluded package are preserved.
+    """
+    scc_prefix = "//private/build_deps/sccs:"
+    parents = {}
+    for scc_id, members in scc_graph.items():
+        for member in members:
+            parents.setdefault(member, []).append(scc_id)
+
+    affected = {}
+    frontier = parents.get(excluded, [])
+    for _ in range(len(scc_graph)):
+        next_frontier = []
+        for scc_id in frontier:
+            if scc_id not in affected:
+                affected[scc_id] = True
+                next_frontier.extend(parents.get(scc_prefix + scc_id, []))
+        if not next_frontier:
+            break
+        frontier = next_frontier
+
+    # The source repository redirects the whole package name, so every fork
+    # of an affected package comes along.
+    affected_packages = {
+        name: candidates
+        for name, candidates in packages.items()
+        if any([
+            candidate["deps"][0] != excluded and candidate["deps"][1][len(scc_prefix):] in affected
+            for candidate in candidates
+        ])
+    }
+    if not affected_packages:
+        return {}, {}
+
+    return affected_packages, {
+        scc_id: {
+            member: markers
+            for member, markers in scc_graph[scc_id].items()
+            if member != excluded
+        }
+        for scc_id in affected
+    }
+
+def reachable_build_deps(packages, scc_graph):
+    """Select only the SCCs needed by the discovered build requirements.
+
+    Args:
+        packages: Selected requirement names mapped to candidates with deps and markers.
+        scc_graph: SCC IDs mapped to dependency labels and marker sets.
+
+    Returns:
+        The reachable SCCs, including dependencies reached through omitted installs.
+    """
+    prefix = "//private/build_deps/sccs:"
+    frontier = {
+        candidate["deps"][1][len(prefix):]: True
+        for candidates in packages.values()
+        for candidate in candidates
+    }
+    reachable = {}
+    for _ in range(len(scc_graph)):
+        next_frontier = {}
+        for scc_id in frontier:
+            if scc_id in reachable:
+                continue
+            reachable[scc_id] = scc_graph[scc_id]
+            for dep in scc_graph[scc_id]:
+                if dep.startswith(prefix):
+                    next_frontier[dep[len(prefix):]] = True
+        if not next_frontier:
+            break
+        frontier = next_frontier
+    return reachable
+
 def combine_markers(lefts, rights):
     """
     Combine two sets of markers under _and_.

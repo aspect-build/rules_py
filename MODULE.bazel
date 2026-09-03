@@ -108,6 +108,13 @@ bazel_dep(name = "buildifier_prebuilt", version = "8.5.1.2", dev_dependency = Tr
 bazel_dep(name = "bazelrc-preset.bzl", version = "1.9.2", dev_dependency = True)
 bazel_dep(name = "bazel_env.bzl", version = "0.5.0", dev_dependency = True)
 bazel_dep(name = "rules_multitool", version = "1.9.0", dev_dependency = True)
+bazel_dep(name = "stardoc", version = "0.8.1", dev_dependency = True)
+
+# The stardoc renderer is this repo's only Java target; its toolchain resolution
+# validates the go toolchains registered via gazelle, and rules_go 0.51 (resolved
+# by gazelle 0.40) uses the CcInfo symbol removed in Bazel 9. 0.61.1 is the fix
+# without dragging rules_android (which rules_jvm_external pulls via newer protobuf).
+bazel_dep(name = "rules_go", version = "0.61.1", dev_dependency = True)
 
 multitool = use_extension("@rules_multitool//multitool:extension.bzl", "multitool", dev_dependency = True)
 multitool.hub(lockfile = "//tools:tools.lock.json")
@@ -152,4 +159,16 @@ use_repo(
     "sdist_build__aspect_rules_py__bravado_core__6_1_1",
     "whl_install__aspect_rules_py__attrs__23_2_0",
     "whl_install__aspect_rules_py__numpy__1_26_4",
+)
+
+self_exclusion_fixture = use_extension(
+    "//uv/private/uv_project/tests:self_exclusion_fixture.bzl",
+    "self_exclusion_fixture",
+    dev_dependency = True,
+)
+use_repo(
+    self_exclusion_fixture,
+    "uv_project_self_exclusion_layout",
+    "uv_project_self_exclusion_sdist",
+    "uv_project_self_exclusion_test",
 )
