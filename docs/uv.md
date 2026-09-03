@@ -400,6 +400,27 @@ reads; `$(ANT_HOME)` and `$(ANT_BIN_DIR)` likewise. Any other make-variable a
 toolchain exports still needs an explicit `env` entry (`"FOO": "$(FOO)"`),
 and an explicit entry always wins over the derived value.
 
+Rust needs one more step. Every sdist runs its build logic on the exec
+platform, but in a cross build cargo also *compiles* code for the exec platform
+and runs it there: `build.rs` scripts and proc-macro crates. Those need the
+exec platform's Rust standard library in the sysroot, and a toolchain resolved
+for the target platform ships only the target's. Declare the toolchain once per
+project and rules_py adds an exec-configured sysroot layer next to it:
+
+```starlark
+uv.project(
+    hub_name = "pypi",
+    lock = "//:uv.lock",
+    pyproject = "//:pyproject.toml",
+    rust_toolchain = "@rules_rust//rust/toolchain:current_rust_toolchain",
+)
+```
+
+Every sdist in that project whose build backend is maturin, or whose build
+requirements include setuptools-rust, then gets the toolchain and an
+exec-configured `rust_host_sysroot` layer wired into its build. No
+`uv.override_package` entry is needed for Rust packages.
+
 ### Backend config settings
 
 PEP 517 backends take a free-form `config_settings` dictionary. Declare it

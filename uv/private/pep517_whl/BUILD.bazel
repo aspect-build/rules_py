@@ -51,3 +51,8 @@ bzl_library(
         "@bazel_lib//lib:resource_sets",
     ],
 )
+
+bzl_library(
+    name = "rust_layer",
+    srcs = ["rust_layer.bzl"],
+)
