@@ -400,6 +400,24 @@ reads; `$(ANT_HOME)` and `$(ANT_BIN_DIR)` likewise. Any other make-variable a
 toolchain exports still needs an explicit `env` entry (`"FOO": "$(FOO)"`),
 and an explicit entry always wins over the derived value.
 
+Rust needs one more step, because build scripts and proc-macros always run on
+the exec platform and need its standard library even when the wheel targets
+another platform. Declare the toolchain once per project:
+
+```starlark
+uv.project(
+    hub_name = "pypi",
+    lock = "//:uv.lock",
+    pyproject = "//:pyproject.toml",
+    rust_toolchain = "@rules_rust//rust/toolchain:current_rust_toolchain",
+)
+```
+
+Every sdist in that project whose build backend is maturin, or whose build
+requirements include setuptools-rust, then gets the toolchain and an
+exec-configured `rust_host_sysroot` layer wired into its build. No
+`uv.override_package` entry is needed for Rust packages.
+
 ## Best practices
 
 **Consolidate your hubs**. In `rules_python`, environments with multiple depsets

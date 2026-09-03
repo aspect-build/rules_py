@@ -339,3 +339,28 @@ pep517_native_whl_derived_env_test = analysistest.make(
         "absent_keys": attr.string_list(doc = "Env keys that must not appear (make-variable names are not env keys)."),
     },
 )
+
+def _fake_rust_toolchain_impl(ctx):
+    # The sysroot is this target's own output root: an "-exec" segment in it
+    # proves the dependent re-resolved us in the exec configuration.
+    return [platform_common.ToolchainInfo(sysroot = ctx.bin_dir.path, all_files = depset())]
+
+fake_rust_toolchain = rule(
+    implementation = _fake_rust_toolchain_impl,
+    doc = "Stands in for rules_rust's current_rust_toolchain: ToolchainInfo with a sysroot.",
+)
+
+def _rust_host_sysroot_test_impl(ctx):
+    env = analysistest.begin(ctx)
+    target = analysistest.target_under_test(env)
+    variables = target[platform_common.TemplateVariableInfo].variables
+    sysroot = variables.get("RUST_HOST_SYSROOT", "")
+    asserts.true(env, sysroot != "", "RUST_HOST_SYSROOT must be exported; got: {}".format(variables))
+    asserts.true(
+        env,
+        "-exec" in sysroot,
+        "the sysroot must come from the toolchain re-resolved in the exec configuration; got: " + sysroot,
+    )
+    return analysistest.end(env)
+
+rust_host_sysroot_test = analysistest.make(_rust_host_sysroot_test_impl)

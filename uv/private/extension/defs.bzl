@@ -602,6 +602,7 @@ def _parse_projects(module_ctx, hub_specs):
                         extra_env = extra_env,
                         monitor_memory = monitor_memory,
                         resource_set = resource_set,
+                        rust_toolchain = str(project.rust_toolchain) if project.rust_toolchain else "",
                     )
 
                     has_sbuild = True
@@ -878,6 +879,8 @@ def _uv_impl(module_ctx):
             sbuild_kwargs["extra_toolchains"] = sbuild_cfg.extra_toolchains
         if sbuild_cfg.extra_env:
             sbuild_kwargs["extra_env"] = sbuild_cfg.extra_env
+        if sbuild_cfg.rust_toolchain:
+            sbuild_kwargs["rust_toolchain"] = sbuild_cfg.rust_toolchain
         if sbuild_cfg.monitor_memory:
             sbuild_kwargs["monitor_memory"] = True
         if sbuild_cfg.resource_set != "default":
@@ -951,6 +954,13 @@ _project_tag = tag_class(
         "lock": attr.label(
             mandatory = True,
             doc = "The `uv.lock` pinning this project's dependency graph.",
+        ),
+        "rust_toolchain": attr.label(
+            mandatory = False,
+            doc = "A rules_rust `current_rust_toolchain`-style target. When set, every sdist in " +
+                  "this project whose build backend is maturin or setuptools-rust gets it (plus " +
+                  "rules_py's exec-configured sysroot layer) wired into its build automatically, " +
+                  "with no per-package `uv.override_package(toolchains = ...)`.",
         ),
         "default_build_dependencies": attr.string_list(
             mandatory = False,
