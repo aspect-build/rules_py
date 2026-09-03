@@ -23,6 +23,7 @@ load(
 load(
     ":pep517_whl_test.bzl",
     "absolutize_flag_test",
+    "config_settings_args_test",
     "cross_decision_test",
     "execroot_collision_toolchain",
     "hostile_python_env_target",
@@ -215,6 +216,75 @@ pep517_whl(
 hostile_python_env_target(
     name = "__ambient_env_under_hostile_config",
     target = ":__ambient_env_fixture",
+)
+
+# config_settings reach the backend through `build -C key=value`: the in-tree
+# backend compares what it receives against EXPECTED_CONFIG_SETTINGS (a single
+# value stays a str, repeated keys become a list).
+_CONFIG_SETTINGS = {
+    "setup-args": [
+        "-Dblas=none",
+        "-Dlapack=none",
+    ],
+    "single": ["one"],
+}
+
+_CONFIG_SETTING_FLAGS = [
+    "--config-setting",
+    "setup-args=-Dblas=none",
+    "--config-setting",
+    "setup-args=-Dlapack=none",
+    "--config-setting",
+    "single=one",
+]
+
+pep517_native_whl(
+    name = "__config_settings_fixture",
+    src = ":__python_env_sdist",
+    config_settings = _CONFIG_SETTINGS,
+    env = {
+        "EXPECTED_CONFIG_SETTINGS": '{"setup-args": ["-Dblas=none", "-Dlapack=none"], "single": "one"}',
+    },
+    tags = ["manual"],
+    tool = ":__build_helper_reset",
+    version = "0.0.1",
+)
+
+hostile_python_env_target(
+    name = "__config_settings_under_hostile_config",
+    target = ":__config_settings_fixture",
+)
+
+build_test(
+    name = "config_settings_test",
+    targets = [":__config_settings_under_hostile_config"],
+)
+
+config_settings_args_test(
+    name = "config_settings_native_args_test",
+    expected = _CONFIG_SETTING_FLAGS,
+    target_under_test = ":__config_settings_fixture",
+)
+
+pep517_whl(
+    name = "__config_settings_pure_fixture",
+    src = ":__stub_sdist",
+    config_settings = _CONFIG_SETTINGS,
+    tags = ["manual"],
+    tool = ":__stub_tool",
+    version = "0.0.1",
+)
+
+config_settings_args_test(
+    name = "config_settings_pure_args_test",
+    expected = _CONFIG_SETTING_FLAGS,
+    target_under_test = ":__config_settings_pure_fixture",
+)
+
+config_settings_args_test(
+    name = "config_settings_absent_test",
+    expected = [],
+    target_under_test = ":__frontend_config_fixture",
 )
 
 build_test(

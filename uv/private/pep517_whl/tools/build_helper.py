@@ -1122,6 +1122,13 @@ PARSER = ArgumentParser()
 PARSER.add_argument("srcarchive")
 PARSER.add_argument("output", help="Path the single built wheel is written to")
 PARSER.add_argument("--monitor-memory", action="store_true")
+PARSER.add_argument(
+    "--config-setting",
+    action="append",
+    default=[],
+    dest="config_settings",
+    help="PEP 517 config setting KEY=VALUE forwarded to the backend via `build -C` (repeatable)",
+)
 PARSER.add_argument("--validate-anyarch", action="store_true")
 PARSER.add_argument("--patch-strip", type=int, default=0, help="Strip count for patch (-p)")
 PARSER.add_argument("--patch", action="append", default=[], dest="patches", help="Patch file to apply (repeatable)")
@@ -1191,6 +1198,11 @@ def main() -> None:
             "that setuptools still reads from setup.py/setup.cfg.",
             file=sys.stderr,
         )
+        if opts.config_settings:
+            raise SystemExit(
+                "Error: config_settings need the PEP 517 frontend, but this sdist falls back to "
+                "`setup.py bdist_wheel` (its pyproject.toml omits dynamic metadata setuptools reads from setup.py/setup.cfg)."
+            )
         cmd = [
             sys.executable,
             path.realpath(path.join(t, "setup.py")),
@@ -1222,6 +1234,10 @@ def main() -> None:
             "--skip-dependency-check",
             "--outdir", outdir,
         ]
+        # `build -C` accumulates repeated keys into a list for the backend, so
+        # package settings never collide with the -C the cross branch adds.
+        for setting in opts.config_settings:
+            cmd += ["-C", setting]
 
         # meson-python only synthesizes its own cross file for macOS
         # ARCHFLAGS/cibuildwheel shapes; everything else configures as a

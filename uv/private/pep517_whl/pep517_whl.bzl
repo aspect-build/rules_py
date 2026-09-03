@@ -11,6 +11,7 @@ load(
     "PEP517_WHL_ATTRS",
     "TARGET_EXEC_GROUP",
     "common_env",
+    "config_setting_args",
     "memory_args",
     "patch_args_and_inputs",
     "wheel_providers",
@@ -34,7 +35,7 @@ def _pep517_whl(ctx):
         progress_message = "Source compiling {} to a whl".format(archive.basename),
         executable = ctx.executable.tool,
         toolchain = None,
-        arguments = ctx.attr.args + [patch_args] + memory_args(ctx) + [
+        arguments = ctx.attr.args + [patch_args] + memory_args(ctx) + config_setting_args(ctx) + [
             archive.path,
             wheel_file.path,
         ],
