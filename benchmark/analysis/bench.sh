@@ -15,7 +15,16 @@ shift
 cd "$(dirname "$0")"
 results_dir="${GITHUB_WORKSPACE:-/tmp}"
 
-python3 workspace/generate_workspace.py --root workspace --packages 50
+# ANALYSIS_DEP_GROUPS (e.g. "default,dev,test") assigns dep_groups to packages
+# round-robin, fanning the @pypi hub out into one configuration per group.
+# ANALYSIS_TEST_FILES_PER_PACKAGE sets test files per package;
+# ANALYSIS_TEST_GENERATION_MODE (file|package) is the gazelle-directive analog:
+# "file" makes one py_test — and one venv — per test file. The defaults (2,
+# file) keep per-venv cost visible in the standard CI/PR-comment run.
+python3 workspace/generate_workspace.py --root workspace --packages 50 \
+  ${ANALYSIS_DEP_GROUPS:+--dep-groups "$ANALYSIS_DEP_GROUPS"} \
+  --test-files-per-package "${ANALYSIS_TEST_FILES_PER_PACKAGE:-2}" \
+  --test-generation-mode "${ANALYSIS_TEST_GENERATION_MODE:-file}"
 python3 generate_module.py "$@"
 
 out_base="/tmp/bazel-$variant"
@@ -31,10 +40,25 @@ hyperfine --warmup 1 --runs 10 \
   --export-json "$results_dir/$variant.json" \
   "$BAZEL build --disk_cache= --nobuild --action_env=BENCH_TICK=\$(date +%s%N) //workspace/... //workspace:image_layers"
 
-targets=$($BAZEL query //workspace/... | wc -l | tr -d ' ')
-actions=$($BAZEL aquery --output=summary '//workspace/... + //workspace:image_layers' \
-  | awk '/^[0-9]+ total actions\.$/ { print $1 }')
-test -n "$targets" && test -n "$actions"
-echo "{\"targets\": $targets, \"actions\": $actions}" > "$results_dir/$variant-aux.json"
+# Aux metrics: target count, per-mnemonic action counts, and configured-target
+# counts split workspace/external. The external CT count exposes config fan-out
+# (e.g. per-dep_group duplication of the @pypi alias chains) that the plain
+# target count cannot see.
+$BAZEL query //workspace/... > "$results_dir/$variant-targets.txt"
+# py_test expands to a *_test rule whose class name varies by rules_py version.
+$BAZEL query 'kind(".*_test rule", //workspace/tests/...)' > "$results_dir/$variant-pytests.txt"
+$BAZEL aquery --output=summary '//workspace/... + //workspace:image_layers' \
+  > "$results_dir/$variant-aquery.txt"
+$BAZEL cquery 'deps(//workspace/... + //workspace:image_layers)' \
+  > "$results_dir/$variant-cquery.txt"
+python3 aux_metrics.py \
+  "$results_dir/$variant-targets.txt" \
+  "$results_dir/$variant-aquery.txt" \
+  "$results_dir/$variant-cquery.txt" \
+  --py-tests "$results_dir/$variant-pytests.txt" \
+  --test-files-per-package "${ANALYSIS_TEST_FILES_PER_PACKAGE:-2}" \
+  --test-generation-mode "${ANALYSIS_TEST_GENERATION_MODE:-file}" \
+  --dep-groups "${ANALYSIS_DEP_GROUPS:-}" \
+  > "$results_dir/$variant-aux.json"
 
 $BAZEL shutdown
