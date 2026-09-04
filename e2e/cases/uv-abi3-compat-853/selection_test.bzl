@@ -5,6 +5,8 @@ load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
 _CONFIG_SETTINGS = {
     "//command_line_option:platforms": str(Label("//uv-abi3-compat-853:linux_x86_64")),
     str(Label("@aspect_rules_py//py/private/interpreter:python_version")): "3.14",
+    # The sdist build tool resolves its dependencies through the project hub.
+    str(Label("@aspect_rules_py//uv/private/constraints/dep_group:dep_group")): "abi3-compat",
 }
 _FREETHREADED = str(Label("@aspect_rules_py//py/private/interpreter:freethreaded"))
 
