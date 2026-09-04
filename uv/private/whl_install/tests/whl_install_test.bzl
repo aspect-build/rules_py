@@ -643,51 +643,16 @@ def _metadata_selection_test_impl(ctx):
             "data file '{}' from an inactive platform wheel leaked into the selected wheel's surface".format(leaked),
         )
 
-    # Shared by the preserve-path and data-file guard assertions below; both are
-    # opt-in per fixture, so the lookup happens once when either is requested.
-    argv = []
-    install_inputs = []
-    if ctx.attr.expected_preserve_paths or ctx.attr.expected_verified_data_files:
+    if ctx.attr.expected_preserve_paths:
         build_actions = [a for a in target.actions if a.mnemonic == "WhlInstall"]
         asserts.equals(env, 1, len(build_actions), "expected exactly one WhlInstall action")
         argv = build_actions[0].argv
-        install_inputs = build_actions[0].inputs.to_list()
-
-    if ctx.attr.expected_preserve_paths:
         preserve_paths = [
             argv[i + 1]
             for i in range(len(argv) - 1)
             if argv[i] == "--preserve-path"
         ]
         asserts.equals(env, ctx.attr.expected_preserve_paths, preserve_paths)
-
-    # The patch guard forwards the pre-patch data set to the unpacker, which
-    # rejects a patch that adds or removes one. The set travels as a manifest
-    # file, not argv, and passing it is what arms the guard — so assert on the
-    # written content and on the install action actually consuming it.
-    if ctx.attr.expected_verified_data_files:
-        manifests = [
-            a
-            for a in target.actions
-            if a.mnemonic == "FileWrite" and a.outputs.to_list()[0].basename.endswith(".data_files.txt")
-        ]
-        asserts.equals(env, 1, len(manifests), "expected exactly one data-file manifest")
-        asserts.equals(
-            env,
-            "".join([path + "\n" for path in ctx.attr.expected_verified_data_files]),
-            manifests[0].content,
-        )
-        manifest = manifests[0].outputs.to_list()[0]
-        asserts.true(
-            env,
-            manifest.path in argv,
-            "expected the install action to read the data-file manifest",
-        )
-        asserts.true(
-            env,
-            manifest in install_inputs,
-            "expected the data-file manifest to be an input of the install action",
-        )
 
     return analysistest.end(env)
 
@@ -705,7 +670,6 @@ _metadata_selection_test = analysistest.make(
         "leaked_console_scripts": attr.string_list(),
         "leaked_data_files": attr.string_list(),
         "expected_preserve_paths": attr.string_list(),
-        "expected_verified_data_files": attr.string_list(),
     },
 )
 
@@ -998,7 +962,6 @@ def metadata_selection_test_suite(name):
         expected_namespace_top_levels = _NAMESPACE_TOP_LEVELS[_MACOS_WHL],
         expected_native_roots = _NATIVE_ROOTS[_MACOS_WHL],
         expected_preserve_paths = _PATCHED_PRESERVE_PATHS,
-        expected_verified_data_files = _DATA_FILES[_MACOS_WHL],
         expected_top_levels = _PATCHED_TOP_LEVELS[_MACOS_WHL],
         expected_top_level_dirs = _TOP_LEVEL_DIRS[_MACOS_WHL],
         leaked_console_scripts = [],

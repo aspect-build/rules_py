@@ -41,8 +41,9 @@ tree="$("$BAZEL" info bazel-bin 2>/dev/null)/patch-failure/offset_patch.install"
 if [ -n "$(find "$tree" -name '*.orig' -print)" ]; then
     fail "patch left .orig backups behind in ${tree}"
 fi
-grep -q "PATCHED_WITH_OFFSET" "${tree}/marker.txt" \
-    || fail "offset patch was not applied to ${tree}/marker.txt"
+marker="$(find "$tree" -path '*/site-packages/fakepkg/marker.txt' -print -quit)"
+grep -q "PATCHED_WITH_OFFSET" "$marker" \
+    || fail "offset patch was not applied to ${marker:-${tree}}"
 echo "PASS: offset patch applied cleanly with no .orig backups"
 
 echo "ALL PASS: package-patch failure handling is correct"

@@ -34,7 +34,7 @@ def validate_build_attrs(
         active.append("monitor_memory")
     if pre_build_patches:
         active.append("pre_build_patches")
-    if pre_build_patch_strip:
+    if pre_build_patch_strip != 1:
         active.append("pre_build_patch_strip")
     if toolchains:
         active.append("toolchains")

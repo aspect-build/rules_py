@@ -203,7 +203,7 @@ def _whl_install(ctx):
     console_scripts = meta.console_scripts
 
     # Prefix data files (`.data/data/`) are unaffected by exclude_glob (it only
-    # removes site-packages files); the patch guard below keeps them consistent.
+    # removes site-packages files).
     data_files = meta.data_files
 
     arguments = ctx.actions.args()
@@ -239,26 +239,6 @@ def _whl_install(ctx):
             sorted(preserve_paths),
             before_each = "--preserve-path",
         )
-
-        # `data_files` is forwarded to venv assembly pre-patch and isn't covered
-        # by --preserve-path; reject any patch that alters the installed data set.
-        # Only when RECORD enumerated it: a source-built wheel's empty tuple means
-        # unknown, and an empty expectation reads every shipped data file as added.
-        # Nothing is projected for those wheels, so there is nothing to keep
-        # consistent. `meta.top_levels or meta.record_paths` is the metadata's
-        # known/unknown flag — RECORD always lists the `.dist-info` directory, so
-        # `top_levels` is empty only for a source-built wheel or when exclusions
-        # removed every top level, and the latter still carries `record_paths`.
-        if meta.top_levels or meta.record_paths:
-            # Through a manifest file, not repeated argv flags: a wheel like
-            # jupyterlab ships thousands of prefix paths, enough to hit ARG_MAX.
-            data_files_manifest = ctx.actions.declare_file(ctx.label.name + ".data_files.txt")
-            ctx.actions.write(
-                output = data_files_manifest,
-                content = "".join([path + "\n" for path in data_files]),
-            )
-            arguments.add("--expected-data-files-manifest", data_files_manifest)
-            transitive_inputs.append(depset([data_files_manifest]))
         transitive_inputs.extend(patch_files)
 
     # Optional .pyc pre-compilation (runs after patching).
@@ -382,10 +362,10 @@ lighter weight since the toolchain's files aren't inputs.
         "patches": attr.label_list(
             default = [],
             allow_files = [".patch", ".diff"],
-            doc = "Patch files to apply after installation, in order.",
+            doc = "Patch files to apply after installation, in order. Paths are site-packages-relative.",
         ),
         "patch_strip": attr.int(
-            default = 0,
+            default = 1,
             doc = "Strip count for patches (-p flag).",
         ),
         "exclude_glob": attr.string_list(

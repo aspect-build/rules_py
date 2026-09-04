@@ -1,4 +1,4 @@
 --- /dev/null
-+++ b/lib/python3.11/site-packages/click/_bench_note.py
++++ b/click/_bench_note.py
 @@ -0,0 +1 @@
 +BENCH_TICK = 0

@@ -58,7 +58,7 @@ _PATCH_ATTRS = {
         doc = "Patch files to apply to the extracted source before building.",
     ),
     "pre_build_patch_strip": attr.int(
-        default = 0,
+        default = 1,
         doc = "Strip count for pre-build patches (-p flag to patch).",
     ),
 }

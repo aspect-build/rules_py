@@ -392,7 +392,7 @@ sdist_build = repository_rule(
                   "action. Set via `uv.override_package(resource_set = ...)`.",
         ),
         "pre_build_patches": attr.label_list(default = []),
-        "pre_build_patch_strip": attr.int(default = 0),
+        "pre_build_patch_strip": attr.int(default = 1),
         "extra_toolchains": attr.string_list(
             default = [],
             doc = "Toolchain labels forwarded to the generated pep517_native_whl(...) `toolchains` list. Set via `uv.override_package(toolchains = [...])`.",
