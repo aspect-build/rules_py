@@ -4,19 +4,7 @@ py_test(
     name = "test",
     srcs = ["__test__.py"],
     dep_group = "venv-bin-scripts-423",
-    main = "__test__.py",
-    python_version = "3.11",
-    deps = [
-        "@pypi_venv_bin_scripts_423//dice",
-        "@pypi_venv_bin_scripts_423//invoke",
-    ],
-)
-
-py_test(
-    name = "test_non_isolated",
-    srcs = ["__test__.py"],
-    dep_group = "venv-bin-scripts-423",
-    isolated = False,
+    include_console_scripts = True,
     main = "__test__.py",
     python_version = "3.11",
     deps = [
@@ -30,6 +18,7 @@ py_test(
     srcs = ["__test__.py"],
     dep_group = "venv-bin-scripts-423",
     expose_venv = True,
+    include_console_scripts = True,
     isolated = False,
     main = "__test__.py",
     python_version = "3.11",

@@ -3,8 +3,7 @@
 This module is the single place in rules_py that declares the files making
 up a Python venv. Both `py_binary` / `py_test` (each with its own internal
 venv, unless `expose_venv = True` routes them to a sibling py_venv) and
-the standalone `py_venv` rule call `assemble_venv` to keep their layouts
-bit-identical.
+the standalone `py_venv` rule call `assemble_venv`.
 
 The venv shape mirrors what CPython's `python -m venv` + pip install
 produces, so downstream tools (IDEs, `$VIRTUAL_ENV`-aware shells,
@@ -16,8 +15,8 @@ distutils, etc.) treat it as a real venv:
         python                                  symlink -> py_toolchain.python
         python3                                 symlink -> python
         python3.<MAJ>.<MIN>                     symlink -> python
-        activate                                bash/zsh activation script
-        <console_script>                        one per wheel-declared entry point
+        activate                                py_venv only
+        <console_script>                        py_venv, or include_console_scripts = True
       lib/python<MAJ>.<MIN>/site-packages/
         <name>.pth                              first-party + fallback .pth
         <top_level>                             symlink to a wheel's subdir
@@ -101,26 +100,32 @@ def assemble_venv(
         `include-system-site-packages` key.
       default_env: Dict of env-var name → value. Exported at the top of
         the generated activate script and unset in `deactivate`.
-      venv_activate_tmpl: File — the activate-script template (usually
-        `ctx.file._venv_activate_tmpl`).
+      venv_activate_tmpl: File or None — the activate-script template
+        (usually `ctx.file._venv_activate_tmpl`); `None` skips `bin/activate`.
       site_merge_script_py: File — the site_merge.py tool source
         (usually `ctx.file._site_merge_script`). Only needed when the
         wheel graph contains a regular package needing a physical merge; the
         merge action also requires the rule to declare the (optional)
         EXEC_TOOLS_TOOLCHAIN for an exec-configuration interpreter.
-      console_script_tmpl: File — the console-script wrapper template
-        (usually `ctx.file._console_script_tmpl`).
+      console_script_tmpl: File or None — the console-script wrapper template
+        (usually `ctx.file._console_script_tmpl`); `None` skips wrappers.
       venv_name: str — the venv dir basename (e.g. "." + venv_stem).
 
     Returns:
       struct with:
         bin_python: File — the venv's bin/python symlink, for launchers
             to rlocation-resolve and exec.
-        declared_outputs: list[File] — every declared output, ready for runfiles
-            / DefaultInfo aggregation.
+        declared_outputs: list[File] — every output the interpreter needs
+            at runtime, ready for runfiles / DefaultInfo aggregation.
+        activate: File or None — `bin/activate`.
+        console_scripts: list[File] — `bin/<name>` wrappers.
     """
 
-    top_level_to_site_pkgs, fully_covered_site_pkgs, console_scripts_map, merge_groups, data_file_to_site_pkgs, collisions = resolve_wheel_collisions(ctx, wheels)
+    top_level_to_site_pkgs, fully_covered_site_pkgs, console_scripts_map, merge_groups, data_file_to_site_pkgs, collisions = resolve_wheel_collisions(
+        ctx,
+        wheels,
+        console_scripts = console_script_tmpl != None,
+    )
     enforce_collision_policy(collisions, package_collisions)
 
     # All toolchain-derived path/flag math (runfiles escape arithmetic,
@@ -294,8 +299,7 @@ def assemble_venv(
     pth_lines.set_param_file_format("multiline")
     pth_lines.add(escape)
 
-    # Make wheel-declared console scripts reachable via `subprocess.run("name", ...)`
-    # without loading the distutils shim on every interpreter startup.
+    # Put the venv's bin/ on PATH so subprocesses resolve python (and py_venv wrappers) here.
     pth_lines.add(
         "import os, sys; _venv_bin = os.path.dirname(sys.executable); " +
         "_path = os.environ.get(\"PATH\", \"\"); " +
@@ -359,39 +363,42 @@ def assemble_venv(
         )
         declared.append(sym)
 
-    # bin/activate
-    bin_activate = ctx.actions.declare_file("{}/bin/activate".format(venv_name))
-    envvar_exports = "\n".join(_dict_to_exports(default_env)).strip()
-    envvar_unsets = "\n".join(
-        ["    unset {}".format(k) for k in default_env.keys()],
-    )
-    ctx.actions.expand_template(
-        template = venv_activate_tmpl,
-        output = bin_activate,
-        substitutions = {
-            "{{ENVVARS}}": envvar_exports,
-            "{{ENVVARS_UNSET}}": envvar_unsets,
-        },
-        is_executable = True,
-    )
-    declared.append(bin_activate)
-
-    # Console-script wrappers under <venv>/bin/<name>.
-    for name, target in console_scripts_map.items():
-        script = ctx.actions.declare_file("{}/bin/{}".format(venv_name, name))
+    bin_activate = None
+    if venv_activate_tmpl != None:
+        bin_activate = ctx.actions.declare_file("{}/bin/activate".format(venv_name))
+        envvar_exports = "\n".join(_dict_to_exports(default_env)).strip()
+        envvar_unsets = "\n".join(
+            ["    unset {}".format(k) for k in default_env.keys()],
+        )
         ctx.actions.expand_template(
-            template = console_script_tmpl,
-            output = script,
+            template = venv_activate_tmpl,
+            output = bin_activate,
             substitutions = {
-                "{{name}}": name,
-                "{{module}}": target.module,
-                "{{func}}": target.func,
+                "{{ENVVARS}}": envvar_exports,
+                "{{ENVVARS_UNSET}}": envvar_unsets,
             },
             is_executable = True,
         )
-        declared.append(script)
+
+    console_scripts = []
+    if console_script_tmpl != None:
+        for name, target in console_scripts_map.items():
+            script = ctx.actions.declare_file("{}/bin/{}".format(venv_name, name))
+            ctx.actions.expand_template(
+                template = console_script_tmpl,
+                output = script,
+                substitutions = {
+                    "{{name}}": name,
+                    "{{module}}": target.module,
+                    "{{func}}": target.func,
+                },
+                is_executable = True,
+            )
+            console_scripts.append(script)
 
     return struct(
         bin_python = bin_python,
         declared_outputs = declared,
+        activate = bin_activate,
+        console_scripts = console_scripts,
     )

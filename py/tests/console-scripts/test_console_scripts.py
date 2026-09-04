@@ -1,8 +1,8 @@
 """Verify wheel-declared console scripts are usable via PATH at runtime.
 
-py_binary/py_test generate wrapper scripts under <venv>/bin/<name> from each
-wheel's `[console_scripts]` entry points. The launcher prepends <venv>/bin/
-to $PATH. This test confirms the whole chain works end-to-end by
+py_binary/py_test with `include_console_scripts = True` carry wrappers under
+<venv>/bin/<name> for each wheel's `[console_scripts]` entry points. The
+launcher prepends <venv>/bin/ to $PATH. This test confirms the whole chain works end-to-end by
 subprocess-invoking `cowsay`, which declares a `cowsay` entry point that
 calls `cowsay.__main__:cli`.
 """

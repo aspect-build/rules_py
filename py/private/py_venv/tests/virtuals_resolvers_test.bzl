@@ -72,10 +72,7 @@ def _single_wheel_test_impl(ctx):
             top_levels = ["foo"],
         ),
     ]
-    top_level, fully_covered, cs_map, merge_groups, _data_files, _collisions = resolve_wheel_collisions(
-        mock_ctx,
-        wheels,
-    )
+    top_level, fully_covered, cs_map, merge_groups, _data_files, _collisions = resolve_wheel_collisions(mock_ctx, wheels, console_scripts = True)
     asserts.equals(env, "external/pypi_foo/site-packages", top_level["foo"])
     asserts.true(env, "external/pypi_foo/site-packages" in fully_covered)
     asserts.equals(env, "foo.cli", cs_map["foo-cli"].module)
@@ -108,10 +105,7 @@ def _namespace_merge_test_impl(ctx):
             top_levels = ["ns"],
         ),
     ]
-    top_level, fully_covered, cs_map, merge_groups, _data_files, _collisions = resolve_wheel_collisions(
-        mock_ctx,
-        wheels,
-    )
+    top_level, fully_covered, cs_map, merge_groups, _data_files, _collisions = resolve_wheel_collisions(mock_ctx, wheels, console_scripts = True)
     asserts.equals(env, sp_a, top_level["ns/sub_a"])
     asserts.equals(env, sp_b, top_level["ns/sub_b"])
     asserts.equals(env, 0, len(merge_groups))
@@ -138,11 +132,13 @@ def _console_script_collision_test_impl(ctx):
             top_levels = [],
         ),
     ]
-    _, _, cs_map, _, _, _ = resolve_wheel_collisions(
-        mock_ctx,
-        wheels,
-    )
+    _, _, cs_map, _, _, collisions = resolve_wheel_collisions(mock_ctx, wheels, console_scripts = True)
     asserts.equals(env, "pkg_b.cli", cs_map["tool"].module)
+    asserts.equals(env, ["console script"], [c.what for c in collisions])
+
+    _, _, cs_map, _, _, collisions = resolve_wheel_collisions(mock_ctx, wheels, console_scripts = False)
+    asserts.equals(env, {}, cs_map)
+    asserts.equals(env, [], collisions)
     return unittest.end(env)
 
 def _regular_collision_keeps_fallback_test_impl(ctx):
@@ -175,7 +171,7 @@ def _regular_collision_keeps_fallback_test_impl(ctx):
             top_levels = ["mod.py"],
         ),
     ]
-    top_level, fully_covered, _, _, _, _ = resolve_wheel_collisions(mock_ctx, wheels)
+    top_level, fully_covered, _, _, _, _ = resolve_wheel_collisions(mock_ctx, wheels, console_scripts = True)
 
     # Last distinct claimant wins the contested name.
     asserts.equals(env, sp_b, top_level["mod.py"])
@@ -214,7 +210,7 @@ def _entryless_namespace_keeps_fallback_test_impl(ctx):
             top_levels = ["ns"],
         ),
     ]
-    _, fully_covered, _, _, _, _ = resolve_wheel_collisions(mock_ctx, wheels)
+    _, fully_covered, _, _, _, _ = resolve_wheel_collisions(mock_ctx, wheels, console_scripts = True)
 
     asserts.false(env, sp_a in fully_covered, "entryless namespace must keep its fallback")
     asserts.false(env, sp_b in fully_covered, "entryless namespace must keep its fallback")
@@ -237,10 +233,7 @@ def _data_file_collision_test_impl(ctx):
             top_levels = ["pkg_b"],
         ),
     ]
-    _, _, _, _, data_files, _collisions = resolve_wheel_collisions(
-        mock_ctx,
-        wheels,
-    )
+    _, _, _, _, data_files, _collisions = resolve_wheel_collisions(mock_ctx, wheels, console_scripts = True)
 
     # Disjoint files map to their own wheel; the shared path resolves to the
     # last distinct claimant; the shared path collides exactly once.
@@ -281,7 +274,7 @@ def _data_file_reserved_path_test_impl(ctx):
             top_levels = ["pkg_b"],
         ),
     ]
-    _, _, _, _, data_files, collisions = resolve_wheel_collisions(mock_ctx, wheels)
+    _, _, _, _, data_files, collisions = resolve_wheel_collisions(mock_ctx, wheels, console_scripts = True)
 
     # Every venv-owned root is dropped whether it matches a declared output
     # exactly, nests under one, or contains one; each drop is reported so
@@ -314,7 +307,7 @@ def _data_file_nesting_test_impl(ctx):
             top_levels = ["pkg_b"],
         ),
     ]
-    _, _, _, _, data_files, collisions = resolve_wheel_collisions(mock_ctx, wheels)
+    _, _, _, _, data_files, collisions = resolve_wheel_collisions(mock_ctx, wheels, console_scripts = True)
 
     # One wheel's file is another's directory: keep the shallower claim, the
     # deeper one would nest an output inside a declared symlink.
@@ -354,7 +347,7 @@ def _data_file_collapse_test_impl(ctx):
             top_levels = ["pkg_b"],
         ),
     ]
-    _, _, _, _, data_files, collisions = resolve_wheel_collisions(mock_ctx, wheels)
+    _, _, _, _, data_files, collisions = resolve_wheel_collisions(mock_ctx, wheels, console_scripts = True)
 
     # Six files become four projections. `share/` and `share/jupyter/` are
     # shared, so resolution descends through them; below that each directory has
@@ -424,7 +417,7 @@ def _namespace_entry_collapse_test_impl(ctx):
             top_levels = ["nvidia"],
         ),
     ]
-    top_level, _, _, merge_groups, _, collisions = resolve_wheel_collisions(mock_ctx, wheels)
+    top_level, _, _, merge_groups, _, collisions = resolve_wheel_collisions(mock_ctx, wheels, console_scripts = True)
 
     # Six per-file symlinks become four directory symlinks. `nvidia/cu13` and
     # `nvidia/cu13/include` are shared, so resolution descends through them;
@@ -490,7 +483,7 @@ def _namespace_entry_collapse_respects_losers_test_impl(ctx):
             top_levels = ["ns"],
         ),
     ]
-    top_level, _, _, _, _, collisions = resolve_wheel_collisions(mock_ctx, wheels)
+    top_level, _, _, _, _, collisions = resolve_wheel_collisions(mock_ctx, wheels, console_scripts = True)
 
     asserts.equals(env, {
         "ns/pkg/mod.py": sp_b,
@@ -564,7 +557,7 @@ def _namespace_entry_collapse_skips_entryless_dirs_test_impl(ctx):
             top_levels = ["azure"],
         ),
     ]
-    top_level, _, _, merge_groups, _, collisions = resolve_wheel_collisions(mock_ctx, wheels)
+    top_level, _, _, merge_groups, _, collisions = resolve_wheel_collisions(mock_ctx, wheels, console_scripts = True)
 
     # The sibling entry projects; nothing may be declared at or below the
     # merge root, `azure/core/tracing` included.

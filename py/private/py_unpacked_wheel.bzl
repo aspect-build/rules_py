@@ -124,8 +124,9 @@ venv assembly.
     "console_scripts": attr.string_list(
         doc = """Console-script entry points declared by this wheel, in the form `"name=module:func"`.
 
-`py_binary` consumes these via `PyWheelsInfo` to generate executable
-wrappers under `<venv>/bin/<name>`. Typically populated from the wheel's
+`py_venv`, and `py_binary` / `py_test` with `include_console_scripts = True`, consume
+these via `PyWheelsInfo` to generate executable wrappers under
+`<venv>/bin/<name>`. Typically populated from the wheel's
 `*.dist-info/entry_points.txt` `[console_scripts]` section.
 """,
         default = [],

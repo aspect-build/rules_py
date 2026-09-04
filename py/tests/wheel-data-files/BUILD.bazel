@@ -207,6 +207,7 @@ py_unpacked_wheel(
 py_test(
     name = "reserved_paths_test",
     srcs = ["reserved_paths_test.py"],
+    include_console_scripts = True,
     main = "reserved_paths_test.py",
     # Every reserved claim is reported as a collision; downgrade so assembly
     # drops them instead of failing.

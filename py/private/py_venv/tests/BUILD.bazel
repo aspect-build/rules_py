@@ -92,10 +92,18 @@ venv_tree(
     venv = ":many_scripts_venv",
 )
 
+venv_tree(
+    name = "many_scripts_venv_runtime_tree_snap",
+    runtime = True,
+    tags = ["manual"],
+    venv = ":many_scripts_venv",
+)
+
 write_source_files(
     name = "snapshots",
     files = {
         "snapshots/many_scripts.bin.tree.snap": ":many_scripts_bin_tree_snap",
+        "snapshots/many_scripts.venv.runtime.tree.snap": ":many_scripts_venv_runtime_tree_snap",
         "snapshots/many_scripts.venv.tree.snap": ":many_scripts_venv_tree_snap",
         "snapshots/venv.launcher.snap": ":venv_launcher_snap",
         "snapshots/venv.tree.snap": ":venv_tree_snap",
