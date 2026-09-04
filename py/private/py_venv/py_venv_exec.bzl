@@ -155,6 +155,7 @@ def _py_venv_exec_impl(ctx):
             # launcher will run with. `srcs` / `deps` live on the
             # sibling venv, not on this rule.
             imports = vinfo.imports,
+            transitive_pyi_files = vinfo.transitive_pyi_files,
             transitive_sources = vinfo.transitive_sources,
             virtual_dependencies = depset(),
             virtual_resolutions = depset(),
@@ -169,6 +170,7 @@ def _py_venv_exec_impl(ctx):
     if ctx.attr._emit_rules_python_providers[BuildSettingInfo].value:
         providers.append(RulesPythonPyInfo(
             imports = vinfo.imports,
+            transitive_pyi_files = vinfo.transitive_pyi_files,
             transitive_sources = vinfo.transitive_sources,
         ))
 

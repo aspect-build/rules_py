@@ -323,6 +323,7 @@ def _whl_install(ctx):
             transitive_sources = depset([
                 install_dir,
             ]),
+            transitive_pyi_files = depset(),
             imports = depset([site_packages_rfpath]),
             virtual_dependencies = depset(),
             virtual_resolutions = depset(),

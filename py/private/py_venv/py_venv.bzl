@@ -85,6 +85,10 @@ def _assemble_venv_target(ctx):
         ctx,
         extra_depsets = virtual_resolution.srcs,
     )
+    pyi_depset = _py_library.make_pyi_depset(
+        ctx,
+        extra_depsets = virtual_resolution.pyi_files,
+    )
     runtime_files = depset(
         direct = assembled.declared_outputs,
         transitive = [
@@ -104,6 +108,7 @@ def _assemble_venv_target(ctx):
         bin_python = assembled.bin_python,
         imports = imports_depset,
         runtime_runfiles = runfiles,
+        transitive_pyi_files = pyi_depset,
         transitive_sources = srcs_depset,
         runtime_files = runtime_files,
     )

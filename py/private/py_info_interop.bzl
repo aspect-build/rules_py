@@ -3,8 +3,8 @@
 The `deps` attribute on rules_py rules accepts targets built by either
 ruleset. rules_py always emits its own `PyInfo`
 (`//py/private:py_info.bzl`); native `@rules_python` targets (e.g.
-a `py_proto_library`) carry `@rules_python`'s. Both expose `transitive_sources`
-and `imports`, which is everything rules_py reads from a foreign dep.
+a `py_proto_library`) carry `@rules_python`'s. Both expose the source, type
+stub, and import information rules_py reads from a foreign dep.
 
 This module is the single place that knows about both providers. Rule code
 calls these accessors at the API edge instead of loading `@rules_python`'s
@@ -37,3 +37,11 @@ def get_py_info(target):
     if RulesPythonPyInfo in target:
         return target[RulesPythonPyInfo]
     return None
+
+def get_transitive_pyi_files(target):
+    """Return type stubs from rules_py's or `@rules_python`'s `PyInfo`."""
+    if PyInfo in target:
+        return target[PyInfo].transitive_pyi_files
+    if RulesPythonPyInfo in target:
+        return target[RulesPythonPyInfo].transitive_pyi_files
+    return depset()
