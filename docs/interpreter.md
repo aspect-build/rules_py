@@ -298,7 +298,10 @@ This interpreter provisioning is designed to coexist with `rules_python`:
 - The standard `@bazel_tools//tools/python:toolchain_type` is used for toolchain
   registration, so these interpreters work with all existing Python rules.
 - The `@rules_python//python/config_settings:python_version` flag is kept in
-  sync with our own version flag via build transitions.
+  sync with our own version flag via build transitions. Set both flags to the
+  same value in `.bazelrc` so a terminal without a `python_version` override
+  stays in the caller's configuration; otherwise the synchronization alone
+  moves its subtree into a second configuration.
 - The `@rules_python//python/config_settings:py_freethreaded` flag is likewise
   synchronized with Aspect's free-threading setting inside Python terminals.
 - File-based runtimes registered with `rules_python`'s `py_runtime` /

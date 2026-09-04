@@ -1,10 +1,10 @@
 """Common transition implementation used by the various terminals."""
 
-DEP_GROUP_FLAG = "@aspect_rules_py//uv/private/constraints/dep_group:dep_group"
+_DEP_GROUP_FLAG = "@aspect_rules_py//uv/private/constraints/dep_group:dep_group"
 _DEP_GROUP_BASELINE_FLAG = "@aspect_rules_py//uv/private/constraints/dep_group:baseline"
 
 # Our own python_version flag, replacing the rules_python one.
-PYTHON_VERSION_FLAG = "@aspect_rules_py//py/private/interpreter:python_version"
+_PYTHON_VERSION_FLAG = "@aspect_rules_py//py/private/interpreter:python_version"
 _PYTHON_VERSION_BASELINE_FLAG = "@aspect_rules_py//py/private/interpreter:baseline_python_version"
 
 # rules_python's flag, kept for backward compatibility during migration.
@@ -18,40 +18,33 @@ _RPY_FREETHREADED_BASELINE_FLAG = "@aspect_rules_py//py/private/interpreter:base
 
 _BASELINE_UNSET = "<unset>"
 
-# Every terminal-attr-driven flag with its baseline shadow. The attr value
-# overrides the flag for the target's subtree; the baseline records the
-# inherited value so `reset_python_flags_transition` can restore it on
-# runtime-data edges (bool flags are stringified as yes/no in the baseline).
-# Adding a flag here sizes both transitions' inputs and outputs;
-# `_python_transition_impl` supplies the override logic.
+# Every terminal-attr-driven flag with its baseline shadow. A baseline records
+# the inherited value the first time a terminal changes the flag so
+# `reset_python_flags_transition` can restore it on runtime-data edges (the
+# bool flag is stored as "true"/"false"). A terminal that leaves every flag at
+# its inherited value is a no-op: it captures no baseline, so its subtree
+# shares the caller's configuration.
 _FLAG_BASELINE_PAIRS = [
-    (PYTHON_VERSION_FLAG, _PYTHON_VERSION_BASELINE_FLAG),
-    (_RPY_VERSION_FLAG, _RPY_VERSION_BASELINE_FLAG),
+    (_PYTHON_VERSION_FLAG, _PYTHON_VERSION_BASELINE_FLAG),
     (_FREETHREADED_FLAG, _FREETHREADED_BASELINE_FLAG),
+    (_DEP_GROUP_FLAG, _DEP_GROUP_BASELINE_FLAG),
+
+    # rules_python's flags are kept in sync with ours, so they share the same baseline.
+    (_RPY_VERSION_FLAG, _RPY_VERSION_BASELINE_FLAG),
     (_RPY_FREETHREADED_FLAG, _RPY_FREETHREADED_BASELINE_FLAG),
-    (DEP_GROUP_FLAG, _DEP_GROUP_BASELINE_FLAG),
 ]
 
 _ALL_FLAGS = [flag for pair in _FLAG_BASELINE_PAIRS for flag in pair]
 
-def _baseline(settings, flag, current):
-    baseline = settings[flag]
-    if baseline == _BASELINE_UNSET:
-        return current
-    return baseline
+def _stringify(value):
+    if type(value) == "bool":
+        return "true" if value else "false"
+    return value
 
-def _python_version(settings):
-    return settings[PYTHON_VERSION_FLAG] or settings[_RPY_VERSION_FLAG]
-
-def _freethreaded_mode(settings):
-    return "true" if settings[_FREETHREADED_FLAG] else "false"
-
-# The bool flag has no unset state, so inheriting also honors rules_python's
-# flag, mirroring _python_version.
-def _inherited_freethreaded_mode(settings):
-    if settings[_FREETHREADED_FLAG] or settings[_RPY_FREETHREADED_FLAG] == "yes":
-        return "true"
-    return "false"
+def _capture_baseline(settings, flag, baseline_flag, new_value):
+    if settings[baseline_flag] == _BASELINE_UNSET and new_value != settings[flag]:
+        return _stringify(settings[flag])
+    return settings[baseline_flag]
 
 # Free-threaded CPython builds exist from 3.13 onward; toolchain resolution
 # remains the authority for which exact versions ship one.
@@ -61,68 +54,38 @@ def _freethreaded_available(version):
         return True
     return (int(parts[0]), int(parts[1])) >= (3, 13)
 
-def _python_transition_impl(settings, attr):
-    return _python_transition_base(settings, attr, validate = True)
-
 def _python_transition_base(settings, attr, validate):
-    acc = {}
-    acc[_FREETHREADED_BASELINE_FLAG] = _baseline(
-        settings,
-        _FREETHREADED_BASELINE_FLAG,
-        _freethreaded_mode(settings),
-    )
-    acc[_RPY_FREETHREADED_BASELINE_FLAG] = _baseline(
-        settings,
-        _RPY_FREETHREADED_BASELINE_FLAG,
-        settings[_RPY_FREETHREADED_FLAG],
-    )
-    mode = getattr(attr, "freethreaded", "") or _inherited_freethreaded_mode(settings)
-    acc[_FREETHREADED_FLAG] = mode == "true"
-
-    # Keep rules_python native extensions on the interpreter's ABI,
-    # translated into that flag's own yes/no vocabulary.
-    acc[_RPY_FREETHREADED_FLAG] = "yes" if mode == "true" else "no"
-    acc[_PYTHON_VERSION_BASELINE_FLAG] = _baseline(
-        settings,
-        _PYTHON_VERSION_BASELINE_FLAG,
-        settings[PYTHON_VERSION_FLAG],
-    )
-    acc[_RPY_VERSION_BASELINE_FLAG] = _baseline(
-        settings,
-        _RPY_VERSION_BASELINE_FLAG,
-        settings[_RPY_VERSION_FLAG],
-    )
-    if attr.python_version:
-        version = str(attr.python_version)
+    if attr.freethreaded:
+        freethreaded = attr.freethreaded == "true"
     else:
-        version = _python_version(settings)
+        # The bool flag has no unset state, so inheriting also honors
+        # rules_python's flag.
+        freethreaded = settings[_FREETHREADED_FLAG] or settings[_RPY_FREETHREADED_FLAG] == "yes"
 
-    if validate and mode == "true" and version and not _freethreaded_available(version):
+    version = attr.python_version or settings[_PYTHON_VERSION_FLAG] or settings[_RPY_VERSION_FLAG]
+
+    if validate and freethreaded and version and not _freethreaded_available(version):
         fail("{}: free-threaded mode requires Python 3.13+, but the selected python_version is \"{}\"; set freethreaded = False or raise python_version".format(
             attr.name,
             version,
         ))
 
-    acc[PYTHON_VERSION_FLAG] = version
-    acc[_RPY_VERSION_FLAG] = version
+    acc = {
+        _FREETHREADED_FLAG: freethreaded,
+        _PYTHON_VERSION_FLAG: version,
+        # Only `py_venv` carries the attr; other rules inherit the group.
+        _DEP_GROUP_FLAG: getattr(attr, "dep_group", "") or settings[_DEP_GROUP_FLAG],
 
-    # Set the dep_group transition. The attr is only present on `py_venv`
-    # (rules without it propagate the inherited setting; `py_venv_exec`
-    # is config-agnostic — its runfiles inherit the venv's wheels at
-    # whatever DEP_GROUP_FLAG the venv resolved under).
-    dep_group = getattr(attr, "dep_group", None)
-    if dep_group:
-        acc[DEP_GROUP_FLAG] = str(dep_group)
-        acc[_DEP_GROUP_BASELINE_FLAG] = _baseline(
-            settings,
-            _DEP_GROUP_BASELINE_FLAG,
-            settings[DEP_GROUP_FLAG],
-        )
-    else:
-        acc[DEP_GROUP_FLAG] = settings[DEP_GROUP_FLAG]
-        acc[_DEP_GROUP_BASELINE_FLAG] = settings[_DEP_GROUP_BASELINE_FLAG]
-
+        # Keep rules_python names alive
+        _RPY_FREETHREADED_FLAG: "yes" if freethreaded else "no",
+        _RPY_VERSION_FLAG: version,
+    }
+    for flag, baseline_flag in _FLAG_BASELINE_PAIRS:
+        acc[baseline_flag] = _capture_baseline(settings, flag, baseline_flag, acc[flag])
     return acc
+
+def _python_transition_impl(settings, attr):
+    return _python_transition_base(settings, attr, validate = True)
 
 python_transition = transition(
     implementation = _python_transition_impl,
@@ -130,15 +93,10 @@ python_transition = transition(
     outputs = _ALL_FLAGS,
 )
 
-# The launcher -> venv edge. With no launcher `python_version` or
-# `freethreaded` the inherited settings pass through untouched. Validation
-# never runs here: the edge produces an intermediate configuration, and the
-# venv's own rule transition — which always applies next and may override
-# either half of a version/GIL combination — is the sole authority for
-# rejecting an incompatible final configuration.
+# The launcher -> venv edge. Validation never runs here: the venv's own rule
+# transition always applies next, may override either half of a version/GIL
+# combination, and is the sole authority for rejecting the final configuration.
 def _venv_python_transition_impl(settings, attr):
-    if not attr.python_version and not attr.freethreaded:
-        return {flag: settings[flag] for flag in _ALL_FLAGS}
     return _python_transition_base(settings, attr, validate = False)
 
 venv_python_transition = transition(
@@ -154,10 +112,13 @@ venv_python_transition = transition(
 def _reset_python_flags_transition_impl(settings, _attr):
     acc = {}
     for flag, baseline_flag in _FLAG_BASELINE_PAIRS:
-        is_bool = type(settings[flag]) == "bool"
-        current = ("true" if settings[flag] else "false") if is_bool else settings[flag]
-        restored = _baseline(settings, baseline_flag, current)
-        acc[flag] = restored == "true" if is_bool else restored
+        baseline = settings[baseline_flag]
+        if baseline == _BASELINE_UNSET:
+            acc[flag] = settings[flag]
+        elif type(settings[flag]) == "bool":
+            acc[flag] = baseline == "true"
+        else:
+            acc[flag] = baseline
         acc[baseline_flag] = _BASELINE_UNSET
     return acc
 

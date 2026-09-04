@@ -91,4 +91,74 @@ root(
     ],
 )
 
+# Terminals whose attrs leave every flag at its inherited value capture no
+# baseline; their deps stay in the caller's configuration.
+terminal(
+    name = "passthrough_terminal",
+    tags = ["manual"],
+    deps = [":probe"],
+)
+
+terminal(
+    name = "same_value_terminal",
+    dep_group = "baseline",
+    freethreaded = "false",
+    tags = ["manual"],
+    deps = [":probe"],
+)
+
+root(
+    name = "synced_root",
+    synced = True,
+    tags = ["manual"],
+    deps = [
+        ":passthrough_terminal",
+        ":probe",
+        ":same_value_terminal",
+    ],
+)
+
+# Real binaries with no overrides: their venvs and shared deps must analyze in
+# the caller's configuration, so the generated source is one File and every
+# node reports the caller's bin_dir.
+genrule(
+    name = "gen",
+    outs = ["gen.py"],
+    cmd = "touch $@",
+    tags = ["manual"],
+)
+
+py_library(
+    name = "shared",
+    srcs = ["gen.py"],
+    tags = ["manual"],
+)
+
+py_binary(
+    name = "bin_a",
+    srcs = ["main.py"],
+    main = "main.py",
+    tags = ["manual"],
+    deps = [":shared"],
+)
+
+py_binary(
+    name = "bin_b",
+    srcs = ["main.py"],
+    main = "main.py",
+    tags = ["manual"],
+    deps = [":shared"],
+)
+
+root(
+    name = "binaries_root",
+    synced = True,
+    tags = ["manual"],
+    deps = [
+        ":bin_a",
+        ":bin_b",
+        ":shared",
+    ],
+)
+
 reset_data_edges_test_suite()
