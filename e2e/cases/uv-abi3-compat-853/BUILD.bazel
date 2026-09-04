@@ -3,6 +3,34 @@
 # should recognize as compatible (PEP 652).
 
 load("@aspect_rules_py//py:defs.bzl", "py_test")
+load(":selection_test.bzl", "abi3_wheel_test", "freethreaded_sdist_test")
+
+# Keep selection assertions independent of the test runner's host platform.
+platform(
+    name = "linux_x86_64",
+    constraint_values = [
+        "@platforms//cpu:x86_64",
+        "@platforms//os:linux",
+    ],
+    flags = [
+        "--@aspect_rules_py//uv/private/constraints/platform:platform_libc=glibc",
+        "--@aspect_rules_py//uv/private/constraints/platform:platform_version=2.34",
+    ],
+)
+
+# This lock has only ordinary abi3 wheels and an sdist, with no cp314t
+# wheel that could hide an incorrectly compatible abi3 wheel. Analyze the
+# distribution directly: the existing project targets Python 3.12, but the
+# wheel's stable ABI is forward-compatible with ordinary Python 3.14.
+abi3_wheel_test(
+    name = "abi3_wheel_test",
+    target_under_test = "@whl_install__abi3_compat__cryptography__46_0_5//:whl",
+)
+
+freethreaded_sdist_test(
+    name = "freethreaded_sdist_test",
+    target_under_test = "@whl_install__abi3_compat__cryptography__46_0_5//:whl",
+)
 
 py_test(
     name = "test_import",
