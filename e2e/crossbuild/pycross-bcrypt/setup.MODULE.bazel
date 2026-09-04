@@ -1,0 +1,38 @@
+"""bcrypt: setuptools-rust sdist build.
+
+Ported from the spike workspace's //bcrypt case. The Cargo cross env/toolchain
+wiring stays identical to the other rust suites — see //tools:rust_host_sysroot
+for why CARGO/RUSTC alone are not enough.
+"""
+
+uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv.declare_hub(hub_name = "pypi_pycross_bcrypt")
+uv.project(
+    default_build_dependencies = [
+        "build",
+        "setuptools",
+        "setuptools-rust",
+        "wheel",
+    ],
+    hub_name = "pypi_pycross_bcrypt",
+    lock = "//pycross-bcrypt:uv.lock",
+    pyproject = "//pycross-bcrypt:pyproject.toml",
+)
+uv.override_package(
+    name = "bcrypt",
+    env = {
+        "CARGO": "$(CARGO)",
+        "RUSTC": "$(RUSTC)",
+        "RULES_PY_RUST_HOST_SYSROOT": "$(RUST_HOST_SYSROOT)",
+    },
+    lock = "//pycross-bcrypt:uv.lock",
+    toolchains = [
+        "@rules_rust//rust/toolchain:current_rust_toolchain",
+        "//tools:rust_host_sysroot",
+    ],
+)
+use_repo(
+    uv,
+    "pypi_pycross_bcrypt",
+    "sdist_build__pycross_bcrypt__bcrypt__5_0_0",
+)

@@ -1015,6 +1015,36 @@ def _build_backend(pyproject_data: dict[str, object] | None) -> str | None:
     return backend if isinstance(backend, str) else None
 
 
+_SETUPTOOLS_BACKENDS = (
+    None,
+    "setuptools.build_meta",
+    "setuptools.build_meta:__legacy__",
+)
+
+_REQUIREMENT_NAME_RE = re.compile(r"^\s*([A-Za-z0-9][A-Za-z0-9._-]*)")
+
+
+def _requirement_name(requirement: str) -> str:
+    """PEP 508 requirement string -> bare package name, extras/specifiers/markers stripped."""
+    match = _REQUIREMENT_NAME_RE.match(requirement)
+    return match.group(1) if match else ""
+
+
+def _uses_setuptools_rust(pyproject_data: dict[str, object] | None) -> bool:
+    """setuptools-rust has no build-backend of its own (it's
+    setuptools.build_meta plus a build requirement) — detect it there."""
+    build_system = (pyproject_data or {}).get("build-system", {})
+    if not isinstance(build_system, dict):
+        return False
+    backend = build_system.get("build-backend")
+    if (backend if isinstance(backend, str) else None) not in _SETUPTOOLS_BACKENDS:
+        return False
+    requires = build_system.get("requires", [])
+    if not isinstance(requires, list):
+        return False
+    return any(isinstance(req, str) and _requirement_name(req) == "setuptools-rust" for req in requires)
+
+
 def _legacy_metadata_conflicts_with_pyproject(worktree: str) -> bool:
     setup_py = path.join(worktree, "setup.py")
     pyproject_data = _load_pyproject_data(worktree)
@@ -1223,19 +1253,30 @@ def main() -> None:
             "--outdir", outdir,
         ]
 
+        pyproject_data = _load_pyproject_data(t)
+        backend = _build_backend(pyproject_data)
+
+        # Packages needing -D setup-args (numpy's -Dblas=none — the hermetic
+        # venv has no system BLAS) pass them via this env var. `build`'s -C
+        # accumulates repeated keys, so it can't collide with the
+        # --cross-file the cross branch adds separately. Native too: the
+        # setup-args are about the package, not the mode.
+        if backend == "mesonpy":
+            for arg in shlex.split(build_env.get("RULES_PY_MESON_SETUP_ARGS", "")):
+                cmd += ["-C", "setup-args=" + arg]
+
         # meson-python only synthesizes its own cross file for macOS
         # ARCHFLAGS/cibuildwheel shapes; everything else configures as a
         # native build and fails meson's compiler sanity checks. Hand it
         # ours (see _generate_meson_cross_file).
         if opts.cross:
-            backend = _build_backend(_load_pyproject_data(t))
             if backend == "mesonpy":
                 cross_file = _generate_meson_cross_file(tmp_root, build_env, opts.target_os, opts.target_cpu)
                 cmd += ["-C", "setup-args=--cross-file=" + cross_file]
             elif backend == "scikit_build_core.build":
                 toolchain = _generate_cmake_toolchain_file(tmp_root, build_env, opts.target_os, opts.target_cpu)
                 cmd += ["-C", "cmake.toolchain-file=" + toolchain]
-            elif backend == "maturin" and build_env.get("CARGO"):
+            elif (backend == "maturin" or _uses_setuptools_rust(pyproject_data)) and build_env.get("CARGO"):
                 _configure_cargo_cross_env(build_env, tmp_root, opts.target_os, opts.target_cpu, opts.target_libc)
     else:
         print("Error: Unable to detect build command! Neither pyproject.toml nor setup.py found!", file=sys.stderr)

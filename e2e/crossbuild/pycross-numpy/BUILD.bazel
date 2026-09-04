@@ -1,6 +1,8 @@
-# meson-python cross case: contourpy (pybind11 C++, meson-python backend)
-# built from its sdist for the host at runtime, and cross-compiled for both
-# linux CPUs with the generated meson cross file.
+# numpy ships official prebuilt wheels for linux/amd64 and linux/arm64, but
+# [tool.uv] no-binary-package forces it to build from sdist here. Numpy uses
+# meson-python (vendored meson), Cython, and needs -Dblas=none -Dlapack=none
+# because this sandbox has no system BLAS/LAPACK (see setup.MODULE.bazel's
+# RULES_PY_MESON_SETUP_ARGS override).
 
 load("@aspect_rules_py//py:defs.bzl", "py_test")
 load("//tools:collect_wheels.bzl", "collect_wheels")
@@ -8,15 +10,15 @@ load("//tools:wheel_export.bzl", "pycross_wheel_export")
 
 _PY = "3.12"
 
-_DEP_GROUP = "pycross_meson"
+_DEP_GROUP = "pycross_numpy"
 
 py_test(
-    name = "test_contourpy",
-    srcs = ["test_contourpy.py"],
+    name = "test_numpy",
+    srcs = ["test_numpy.py"],
     dep_group = _DEP_GROUP,
-    main = "test_contourpy.py",
+    main = "test_numpy.py",
     python_version = _PY,
-    deps = ["@pypi_pycross_meson//contourpy"],
+    deps = ["@pypi_pycross_numpy//numpy"],
 )
 
 # The wheel targets under `collect_wheels` are reached through a platform
@@ -49,7 +51,7 @@ platform(
 )
 
 collect_wheels(
-    name = "meson_wheels",
+    name = "numpy_wheels",
     expected_tags = [
         "linux_x86_64",
         "linux_aarch64",
@@ -58,15 +60,15 @@ collect_wheels(
         ":amd64_linux",
         ":arm64_linux",
     ],
-    wheels = ["@sdist_build__pycross_meson__contourpy__1_3_3//:whl"],
+    wheels = ["@sdist_build__pycross_numpy__numpy__2_5_1//:whl"],
 )
 
 # Execution verification: the cross-built wheel is installed and the case's
 # standalone test is run on a native runner of the target architecture.
 pycross_wheel_export(
-    name = "contourpy",
+    name = "numpy",
     amd64_platform = ":amd64_linux",
     arm64_platform = ":arm64_linux",
-    main = "test_contourpy.py",
-    wheel = "@sdist_build__pycross_meson__contourpy__1_3_3//:whl",
+    main = "test_numpy.py",
+    wheel = "@sdist_build__pycross_numpy__numpy__2_5_1//:whl",
 )

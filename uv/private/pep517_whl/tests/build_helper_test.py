@@ -766,6 +766,29 @@ class BuildBackendTest(unittest.TestCase):
             self.assertIsNone(build_helper._build_backend(data))
 
 
+class UsesSetuptoolsRustTest(unittest.TestCase):
+    def test_setuptools_rust_requirement_detected(self) -> None:
+        data = {"build-system": {"build-backend": "setuptools.build_meta", "requires": ["setuptools", "setuptools-rust>=1.8"]}}
+        self.assertTrue(build_helper._uses_setuptools_rust(data))
+
+    def test_no_backend_value_also_matches(self) -> None:
+        data = {"build-system": {"requires": ["setuptools-rust"]}}
+        self.assertTrue(build_helper._uses_setuptools_rust(data))
+
+    def test_plain_setuptools_does_not_match(self) -> None:
+        data = {"build-system": {"build-backend": "setuptools.build_meta", "requires": ["setuptools", "wheel"]}}
+        self.assertFalse(build_helper._uses_setuptools_rust(data))
+
+    def test_maturin_does_not_match(self) -> None:
+        data = {"build-system": {"build-backend": "maturin", "requires": ["maturin"]}}
+        self.assertFalse(build_helper._uses_setuptools_rust(data))
+
+    def test_requirement_name_strips_specifiers(self) -> None:
+        self.assertEqual("setuptools-rust", build_helper._requirement_name("setuptools-rust>=1.8"))
+        self.assertEqual("setuptools-rust", build_helper._requirement_name("setuptools-rust[extras] ~= 1.0 ; python_version > '3.9'"))
+        self.assertEqual("", build_helper._requirement_name(">=bogus"))
+
+
 class StaticRuntimeArchivesTest(unittest.TestCase):
     def _wrapper(self, tmp: str, archives: list[str]) -> str:
         echo = path.join(tmp, "echo_cc")

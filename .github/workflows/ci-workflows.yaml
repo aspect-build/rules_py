@@ -153,19 +153,215 @@ jobs:
                   if [ -f test.sh ]; then
                       bash test.sh
                   fi
+    # Cross-build validation: build wheels for the opposite architecture on
+    # each Linux runner, then install and run the case's standalone test on a
+    # native runner of the target architecture. No OCI containers — just pip
+    # install the wheel and `python test_<case>.py`.
+
+    crossbuild-wheels-darwin:
+        name: build wheels on darwin
+        if: >-
+            ${{ github.ref_name == 'main'
+                || contains(github.head_ref || github.ref_name, 'macos') }}
+        runs-on: macos-latest
+        steps:
+            - uses: actions/checkout@v6
+            - uses: bazel-contrib/setup-bazel@c5acdfb288317d0b5c0bbd7a396a3dc868bb0f86 # 0.19.0
+              with:
+                  bazelisk-cache: true
+                  disk-cache: macos-crossbuild-wheels
+                  repository-cache: true
+            - name: Cross-build linux wheels from macOS
+              working-directory: e2e/crossbuild
+              shell: bash
+              run: |
+                set -euo pipefail
+                mkdir -p "${RUNNER_TEMP}/wheels"
+                targets=$(bazel query 'filter(".*_(amd64|arm64)_bundle$", //...)')
+                bazel build --config=ci ${targets}
+                for target in ${targets}; do
+                    pkg="${target#//}"
+                    pkg="${pkg%:*}"
+                    target_name="${target##*:}"
+                    cp "bazel-bin/${pkg}/${target_name%_bundle}.tar.gz" "${RUNNER_TEMP}/wheels/"
+                done
+            - uses: actions/upload-artifact@v4
+              with:
+                name: crossbuild-wheels-darwin
+                path: ${{ runner.temp }}/wheels/*
+                retention-days: 1
+
+    crossbuild-run-darwin-built:
+        name: run darwin-built wheels on linux ${{ matrix.arch }}
+        needs: crossbuild-wheels-darwin
+        strategy:
+            fail-fast: false
+            matrix:
+                include:
+                - { runner: "ubuntu-latest", arch: "amd64" }
+                - { runner: "ubuntu-24.04-arm", arch: "arm64" }
+        runs-on: ${{ matrix.runner }}
+        steps:
+            - uses: actions/download-artifact@v4
+              with:
+                name: crossbuild-wheels-darwin
+                path: wheels
+            - uses: actions/setup-python@v5
+              with:
+                python-version: "3.12"
+            - name: Install and run tests
+              run: |
+                set -euo pipefail
+                cd wheels
+                status=0
+                for bundle in *_${{ matrix.arch }}.tar.gz; do
+                    [ -e "${bundle}" ] || continue
+                    case_name="${bundle%_${{ matrix.arch }}.tar.gz}"
+                    echo "::group::${case_name}"
+                    tmp=$(mktemp -d)
+                    tar -xzf "${bundle}" -C "${tmp}"
+                    (cd "${tmp}" && pip install *.whl && python "test_${case_name}.py") || status=1
+                    rm -rf "${tmp}"
+                    echo "::endgroup::"
+                done
+                exit "${status}"
+
+    crossbuild-wheels-amd64:
+        name: build wheels on amd64
+        runs-on: ubuntu-22.04-32core
+        steps:
+            - uses: actions/checkout@v6
+            - uses: aspect-build/setup-aspect@c22a8f64fb38f82f59ce809cd7eb9f8ae096da44 # v2026.23.2
+              with:
+                aspect-api-token: ${{ secrets.ASPECT_API_TOKEN }}
+            - name: Cross-build arm64 wheels
+              working-directory: e2e/crossbuild
+              run: |
+                set -euo pipefail
+                mkdir -p "${RUNNER_TEMP}/wheels"
+                targets=$(bazel query 'filter(".*_arm64_bundle$", //...)')
+                bazel build --config=ci ${targets}
+                for target in ${targets}; do
+                    pkg="${target#//}"
+                    pkg="${pkg%:*}"
+                    target_name="${target##*:}"
+                    cp "bazel-bin/${pkg}/${target_name%_bundle}.tar.gz" "${RUNNER_TEMP}/wheels/"
+                done
+            - uses: actions/upload-artifact@v4
+              with:
+                name: crossbuild-wheels-amd64-built
+                path: ${{ runner.temp }}/wheels/*
+                retention-days: 1
+
+    crossbuild-run-amd64-built:
+        name: run amd64-built wheels on arm64
+        needs: crossbuild-wheels-amd64
+        runs-on: ubuntu-24.04-arm
+        steps:
+            - uses: actions/download-artifact@v4
+              with:
+                name: crossbuild-wheels-amd64-built
+                path: wheels
+            - uses: actions/setup-python@v5
+              with:
+                python-version: "3.12"
+            - name: Install and run tests
+              run: |
+                set -euo pipefail
+                cd wheels
+                status=0
+                for bundle in *_arm64.tar.gz; do
+                    [ -e "${bundle}" ] || continue
+                    case_name="${bundle%_arm64.tar.gz}"
+                    echo "::group::${case_name}"
+                    tmp=$(mktemp -d)
+                    tar -xzf "${bundle}" -C "${tmp}"
+                    (cd "${tmp}" && pip install *.whl && python "test_${case_name}.py") || status=1
+                    rm -rf "${tmp}"
+                    echo "::endgroup::"
+                done
+                exit "${status}"
+
+    crossbuild-wheels-arm64:
+        name: build wheels on arm64
+        runs-on: ubuntu-24.04-arm
+        steps:
+            - uses: actions/checkout@v6
+            - uses: aspect-build/setup-aspect@c22a8f64fb38f82f59ce809cd7eb9f8ae096da44 # v2026.23.2
+              with:
+                aspect-api-token: ${{ secrets.ASPECT_API_TOKEN }}
+            - name: Cross-build amd64 wheels
+              working-directory: e2e/crossbuild
+              run: |
+                set -euo pipefail
+                mkdir -p "${RUNNER_TEMP}/wheels"
+                targets=$(bazel query 'filter(".*_amd64_bundle$", //...)')
+                bazel build --config=ci ${targets}
+                for target in ${targets}; do
+                    pkg="${target#//}"
+                    pkg="${pkg%:*}"
+                    target_name="${target##*:}"
+                    cp "bazel-bin/${pkg}/${target_name%_bundle}.tar.gz" "${RUNNER_TEMP}/wheels/"
+                done
+            - uses: actions/upload-artifact@v4
+              with:
+                name: crossbuild-wheels-arm-built
+                path: ${{ runner.temp }}/wheels/*
+                retention-days: 1
+
+    crossbuild-run-arm64-built:
+        name: run arm64-built wheels on amd64
+        needs: crossbuild-wheels-arm64
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/download-artifact@v4
+              with:
+                name: crossbuild-wheels-arm-built
+                path: wheels
+            - uses: actions/setup-python@v5
+              with:
+                python-version: "3.12"
+            - name: Install and run tests
+              run: |
+                set -euo pipefail
+                cd wheels
+                status=0
+                for bundle in *_amd64.tar.gz; do
+                    [ -e "${bundle}" ] || continue
+                    case_name="${bundle%_amd64.tar.gz}"
+                    echo "::group::${case_name}"
+                    tmp=$(mktemp -d)
+                    tar -xzf "${bundle}" -C "${tmp}"
+                    (cd "${tmp}" && pip install *.whl && python "test_${case_name}.py") || status=1
+                    rm -rf "${tmp}"
+                    echo "::endgroup::"
+                done
+                exit "${status}"
+
     test-all:
         name: test-all
         runs-on: ubuntu-latest
-        needs: [test, typecheck]
+        needs: [test, typecheck, crossbuild-run-amd64-built, crossbuild-run-arm64-built, crossbuild-run-darwin-built]
         if: always()
         steps:
             - name: All required jobs succeeded
               run: |
-                if [ "${{ needs.test.result }}" != "success" ]; then
-                    echo "One or more test matrix jobs did not succeed: ${{ needs.test.result }}"
-                    exit 1
-                fi
-                if [ "${{ needs.typecheck.result }}" != "success" ]; then
-                    echo "Typecheck did not succeed: ${{ needs.typecheck.result }}"
-                    exit 1
-                fi
+                for result in \
+                    "typecheck=${{ needs.typecheck.result }}" \
+                    "test=${{ needs.test.result }}" \
+                    "crossbuild-run-amd64-built=${{ needs['crossbuild-run-amd64-built'].result }}" \
+                    "crossbuild-run-arm64-built=${{ needs['crossbuild-run-arm64-built'].result }}"; do
+                    if [ "${result#*=}" != "success" ]; then
+                        echo "Required job did not succeed: ${result}"
+                        exit 1
+                    fi
+                done
+                # The darwin pipeline is gated to main and '*macos*' branches:
+                # skipped is expected elsewhere; anything that ran must pass.
+                case "${{ needs['crossbuild-run-darwin-built'].result }}" in
+                    success|skipped) ;;
+                    *)
+                        echo "crossbuild-run-darwin-built did not succeed: ${{ needs['crossbuild-run-darwin-built'].result }}"
+                        exit 1
+                        ;;
+                esac
