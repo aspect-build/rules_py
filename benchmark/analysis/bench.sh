@@ -15,7 +15,10 @@ shift
 cd "$(dirname "$0")"
 results_dir="${GITHUB_WORKSPACE:-/tmp}"
 
-python3 workspace/generate_workspace.py --root workspace --packages 50
+# ANALYSIS_DEP_GROUPS (e.g. "default,dev,test") assigns dep_groups to packages
+# round-robin, fanning the @pypi hub out into one configuration per group.
+python3 workspace/generate_workspace.py --root workspace --packages 50 \
+  ${ANALYSIS_DEP_GROUPS:+--dep-groups "$ANALYSIS_DEP_GROUPS"}
 python3 generate_module.py "$@"
 
 out_base="/tmp/bazel-$variant"
@@ -31,10 +34,19 @@ hyperfine --warmup 1 --runs 10 \
   --export-json "$results_dir/$variant.json" \
   "$BAZEL build --disk_cache= --nobuild --action_env=BENCH_TICK=\$(date +%s%N) //workspace/... //workspace:image_layers"
 
-targets=$($BAZEL query //workspace/... | wc -l | tr -d ' ')
-actions=$($BAZEL aquery --output=summary '//workspace/... + //workspace:image_layers' \
-  | awk '/^[0-9]+ total actions\.$/ { print $1 }')
-test -n "$targets" && test -n "$actions"
-echo "{\"targets\": $targets, \"actions\": $actions}" > "$results_dir/$variant-aux.json"
+# Aux metrics: target count, per-mnemonic action counts, and configured-target
+# counts split workspace/external. The external CT count exposes config fan-out
+# (e.g. per-dep_group duplication of the @pypi alias chains) that the plain
+# target count cannot see.
+$BAZEL query //workspace/... > "$results_dir/$variant-targets.txt"
+$BAZEL aquery --output=summary '//workspace/... + //workspace:image_layers' \
+  > "$results_dir/$variant-aquery.txt"
+$BAZEL cquery 'deps(//workspace/... + //workspace:image_layers)' \
+  > "$results_dir/$variant-cquery.txt"
+python3 aux_metrics.py \
+  "$results_dir/$variant-targets.txt" \
+  "$results_dir/$variant-aquery.txt" \
+  "$results_dir/$variant-cquery.txt" \
+  > "$results_dir/$variant-aux.json"
 
 $BAZEL shutdown

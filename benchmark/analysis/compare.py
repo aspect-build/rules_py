@@ -96,7 +96,7 @@ def pct(a: float, b: float) -> float:
 
 def fmt(val: float) -> str:
     """Format milliseconds with sensible precision."""
-    return f"{val:.3f}"
+    return f"{val:.1f}" if val < 10 else f"{val:.0f}"
 
 
 def warn(delta: float) -> str:
@@ -132,57 +132,80 @@ def main() -> None:
 
     has_aux = bcr_aux is not None or main_aux is not None or pr_aux is not None
 
-    table = "## Bazel analysis benchmark\n\n"
-    if has_aux:
-        table += "| Version | Mean (ms) | Median (ms) | ± stddev | vs BCR | vs main | Targets | Actions |\n"
-        table += "|---------|-----------|-------------|----------|--------|---------|---------|---------|\n"
-    else:
-        table += "| Version | Mean (ms) | Median (ms) | ± stddev | vs BCR | vs main |\n"
-        table += "|---------|-----------|-------------|----------|--------|---------|\n"
-
-    def aux_cell(aux: dict[str, Any] | None) -> str:
+    def aux_cells(aux: dict[str, Any] | None) -> list[str]:
         if aux is None:
-            return "— | —"
-        return f"{aux.get('targets', '—')} | {aux.get('actions', '—')}"
+            return ["—"] * 5
+        targets = aux.get("targets")
+        actions = aux.get("actions")
+        cts = aux.get("configured_targets")
+        ext = aux.get("external_configured_targets")
+        cts_cell = f"{cts} ({ext})" if cts and ext is not None else str(cts or "—")
+        # Configured-per-target rises with config fan-out (dep_groups,
+        # python_version); actions-per-configured falls when the growth is
+        # actionless nodes (alias chains).
+        cts_per_target = f"{cts / targets:.1f}" if targets and cts else "—"
+        actions_per_ct = f"{actions / cts:.2f}" if actions and cts else "—"
+        return [str(targets or "—"), str(actions or "—"), cts_cell, cts_per_target, actions_per_ct]
 
-    def row(
+    def make_row(
         label: str,
         d: dict[str, Any],
         vs_bcr: str,
         vs_main: str,
         aux: dict[str, Any] | None,
-    ) -> str:
-        line = (
-            f"| {label} | {fmt(d['mean_ms'])} | {fmt(d['median_ms'])} | "
-            f"±{fmt(d['stddev_ms'])} | {vs_bcr} | {vs_main}"
-        )
+    ) -> list[str]:
+        cells = [
+            label,
+            f"{fmt(d['mean_ms'])}/{fmt(d['median_ms'])} ±{fmt(d['stddev_ms'])}",
+            vs_bcr,
+            vs_main,
+        ]
         if has_aux:
-            line += f" | {aux_cell(aux)}"
-        line += " |\n"
-        return line
+            cells += aux_cells(aux)
+        return cells
+
+    header = ["Version", "Time (ms)", "vs BCR", "vs main"]
+    if has_aux:
+        header += ["Targets", "Actions", "Configured (ext)", "Cfg/target", "Actions/cfg"]
 
     bcr_label = os.environ.get("ANALYSIS_BCR_VERSION", "release")
-    table += row(
-        f"BCR {bcr_label} (baseline)", bcr, "—", "—", bcr_aux
-    )
-    table += row(
-        "HEAD main",
-        main,
-        f"{main_vs_bcr:+.1f}% {warn(main_vs_bcr)}",
-        "—",
-        main_aux,
-    )
-    table += row(
-        "This PR",
-        pr,
-        f"{pr_vs_bcr:+.1f}% {warn(pr_vs_bcr)}",
-        f"{pr_vs_main:+.1f}% {warn(pr_vs_main)}",
-        pr_aux,
-    )
+    rows = [
+        header,
+        make_row(f"BCR {bcr_label}", bcr, "—", "—", bcr_aux),
+        make_row(
+            "main",
+            main,
+            f"{main_vs_bcr:+.1f}% {warn(main_vs_bcr)}".strip(),
+            "—",
+            main_aux,
+        ),
+        make_row(
+            "PR",
+            pr,
+            f"{pr_vs_bcr:+.1f}% {warn(pr_vs_bcr)}".strip(),
+            f"{pr_vs_main:+.1f}% {warn(pr_vs_main)}".strip(),
+            pr_aux,
+        ),
+    ]
+
+    # GFM pipe table. NBSP inside cells removes wrap points; GitHub already
+    # scrolls tables wider than the comment. Numeric columns right-aligned.
+    def cell(c: str) -> str:
+        return c.replace(" ", "\u00a0")
+
+    table = "## Bazel analysis benchmark\n\n"
+    table += "| " + " | ".join(cell(c) for c in header) + " |\n"
+    table += "|" + "|".join(":---" if i == 0 else "---:" for i in range(len(header))) + "|\n"
+    for r in rows[1:]:
+        table += "| " + " | ".join(cell(c) for c in r) + " |\n"
 
     table += (
         f"\n> Measured with `hyperfine --warmup 1 --runs 10` on "
         f"`{os.environ.get('RUNNER_OS', 'local')}`\n"
+    )
+    table += (
+        "> **Time** = mean/median ±stddev. **Cfg** = configured targets; "
+        "(ext) = the count in external repos (the @pypi hub machinery).\n"
     )
     table += (
         f"> **Gate**: PR vs HEAD main median (threshold: {THRESHOLD_REGRESSION_PCT}%, "

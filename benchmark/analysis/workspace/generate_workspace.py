@@ -42,6 +42,13 @@ EXTERNAL_DEPS = [
     "djangorestframework",
 ]
 
+# Extras unique to each PEP 735 group in pyproject.toml (dev/test include the
+# default group, so default-pool deps stay resolvable under every group).
+GROUP_EXTRA_DEPS = {
+    "dev": ["black", "flake8", "mypy", "isort", "coverage"],
+    "test": ["pytest_cov", "responses"],
+}
+
 LIBRARY_BUILD_TEMPLATE = '''load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_library")
 
 py_library(
@@ -58,9 +65,9 @@ py_library(
 py_binary(
     name = "{name}_bin",
     srcs = ["main.py"],
-    main = "main.py",
+{dep_group_attr}    main = "main.py",
     visibility = ["//visibility:public"],
-    deps = [":{name}"],
+    deps = {bin_deps},
 )
 '''
 
@@ -69,8 +76,8 @@ TEST_BUILD_TEMPLATE = '''load("@aspect_rules_py//py:defs.bzl", "py_test")
 py_test(
     name = "{name}_test",
     srcs = ["test.py"],
-    main = "test.py",
-    deps = ["//workspace/src/{name}:{name}"],
+{dep_group_attr}    main = "test.py",
+    deps = {test_deps},
 )
 '''
 
@@ -120,9 +127,27 @@ def test_compute():
 '''
 
 
-def generate_package(pkg_dir: Path, name: str, deps: list[str], seed: int) -> None:
+def _deps_str(deps: list[str]) -> str:
+    return "[" + ", ".join(f'"{d}"' for d in deps) + "]"
+
+
+def generate_package(
+    pkg_dir: Path,
+    name: str,
+    deps: list[str],
+    seed: int,
+    dep_group: str = "",
+    group_deps: list[str] | None = None,
+) -> None:
     """Generate source and BUILD files for one local package."""
     pkg_dir.mkdir(parents=True, exist_ok=True)
+    group_deps = group_deps or []
+
+    # "default" is the baseline flag value from .bazelrc; setting the attr
+    # anyway would fork a second config via the baseline scratch flag.
+    dep_group_attr = ""
+    if dep_group and dep_group != "default":
+        dep_group_attr = f'    dep_group = "{dep_group}",\n'
 
     rng = random.Random(seed)
     multiplier = rng.randint(2, 100)
@@ -156,6 +181,8 @@ def generate_package(pkg_dir: Path, name: str, deps: list[str], seed: int) -> No
         LIBRARY_BUILD_TEMPLATE.format(
             name=name,
             deps=str(external_deps + local_deps),
+            dep_group_attr=dep_group_attr,
+            bin_deps=_deps_str([f":{name}"] + group_deps),
         )
     )
 
@@ -167,6 +194,8 @@ def generate_package(pkg_dir: Path, name: str, deps: list[str], seed: int) -> No
     (test_dir / "BUILD.bazel").write_text(
         TEST_BUILD_TEMPLATE.format(
             name=name,
+            dep_group_attr=dep_group_attr,
+            test_deps=_deps_str([f"//workspace/src/{name}:{name}"] + group_deps),
         )
     )
 
@@ -267,6 +296,13 @@ def main() -> int:
         action="store_true",
         help="Give the image target a py_layer_tier with first-party, pip, and interpreter groups",
     )
+    parser.add_argument(
+        "--dep-groups",
+        default="",
+        help="Comma-separated dep_group names to assign round-robin to packages "
+        "(e.g. 'default,dev,test'); names must exist in pyproject.toml. "
+        "Empty (default) keeps the single-config workspace.",
+    )
     args = parser.parse_args()
 
     root = Path(args.root)
@@ -275,12 +311,18 @@ def main() -> int:
 
     dep_pool = args.external_deps.split(",") if args.external_deps else EXTERNAL_DEPS
     image_binaries = min(args.image_binaries, args.packages)
+    dep_groups = [g for g in args.dep_groups.split(",") if g]
+    for group in dep_groups:
+        if group != "default" and group not in GROUP_EXTRA_DEPS:
+            print(f"ERROR: unknown dep_group '{group}' (no extras mapping)", file=sys.stderr)
+            return 1
 
     clean_generated(root)
 
     for i in range(args.packages):
         name = f"pkg_{i}"
         pkg_dir = src / name
+        group = dep_groups[i % len(dep_groups)] if dep_groups else ""
 
         # Each package depends on 0-3 earlier local packages and 1-2 external deps.
         local_deps = []
@@ -294,12 +336,26 @@ def main() -> int:
         external_count = rng.randint(1, min(2, len(dep_pool)))
         external_deps = [f"@pypi//{d}" for d in rng.sample(dep_pool, external_count)]
 
+        # A group-only dep on the binary/test (not the library) makes each
+        # group's closure distinct while keeping the library graph identical
+        # across --dep-groups values, so action counts stay comparable.
+        # Picked without touching `rng` so the shared draw sequence is stable.
+        extras = GROUP_EXTRA_DEPS.get(group)
+        group_deps = [f"@pypi//{extras[i % len(extras)]}"] if extras else []
+
         if args.image_common_dep and i >= args.packages - image_binaries:
             common = f"@pypi//{args.image_common_dep}"
             if common not in external_deps:
                 external_deps.append(common)
 
-        generate_package(pkg_dir, name, external_deps + local_deps, seed=args.seed + i)
+        generate_package(
+            pkg_dir,
+            name,
+            external_deps + local_deps,
+            seed=args.seed + i,
+            dep_group=group,
+            group_deps=group_deps,
+        )
 
     generate_root_build(
         root,
