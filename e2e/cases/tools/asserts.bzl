@@ -8,12 +8,14 @@ load("@bazel_lib//lib:write_source_files.bzl", "write_source_file")
 # layer's `_should_skip_pkg_path` filter — e.g. a reintroduced
 # `_wheels/<key>` intermediate tree, which also re-duplicates wheel files.
 # Asserted by a Docker-free py_test (see assert_tar_listing); intentionally an
-# invariant, not exact bytes, so it survives snapshot regeneration.
-_FORBIDDEN_LAYER_PATHS = [
-    "__pycache__",
-    "[.]pyc",
-    "/_wheels/",
-]
+# invariant, not exact bytes, so it survives snapshot regeneration. Keyed by
+# the image's first-party bytecode mode: pip layers are always stripped of
+# bytecode, but first-party bytecode is expected under `pyc`/`pyc_only`.
+_FORBIDDEN_LAYER_PATHS = {
+    "source": ["__pycache__", "[.]pyc", "/_wheels/"],
+    "pyc": ["site-packages/.*[.]pyc", "/_wheels/"],
+    "pyc_only": ["__pycache__", "site-packages/.*[.]pyc", "/_wheels/"],
+}
 
 # Paths whose byte size varies across Bazel releases or builds. We keep
 # the rows in the listing (so a missing/renamed file would still be
@@ -34,7 +36,7 @@ _FILTERED_PATHS = [
     "/bazel_tools/tools/bash/runfiles/runfiles.bash",
 ]
 
-def assert_tar_listing(name, actual, expected, exclude = [], disjoint = True, **kwargs):
+def assert_tar_listing(name, actual, expected, exclude = [], disjoint = True, pyc = "source", **kwargs):
     """Snapshot and invariant tests over the tar listings of image layers.
 
     Renders `bsdtar -tv` rows for every tar in `actual` into one multi-layer
@@ -59,6 +61,7 @@ def assert_tar_listing(name, actual, expected, exclude = [], disjoint = True, **
             rows they keep. The disjointness test always sees every row.
         disjoint: set False to skip the disjointness test for layouts with
             intentional cross-layer overlap.
+        pyc: the image's `pyc` mode; selects which bytecode paths are forbidden.
         **kwargs: forwarded to the `write_source_file` snapshot target.
     """
     actual_listing = "{}_listing".format(name)
@@ -163,7 +166,7 @@ done > $@
         name = "{}_no_forbidden_paths".format(name),
         srcs = ["//tools:assert_absent.py"],
         main = "//tools:assert_absent.py",
-        args = ["$(rootpath :{})".format(actual_listing)] + _FORBIDDEN_LAYER_PATHS,
+        args = ["$(rootpath :{})".format(actual_listing)] + _FORBIDDEN_LAYER_PATHS[pyc],
         data = [":{}".format(actual_listing)],
         testonly = True,
         **test_kwargs

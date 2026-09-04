@@ -123,6 +123,9 @@ def py_pytest_test(
     Include the `pytest` package (and `coverage`, if you want coverage) in
     `deps`.
 
+    Because pytest collects `.py` source paths, `pyc_only` requests fall back
+    to source mode for these targets. Source-retaining `pyc` mode is supported.
+
     Every file in `srcs` is a test module that pytest collects (scoped to the
     target, not the whole runfiles tree). Put importable support code in `deps`
     and pytest's `conftest.py` in `data`; to select tests by name pattern, use
@@ -151,6 +154,7 @@ def py_pytest_test(
         fail("py_pytest_test provides its own entrypoint; `main` is not supported. Use py_pytest_main + py_test for a custom main.")
 
     kwargs["testonly"] = True
+    kwargs["source_retention_required"] = True
 
     deps = list(deps)
     main = pytest_driver_wiring(

@@ -57,6 +57,109 @@ py_image_layer(
     binary = ":my_app_bin",
 )
 
+# A source explicitly requested as runtime data must remain readable in a
+# pyc_only image even though its compiled form is also packaged.
+py_binary(
+    name = "pyc_source_data_bin",
+    srcs = ["server.py"],
+    data = ["server.py"],
+    pyc = "pyc_only",
+)
+
+py_image_layer(
+    name = "pyc_source_data_layers",
+    binary = ":pyc_source_data_bin",
+    pyc = "pyc_only",
+)
+
+py_test(
+    name = "pyc_source_data_layers_test",
+    srcs = ["assert_tar_paths.py"],
+    args = [
+        "--present=/oci/py_image_layer/server.py",
+        "--tar-contains=_default.tar.gz=/server.pyc",
+        "$(rootpaths :pyc_source_data_layers)",
+    ],
+    data = [":pyc_source_data_layers"],
+    main = "assert_tar_paths.py",
+)
+
+# The source and data edges resolve this generated file in different Python
+# configurations. pyc_only strips the compiled source variant while retaining
+# the explicitly requested data variant; validation must inspect that same set.
+genrule(
+    name = "generated_source_data",
+    outs = ["generated_source_data.py"],
+    cmd = select({
+        ":_python_3_11": "echo 'VALUE = \"source\"' > $@",
+        "//conditions:default": "echo 'VALUE = \"data\"' > $@",
+    }),
+)
+
+py_binary(
+    name = "pyc_generated_source_data_bin",
+    srcs = [
+        "server.py",
+        ":generated_source_data.py",
+    ],
+    data = [":generated_source_data.py"],
+    main = "server.py",
+    pyc = "pyc_only",
+    python_version = "3.11",
+)
+
+py_image_layer(
+    name = "pyc_generated_source_data_layers",
+    binary = ":pyc_generated_source_data_bin",
+    launcher_dir = "/app/bin",
+    pyc = "pyc_only",
+)
+
+filegroup(
+    name = "pyc_generated_source_data_validation",
+    srcs = [":pyc_generated_source_data_layers"],
+    output_group = "_validation",
+)
+
+build_test(
+    name = "pyc_generated_source_data_validation_test",
+    targets = [":pyc_generated_source_data_validation"],
+)
+
+# Rule-level groups must package the selected bytecode representation rather
+# than bypassing pyc_only and retaining a first-party source file.
+py_library(
+    name = "pyc_rule_group_lib",
+    srcs = ["direct_source_helper.py"],
+)
+
+py_binary(
+    name = "pyc_rule_group_bin",
+    srcs = ["server.py"],
+    pyc = "pyc_only",
+    deps = [":pyc_rule_group_lib"],
+)
+
+py_image_layer(
+    name = "pyc_rule_group_layers",
+    binary = ":pyc_rule_group_bin",
+    groups = {":pyc_rule_group_lib": "fp_rule"},
+    pyc = "pyc_only",
+)
+
+py_test(
+    name = "pyc_rule_group_layers_test",
+    srcs = ["assert_tar_paths.py"],
+    args = [
+        "--tar-contains=_fp_rule.tar.gz=/direct_source_helper.pyc",
+        "--tar-absent=_default.tar.gz=/direct_source_helper.pyc",
+        "--absent=/direct_source_helper.py",
+        "$(rootpaths :pyc_rule_group_layers)",
+    ],
+    data = [":pyc_rule_group_layers"],
+    main = "assert_tar_paths.py",
+)
+
 # Docker-free counterpart to the container_structure_test: run the same
 # entrypoint (verify_all(imports=["colorama"])) on the host so the venv's
 # site-packages symlinks must resolve to real files and colorama must import.
@@ -1167,6 +1270,50 @@ assert_tar_listing(
     name = "my_app_layers_fp_test",
     actual = [":platform_layers_fp"],
     expected = "my_app_layers_fp_listing.yaml",
+)
+
+# Tiered first-party groups under each bytecode mode: group tars carry the
+# rewritten first-party files, the default source layer drops pyc_only sources.
+py_image_layer(
+    name = "my_app_layers_fp_pyc",
+    binary = ":my_app_bin",
+    layer_tier = ":my_app_tier",
+    pyc = "pyc",
+)
+
+platform_transition_filegroup(
+    name = "platform_layers_fp_pyc",
+    srcs = [":my_app_layers_fp_pyc"],
+    target_platform = ":x86_64_linux",
+)
+
+assert_tar_listing(
+    name = "my_app_layers_fp_pyc_test",
+    actual = [":platform_layers_fp_pyc"],
+    exclude = ["python_interpreters"],
+    expected = "my_app_layers_fp_pyc_listing.yaml",
+    pyc = "pyc",
+)
+
+py_image_layer(
+    name = "my_app_layers_fp_pyc_only",
+    binary = ":my_app_bin",
+    layer_tier = ":my_app_tier",
+    pyc = "pyc_only",
+)
+
+platform_transition_filegroup(
+    name = "platform_layers_fp_pyc_only",
+    srcs = [":my_app_layers_fp_pyc_only"],
+    target_platform = ":x86_64_linux",
+)
+
+assert_tar_listing(
+    name = "my_app_layers_fp_pyc_only_test",
+    actual = [":platform_layers_fp_pyc_only"],
+    exclude = ["python_interpreters"],
+    expected = "my_app_layers_fp_pyc_only_listing.yaml",
+    pyc = "pyc_only",
 )
 
 assert_tar_listing(

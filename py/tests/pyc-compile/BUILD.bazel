@@ -1,0 +1,49 @@
+load("@bazel_lib//lib:write_source_files.bzl", "write_source_files")
+load("//py:defs.bzl", "py_test", "py_venv")
+load("//py/private/py_venv:defs.bzl", "py_venv_exec")
+load(":bytecode_compat_test.bzl", "bytecode_compat_test_suite")
+
+package(default_testonly = True)
+
+py_test(
+    name = "version_check_test",
+    srcs = ["version_check_test.py"],
+    data = ["//py/private:pyc_compile.py"],
+    env = {"PYC_COMPILE": "$(rootpath //py/private:pyc_compile.py)"},
+)
+
+# Checked-in bytecode snapshot: compiled output must be byte-identical on
+# every host and target platform (macOS dev machines and linux CI included) —
+# the invariant remote caches rely on. Pinned to python_version 3.13. After
+# editing version_check_test.py or bumping the 3.13 interpreter, refresh with
+#   bazel run //py/tests/pyc-compile:snapshots
+py_venv(
+    name = "snapshot_venv",
+    srcs = ["version_check_test.py"],
+    python_version = "3.13",
+)
+
+py_venv_exec(
+    name = "snapshot_bin",
+    main = "version_check_test.py",
+    pyc = "pyc_only",
+    python_version = "3.13",
+    venv = ":snapshot_venv",
+)
+
+# DefaultInfo carries [launcher, entrypoint .pyc]; pick out the bytecode.
+genrule(
+    name = "snapshot_pyc",
+    srcs = [":snapshot_bin"],
+    outs = ["snapshot_extracted.pyc"],
+    cmd = "for f in $(SRCS); do case $$f in *.pyc) cp $$f $@;; esac; done",
+)
+
+write_source_files(
+    name = "snapshots",
+    files = {
+        "snapshots/version_check_test.pyc": ":snapshot_pyc",
+    },
+)
+
+bytecode_compat_test_suite(name = "bytecode_compat_test")

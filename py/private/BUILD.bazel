@@ -19,6 +19,7 @@ exports_files(
         "unittest_main.py",
         "merge_repo_mappings.awk",
         "modify_mtree.awk",
+        "pyc_compile.py",
     ],
     visibility = ["//visibility:public"],
 )
@@ -57,6 +58,15 @@ py_layer_tier(
 )
 
 bzl_library(
+    name = "pyc",
+    srcs = ["pyc.bzl"],
+    deps = [
+        ":py_info_interop",
+        "//py/private/toolchain:types",
+    ],
+)
+
+bzl_library(
     name = "py_image_layer",
     srcs = ["py_image_layer.bzl"],
     deps = [
@@ -64,9 +74,11 @@ bzl_library(
         ":providers",
         ":py_info",
         ":py_info_interop",
+        ":pyc",
         "//py/private/py_venv:types",
         "//py/private/toolchain:types",
         "@bazel_lib//lib:transitions",
+        "@bazel_skylib//rules:common_settings",
         "@tar.bzl//tar:mtree",
         "@tar.bzl//tar:tar",
     ],
@@ -91,6 +103,7 @@ bzl_library(
         ":py_info_interop",
         ":py_semantics",
         ":py_wheel",
+        ":pyc",
         ":transitions",
         "@bazel_skylib//lib:new_sets",
         "@bazel_skylib//lib:types",
@@ -160,6 +173,8 @@ bzl_library(
     deps = [
         ":providers",
         ":py_info",
+        ":pyc",
+        ":transitions",
         "//py/private/py_venv:types",
         "//py/private/toolchain:types",
         "@bazel_skylib//rules:common_settings",

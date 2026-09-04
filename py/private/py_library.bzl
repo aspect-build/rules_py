@@ -11,6 +11,7 @@ load("//py/private:providers.bzl", "PyWheelsInfo")
 load("//py/private:pth.bzl", "make_imports_depset")
 load("//py/private:py_info.bzl", "PyInfo")
 load("//py/private:py_info_interop.bzl", "RulesPythonPyInfo", "get_py_info", "has_py_info")
+load("//py/private:pyc.bzl", "PYC_ATTRS", "PYC_TOOLCHAINS", "compile_pycs", "make_pyc_info", "own_compile_sources")
 load("//py/private:transitions.bzl", "reset_python_flags_transition")
 
 def _make_instrumented_files_info(ctx):
@@ -177,6 +178,18 @@ def _py_library_impl(ctx):
         instrumented_files_info,
     ]
 
+    # Bytecode compilation is "auto": the owning rule always declares the
+    # compile actions and provider, and Bazel only executes an action when a
+    # terminal (py_binary/py_test/py_venv_exec/py_image_layer) opts into a
+    # pyc mode and requests the outputs. Custom rules built on
+    # py_library_utils without PYC_ATTRS/PYC_TOOLCHAINS skip this.
+    if hasattr(ctx.attr, "_pyc_compiler"):
+        providers.append(make_pyc_info(
+            compile_pycs(ctx, own_compile_sources(ctx.attr.srcs)),
+            deps = ctx.attr.deps,
+            resolutions = getattr(ctx.attr, "resolutions", {}).values(),
+        ))
+
     if getattr(ctx.attr, "_emit_rules_python_providers", None) and ctx.attr._emit_rules_python_providers[BuildSettingInfo].value:
         # Compatibility shim for trees mid-migration: keeps not-yet-converted
         # @rules_python py_* targets able to depend on this library.
@@ -250,6 +263,7 @@ py_library = rule(
     attrs = dict({
         "virtual_deps": attr.string_list(allow_empty = True, default = []),
         "_emit_rules_python_providers": attr.label(default = "//py/private:emit_rules_python_providers"),
-    }, **py_library_utils.attrs),
+    }, **py_library_utils.attrs) | PYC_ATTRS,
     provides = py_library_utils.py_library_providers,
+    toolchains = PYC_TOOLCHAINS,
 )
