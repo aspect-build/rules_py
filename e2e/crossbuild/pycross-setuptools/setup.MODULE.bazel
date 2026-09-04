@@ -7,7 +7,7 @@ sdists (`[tool.uv] no-binary-package` in pyproject.toml), covering the
 - PyYAML 6.0.1: Cython-generated extension (sdist → cythonize → C → .so).
   The lock pins `cython<3.0` because PyYAML 6.0.x cannot be cythonized by
   Cython 3.
-- setproctitle 1.3.2: a plain C extension, the minimal native case.
+- setproctitle 1.3.7: a plain C extension, the minimal native case.
 - zstandard 0.22.0: a large vendored-libzstd build, plus an optional cffi
   backend its setup.py compiles whenever cffi is importable at build time.
 
@@ -69,6 +69,6 @@ use_repo(
     uv,
     "pypi_pycross_setuptools",
     "sdist_build__pycross_setuptools__pyyaml__6_0_1",
-    "sdist_build__pycross_setuptools__setproctitle__1_3_2",
+    "sdist_build__pycross_setuptools__setproctitle__1_3_7",
     "sdist_build__pycross_setuptools__zstandard__0_22_0",
 )

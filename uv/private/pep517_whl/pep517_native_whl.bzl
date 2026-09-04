@@ -22,6 +22,20 @@ load(
 )
 
 _CC_TOOLCHAIN_TYPE = Label("@bazel_tools//tools/cpp:toolchain_type")
+
+# TemplateVariableInfo make-variable -> build helper env key. Sources:
+# rules_rust's current_rust_toolchain (CARGO/RUSTC), rules_py's
+# rust_host_sysroot layer (RUST_HOST_SYSROOT), @bazel_tools' java runtime
+# (JAVA/JAVABASE) and an Ant layer exporting ANT_HOME/ANT_BIN_DIR.
+_DERIVED_ENV = {
+    "CARGO": "CARGO",
+    "RUSTC": "RUSTC",
+    "RUST_HOST_SYSROOT": "RULES_PY_RUST_HOST_SYSROOT",
+    "JAVA": "JAVA",
+    "JAVABASE": "JAVA_HOME",
+    "ANT_HOME": "ANT_HOME",
+    "ANT_BIN_DIR": "RULES_PY_ANT_BIN_DIR",
+}
 _EXECROOT_MARKER = "__ASPECT_RULES_PY_EXECROOT__"
 _INFER_CXX_COMPANION = "ASPECT_RULES_PY_INFER_CXX_COMPANION"
 
@@ -270,6 +284,14 @@ def _pep517_native_whl(ctx):
     if cc_files:
         extra_inputs.append(cc_files)
     known_variables.update({key: value for key, value in cc_tools.items() if key not in known_variables})
+
+    # Well-known make-variables exported by `toolchains` become the env keys
+    # the build helper consumes, so listing a toolchain is enough and the
+    # RULES_PY_* names stay a contract between this rule and the helper.
+    # Explicit `env` entries win.
+    for make_var, env_key in _DERIVED_ENV.items():
+        if make_var in known_variables and env_key not in ctx.attr.env:
+            env[env_key] = known_variables[make_var]
 
     for k, v in ctx.attr.env.items():
         env[k] = ctx.expand_make_variables("env", v, known_variables)

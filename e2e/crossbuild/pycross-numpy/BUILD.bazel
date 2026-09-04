@@ -1,0 +1,74 @@
+# numpy ships official prebuilt wheels for linux/amd64 and linux/arm64, but
+# [tool.uv] no-binary-package forces it to build from sdist here. Numpy uses
+# meson-python (vendored meson), Cython, and needs -Dblas=none -Dlapack=none
+# because this sandbox has no system BLAS/LAPACK (see setup.MODULE.bazel's
+# RULES_PY_MESON_SETUP_ARGS override).
+
+load("@aspect_rules_py//py:defs.bzl", "py_test")
+load("//tools:collect_wheels.bzl", "collect_wheels")
+load("//tools:wheel_export.bzl", "pycross_wheel_export")
+
+_PY = "3.12"
+
+_DEP_GROUP = "pycross_numpy"
+
+py_test(
+    name = "test_numpy",
+    srcs = ["test_numpy.py"],
+    dep_group = _DEP_GROUP,
+    main = "test_numpy.py",
+    python_version = _PY,
+    deps = ["@pypi_pycross_numpy//numpy"],
+)
+
+# The wheel targets under `collect_wheels` are reached through a platform
+# transition rather than a py_venv, so nothing sets the dep_group flag for
+# them — the platform carries it alongside the libc/version flags the wheel
+# resolver needs.
+_PLATFORM_FLAGS = [
+    "--@aspect_rules_py//uv/private/constraints/platform:platform_libc=glibc",
+    "--@aspect_rules_py//uv/private/constraints/platform:platform_version=2.39",
+    "--@aspect_rules_py//uv/private/constraints/dep_group:dep_group=" + _DEP_GROUP,
+    "--@aspect_rules_py//py/private/interpreter:python_version=" + _PY,
+]
+
+platform(
+    name = "amd64_linux",
+    constraint_values = [
+        "@platforms//os:linux",
+        "@platforms//cpu:x86_64",
+    ],
+    flags = _PLATFORM_FLAGS,
+)
+
+platform(
+    name = "arm64_linux",
+    constraint_values = [
+        "@platforms//os:linux",
+        "@platforms//cpu:aarch64",
+    ],
+    flags = _PLATFORM_FLAGS,
+)
+
+collect_wheels(
+    name = "numpy_wheels",
+    expected_tags = [
+        "linux_x86_64",
+        "linux_aarch64",
+    ],
+    platforms = [
+        ":amd64_linux",
+        ":arm64_linux",
+    ],
+    wheels = ["@sdist_build__pycross_numpy__numpy__2_5_1//:whl"],
+)
+
+# Execution verification: the cross-built wheel is installed and the case's
+# standalone test is run on a native runner of the target architecture.
+pycross_wheel_export(
+    name = "numpy",
+    amd64_platform = ":amd64_linux",
+    arm64_platform = ":arm64_linux",
+    main = "test_numpy.py",
+    wheel = "@sdist_build__pycross_numpy__numpy__2_5_1//:whl",
+)

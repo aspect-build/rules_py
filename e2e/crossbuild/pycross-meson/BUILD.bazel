@@ -4,6 +4,7 @@
 
 load("@aspect_rules_py//py:defs.bzl", "py_test")
 load("//tools:collect_wheels.bzl", "collect_wheels")
+load("//tools:wheel_export.bzl", "pycross_wheel_export")
 
 _PY = "3.12"
 
@@ -58,4 +59,14 @@ collect_wheels(
         ":arm64_linux",
     ],
     wheels = ["@sdist_build__pycross_meson__contourpy__1_3_3//:whl"],
+)
+
+# Execution verification: the cross-built wheel is installed and the case's
+# standalone test is run on a native runner of the target architecture.
+pycross_wheel_export(
+    name = "contourpy",
+    amd64_platform = ":amd64_linux",
+    arm64_platform = ":arm64_linux",
+    main = "test_contourpy.py",
+    wheel = "@sdist_build__pycross_meson__contourpy__1_3_3//:whl",
 )

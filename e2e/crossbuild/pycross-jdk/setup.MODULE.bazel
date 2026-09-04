@@ -21,11 +21,6 @@ uv.project(
 )
 uv.override_package(
     name = "jpype1",
-    env = {
-        "JAVA": "$(JAVA)",
-        "JAVA_HOME": "$(JAVABASE)",
-        "RULES_PY_ANT_BIN_DIR": "$(ANT_BIN_DIR)",
-    },
     lock = "//pycross-jdk:uv.lock",
     toolchains = [
         "//pycross-jdk:jdk",

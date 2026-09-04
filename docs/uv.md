@@ -271,6 +271,85 @@ platform_transition_filegroup(
 )
 ```
 
+## Example: Cross-compiling sdists
+
+Wheels are selected for the target platform, but when a package only ships a
+source distribution — or no published wheel matches the target — uv builds the
+sdist as part of the build. Two modes exist:
+
+- **Pure-Python sdists** produce a `-none-any` wheel and build identically in
+  any configuration, cross or not.
+- **Native sdists** (C/C++ extensions) build in *native mode* when the exec and
+  target platforms coincide. When they differ, the build enters *cross mode*.
+
+Cross mode requires a **cross-capable C++ toolchain** registered with
+`register_toolchains` — one whose compiler can target the destination platform
+from the exec platform (for example `toolchains_llvm`, whose clang is
+multi-target). If none resolves, analysis fails with an explicit error naming
+the missing toolchain type rather than an obscure toolchain-resolution
+failure. No per-package opt-in is needed: cross mode activates automatically
+from the platform configuration.
+
+Under cross mode the build action:
+
+1. Extracts the C++ toolchain selected for the target platform (compiler,
+   compile/link flags, sysroot) and re-materializes it as compiler wrapper
+   scripts, so flags such as `-target` / `--sysroot` survive the PEP 517
+   backend's own command construction. Per backend it also generates the
+   cross artifact the backend requires: a meson cross file plus exe_wrapper
+   (meson-python only auto-synthesizes cross files on macOS), a CMake
+   toolchain file (scikit-build-core's cross detection likewise only covers
+   macOS), and a `rustc --sysroot` wrapper plus sandboxed `CARGO_HOME` for
+   cargo-based backends (maturin, setuptools-rust).
+2. Overrides the target interpreter's sysconfig for the build
+   (`_PYTHON_SYSCONFIGDATA_NAME` pointing at the target runtime's
+   `_sysconfigdata_*.py`, `_PYTHON_HOST_PLATFORM`, and the target's
+   `EXT_SUFFIX`/`SOABI`), so the produced `.so` and wheel are tagged for the
+   destination platform.
+3. Resolves the sdist's *build* dependencies (`uv.project`'s
+   `default_build_dependencies`, e.g. `build`, `setuptools`, `cffi`) for the
+   **exec platform** but the **target Python version** — the interpreter that
+   runs the build is the host one; the wheels it imports match the host.
+4. Validates the produced wheel's platform tag against the target OS/CPU and
+   fails the action if the backend leaked the exec platform into the tag.
+
+Cargo-based backends need a Rust toolchain that runs on the exec platform.
+Declare it once per project with
+`uv.project(rust_toolchain = "@rules_rust//rust/toolchain:current_rust_toolchain")`;
+sdist repos whose build backend is maturin, or whose build requirements
+include setuptools-rust, then receive `CARGO`, `RUSTC` and the exec-platform
+sysroot automatically. No per-package `uv.override_package` `env` or
+`toolchains` entries are needed for Rust.
+
+Other build-time toolchains are still layered per package through
+`uv.override_package(toolchains = [...])`. Toolchains exporting the JDK
+(`$(JAVA)`, `$(JAVABASE)`) or Ant (`$(ANT_HOME)`) make variables are mapped
+into the build environment automatically; any other make variable still needs
+an explicit `env` entry.
+
+A working end-to-end suite lives in `e2e/crossbuild/`: real packages forced
+to build from sdist (`[tool.uv] no-binary-package`) and cross-compiled for
+linux/amd64 and linux/arm64, covering setuptools (`pycross-geohash`,
+`pycross-msgpack`, `pycross-psutil`, `pycross-setuptools`), setuptools-rust
+(`pycross-tiktoken`, `pycross-bcrypt`), maturin/PyO3 (`pycross-rust`,
+`pycross-rpds_py`), meson-python (`pycross-meson`, `pycross-numpy`), and
+scikit-build-core/CMake (`pycross-cmake`, `pycross-jdk`). Each case asserts
+the produced wheels' `Tag:` metadata and the ELF architecture of every bundled
+`.so`, and exports a wheel bundle that CI installs and runs on a native runner
+of the target architecture. `pycross-geohash` additionally covers a macOS
+arm64 → macOS amd64 cross target when run from a macOS host (see
+`e2e/crossbuild/test.sh`).
+
+Current limitations:
+
+- CPU-feature detection that runs compiled binaries cannot work in cross
+  mode and needs per-package baselines.
+- No shared-library "repair" (auditwheel/delocate style bundling) is performed
+  yet; wheels linking against Bazel-provided native libraries need care.
+- Windows targets and MSVC are not supported.
+- Remote execution with an exec platform different from the host is untested;
+  the build-dependency resolution assumes exec == host.
+
 ## Example: Constraining library compatibility
 
 By default uv hubs let you write `py_library` and other targets which are
