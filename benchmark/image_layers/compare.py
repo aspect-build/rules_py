@@ -28,9 +28,9 @@ THRESHOLD_REGRESSION_PCT = 10  # fail CI if PR is >10% slower than HEAD main
 # (key, label, actions_field): analysis records the target's total action
 # count from aquery; incrementals record actions re-executed, from BEP.
 SCENARIOS = [
-    ("analysis", "Analysis", "actions_total"),
-    ("inc-source", "1p Source Change", "actions_executed"),
-    ("inc-wheel", "3p Source Change", "actions_executed"),
+    ("analysis", "analysis", "actions_total"),
+    ("inc-source", "1p source", "actions_executed"),
+    ("inc-wheel", "3p wheel", "actions_executed"),
 ]
 
 
@@ -133,9 +133,8 @@ def main() -> None:
 
     bcr_label = os.environ.get("ANALYSIS_BCR_VERSION", "release")
 
-    table = "## py_image_layer benchmark\n\n"
-    table += "| Scenario | Version | Mean (s) | Median (s) | ± stddev | Actions | vs BCR | vs main |\n"
-    table += "|----------|---------|----------|------------|----------|---------|--------|---------|\n"
+    header = ["Scenario", "Version", "Time (s)", "Actions", "vs BCR", "vs main"]
+    rows: list[list[str]] = [header]
 
     regressions: list[tuple[str, float, float]] = []
 
@@ -153,13 +152,17 @@ def main() -> None:
         pr_vs_main = pct(main["median_s"], pr["median_s"])
         noise_pct = noise_floor_pct(main, pr)
 
-        def row(
+        def make_row(
             label: str, d: dict[str, Any], actions: str, vs_bcr: str, vs_main: str
-        ) -> str:
-            return (
-                f"| {scenario_label} | {label} | {fmt(d['mean_s'])} | {fmt(d['median_s'])} | "
-                f"±{fmt(d['stddev_s'])} | {actions} | {vs_bcr} | {vs_main} |\n"
-            )
+        ) -> list[str]:
+            return [
+                scenario_label,
+                label,
+                f"{fmt(d['mean_s'])}/{fmt(d['median_s'])} ±{fmt(d['stddev_s'])}",
+                actions,
+                vs_bcr,
+                vs_main,
+            ]
 
         def actions_cell(actions: int | None) -> str:
             return "—" if actions is None else str(actions)
@@ -168,27 +171,41 @@ def main() -> None:
         if pr_actions is not None and main_actions is not None and pr_actions > main_actions:
             pr_actions_cell += " ⚠️"
 
-        table += row(f"BCR {bcr_label} (baseline)", bcr, actions_cell(bcr_actions), "—", "—")
-        table += row(
-            "HEAD main",
+        rows.append(make_row(f"BCR {bcr_label}", bcr, actions_cell(bcr_actions), "—", "—"))
+        rows.append(make_row(
+            "main",
             main,
             actions_cell(main_actions),
-            f"{main_vs_bcr:+.1f}% {warn(main_vs_bcr)}",
+            f"{main_vs_bcr:+.1f}% {warn(main_vs_bcr)}".strip(),
             "—",
-        )
-        table += row(
-            "This PR",
+        ))
+        rows.append(make_row(
+            "PR",
             pr,
             pr_actions_cell,
-            f"{pr_vs_bcr:+.1f}% {warn(pr_vs_bcr)}",
-            f"{pr_vs_main:+.1f}% {warn(pr_vs_main)}",
-        )
+            f"{pr_vs_bcr:+.1f}% {warn(pr_vs_bcr)}".strip(),
+            f"{pr_vs_main:+.1f}% {warn(pr_vs_main)}".strip(),
+        ))
 
         if pr_vs_main > THRESHOLD_REGRESSION_PCT and pr_vs_main > noise_pct:
             regressions.append((scenario_label, pr_vs_main, noise_pct))
 
+    # GFM pipe table. NBSP inside cells removes wrap points; GitHub already
+    # scrolls tables wider than the comment. Numeric columns right-aligned.
+    def cell(c: str) -> str:
+        return c.replace(" ", "\u00a0")
+
+    table = "## py_image_layer benchmark\n\n"
+    table += "| " + " | ".join(cell(c) for c in header) + " |\n"
+    table += "|" + "|".join(":---" if i < 2 else "---:" for i in range(len(header))) + "|\n"
+    for r in rows[1:]:
+        table += "| " + " | ".join(cell(c) for c in r) + " |\n"
+
     table += (
-        f"\n> Measured with hyperfine on `{os.environ.get('RUNNER_OS', 'local')}`, "
+        "\n> **Time** = mean/median ±stddev.\n"
+    )
+    table += (
+        f"> Measured with hyperfine on `{os.environ.get('RUNNER_OS', 'local')}`, "
         "building `//workspace:image_layers` (10 binaries, ~30-wheel dep pool, grouped "
         "first-party/pip/interpreter tier) with isolated output base, no disk cache.\n"
     )

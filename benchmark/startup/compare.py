@@ -111,7 +111,7 @@ def pct(a: float, b: float) -> float:
 
 def fmt(val: float) -> str:
     """Format milliseconds with sensible precision."""
-    return f"{val:.3f}"
+    return f"{val:.1f}"
 
 
 def fmt_s(val: float) -> str:
@@ -122,6 +122,20 @@ def fmt_s(val: float) -> str:
 def warn(delta: float) -> str:
     """Return warning emoji if delta exceeds threshold."""
     return "⚠️" if delta > THRESHOLD_REGRESSION_PCT else ""
+
+
+def render_table(rows: list[list[str]], left_cols: int = 1) -> str:
+    """GFM pipe table. NBSP inside cells removes wrap points; GitHub already
+    scrolls tables wider than the comment. Numeric columns right-aligned."""
+
+    def cell(c: str) -> str:
+        return c.replace(" ", "\u00a0")
+
+    n = len(rows[0])
+    lines = ["| " + " | ".join(cell(c) for c in rows[0]) + " |"]
+    lines.append("|" + "|".join(":---" if i < left_cols else "---:" for i in range(n)) + "|")
+    lines += ["| " + " | ".join(cell(c) for c in r) + " |" for r in rows[1:]]
+    return "\n".join(lines)
 
 
 def main() -> None:
@@ -157,40 +171,41 @@ def main() -> None:
     has_build = bcr_build is not None or main_build is not None or pr_build is not None
     has_syspath = bcr_syspath is not None or main_syspath is not None or pr_syspath is not None
 
-    table = "## py_binary startup benchmark\n\n"
-    if has_build:
-        table += "| Version | Mean (ms) | Median (ms) | ± stddev | vs BCR | vs main | Build (s) |\n"
-        table += "|---------|-----------|-------------|----------|--------|---------|-----------|\n"
-    else:
-        table += "| Version | Mean (ms) | Median (ms) | ± stddev | vs BCR | vs main |\n"
-        table += "|---------|-----------|-------------|----------|--------|---------|\n"
-
-    def row(label: str, d: dict[str, Any], d_build: dict[str, float] | None, vs_bcr: str, vs_main: str) -> str:
-        line = (
-            f"| {label} | {fmt(d['mean_ms'])} | {fmt(d['median_ms'])} | "
-            f"±{fmt(d['stddev_ms'])} | {vs_bcr} | {vs_main}"
-        )
+    def make_row(label: str, d: dict[str, Any], d_build: dict[str, float] | None, vs_bcr: str, vs_main: str) -> list[str]:
+        cells = [
+            label,
+            f"{fmt(d['mean_ms'])}/{fmt(d['median_ms'])} ±{fmt(d['stddev_ms'])}",
+            vs_bcr,
+            vs_main,
+        ]
         if has_build:
-            b = fmt_s(d_build["build_s"]) if d_build else "—"
-            line += f" | {b}"
-        line += " |\n"
-        return line
+            cells.append(fmt_s(d_build["build_s"]) if d_build else "—")
+        return cells
 
-    table += row(
-        "BCR 1.11.7 (baseline)", bcr, bcr_build, "—", "—"
-    )
-    table += row(
-        "HEAD main", main, main_build,
-        f"{main_vs_bcr:+.1f}% {warn(main_vs_bcr)}", "—"
-    )
-    table += row(
-        "This PR", pr, pr_build,
-        f"{pr_vs_bcr:+.1f}% {warn(pr_vs_bcr)}",
-        f"{pr_vs_main:+.1f}% {warn(pr_vs_main)}"
-    )
+    header = ["Version", "Time (ms)", "vs BCR", "vs main"]
+    if has_build:
+        header.append("Build (s)")
+
+    rows = [
+        header,
+        make_row("BCR 1.11.7", bcr, bcr_build, "—", "—"),
+        make_row(
+            "main", main, main_build,
+            f"{main_vs_bcr:+.1f}% {warn(main_vs_bcr)}".strip(), "—"
+        ),
+        make_row(
+            "PR", pr, pr_build,
+            f"{pr_vs_bcr:+.1f}% {warn(pr_vs_bcr)}".strip(),
+            f"{pr_vs_main:+.1f}% {warn(pr_vs_main)}".strip()
+        ),
+    ]
+
+    table = "## py_binary startup benchmark\n\n"
+    table += render_table(rows) + "\n"
 
     table += (
-        f"\n> Measured with `hyperfine --warmup 5 --runs 50 --shell=none` on "
+        "\n> **Time** = mean/median ±stddev.\n"
+        f"> Measured with `hyperfine --warmup 5 --runs 50 --shell=none` on "
         f"`{os.environ.get('RUNNER_OS', 'local')}`\n"
     )
     table += (
@@ -206,25 +221,28 @@ def main() -> None:
 
     if has_syspath:
         table += "\n### sys.path quality\n\n"
-        table += "| Version | sys.path entries | distinct site-packages roots | duplicate realpaths |\n"
-        table += "|---------|-----------------|------------------------------|---------------------|\n"
 
-        def syspath_row(label: str, sp: dict[str, int] | None) -> str:
+        def syspath_row(label: str, sp: dict[str, int] | None) -> list[str]:
             if sp is None:
-                return f"| {label} | — | — | — |\n"
+                return [label, "—", "—", "—"]
             dupe_flag = " ⚠️" if sp["dupe_realpaths"] > 0 else ""
-            return (
-                f"| {label} | {sp['total_entries']} | {sp['distinct_sp_roots']} "
-                f"| {sp['dupe_realpaths']}{dupe_flag} |\n"
-            )
+            return [
+                label,
+                str(sp["total_entries"]),
+                str(sp["distinct_sp_roots"]),
+                f"{sp['dupe_realpaths']}{dupe_flag}",
+            ]
 
-        table += syspath_row("BCR 1.11.7 (baseline)", bcr_syspath)
-        table += syspath_row("HEAD main", main_syspath)
-        table += syspath_row("This PR", pr_syspath)
+        table += render_table([
+            ["Version", "entries", "sp roots", "dupes"],
+            syspath_row("BCR 1.11.7", bcr_syspath),
+            syspath_row("main", main_syspath),
+            syspath_row("PR", pr_syspath),
+        ]) + "\n"
         table += (
-            "\n> **sys.path quality** measured by `bench_syspath` inside the assembled venv. "
-            "Duplicate realpaths indicate symlink redundancy; many distinct site-packages roots "
-            "suggest an inefficient venv layout.\n"
+            "\n> **sys.path quality** measured by `bench_syspath` inside the assembled venv: "
+            "sys.path entries, distinct site-packages roots, duplicate realpaths. "
+            "Duplicates indicate symlink redundancy; many roots suggest an inefficient venv layout.\n"
         )
 
     write_gh_output(table)
