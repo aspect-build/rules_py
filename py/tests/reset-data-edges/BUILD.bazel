@@ -1,5 +1,5 @@
 load("//py:defs.bzl", "py_binary", "py_library", "py_venv")
-load(":tests.bzl", "probe", "reset_data_edges_test_suite", "root", "terminal")
+load(":tests.bzl", "probe", "reset_data_edges_test_suite", "root", "terminal", "versioned_terminal")
 
 package(default_testonly = True)
 
@@ -65,6 +65,14 @@ terminal(
     tags = ["manual"],
 )
 
+# A rule applying python_transition without declaring freethreaded at all.
+versioned_terminal(
+    name = "no_freethreaded_attr_terminal",
+    data = [":probe"],
+    python_version = "3.13",
+    tags = ["manual"],
+)
+
 py_venv(
     name = "second",
     srcs = ["main.py"],
@@ -85,6 +93,7 @@ root(
     deps = [
         ":first",
         ":inherit_terminal",
+        ":no_freethreaded_attr_terminal",
         ":parent_terminal",
         ":probe",
         ":second",
