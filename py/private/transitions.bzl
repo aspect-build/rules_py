@@ -55,8 +55,10 @@ def _freethreaded_available(version):
     return (int(parts[0]), int(parts[1])) >= (3, 13)
 
 def _python_transition_base(settings, attr, validate):
-    if attr.freethreaded:
-        freethreaded = attr.freethreaded == "true"
+    # Direct callers of the transition may declare no freethreaded attr.
+    mode = getattr(attr, "freethreaded", "")
+    if mode:
+        freethreaded = mode == "true"
     else:
         # The bool flag has no unset state, so inheriting also honors
         # rules_python's flag.

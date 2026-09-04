@@ -82,22 +82,30 @@ def _terminal_impl(_ctx):
 # Minimal terminal for exercising nested incoming transitions. The public
 # rules below cover their real data attrs; this one isolates baseline
 # propagation without adding Python-provider constraints to the fixture graph.
-terminal = rule(
-    implementation = _terminal_impl,
-    attrs = {
-        "data": attr.label_list(
-            cfg = reset_python_flags_transition,
+def _terminal_rule(**attrs):
+    return rule(
+        implementation = _terminal_impl,
+        attrs = dict(
+            {
+                "data": attr.label_list(
+                    cfg = reset_python_flags_transition,
+                ),
+                "deps": attr.label_list(),
+                "dep_group": attr.string(default = ""),
+                "python_version": attr.string(),
+                "_allowlist_function_transition": attr.label(
+                    default = "@bazel_tools//tools/allowlists/function_transition_allowlist",
+                ),
+            },
+            **attrs
         ),
-        "deps": attr.label_list(),
-        "dep_group": attr.string(default = ""),
-        "freethreaded": attr.string(default = "", values = ["", "false", "true"]),
-        "python_version": attr.string(),
-        "_allowlist_function_transition": attr.label(
-            default = "@bazel_tools//tools/allowlists/function_transition_allowlist",
-        ),
-    },
-    cfg = python_transition,
-)
+        cfg = python_transition,
+    )
+
+terminal = _terminal_rule(freethreaded = attr.string(default = "", values = ["", "false", "true"]))
+
+# Direct transition callers may declare no freethreaded attr at all.
+versioned_terminal = _terminal_rule()
 
 def _root_impl(ctx):
     transitive = [dep[_ProbeFilesInfo].files for dep in ctx.attr.deps]
@@ -179,6 +187,7 @@ def _reset_data_edges_test_impl(ctx):
         ("parent_terminal", True, "yes"),
         ("nested_terminal", False, "no"),
         ("inherit_terminal", True, "yes"),
+        ("no_freethreaded_attr_terminal", True, "yes"),
     ]
     tracked = {name: True for name, _, _ in expected}
     modes = [
