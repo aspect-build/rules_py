@@ -1,0 +1,39 @@
+# Regression test: ordinary abi3 wheels must not be selected for free-threaded
+# Python. tornado ships only cp39-abi3 wheels plus an sdist, so a free-threaded
+# interpreter must fall back to building the sdist (which produces a cp314t
+# wheel), while ordinary Python keeps the prebuilt abi3 wheel.
+
+load("@aspect_rules_py//py:defs.bzl", "py_test")
+load("@bazel_lib//lib:transitions.bzl", "platform_transition_test")
+
+platform(
+    name = "freethreaded",
+    flags = ["--@aspect_rules_py//py/private/interpreter:freethreaded=true"],
+    parents = ["@platforms//host"],
+)
+
+py_test(
+    name = "test_abi3_wheel",
+    srcs = ["test.py"],
+    dep_group = "uv-abi3-freethreaded",
+    main = "test.py",
+    python_version = "3.14",
+    deps = ["@pypi_uv_abi3_freethreaded//tornado"],
+)
+
+py_test(
+    name = "test_freethreaded_bin",
+    srcs = ["test.py"],
+    dep_group = "uv-abi3-freethreaded",
+    env = {"EXPECT_FREETHREADED": "1"},
+    main = "test.py",
+    python_version = "3.14",
+    tags = ["manual"],
+    deps = ["@pypi_uv_abi3_freethreaded//tornado"],
+)
+
+platform_transition_test(
+    name = "test_freethreaded",
+    binary = ":test_freethreaded_bin",
+    target_platform = ":freethreaded",
+)
