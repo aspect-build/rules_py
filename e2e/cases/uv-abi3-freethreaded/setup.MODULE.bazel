@@ -1,8 +1,0 @@
-uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
-uv.declare_hub(hub_name = "pypi_uv_abi3_freethreaded")
-uv.project(
-    hub_name = "pypi_uv_abi3_freethreaded",
-    lock = "//uv-abi3-freethreaded:uv.lock",
-    pyproject = "//uv-abi3-freethreaded:pyproject.toml",
-)
-use_repo(uv, "pypi_uv_abi3_freethreaded")
