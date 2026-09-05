@@ -1,0 +1,45 @@
+load("@bazel_lib//lib:transitions.bzl", "platform_transition_test")
+load("//py:defs.bzl", "py_test")
+
+platform(
+    name = "freethreaded",
+    flags = ["--//py/private/interpreter:freethreaded=true"],
+    parents = ["@platforms//host"],
+)
+
+_ENV = select({
+    "//uv/private/constraints/abi:abi3": {"ABI3": "1"},
+    "//conditions:default": {"ABI3": "0"},
+}) | select({
+    "//uv/private/constraints/abi:abi3t": {"ABI3T": "1"},
+    "//conditions:default": {"ABI3T": "0"},
+})
+
+py_test(
+    name = "abi3_test",
+    srcs = ["abi3_test.py"],
+    env = _ENV | {
+        "EXPECT_ABI3": "1",
+        "EXPECT_ABI3T": "0",
+    },
+    main = "abi3_test.py",
+    python_version = "3.13",
+)
+
+py_test(
+    name = "abi3_freethreaded_bin",
+    srcs = ["abi3_test.py"],
+    env = _ENV | {
+        "EXPECT_ABI3": "0",
+        "EXPECT_ABI3T": "1",
+    },
+    main = "abi3_test.py",
+    python_version = "3.13",
+    tags = ["manual"],
+)
+
+platform_transition_test(
+    name = "abi3_freethreaded_test",
+    binary = ":abi3_freethreaded_bin",
+    target_platform = ":freethreaded",
+)
