@@ -1,0 +1,9 @@
+package(default_visibility = ["//uv/private:__subpackages__"])
+
+exports_files([
+    "defs.tmpl",
+    "dep_group_build.tmpl",
+    "package_build.tmpl",
+    "requirements.tmpl",
+    "root_build.tmpl",
+])

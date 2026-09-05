@@ -1,0 +1,22 @@
+load("//:defs.bzl", "compatible_with")
+
+
+%PKG_ALIAS%alias(
+    name = "whl",
+    actual = select(%WHL_SELECT%),
+    target_compatible_with = select(compatible_with(%COMPAT%)),
+    visibility = ["//visibility:public"],
+)
+alias(
+    name = "%NAME%",
+    actual = select(%LIB_SELECT%,
+        no_match_error = "%ERROR%",
+    ),
+    target_compatible_with = select(compatible_with(%COMPAT%)),
+    visibility = ["//visibility:public"],
+)
+
+exports_files(
+    ["BUILD.bazel"],
+    visibility = ["//visibility:public"],
+)
