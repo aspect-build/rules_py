@@ -1,9 +1,11 @@
 """Tests for permissive wheel-collision precedence."""
 
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
+load("@bazel_skylib//rules:build_test.bzl", "build_test")
 load("//py:defs.bzl", "py_binary", "py_library", "py_test")
 load("//py/private:providers.bzl", "PyWheelsInfo", "make_wheel_record")
 load("//py/private:py_info.bzl", "PyInfo")
+load("//py/private/py_venv:defs.bzl", "py_venv")
 load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN")
 
 def _mixed_wheel_impl(ctx):
@@ -139,6 +141,12 @@ printf '%s' "$5" > "$site/collision_order.libs/marker.txt"
         top_levels += ("collision_order.libs",)
         top_level_dirs += ("collision_order.libs",)
         native_roots = ("collision_order",)
+    if ctx.attr.script_only:
+        command += """
+printf 'def main():\n    print(%s)\n' "$4" > "$site/collision_script_$5.py"
+"""
+        top_levels += ("collision_script_{}.py".format(ctx.attr.value),)
+        console_scripts = ("collision-order=collision_script_{}:main".format(ctx.attr.value),)
     if ctx.attr.native_namespace:
         command += """
 mkdir -p "$site/collision_order"
@@ -209,6 +217,7 @@ _wheel = rule(
         "native_root": attr.bool(),
         "ordinary": attr.bool(),
         "regular": attr.bool(),
+        "script_only": attr.bool(),
         "value": attr.string(mandatory = True),
     },
     toolchains = [PY_TOOLCHAIN],
@@ -249,6 +258,7 @@ def collision_order_test_suite():
         name = "later_direct_claimant_wins_test",
         srcs = ["test_collision_order.py"],
         args = ["second"],
+        include_console_scripts = True,
         main = "test_collision_order.py",
         package_collisions = "ignore",
         deps = [
@@ -260,6 +270,7 @@ def collision_order_test_suite():
         name = "later_transitive_claimant_wins_test",
         srcs = ["test_collision_order.py"],
         args = ["first"],
+        include_console_scripts = True,
         main = "test_collision_order.py",
         package_collisions = "ignore",
         deps = [
@@ -552,4 +563,66 @@ def collision_order_test_suite():
             ":_native_duplicate_graft_first",
             ":_native_duplicate_graft_second",
         ],
+    )
+
+    _wheel(
+        name = "_script_collision_first",
+        metadata_only = True,
+        script_only = True,
+        value = "script_first",
+        tags = ["manual"],
+    )
+    _wheel(
+        name = "_script_collision_second",
+        metadata_only = True,
+        script_only = True,
+        value = "script_second",
+        tags = ["manual"],
+    )
+    py_binary(
+        name = "_script_collision_internal_binary",
+        srcs = ["test_collision_order.py"],
+        main = "test_collision_order.py",
+        package_collisions = "error",
+        tags = ["manual"],
+        deps = [
+            ":_script_collision_first",
+            ":_script_collision_second",
+        ],
+    )
+    build_test(
+        name = "script_collision_ignored_without_wrappers_test",
+        targets = [":_script_collision_internal_binary"],
+    )
+    py_binary(
+        name = "_script_collision_opt_in_binary",
+        srcs = ["test_collision_order.py"],
+        include_console_scripts = True,
+        main = "test_collision_order.py",
+        package_collisions = "error",
+        tags = ["manual"],
+        deps = [
+            ":_script_collision_first",
+            ":_script_collision_second",
+        ],
+    )
+    _collision_error_test(
+        name = "script_collision_opt_in_error_test",
+        expected_error = "console script `collision-order`",
+        target_under_test = ":_script_collision_opt_in_binary",
+    )
+    py_venv(
+        name = "_script_collision_venv",
+        srcs = ["test_collision_order.py"],
+        package_collisions = "error",
+        tags = ["manual"],
+        deps = [
+            ":_script_collision_first",
+            ":_script_collision_second",
+        ],
+    )
+    _collision_error_test(
+        name = "script_collision_error_test",
+        expected_error = "console script `collision-order`",
+        target_under_test = ":_script_collision_venv",
     )

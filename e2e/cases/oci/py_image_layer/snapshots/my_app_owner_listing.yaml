@@ -45,7 +45,6 @@ files:
 layer: 6
 files:
   - -rwxr-xr-x  0 1000   2000    18856 Jan  1  2023 ./app
-  - -rwxr-xr-x  0 1000   2000     2114 Jan  1  2023 ./app.runfiles/_main/oci/py_image_layer/._my_app_owner_bin.venv/bin/activate
   - lrwxr-xr-x  0 1000   2000        0 Jan  1  2023 ./app.runfiles/_main/oci/py_image_layer/._my_app_owner_bin.venv/bin/python3 -> python
   - lrwxr-xr-x  0 1000   2000        0 Jan  1  2023 ./app.runfiles/_main/oci/py_image_layer/._my_app_owner_bin.venv/bin/python3.11 -> python
   - -rwxr-xr-x  0 1000   2000      517 Jan  1  2023 ./app.runfiles/_main/oci/py_image_layer/._my_app_owner_bin.venv/lib/python3.11/site-packages/_my_app_owner_bin.venv.pth

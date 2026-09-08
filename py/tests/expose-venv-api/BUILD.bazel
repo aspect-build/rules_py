@@ -29,6 +29,24 @@ py_test(
     main = "main.py",
 )
 
+py_test(
+    name = "console_script_test",
+    srcs = ["console_script_test.py"],
+    args = ["present"],
+    expose_venv = True,
+    include_console_scripts = True,
+    deps = ["@pypi//cowsay"],
+)
+
+py_test(
+    name = "console_script_absent_test",
+    srcs = ["console_script_test.py"],
+    args = ["absent"],
+    expose_venv = True,
+    main = "console_script_test.py",
+    deps = ["@pypi//cowsay"],
+)
+
 # Legacy migration shape: `expose_venv + isolated=False` — what
 # users moving off `py_venv_binary` land on.
 py_binary(
@@ -98,6 +116,10 @@ build_test(
         ":minimal_bin.venv",
         ":minimal_test",
         ":minimal_test.venv",
+        ":console_script_test",
+        ":console_script_test.venv",
+        ":console_script_absent_test",
+        ":console_script_absent_test.venv",
         ":legacy_shape_bin",
         ":legacy_shape_bin.venv",
         ":venv_shaping_bin",

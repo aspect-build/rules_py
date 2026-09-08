@@ -732,11 +732,12 @@ def _resolve_metadata_collisions(metadata_claimants, state, fully_covered, compl
         if winner in fully_covered:
             state.top_level_to_site_pkgs[tl] = winner
 
-def resolve_wheel_collisions(ctx, wheels):
+def resolve_wheel_collisions(ctx, wheels, console_scripts):
     """Walk ``PyWheelsInfo.wheels`` and produce merge plans for site-packages + bin/.
 
     Policy-agnostic: collisions are recorded, not reported.  The caller
     must call ``enforce_collision_policy`` to apply error/warning/ignore.
+    ``console_scripts``: False skips console-script resolution, empty map, no collisions.
 
     Returns:
       (top_level_to_site_pkgs, fully_covered, console_scripts_map,
@@ -756,8 +757,9 @@ def resolve_wheel_collisions(ctx, wheels):
             metadata_claimants.setdefault(tl, []).append(w.site_packages_rfpath)
         for tl, claim in w.tl_claims:
             tl_claimants.setdefault(tl, []).append(claim)
-        for name, claim in w.cs_claims:
-            cs_claimants.setdefault(name, []).append(claim)
+        if console_scripts:
+            for name, claim in w.cs_claims:
+                cs_claimants.setdefault(name, []).append(claim)
 
     duplicate_metadata_loser_sps = {
         loser: True
