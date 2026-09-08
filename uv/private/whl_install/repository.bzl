@@ -9,8 +9,9 @@ produce a filegroup/TreeArtifact.
 
 load("@bazel_features//:features.bzl", features = "bazel_features")
 load("//uv/private:parse_whl_name.bzl", "parse_whl_name")
+load("//uv/private/constraints/abi:defs.bzl", "filter_abi_tags")
 load("//uv/private/constraints/platform:defs.bzl", "supported_platform")
-load("//uv/private/constraints/python:defs.bzl", "supported_python")
+load("//uv/private/constraints/python:defs.bzl", "filter_python_tags")
 load("//uv/private/pprint:defs.bzl", "pprint")
 
 def indent(text, space = " "):
@@ -119,19 +120,19 @@ def _whl_install_impl(repository_ctx):
     for whl, target in prebuilds.items():
         parsed = parse_whl_name(whl)
 
+        # Escape hatch for ignoring unsupported interpreters and abis
+        whl_python_tags = filter_python_tags(whl, parsed.python_tags)
+        whl_abi_tags = filter_abi_tags(whl, parsed.abi_tags)
+
         # FIXME: Make it impossible to generate absurd combinations such as
         # cp212-none-cp312 with unsatisfiable version specs.
-        for python_tag in parsed.python_tags:
-            # Escape hatch for ignoring unsupported interpreters
-            if not supported_python(python_tag):
-                continue
-
+        for python_tag in whl_python_tags:
             for platform_tag in parsed.platform_tags:
                 # Escape hatch for ignoring weird unsupported platforms
                 if not supported_platform(platform_tag):
                     continue
 
-                for abi_tag in parsed.abi_tags:
+                for abi_tag in whl_abi_tags:
                     select_arms[(python_tag, platform_tag, abi_tag)] = target
 
     # Unfortunately the way that Bazel decides ambiguous selects is explicitly

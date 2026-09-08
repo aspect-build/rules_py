@@ -565,6 +565,20 @@ uv.project(
 use_repo(uv, "pypi-pytorch")
 # }}}
 
+# For cases/uv-malformed-abi-tag
+# Regression: a wheel entry with malformed python/abi tags (cp311_2, e.g. a
+# renamed wheel in a private registry) must be skipped instead of breaking
+# analysis of the whole package.
+# {{{
+uv.declare_hub(hub_name = "pypi-malformed-abi")
+uv.project(
+    hub_name = "pypi-malformed-abi",
+    lock = "//cases/uv-malformed-abi-tag:uv.lock",
+    pyproject = "//cases/uv-malformed-abi-tag:pyproject.toml",
+)
+use_repo(uv, "pypi-malformed-abi")
+# }}}
+
 use_repo(uv, "pypi")
 
 register_toolchains("@uv//:all")
