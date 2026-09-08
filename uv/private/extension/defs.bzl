@@ -1010,7 +1010,7 @@ _override_package_tag = tag_class(
         ),
         "toolchains": attr.label_list(
             default = [],
-            doc = "Extra toolchain targets forwarded to the generated pep517_native_whl(...) call's `toolchains` list. Each target's TemplateVariableInfo make-variables become available for $(VAR) expansion in `env`.",
+            doc = "Extra toolchain targets forwarded to the generated pep517_native_whl(...) call's `toolchains` list. Each target's TemplateVariableInfo make-variables become available for $(VAR) expansion in `env`; the well-known ones (CARGO, RUSTC, RUST_HOST_SYSROOT, JAVA, JAVABASE, ANT_HOME, ANT_BIN_DIR) reach the build environment automatically.",
         ),
         "env": attr.string_dict(
             default = {},

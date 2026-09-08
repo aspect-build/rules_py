@@ -23,15 +23,12 @@ uv.annotate_packages(
     lock = "//uv-sdist-jdk-build:uv.lock",
 )
 
-# Layer a JDK runtime toolchain into the build env. `toolchains` and
-# `env` here are additive — these entries are appended to whatever
-# sdist_build's BUILD template emits by default.
+# Layer a JDK runtime toolchain into the build env. `toolchains` is
+# additive — appended to whatever sdist_build's BUILD template emits by
+# default. The JDK's $(JAVA)/$(JAVABASE) make variables reach the build as
+# JAVA/JAVA_HOME without an explicit `env` mapping.
 uv.override_package(
     name = "jpype1",
-    env = {
-        "JAVA": "$(JAVA)",
-        "JAVA_HOME": "$(JAVABASE)",
-    },
     lock = "//uv-sdist-jdk-build:uv.lock",
     toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
 )
