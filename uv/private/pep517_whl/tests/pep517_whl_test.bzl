@@ -339,3 +339,31 @@ pep517_native_whl_derived_env_test = analysistest.make(
         "absent_keys": attr.string_list(doc = "Env keys that must not appear (make-variable names are not env keys)."),
     },
 )
+
+def _config_settings_args_test_impl(ctx):
+    env = analysistest.begin(ctx)
+    target = analysistest.target_under_test(env)
+    actions = [a for a in target.actions if a.mnemonic in ("PySdistBuild", "PySdistNativeBuild")]
+    asserts.equals(env, 1, len(actions), "expected exactly one wheel build action")
+    if actions:
+        argv = list(actions[0].argv)
+        expected = ctx.attr.expected
+        if not expected:
+            asserts.false(env, "--config-setting" in argv, "no config_settings must mean no --config-setting; got: {}".format(argv))
+        else:
+            found = [argv[i:i + len(expected)] == expected for i in range(len(argv) - len(expected) + 1)]
+            asserts.true(
+                env,
+                any(found),
+                "expected the contiguous flags {} (keys sorted, values in declared order); got: {}".format(expected, argv),
+            )
+    return analysistest.end(env)
+
+config_settings_args_test = analysistest.make(
+    _config_settings_args_test_impl,
+    attrs = {
+        "expected": attr.string_list(
+            doc = "Exact `--config-setting key=value` flag sequence the helper must receive; empty asserts absence.",
+        ),
+    },
+)

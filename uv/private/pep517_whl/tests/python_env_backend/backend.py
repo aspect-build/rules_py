@@ -4,6 +4,7 @@ import base64
 import csv
 import hashlib
 import io
+import json
 import os
 from pathlib import Path
 from zipfile import ZIP_DEFLATED, ZipFile
@@ -44,10 +45,19 @@ def _check_environment() -> None:
                 raise RuntimeError(f"{name} is not an absolute existing path: {value!r}")
 
 
+def _check_config_settings(config_settings: dict[str, object] | None) -> None:
+    # `build -C k=v` shapes: a single value stays a str, repeats become a list.
+    expected = os.environ.get("EXPECTED_CONFIG_SETTINGS")
+    if expected is None:
+        return
+    if (config_settings or {}) != json.loads(expected):
+        raise RuntimeError(f"config_settings mismatch: got {config_settings!r}, expected {expected}")
+
+
 def get_requires_for_build_wheel(
     config_settings: dict[str, object] | None = None,
 ) -> list[str]:
-    del config_settings
+    _check_config_settings(config_settings)
     _check_environment()
     return []
 
@@ -57,7 +67,8 @@ def build_wheel(
     config_settings: dict[str, object] | None = None,
     metadata_directory: str | None = None,
 ) -> str:
-    del config_settings, metadata_directory
+    del metadata_directory
+    _check_config_settings(config_settings)
     _check_environment()
 
     files = {
