@@ -84,7 +84,7 @@ PEP517_WHL_ATTRS = {
     "args": attr.string_list(default = ["--validate-anyarch"]),
     "config_settings": attr.string_list_dict(
         default = {},
-        doc = "PEP 517 config settings passed to the build frontend as `-C key=value`, one per listed value; repeated keys reach the backend as a list.",
+        doc = "PEP 517 `config_settings` for the build backend. Each key maps to a list of values: a single value reaches the backend as a string, several as a list.",
     ),
     "monitor_memory": attr.bool(
         default = False,

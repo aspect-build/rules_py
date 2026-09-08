@@ -402,9 +402,9 @@ and an explicit entry always wins over the derived value.
 
 ### Backend config settings
 
-PEP 517 backends take free-form `config_settings`; the `build` frontend
-spells them `-C key=value`. Declare them per package on the override and they
-reach the backend unchanged, for pure and native source builds alike:
+PEP 517 backends take a free-form `config_settings` dictionary. Declare it
+per package on the override and it reaches the backend unchanged, for pure and
+native source builds alike:
 
 ```starlark
 uv.override_package(
@@ -419,10 +419,14 @@ uv.override_package(
 )
 ```
 
-Each listed value becomes one `-C key=value`; a key with several values
-reaches the backend as a list, a single value as a string. The keys are
-backend-specific: `setup-args` for meson-python, `cmake.define.<VAR>` or
-`cmake.args` for scikit-build-core, `--build-option` for setuptools. Packages
+Each key maps to a list of values: a single value reaches the backend as a
+string, several as a list. The keys and their meaning belong to the package's
+build backend, so look them up in its documentation: `setup-args` for
+meson-python, `cmake.define.<VAR>` or `cmake.args` for scikit-build-core,
+`--build-option` for setuptools. A sdist has exactly one build backend, so the
+settings have exactly one recipient. If a project's README shows
+`pip install --config-settings key=value` or `python -m build -C key=value`,
+the same `key` and `value` go here. Packages
 that fall back to `setup.py bdist_wheel` (a `pyproject.toml` without the
 dynamic metadata setuptools still reads from `setup.py`) cannot take config
 settings and fail the build with an explicit error.

@@ -1025,7 +1025,7 @@ _override_package_tag = tag_class(
         ),
         "config_settings": attr.string_list_dict(
             default = {},
-            doc = "PEP 517 config settings handed to the build backend through the frontend's `-C key=value`, one flag per listed value; a key with several values reaches the backend as a list. Backend-specific by nature, e.g. `{\"setup-args\": [\"-Dblas=none\"]}` for meson-python or `{\"cmake.define.FOO\": [\"1\"]}` for scikit-build-core. Applies to pure and native source builds.",
+            doc = "PEP 517 `config_settings` for this package's build backend. Each key maps to a list of values: a single value reaches the backend as a string, several as a list. Keys and their meaning are defined by the backend, e.g. `{\"setup-args\": [\"-Dblas=none\"]}` for meson-python or `{\"cmake.define.FOO\": [\"1\"]}` for scikit-build-core. Applies to pure and native source builds.",
         ),
         "pre_build_patches": attr.label_list(
             default = [],
