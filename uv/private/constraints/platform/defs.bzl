@@ -42,6 +42,22 @@ LINUX_ARCHES = [
     "armv7l",
 ]
 
+# CPU architectures supported for bare linux_* wheel tags. These config_settings
+# carry no libc/version constraint, so they match musl and older-glibc systems
+# too.
+GENERIC_LINUX_ARCHES = [
+    "x86_64",
+    "i686",
+    "aarch64",
+    "ppc64",
+    "ppc64le",
+    "s390x",
+    "riscv64",
+    "armv6l",
+    "armv7l",
+    "armv8l",
+]
+
 # Supported Windows platform tags and their CPU constraints.
 WINDOWS_PLATFORMS = {
     "win32": "x86_64",
@@ -73,7 +89,6 @@ def supported_platform(platform_tag):
 
     - Android
     - iOS
-    - The legacy/undefined linux_* platforms
     - Architectures we don't generate config_setting targets for
 
     Args:
@@ -93,6 +108,10 @@ def supported_platform(platform_tag):
     if platform_tag.startswith("manylinux_") or platform_tag.startswith("musllinux_"):
         arch = _parse_platform_arch(platform_tag)
         return arch != None and arch in LINUX_ARCHES
+
+    if platform_tag.startswith("linux_"):
+        arch = platform_tag.removeprefix("linux_")
+        return arch in GENERIC_LINUX_ARCHES
 
     return platform_tag in WINDOWS_PLATFORMS
 

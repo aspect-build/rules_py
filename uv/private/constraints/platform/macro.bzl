@@ -2,7 +2,7 @@
 
 """
 
-load(":defs.bzl", "LINUX_ARCHES", "MACOS_ARCHES", "MACOS_ARCH_GROUPS", "WINDOWS_PLATFORMS", "platform_version_at_least")
+load(":defs.bzl", "GENERIC_LINUX_ARCHES", "LINUX_ARCHES", "MACOS_ARCHES", "MACOS_ARCH_GROUPS", "WINDOWS_PLATFORMS", "platform_version_at_least")
 
 ## These are defined but we're ignoring them for now.
 # android_21_arm64_v8a
@@ -18,7 +18,8 @@ load(":defs.bzl", "LINUX_ARCHES", "MACOS_ARCHES", "MACOS_ARCH_GROUPS", "WINDOWS_
 # ios_13_0_arm64_iphonesimulator
 # ios_13_0_x86_64_iphonesimulator
 
-## These seem wrong and/or are defined by Conda not packaging
+## We intentionally support generic linux_* tags because some upstream wheels,
+## notably PyTorch CPU wheels, still publish them.
 # linux_armv6l
 # linux_armv7l
 # linux_x86_64
@@ -34,7 +35,7 @@ platform_repo_name_mangling = {
         [["amd64", "x86_64", "x64"], "x86_64"],
         [["ppc", "ppc64"], "ppc"],
         [["ppc64le"], "ppc64le"],
-        [["arm", "armv7l"], "arm"],
+        [["arm", "armv6l", "armv7l", "armv8l"], "arm"],
         [["aarch64"], "aarch64"],
         [["s390x", "s390"], "s390x"],
         [["mips64el", "mips64"], "mips64"],
@@ -154,6 +155,19 @@ def generate_musllinux(visibility):
 
 # buildifier: disable=unnamed-macro
 # buildifier: disable=function-docstring
+def generate_linux(visibility):
+    for arch in GENERIC_LINUX_ARCHES:
+        native.config_setting(
+            name = "linux_{}".format(arch),
+            constraint_values = [
+                "@platforms//os:linux",
+                "@platforms//cpu:{}".format(platform_repo_name_mangling.get(arch, arch)),
+            ],
+            visibility = visibility,
+        )
+
+# buildifier: disable=unnamed-macro
+# buildifier: disable=function-docstring
 def generate_windows(visibility):
     for name, cpu in WINDOWS_PLATFORMS.items():
         native.config_setting(
@@ -174,4 +188,5 @@ def generate(visibility):
     generate_macos(visibility = visibility)
     generate_manylinux(visibility = visibility)
     generate_musllinux(visibility = visibility)
+    generate_linux(visibility = visibility)
     generate_windows(visibility = visibility)

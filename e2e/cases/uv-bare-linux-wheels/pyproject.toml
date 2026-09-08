@@ -1,0 +1,12 @@
+[project]
+name = "uv-bare-linux-wheels"
+version = "0.0.0"
+requires-python = ">=3.11"
+# grpcio 1.80.0 ships cp3x-linux_armv7l wheels (bare linux_* platform tags).
+# `build`/`setuptools` satisfy the hub's default_build_dependencies, which
+# the uv extension expects every project lockfile to resolve.
+dependencies = [
+    "build",
+    "setuptools",
+    "grpcio==1.80.0",
+]
