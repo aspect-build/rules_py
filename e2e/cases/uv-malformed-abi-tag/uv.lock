@@ -1,0 +1,31 @@
+version = 1
+revision = 3
+requires-python = ">=3.11"
+
+# iniconfig's last two wheel entries are synthetic: they model wheels that
+# were renamed in a private registry and carry malformed python/abi tags
+# (cp311_2 instead of cp311). Their URLs and hashes are fake and never
+# fetched; the regression is purely in lockfile analysis. The companion
+# sh_test guards against the lockfile being regenerated and losing them.
+[[package]]
+name = "iniconfig"
+version = "2.3.0"
+source = { registry = "https://pypi.org/simple" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/cb/b1/3846dd7f199d53cb17f49cba7e651e9ce294d8497c8c150530ed11865bb8/iniconfig-2.3.0-py3-none-any.whl", hash = "sha256:f631c04d2c48c52b84d0d0549c99ff3859c98df65b3101406327ecc7d53fbf12", size = 7484 },
+    { url = "https://files.pythonhosted.org/packages/00/00/iniconfig-2.3.0-cp311-cp311_2-manylinux_2_17_x86_64.whl", hash = "sha256:deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef", size = 7484 },
+    { url = "https://files.pythonhosted.org/packages/00/01/iniconfig-2.3.0-cp311_2-cp311_2-manylinux_2_17_x86_64.whl", hash = "sha256:cafebabecafebabecafebabecafebabecafebabecafebabecafebabecafebabe", size = 7484 },
+]
+
+[[package]]
+name = "uv-malformed-abi-tag"
+version = "0.0.0"
+source = { virtual = "." }
+dependencies = [
+    { name = "iniconfig" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "iniconfig" },
+]
