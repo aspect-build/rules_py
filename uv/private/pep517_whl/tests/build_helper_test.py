@@ -250,6 +250,19 @@ class MakeCompilerWrapperTest(unittest.TestCase):
             self.assertNotIn("-lstdc++", _run_wrapper(cxx, ["-shared", "a.o"]))
 
 
+class MesonBuildDirArgsTest(unittest.TestCase):
+    def test_pins_build_dir_for_mesonpy_only(self) -> None:
+        self.assertEqual(
+            ["-C", "build-dir=/wt/.mesonpy-build"],
+            build_helper._meson_build_dir_args("mesonpy", ["setup-args=-Dblas=none"], "/wt"),
+        )
+        self.assertEqual([], build_helper._meson_build_dir_args("setuptools.build_meta", [], "/wt"))
+        self.assertEqual([], build_helper._meson_build_dir_args(None, [], "/wt"))
+
+    def test_user_build_dir_wins(self) -> None:
+        self.assertEqual([], build_helper._meson_build_dir_args("mesonpy", ["build-dir=build"], "/wt"))
+
+
 class DumpMesonLogTest(unittest.TestCase):
     def test_prints_tail_of_every_meson_log(self) -> None:
         import io

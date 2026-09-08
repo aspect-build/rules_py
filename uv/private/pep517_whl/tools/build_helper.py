@@ -1073,6 +1073,18 @@ def _uses_setuptools_rust(pyproject_data: dict[str, object] | None) -> bool:
     return any(isinstance(req, str) and _requirement_name(req) == "setuptools-rust" for req in requires)
 
 
+def _meson_build_dir_args(backend: str | None, config_settings: list[str], worktree: str) -> list[str]:
+    """Pin meson-python's build dir inside the worktree.
+
+    mesonpy otherwise builds in a TemporaryDirectory it removes on failure,
+    taking meson-log.txt (the only record of sanity-check and probe failures)
+    with it. A user-supplied build-dir wins.
+    """
+    if backend != "mesonpy" or any(s.startswith("build-dir=") for s in config_settings):
+        return []
+    return ["-C", "build-dir=" + path.join(worktree, ".mesonpy-build")]
+
+
 def _dump_meson_log(worktree: str, tail: int = 120) -> None:
     """meson keeps compiler sanity-check and probe failures only in meson-log.txt,
     which the sandbox discards with the worktree; surface its tail on failure."""
@@ -1313,6 +1325,7 @@ def main() -> None:
 
         pyproject_data = _load_pyproject_data(t)
         backend = _build_backend(pyproject_data)
+        cmd += _meson_build_dir_args(backend, opts.config_settings, t)
 
         # meson-python only synthesizes its own cross file for macOS
         # ARCHFLAGS/cibuildwheel shapes; everything else configures as a
