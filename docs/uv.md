@@ -395,8 +395,8 @@ uv.override_package(
 ```
 
 `$(JAVA)` and `$(JAVABASE)` arrive as `JAVA` and `JAVA_HOME`; `$(CARGO)`,
-`$(RUSTC)` and `$(RUST_HOST_SYSROOT)` as the variables the Rust build path
-reads; `$(ANT_HOME)` and `$(ANT_BIN_DIR)` likewise. Any other make-variable a
+`$(RUSTC)`, `$(RUST_SYSROOT)` and `$(RUST_HOST_SYSROOT)` as the variables the
+Rust build path reads; `$(ANT_HOME)` and `$(ANT_BIN_DIR)` likewise. Any other make-variable a
 toolchain exports still needs an explicit `env` entry (`"FOO": "$(FOO)"`),
 and an explicit entry always wins over the derived value.
 
@@ -419,7 +419,10 @@ uv.project(
 Every sdist in that project whose build backend is maturin, or whose build
 requirements include setuptools-rust, then gets the toolchain and an
 exec-configured `rust_host_sysroot` layer wired into its build. No
-`uv.override_package` entry is needed for Rust packages.
+`uv.override_package` entry is needed for Rust packages. Any target exposing
+rules_rust's toolchain providers works, so the same label serves
+[rules_rs](https://github.com/hermeticbuild/rules_rs) toolchains, which are
+declared with rules_rust's `rust_toolchain` rule.
 
 ### Backend config settings
 

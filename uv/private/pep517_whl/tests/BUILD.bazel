@@ -382,6 +382,36 @@ rust_host_sysroot_test(
     target_under_test = ":__rust_host_sysroot",
 )
 
+# The shape sdist_build generates for a Rust sdist: the toolchain plus its
+# exec-configured sysroot layer. Their make-variables must reach the helper
+# under its env names, and the make-variable names themselves must not.
+pep517_native_whl(
+    name = "__derived_rust_env_fixture",
+    src = ":__stub_sdist",
+    tags = ["manual"],
+    tool = ":__stub_tool",
+    toolchains = [
+        ":__fake_rust_toolchain",
+        ":__rust_host_sysroot",
+    ],
+    version = "0.0.1",
+)
+
+pep517_native_whl_derived_env_test(
+    name = "derived_rust_env_test",
+    absent_keys = [
+        "RUST_SYSROOT",
+        "RUST_HOST_SYSROOT",
+    ],
+    derived_keys = [
+        "CARGO",
+        "RUSTC",
+        "RULES_PY_RUST_SYSROOT",
+        "RULES_PY_RUST_HOST_SYSROOT",
+    ],
+    target_under_test = ":__derived_rust_env_fixture",
+)
+
 execroot_collision_toolchain(name = "__execroot_collision_toolchain")
 
 pep517_native_whl(

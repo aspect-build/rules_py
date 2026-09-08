@@ -765,6 +765,54 @@ class ConfigureCargoCrossEnvTest(unittest.TestCase):
         self.assertTrue(path.islink(path.join(merged, "aarch64-unknown-linux-gnu")))
 
 
+    def test_target_sysroot_from_toolchain_wins_over_rustc_location(self) -> None:
+        # rules_rs-style layout: rustc in one repository, rust-std in another,
+        # both assembled into the toolchain's generated sysroot.
+        tmp = tempfile.mkdtemp()
+        target_rustc = path.join(tmp, "rustc_repo", "bin", "rustc")
+        makedirs(path.dirname(target_rustc))
+        open(target_rustc, "w").close()
+        generated = path.join(tmp, "generated_sysroot")
+        makedirs(path.join(generated, "lib", "rustlib", "aarch64-unknown-linux-gnu"))
+        host_sysroot = path.join(tmp, "host_sysroot")
+        makedirs(path.join(host_sysroot, "lib", "rustlib", "x86_64-unknown-linux-gnu"))
+
+        env = self._env()
+        env["RUSTC"] = target_rustc
+        env["RULES_PY_RUST_SYSROOT"] = generated
+        env["RULES_PY_RUST_HOST_SYSROOT"] = host_sysroot
+        build_helper._configure_cargo_cross_env(env, tmp, "linux", "aarch64", "glibc")
+
+        merged = path.join(tmp, ".rust_sysroot", "lib", "rustlib")
+        self.assertTrue(path.islink(path.join(merged, "aarch64-unknown-linux-gnu")))
+        self.assertTrue(path.islink(path.join(merged, "x86_64-unknown-linux-gnu")))
+
+
+class CargoNativeEnvTest(unittest.TestCase):
+    def test_rustc_gets_the_toolchain_sysroot(self) -> None:
+        tmp = tempfile.mkdtemp()
+        env = {"CARGO": "/tc/bin/cargo", "RUSTC": "/tc/bin/rustc", "RULES_PY_RUST_SYSROOT": "/tc/sysroot", "RULES_PY_RUST_HOST_SYSROOT": "/exec/sysroot"}
+        build_helper._configure_cargo_native_env(env, tmp)
+        with open(env["RUSTC"]) as f:
+            content = f.read()
+        self.assertIn('"--sysroot", \'/tc/sysroot\'', content)
+        self.assertIn("/tc/bin/rustc", content)
+        self.assertTrue(os.access(env["RUSTC"], os.X_OK))
+
+    def test_host_sysroot_is_the_fallback(self) -> None:
+        tmp = tempfile.mkdtemp()
+        env = {"CARGO": "/tc/bin/cargo", "RUSTC": "/tc/bin/rustc", "RULES_PY_RUST_HOST_SYSROOT": "/exec/sysroot"}
+        build_helper._configure_cargo_native_env(env, tmp)
+        with open(env["RUSTC"]) as f:
+            self.assertIn("/exec/sysroot", f.read())
+
+    def test_no_rust_toolchain_leaves_rustc_alone(self) -> None:
+        tmp = tempfile.mkdtemp()
+        env = {"RUSTC": "/usr/bin/rustc"}
+        build_helper._configure_cargo_native_env(env, tmp)
+        self.assertEqual("/usr/bin/rustc", env["RUSTC"])
+
+
 class BuildBackendTest(unittest.TestCase):
     def test_declared_backend(self) -> None:
         data = {"build-system": {"build-backend": "mesonpy"}}
