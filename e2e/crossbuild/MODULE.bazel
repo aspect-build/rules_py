@@ -14,6 +14,7 @@ bazel_dep(name = "bazel_lib", version = "3.0.0")
 bazel_dep(name = "platforms", version = "1.0.0")
 bazel_dep(name = "llvm", version = "0.8.3")
 bazel_dep(name = "rules_rust", version = "0.68.0")
+bazel_dep(name = "rules_rs", version = "0.0.110")
 bazel_dep(name = "rules_shell", version = "0.4.1")
 
 local_path_override(
@@ -61,6 +62,22 @@ use_repo(rust, "rust_toolchains")
 
 register_toolchains("@rust_toolchains//:all")
 
+# rules_rs toolchains for //pycross-rust-rs. They are rules_rust `rust_toolchain`
+# instances declared in the patched rules_rust repository rules_rs fetches, so
+# they register under that repository's toolchain type and never compete with
+# the BCR rules_rust toolchains above.
+rs_toolchains = use_extension("@rules_rs//rs/toolchains:module_extension.bzl", "toolchains")
+rs_toolchains.toolchain(
+    edition = "2021",
+    version = "1.92.0",
+)
+use_repo(rs_toolchains, "default_rust_toolchains")
+
+rules_rust_rs = use_extension("@rules_rs//rs:rules_rust.bzl", "rules_rust")
+use_repo(rules_rust_rs, rules_rust_rs = "rules_rust")
+
+register_toolchains("@default_rust_toolchains//...")
+
 uv_bin = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv_bin")
 uv_bin.toolchain(version = "0.11.21")
 use_repo(uv_bin, "uv")
@@ -72,6 +89,7 @@ include("//pycross-meson:setup.MODULE.bazel")
 include("//pycross-patches:setup.MODULE.bazel")
 include("//pycross-pure-python:setup.MODULE.bazel")
 include("//pycross-rust:setup.MODULE.bazel")
+include("//pycross-rust-rs:setup.MODULE.bazel")
 include("//pycross-setuptools:setup.MODULE.bazel")
 include("//pycross-geohash:setup.MODULE.bazel")
 include("//pycross-msgpack:setup.MODULE.bazel")

@@ -370,8 +370,16 @@ config_settings_args_test = analysistest.make(
 
 def _fake_rust_toolchain_impl(ctx):
     # The sysroot is this target's own output root: an "-exec" segment in it
-    # proves the dependent re-resolved us in the exec configuration.
-    return [platform_common.ToolchainInfo(sysroot = ctx.bin_dir.path, all_files = depset())]
+    # proves the dependent re-resolved us in the exec configuration. The
+    # make-variables mirror what rules_rust's current_rust_toolchain exports.
+    return [
+        platform_common.ToolchainInfo(sysroot = ctx.bin_dir.path, all_files = depset()),
+        platform_common.TemplateVariableInfo({
+            "CARGO": "/fake/bin/cargo",
+            "RUSTC": "/fake/bin/rustc",
+            "RUST_SYSROOT": ctx.bin_dir.path + "/fake_sysroot",
+        }),
+    ]
 
 fake_rust_toolchain = rule(
     implementation = _fake_rust_toolchain_impl,

@@ -1,0 +1,28 @@
+"""maturin cross case on rules_rs toolchains.
+
+Same package and assertions as //pycross-rust, built with the toolchains
+rules_rs provisions instead of rules_rust's own. rules_rs declares them with
+rules_rust's `rust_toolchain` rule inside the patched `rules_rust` repository
+it fetches, so `uv.project(rust_toolchain = ...)` points at that repository's
+`current_rust_toolchain`: the wiring is a provider contract, not a dependency
+on one ruleset's toolchain layout. The two rulesets coexist here because each
+carries its own `rules_rust` repository and therefore its own toolchain type.
+"""
+
+uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv.declare_hub(hub_name = "pypi_pycross_rust_rs")
+uv.project(
+    default_build_dependencies = [
+        "build",
+        "maturin",
+    ],
+    hub_name = "pypi_pycross_rust_rs",
+    lock = "//pycross-rust-rs:uv.lock",
+    pyproject = "//pycross-rust-rs:pyproject.toml",
+    rust_toolchain = "@rules_rust_rs//rust/toolchain:current_rust_toolchain",
+)
+use_repo(
+    uv,
+    "pypi_pycross_rust_rs",
+    "sdist_build__pycross_rust_rs__pydantic_core__2_47_0",
+)
