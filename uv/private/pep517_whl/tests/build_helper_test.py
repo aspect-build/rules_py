@@ -226,6 +226,58 @@ class MakeCompilerWrapperTest(unittest.TestCase):
             self.assertIn("/opt/real-cc", content)
             self.assertIn(build_helper._DEBUG_FLAG, content)
 
+    def _echo_wrapper(self, tmp: str, is_cxx: bool) -> str:
+        echo = path.join(tmp, "echo_cc")
+        with open(echo, "w") as f:
+            f.write('#!/bin/sh\nprintf \'%s\\n\' "$@"\n')
+        os.chmod(echo, 0o755)
+        return build_helper._make_compiler_wrapper(tmp, "c++" if is_cxx else "cc", echo, is_cxx=is_cxx)
+
+    @unittest.skipIf(sys.platform == "darwin", "the native wrapper skips libstdc++ on Darwin by design")
+    def test_native_gnu_cxx_link_gets_static_libstdcxx(self) -> None:
+        static = list(build_helper._STATIC_LIBSTDCXX_FLAGS)
+        with tempfile.TemporaryDirectory() as tmp:
+            cxx = self._echo_wrapper(tmp, is_cxx=True)
+            self.assertEqual(["-shared", "a.o"] + static, _run_wrapper(cxx, ["-shared", "a.o"]))
+            self.assertEqual(["-c", "a.cc"], _run_wrapper(cxx, ["-c", "a.cc"]))
+            self.assertEqual(["-E", "-v", "-"], _run_wrapper(cxx, ["-E", "-v", "-"]), "meson's introspection probe")
+            self.assertEqual(["-shared", "a.o"], _run_wrapper(self._echo_wrapper(tmp, is_cxx=False), ["-shared", "a.o"]))
+
+    @unittest.skipUnless(sys.platform == "darwin", "Darwin keeps libc++ implicit")
+    def test_native_darwin_cxx_link_is_untouched(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            cxx = self._echo_wrapper(tmp, is_cxx=True)
+            self.assertNotIn("-lstdc++", _run_wrapper(cxx, ["-shared", "a.o"]))
+
+
+class DumpMesonLogTest(unittest.TestCase):
+    def test_prints_tail_of_every_meson_log(self) -> None:
+        import io
+        from contextlib import redirect_stderr
+
+        with tempfile.TemporaryDirectory() as tmp:
+            logs = path.join(tmp, ".mesonpy-abc", "meson-logs")
+            makedirs(logs)
+            with open(path.join(logs, "meson-log.txt"), "w") as f:
+                f.write("".join("line {}\n".format(i) for i in range(200)))
+            err = io.StringIO()
+            with redirect_stderr(err):
+                build_helper._dump_meson_log(tmp, tail=5)
+            out = err.getvalue()
+            self.assertIn(".mesonpy-abc/meson-logs/meson-log.txt (last 5 lines)", out)
+            self.assertIn("line 199\n", out)
+            self.assertNotIn("line 194\n", out)
+
+    def test_silent_without_a_meson_log(self) -> None:
+        import io
+        from contextlib import redirect_stderr
+
+        with tempfile.TemporaryDirectory() as tmp:
+            err = io.StringIO()
+            with redirect_stderr(err):
+                build_helper._dump_meson_log(tmp)
+            self.assertEqual("", err.getvalue())
+
 
 class LegacyMetadataConflictTest(unittest.TestCase):
     def _worktree(
@@ -443,6 +495,7 @@ class CrossCompilerWrapperTest(unittest.TestCase):
         wrapper_flags: list[str] | None = None,
         static_runtime_archives: list[str] | None = None,
         exe_link_flags: list[str] | None = None,
+        is_cxx: bool = False,
     ) -> str:
         echo = path.join(tmp, "echo_cc")
         with open(echo, "w") as f:
@@ -450,13 +503,39 @@ class CrossCompilerWrapperTest(unittest.TestCase):
         os.chmod(echo, 0o755)
         return build_helper._make_cross_compiler_wrapper(
             tmp,
-            "cc",
+            "c++" if is_cxx else "cc",
             echo,
             wrapper_flags or [],
             is_darwin=is_darwin,
             static_runtime_archives=static_runtime_archives,
             exe_link_flags=exe_link_flags,
+            is_cxx=is_cxx,
         )
+
+    def test_gnu_cxx_link_gets_static_libstdcxx(self) -> None:
+        # gcc_toolchain drives C++ through "gcc": no implicit -lstdc++, so
+        # the wrapper must force the static archive into shared and exe links.
+        static = list(build_helper._STATIC_LIBSTDCXX_FLAGS)
+        with tempfile.TemporaryDirectory() as tmp:
+            cxx = self._wrapper(tmp, is_cxx=True)
+            self.assertEqual(["-shared", "a.o", "-o", "a.so"] + static, _run_wrapper(cxx, ["-shared", "a.o", "-o", "a.so"]))
+            self.assertEqual(["probe.o", "-o", "probe"] + static, _run_wrapper(cxx, ["probe.o", "-o", "probe"]))
+            self.assertEqual(["-c", "a.cc"], _run_wrapper(cxx, ["-c", "a.cc"]), "compiles take no link flags")
+            self.assertEqual(["--version"], _run_wrapper(cxx, ["--version"]), "probes take no link flags")
+            cc = self._wrapper(tmp)
+            self.assertEqual(["-shared", "a.o"], _run_wrapper(cc, ["-shared", "a.o"]), "the C driver never links libstdc++")
+
+    def test_nostdlibcxx_toolchain_uses_its_archives_not_libstdcxx(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            cxx = self._wrapper(tmp, is_cxx=True, static_runtime_archives=["/rt/libc++.a"], exe_link_flags=["-B/tc/bin"])
+            argv = _run_wrapper(cxx, ["-shared", "a.o"])
+            self.assertIn("/rt/libc++.a", argv)
+            self.assertNotIn("-lstdc++", argv)
+
+    def test_darwin_cxx_link_keeps_libcxx_implicit(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            cxx = self._wrapper(tmp, is_cxx=True, is_darwin=True)
+            self.assertNotIn("-lstdc++", _run_wrapper(cxx, ["-bundle", "a.o"]))
 
     def test_identity_flags_are_reinjected(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

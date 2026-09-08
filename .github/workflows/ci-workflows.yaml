@@ -178,7 +178,10 @@ jobs:
                 set -euo pipefail
                 mkdir -p "${RUNNER_TEMP}/wheels"
                 targets=$(bazel query 'filter(".*_(amd64|arm64)_bundle$", //...)')
-                bazel build --config=ci ${targets}
+                # toplevel: --config=ci's build-without-the-bytes must still materialize
+                # the tarballs this job exists to upload (a warm disk cache otherwise
+                # leaves them undownloaded).
+                bazel build --config=ci --remote_download_outputs=toplevel ${targets}
                 for target in ${targets}; do
                     pkg="${target#//}"
                     pkg="${pkg%:*}"
@@ -240,7 +243,10 @@ jobs:
                 set -euo pipefail
                 mkdir -p "${RUNNER_TEMP}/wheels"
                 targets=$(bazel query 'filter(".*_arm64_bundle$", //...)')
-                bazel build --config=ci ${targets}
+                # toplevel: --config=ci's build-without-the-bytes must still materialize
+                # the tarballs this job exists to upload (a warm disk cache otherwise
+                # leaves them undownloaded).
+                bazel build --config=ci --remote_download_outputs=toplevel ${targets}
                 for target in ${targets}; do
                     pkg="${target#//}"
                     pkg="${pkg%:*}"
@@ -296,7 +302,10 @@ jobs:
                 set -euo pipefail
                 mkdir -p "${RUNNER_TEMP}/wheels"
                 targets=$(bazel query 'filter(".*_amd64_bundle$", //...)')
-                bazel build --config=ci ${targets}
+                # toplevel: --config=ci's build-without-the-bytes must still materialize
+                # the tarballs this job exists to upload (a warm disk cache otherwise
+                # leaves them undownloaded).
+                bazel build --config=ci --remote_download_outputs=toplevel ${targets}
                 for target in ${targets}; do
                     pkg="${target#//}"
                     pkg="${pkg%:*}"

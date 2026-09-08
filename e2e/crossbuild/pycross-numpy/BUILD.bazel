@@ -2,7 +2,7 @@
 # [tool.uv] no-binary-package forces it to build from sdist here. Numpy uses
 # meson-python (vendored meson), Cython, and needs -Dblas=none -Dlapack=none
 # because this sandbox has no system BLAS/LAPACK (see setup.MODULE.bazel's
-# RULES_PY_MESON_SETUP_ARGS override).
+# `config_settings` override).
 
 load("@aspect_rules_py//py:defs.bzl", "py_test")
 load("//tools:collect_wheels.bzl", "collect_wheels")

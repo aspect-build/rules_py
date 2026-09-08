@@ -19,8 +19,11 @@ uv.override_package(
     # literal extra meson setup-args value, same as numpy's own documented
     # no-BLAS cross recipe (see its emscripten cibuildwheel config).
     name = "numpy",
-    env = {
-        "RULES_PY_MESON_SETUP_ARGS": "-Dblas=none -Dlapack=none",
+    config_settings = {
+        "setup-args": [
+            "-Dblas=none",
+            "-Dlapack=none",
+        ],
     },
     lock = "//pycross-numpy:uv.lock",
 )

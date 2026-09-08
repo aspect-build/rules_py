@@ -9,6 +9,7 @@ Mostly exists to allow debugging.
 from __future__ import annotations
 
 from argparse import ArgumentParser
+import glob
 import importlib
 import os
 import platform as _platform
@@ -38,11 +39,30 @@ _SETUPTOOLS_BACKENDS = (
 # to locate sibling tools and resources. Clang does so under -no-canonical-prefixes:
 # https://github.com/llvm/llvm-project/blob/llvmorg-22.1.4/clang/tools/driver/driver.cpp#L63-L78
 _DEBUG_FLAG = "-fdebug-default-version=4"
+
+# Forces the static libstdc++ archive into C++ links regardless of driver
+# name. Plain `-static-libstdc++` is a no-op under gcc_toolchain, whose
+# tool_path is "gcc" (not "g++"): that flag only modifies the implicit
+# libstdc++ link the "g++" argv[0] spec adds. Without this, C++ extensions
+# build and even import when another loaded .so happens to provide the
+# symbols, then fail at dlopen with cxxabi vtables unresolved. GNU-ld-only
+# syntax: skipped on Darwin (clang++ links libc++ implicitly) and for
+# -nostdlib++ toolchains, which carry their runtime as static archives.
+_STATIC_LIBSTDCXX_FLAGS = ("-Wl,-Bstatic", "-lstdc++", "-Wl,-Bdynamic")
+
+# Compiles, preprocessing and compiler-introspection probes must not receive
+# link-only flags; meson runs "-E -v -", "-print-*" and "--version" through
+# the wrappers.
+_NON_LINK_ARGS = ("-c", "-E", "-S", "-fsyntax-only", "--version", "-dumpmachine", "-dumpversion", "-###")
+
 _COMPILER_WRAPPER = """#!/usr/bin/env python3
 import os
 import sys
 
 filtered_args = [arg for arg in sys.argv[1:] if arg != "{debug_flag}"]
+is_link = not any(a in {non_link_args!r} or a.startswith("-print-") for a in filtered_args)
+if {is_cxx!r} and is_link and not {is_darwin!r}:
+    filtered_args = filtered_args + {static_libstdcxx_flags!r}
 sysroot = {sysroot!r}
 if sysroot and "-isysroot" not in filtered_args:
     filtered_args = ["-isysroot", sysroot] + filtered_args
@@ -115,6 +135,7 @@ def _make_compiler_wrapper(
     name: str,
     compiler_path: str,
     sysroot: str | None = None,
+    is_cxx: bool = False,
 ) -> str:
     wrapper = path.join(tmpdir, ".aspect_rules_py_compilers", name)
     makedirs(path.dirname(wrapper), exist_ok=True)
@@ -123,6 +144,10 @@ def _make_compiler_wrapper(
             debug_flag=_DEBUG_FLAG,
             compiler_path=compiler_path,
             sysroot=sysroot,
+            is_cxx=is_cxx,
+            is_darwin=_platform.system() == "Darwin",
+            non_link_args=list(_NON_LINK_ARGS),
+            static_libstdcxx_flags=list(_STATIC_LIBSTDCXX_FLAGS),
         ))
     chmod(wrapper, 0o755)
     return wrapper
@@ -321,6 +346,8 @@ debug_flag = {debug_flag!r}
 is_darwin = {is_darwin!r}
 static_runtime_archives = {static_runtime_archives!r}
 exe_link_flags = {exe_link_flags!r}
+is_cxx = {is_cxx!r}
+static_libstdcxx_flags = {static_libstdcxx_flags!r}
 
 # Not a link if compiling/preprocessing (-c/-E/-S/-fsyntax-only) or if this
 # is a compiler-introspection probe ("-print-*", "--version"): appending
@@ -382,6 +409,10 @@ elif is_link and exe_link_flags:
         # the C++/unwind runtime; shared links already got the archives
         # above, so don't list them twice.
         filtered.extend(static_runtime_archives)
+elif is_cxx and is_link:
+    # GNU toolchain driven as "gcc" (gcc_toolchain): no implicit libstdc++,
+    # see _STATIC_LIBSTDCXX_FLAGS.
+    filtered.extend(static_libstdcxx_flags)
 
 real = {compiler_path!r}
 os.execv(real, [real] + wrapper_flags + filtered)
@@ -396,6 +427,7 @@ def _make_cross_compiler_wrapper(
     is_darwin: bool = False,
     static_runtime_archives: list[str] | None = None,
     exe_link_flags: list[str] | None = None,
+    is_cxx: bool = False,
 ) -> str:
     wrapper = path.join(tmpdir, ".aspect_rules_py_compilers", name)
 
@@ -421,6 +453,8 @@ def _make_cross_compiler_wrapper(
             is_darwin=is_darwin,
             static_runtime_archives=list(static_runtime_archives or []),
             exe_link_flags=list(exe_link_flags or []),
+            is_cxx=is_cxx,
+            static_libstdcxx_flags=list(_STATIC_LIBSTDCXX_FLAGS),
         ),
         executable=True,
     )
@@ -682,10 +716,10 @@ def _compiler_env(
         static_runtime.sort(key=lambda p: runtime_rank.get(path.basename(p), 3))
 
         cc = _make_cross_compiler_wrapper(tmpdir, "cc", cc_path, wrapper_flags, is_darwin=is_darwin_target, static_runtime_archives=static_runtime, exe_link_flags=exe_link_flags)
-        cxx = _make_cross_compiler_wrapper(tmpdir, "c++", cxx_path, wrapper_flags, is_darwin=is_darwin_target, static_runtime_archives=static_runtime, exe_link_flags=exe_link_flags)
+        cxx = _make_cross_compiler_wrapper(tmpdir, "c++", cxx_path, wrapper_flags, is_darwin=is_darwin_target, static_runtime_archives=static_runtime, exe_link_flags=exe_link_flags, is_cxx=True)
     else:
         cc = _make_compiler_wrapper(tmpdir, "cc", cc_path, sysroot)
-        cxx = _make_compiler_wrapper(tmpdir, "c++", cxx_path, sysroot)
+        cxx = _make_compiler_wrapper(tmpdir, "c++", cxx_path, sysroot, is_cxx=True)
 
     env.setdefault("CC", cc)
     env.setdefault("CXX", cxx)
@@ -1039,6 +1073,20 @@ def _uses_setuptools_rust(pyproject_data: dict[str, object] | None) -> bool:
     return any(isinstance(req, str) and _requirement_name(req) == "setuptools-rust" for req in requires)
 
 
+def _dump_meson_log(worktree: str, tail: int = 120) -> None:
+    """meson keeps compiler sanity-check and probe failures only in meson-log.txt,
+    which the sandbox discards with the worktree; surface its tail on failure."""
+    logs = sorted(glob.glob(path.join(worktree, ".mesonpy-*", "meson-logs", "meson-log.txt")))
+    for log in logs:
+        try:
+            with open(log, encoding="utf-8", errors="replace") as f:
+                lines = f.readlines()
+        except OSError:
+            continue
+        print("--- {} (last {} lines) ---".format(path.relpath(log, worktree), min(tail, len(lines))), file=sys.stderr)
+        sys.stderr.writelines(lines[-tail:])
+
+
 def _legacy_metadata_conflicts_with_pyproject(worktree: str) -> bool:
     setup_py = path.join(worktree, "setup.py")
     pyproject_data = _load_pyproject_data(worktree)
@@ -1266,15 +1314,6 @@ def main() -> None:
         pyproject_data = _load_pyproject_data(t)
         backend = _build_backend(pyproject_data)
 
-        # Packages needing -D setup-args (numpy's -Dblas=none — the hermetic
-        # venv has no system BLAS) pass them via this env var. `build`'s -C
-        # accumulates repeated keys, so it can't collide with the
-        # --cross-file the cross branch adds separately. Native too: the
-        # setup-args are about the package, not the mode.
-        if backend == "mesonpy":
-            for arg in shlex.split(build_env.get("RULES_PY_MESON_SETUP_ARGS", "")):
-                cmd += ["-C", "setup-args=" + arg]
-
         # meson-python only synthesizes its own cross file for macOS
         # ARCHFLAGS/cibuildwheel shapes; everything else configures as a
         # native build and fails meson's compiler sanity checks. Hand it
@@ -1315,6 +1354,7 @@ def main() -> None:
                 sys.stderr.write(output)
                 if not output.endswith("\n"):
                     sys.stderr.write("\n")
+            _dump_meson_log(t)
             print("Error: Build failed!\nSee {} for the sandbox".format(t), file=sys.stderr)
             exit(1)
 
