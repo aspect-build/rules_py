@@ -26,13 +26,15 @@ _CC_TOOLCHAIN_TYPE = Label("@bazel_tools//tools/cpp:toolchain_type")
 
 # TemplateVariableInfo make-variable -> build helper env key, for the
 # toolchains a native build commonly layers in: rules_rust's
-# current_rust_toolchain (CARGO/RUSTC), an exec-configured rust sysroot
-# layer (RUST_HOST_SYSROOT), a Java runtime (JAVA/JAVABASE) and an Ant layer
-# (ANT_HOME/ANT_BIN_DIR). The env keys are the helper's contract
-# (build_helper.py absolutizes exactly this set).
+# current_rust_toolchain (CARGO/RUSTC and its generated RUST_SYSROOT, where
+# rustc and rust-std meet whatever repositories they were fetched into), an
+# exec-configured rust sysroot layer (RUST_HOST_SYSROOT), a Java runtime
+# (JAVA/JAVABASE) and an Ant layer (ANT_HOME/ANT_BIN_DIR). The env keys are
+# the helper's contract (build_helper.py absolutizes exactly this set).
 _DERIVED_ENV = {
     "CARGO": "CARGO",
     "RUSTC": "RUSTC",
+    "RUST_SYSROOT": "RULES_PY_RUST_SYSROOT",
     "RUST_HOST_SYSROOT": "RULES_PY_RUST_HOST_SYSROOT",
     "JAVA": "JAVA",
     "JAVABASE": "JAVA_HOME",

@@ -189,7 +189,7 @@ def _override_tool(env: dict[str, str], key: str, wrapper: str) -> None:
 
 def _absolutize_tool_paths(env: dict[str, str]) -> None:
     """Resolve toolchain paths before the backend changes cwd."""
-    for key in ("JAVA_HOME", "JAVA", "CARGO", "RUSTC", "RULES_PY_RUST_HOST_SYSROOT", "ANT_HOME", "RULES_PY_ANT_BIN_DIR"):
+    for key in ("JAVA_HOME", "JAVA", "CARGO", "RUSTC", "RULES_PY_RUST_SYSROOT", "RULES_PY_RUST_HOST_SYSROOT", "ANT_HOME", "RULES_PY_ANT_BIN_DIR"):
         value = env.get(key)
         if value:
             env[key] = _absolutize_path(value)
@@ -929,7 +929,7 @@ os.execv({rustc!r}, [{rustc!r}, "--sysroot", {sysroot!r}] + sys.argv[1:])
 """
 
 
-def _merge_rust_sysroot(tmpdir: str, target_rustc: str, host_sysroot: str) -> str:
+def _merge_rust_sysroot(tmpdir: str, target_rustc: str, host_sysroot: str, target_sysroot: str | None = None) -> str:
     """Symlink-merge the target toolchain's sysroot with the host's rust-std.
 
     A cross rust_toolchain's sysroot has no exec-platform rust-std, but
@@ -938,8 +938,12 @@ def _merge_rust_sysroot(tmpdir: str, target_rustc: str, host_sysroot: str) -> st
     by side in one install; recreate that by merging the two Bazel-fetched
     single-target sysroots. The host's rustlib entries win: exec-platform
     code must resolve against exec-platform std.
+
+    The target sysroot is the toolchain's generated one when known: rulesets
+    such as rules_rs fetch rustc and rust-std into separate repositories, so
+    the directory above rustc holds no std at all.
     """
-    target_sysroot = path.dirname(path.dirname(target_rustc))
+    target_sysroot = target_sysroot or path.dirname(path.dirname(target_rustc))
     merged = path.join(tmpdir, ".rust_sysroot")
     if path.exists(merged):
         return merged
@@ -1003,7 +1007,7 @@ def _configure_cargo_cross_env(build_env: dict[str, str], tmpdir: str, target_os
 
     host_sysroot = build_env.get("RULES_PY_RUST_HOST_SYSROOT")
     if host_sysroot:
-        merged_sysroot = _merge_rust_sysroot(tmpdir, build_env["RUSTC"], host_sysroot)
+        merged_sysroot = _merge_rust_sysroot(tmpdir, build_env["RUSTC"], host_sysroot, build_env.get("RULES_PY_RUST_SYSROOT"))
         build_env["RUSTC"] = _write_generated_file(
             path.join(tmpdir, ".aspect_rules_py_rustc", "rustc"),
             _RUSTC_WRAPPER.format(rustc=build_env["RUSTC"], sysroot=merged_sysroot),
@@ -1019,6 +1023,25 @@ def _configure_cargo_cross_env(build_env: dict[str, str], tmpdir: str, target_os
     interpreter_arg = "--interpreter python{}.{}".format(sys.version_info.major, sys.version_info.minor)
     existing = build_env.get("MATURIN_PEP517_ARGS", "")
     build_env["MATURIN_PEP517_ARGS"] = (interpreter_arg + " " + existing).strip()
+
+
+def _configure_cargo_native_env(build_env: dict[str, str], tmpdir: str) -> None:
+    """Point rustc at the toolchain's sysroot for a native build.
+
+    Bare rustc infers its sysroot from its own location, which only works
+    when rust-std was unpacked next to it. rules_rust's toolchain always
+    publishes the sysroot it assembled (RUST_SYSROOT), so pass that
+    explicitly; the exec-configured layer's sysroot is the same toolchain in
+    native mode and serves as the fallback.
+    """
+    sysroot = build_env.get("RULES_PY_RUST_SYSROOT") or build_env.get("RULES_PY_RUST_HOST_SYSROOT")
+    if not (build_env.get("CARGO") and sysroot):
+        return
+    build_env["RUSTC"] = _write_generated_file(
+        path.join(tmpdir, ".aspect_rules_py_rustc", "rustc"),
+        _RUSTC_WRAPPER.format(rustc=build_env["RUSTC"], sysroot=sysroot),
+        executable=True,
+    )
 
 
 def _build_backend(pyproject_data: dict[str, object] | None) -> str | None:
@@ -1268,6 +1291,8 @@ def main() -> None:
                 cmd += ["-C", "cmake.toolchain-file=" + toolchain]
             if _needs_cargo_cross_env(build_env):
                 _configure_cargo_cross_env(build_env, tmp_root, opts.target_os, opts.target_cpu, opts.target_libc)
+        else:
+            _configure_cargo_native_env(build_env, tmp_root)
     else:
         print("Error: Unable to detect build command! Neither pyproject.toml nor setup.py found!", file=sys.stderr)
         raise SystemExit(1)
