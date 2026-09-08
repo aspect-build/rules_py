@@ -8,6 +8,7 @@ guard — before it, importing the module ran the build.
 
 import os
 import sys
+import sysconfig
 import tempfile
 import unittest
 from os import makedirs, path
@@ -261,6 +262,50 @@ class MesonBuildDirArgsTest(unittest.TestCase):
 
     def test_user_build_dir_wins(self) -> None:
         self.assertEqual([], build_helper._meson_build_dir_args("mesonpy", ["build-dir=build"], "/wt"))
+
+
+class PythonPkgconfigEnvTest(unittest.TestCase):
+    def test_cross_describes_the_target_interpreter(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            env: dict[str, str] = {}
+            build_helper._python_pkgconfig_env(env, tmp, target_include="/sysroot/py/include/python3.13t")
+            pc_dir = env["PKG_CONFIG_LIBDIR"]
+            self.assertEqual(path.join(tmp, ".pkgconfig"), pc_dir)
+            self.assertEqual(sorted(os.listdir(pc_dir)), ["python-3.13.pc", "python3.pc"])
+            with open(path.join(pc_dir, "python3.pc")) as f:
+                pc = f.read()
+            self.assertIn("Version: 3.13\n", pc)
+            self.assertIn("includedir=/sysroot/py/include/python3.13t\n", pc)
+            self.assertIn("prefix=/sysroot/py\n", pc)
+            self.assertIn("Cflags: -I${includedir}\n", pc)
+            self.assertIn("Libs:\n", pc, "extension modules link no libpython")
+
+    def test_native_uses_the_interpreter_pc_dir_when_shipped(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            prefix = path.join(tmp, "py")
+            makedirs(path.join(prefix, "lib", "pkgconfig"))
+            with open(path.join(prefix, "lib", "pkgconfig", "python3.pc"), "w") as f:
+                f.write("prefix=${pcfiledir}/../..\n")
+            env: dict[str, str] = {}
+            build_helper._python_pkgconfig_env(env, tmp, base_prefix=prefix)
+            self.assertEqual(path.join(prefix, "lib", "pkgconfig"), env["PKG_CONFIG_LIBDIR"])
+
+    def test_native_generates_pc_when_the_interpreter_ships_none(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            env: dict[str, str] = {}
+            build_helper._python_pkgconfig_env(env, tmp, base_prefix=path.join(tmp, "no-such-prefix"))
+            self.assertEqual(path.join(tmp, ".pkgconfig"), env["PKG_CONFIG_LIBDIR"])
+            with open(path.join(env["PKG_CONFIG_LIBDIR"], "python3.pc")) as f:
+                pc = f.read()
+            self.assertIn("Version: {}.{}\n".format(*sys.version_info[:2]), pc)
+            self.assertIn("includedir=" + sysconfig.get_paths()["include"] + "\n", pc)
+
+    def test_explicit_pkg_config_libdir_wins(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            env = {"PKG_CONFIG_LIBDIR": "/custom"}
+            build_helper._python_pkgconfig_env(env, tmp, target_include="/t/include/python3.12")
+            self.assertEqual("/custom", env["PKG_CONFIG_LIBDIR"])
+            self.assertFalse(path.exists(path.join(tmp, ".pkgconfig")))
 
 
 class DumpMesonLogTest(unittest.TestCase):
