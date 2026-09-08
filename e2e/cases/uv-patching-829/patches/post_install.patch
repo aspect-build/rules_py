@@ -1,5 +1,5 @@
---- a/lib/python3.11/site-packages/cowsay/__init__.py
-+++ b/lib/python3.11/site-packages/cowsay/__init__.py
+--- a/cowsay/__init__.py
++++ b/cowsay/__init__.py
 @@ -1,3 +1,5 @@
 +PATCHED_POST_INSTALL = True
 +
@@ -7,10 +7,10 @@
 
      __version__,
 --- /dev/null
-+++ b/lib/python3.11/site-packages/cowsay/patched_added.py
++++ b/cowsay/patched_added.py
 @@ -0,0 +1 @@
 +PATCHED_ADDED = True
---- a/lib/python3.11/site-packages/cowsay/tests/test_api.py
+--- a/cowsay/tests/test_api.py
 +++ /dev/null
 @@ -1,30 +0,0 @@
 -import pytest

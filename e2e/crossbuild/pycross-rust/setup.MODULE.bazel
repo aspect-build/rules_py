@@ -10,8 +10,8 @@ artifacts).
 
 `uv.project(rust_toolchain = ...)` is all the Rust wiring: sdist_build
 detects the maturin backend and emits the toolchain plus an exec-configured
-rust_host_sysroot into the generated pep517_native_whl, whose make variables
-pep517_native_whl maps to CARGO/RUSTC/RULES_PY_RUST_HOST_SYSROOT.
+rust_host_sysroot into the generated pep517_native_whl, whose
+CARGO/RUSTC/RUST_HOST_SYSROOT make variables reach the helper's env.
 """
 
 uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")

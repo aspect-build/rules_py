@@ -8,9 +8,9 @@ pep517_native_whl(
     src = "//uv/private/pep517_whl/tests:__python_env_sdist",
     env = {
         "EXPECTED_PYTHONPATH": "/explicit/path",
+        # JAVA/JAVA_HOME come from the listed Java runtime's make-variables;
+        # the backend checks they arrive as absolute, existing paths.
         "EXPECT_JAVA_TOOL_PATHS": "1",
-        "JAVA": "$(JAVA)",
-        "JAVA_HOME": "$(JAVABASE)",
         "PYTHONPATH": "/explicit/path",
     },
     # This must only build through the hostile environment transition below.

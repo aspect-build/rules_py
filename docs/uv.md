@@ -458,6 +458,58 @@ time, so the complete source-built wheel still participates in the normal
 An explicit `console_scripts = {}` suppresses all detected scripts, which is
 useful when a pre-build patch removes stale entry-point metadata.
 
+### Build-time toolchains
+
+A native sdist build may need tools beyond the C++ toolchain: a JDK for JNI
+extensions, cargo and rustc for Rust extensions, Ant. List them on the
+package's override and their well-known make-variables reach the build
+environment on their own:
+
+```starlark
+uv.override_package(
+    lock = "//:uv.lock",
+    name = "jpype1",
+    toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
+)
+```
+
+`$(JAVA)` and `$(JAVABASE)` arrive as `JAVA` and `JAVA_HOME`; `$(CARGO)`,
+`$(RUSTC)` and `$(RUST_HOST_SYSROOT)` as the variables the Rust build path
+reads; `$(ANT_HOME)` and `$(ANT_BIN_DIR)` likewise. Any other make-variable a
+toolchain exports still needs an explicit `env` entry (`"FOO": "$(FOO)"`),
+and an explicit entry always wins over the derived value.
+
+### Backend config settings
+
+PEP 517 backends take a free-form `config_settings` dictionary. Declare it
+per package on the override and it reaches the backend unchanged, for pure and
+native source builds alike:
+
+```starlark
+uv.override_package(
+    lock = "//:uv.lock",
+    name = "numpy",
+    config_settings = {
+        "setup-args": [
+            "-Dblas=none",
+            "-Dlapack=none",
+        ],
+    },
+)
+```
+
+Each key maps to a list of values: a single value reaches the backend as a
+string, several as a list. The keys and their meaning belong to the package's
+build backend, so look them up in its documentation: `setup-args` for
+meson-python, `cmake.define.<VAR>` or `cmake.args` for scikit-build-core,
+`--build-option` for setuptools. A sdist has exactly one build backend, so the
+settings have exactly one recipient. If a project's README shows
+`pip install --config-settings key=value` or `python -m build -C key=value`,
+the same `key` and `value` go here. Packages
+that fall back to `setup.py bdist_wheel` (a `pyproject.toml` without the
+dynamic metadata setuptools still reads from `setup.py`) cannot take config
+settings and fail the build with an explicit error.
+
 ## Best practices
 
 **Consolidate your hubs**. In `rules_python`, environments with multiple depsets

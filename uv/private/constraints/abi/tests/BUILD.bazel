@@ -1,0 +1,62 @@
+load("//py:defs.bzl", "py_library", "py_test")
+
+# Empty marker modules: the freethreaded transition applies on the venv, so
+# only venv-side attrs like deps see the transitioned config. Selecting these
+# into deps lets the test observe which abi setting matched via find_spec.
+[
+    genrule(
+        name = "gen_" + tag,
+        outs = [tag + ".py"],
+        cmd = "touch $@",
+    )
+    for tag in [
+        "abi3",
+        "abi3t",
+    ]
+]
+
+[
+    py_library(
+        name = tag,
+        srcs = [tag + ".py"],
+        imports = ["."],
+    )
+    for tag in [
+        "abi3",
+        "abi3t",
+    ]
+]
+
+_DEPS = select({
+    "//uv/private/constraints/abi:abi3": [":abi3"],
+    "//conditions:default": [],
+}) + select({
+    "//uv/private/constraints/abi:abi3t": [":abi3t"],
+    "//conditions:default": [],
+})
+
+py_test(
+    name = "abi3_test",
+    srcs = ["abi3_test.py"],
+    env = {
+        "EXPECT_ABI3": "1",
+        "EXPECT_ABI3T": "0",
+    },
+    freethreaded = False,
+    main = "abi3_test.py",
+    python_version = "3.13",
+    deps = _DEPS,
+)
+
+py_test(
+    name = "abi3_freethreaded_test",
+    srcs = ["abi3_test.py"],
+    env = {
+        "EXPECT_ABI3": "0",
+        "EXPECT_ABI3T": "1",
+    },
+    freethreaded = True,
+    main = "abi3_test.py",
+    python_version = "3.13",
+    deps = _DEPS,
+)

@@ -1,5 +1,5 @@
---- a/marker.txt
-+++ b/marker.txt
+--- a/fakepkg/marker.txt
++++ b/fakepkg/marker.txt
 @@ -20,3 +20,4 @@
  MARKER_LINE_A
  MARKER_LINE_B

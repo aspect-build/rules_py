@@ -30,7 +30,6 @@ python3 workspace/generate_workspace.py --root workspace \
   --image-common-dep click \
   --image-layer-groups
 last_pkg="pkg_$((packages - 1))"
-python3 ../image_layers/write_patch.py --tick 0 workspace/patches/wheel_bench_note.patch
 python3 generate_module.py "$@"
 
 out_base="/tmp/bazel-build-$variant"

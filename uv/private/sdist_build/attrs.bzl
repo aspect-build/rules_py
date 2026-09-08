@@ -4,6 +4,7 @@ def validate_build_attrs(
         console_scripts,
         resource_set,
         env,
+        config_settings,
         monitor_memory,
         pre_build_patches,
         pre_build_patch_strip,
@@ -16,6 +17,7 @@ def validate_build_attrs(
         console_scripts: Complete source-build entry points, or None when unset.
         resource_set: Resource set name, where "default" means unset.
         env: Environment variables for the wheel-build action.
+        config_settings: PEP 517 config settings for the build frontend.
         monitor_memory: Whether to monitor the wheel-build action's memory.
         pre_build_patches: Patches applied before building the wheel.
         pre_build_patch_strip: Strip count for pre-build patches.
@@ -30,11 +32,13 @@ def validate_build_attrs(
         active.append("resource_set")
     if env:
         active.append("env")
+    if config_settings:
+        active.append("config_settings")
     if monitor_memory:
         active.append("monitor_memory")
     if pre_build_patches:
         active.append("pre_build_patches")
-    if pre_build_patch_strip:
+    if pre_build_patch_strip != 1:
         active.append("pre_build_patch_strip")
     if toolchains:
         active.append("toolchains")

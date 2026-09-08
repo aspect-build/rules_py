@@ -133,19 +133,6 @@ def _build_wheel(path: Path, *, legacy_syntax: bool) -> None:
     )
 
 
-def _verify_data_files(root: Path, name: str, paths: tuple[str, ...]) -> tuple[str, ...]:
-    """Args enabling the data-file patch guard against *paths*.
-
-    The expected set travels as a manifest file rather than repeated flags, so a
-    wheel with thousands of prefix paths cannot overflow the install action's
-    argv, and an empty expectation stays expressible — which is why passing the
-    manifest is itself the switch.
-    """
-    manifest = root / name
-    manifest.write_text("".join(path + "\n" for path in paths), encoding="utf-8")
-    return ("--expected-data-files-manifest", str(manifest))
-
-
 def _run_unpack(
     unpack: Path,
     wheel: Path,
@@ -404,7 +391,6 @@ def main() -> None:
             mismatch_wheel,
             mismatch_out,
             Path(sys.executable),
-            _verify_data_files(root, "mismatch-data", ("share/asset.txt",)),
         )
         assert mismatch.returncode == 0, mismatch.stdout + mismatch.stderr
         mismatch_site_packages = _site_packages(mismatch_out)
@@ -561,21 +547,21 @@ def main() -> None:
         content_patch = root / "content.patch"
         content_patch.write_text(
             f"""\
---- a/{site_packages_relative}/fixture/__init__.py
-+++ b/{site_packages_relative}/fixture/__init__.py
+--- a/fixture/__init__.py
++++ b/fixture/__init__.py
 @@ -1 +1 @@
 -VALUE = 1
 +VALUE = 2
 --- /dev/null
-+++ b/{site_packages_relative}/fixture-1.0.dist-info/__init__.py
++++ b/fixture-1.0.dist-info/__init__.py
 @@ -0,0 +1 @@
 +# Metadata directories are not import packages.
 --- /dev/null
-+++ b/{site_packages_relative}/fixture/added.py
++++ b/fixture/added.py
 @@ -0,0 +1 @@
 +VALUE = 3
 --- /dev/null
-+++ b/{site_packages_relative}/fixture/__pycache__/added.{sys.implementation.cache_tag}.pyc
++++ b/fixture/__pycache__/added.{sys.implementation.cache_tag}.pyc
 @@ -0,0 +1 @@
 +outdated bytecode
 """
@@ -639,7 +625,7 @@ def main() -> None:
         add_init_patch.write_text(
             f"""\
 --- /dev/null
-+++ b/{site_packages_relative}/fixture_ns/__init__.py
++++ b/fixture_ns/__init__.py
 @@ -0,0 +1 @@
 +VALUE = 1
 """
@@ -705,7 +691,7 @@ else:
         )
         excluded_native = root / "excluded_native.patch"
         excluded_native.write_text(
-            f"write-native\n{site_packages_relative}/fixture/tests/native_extension.so\n"
+            f"write-native\nfixture/tests/native_extension.so\n"
         )
         accepted = _run_unpack(
             unpack,
@@ -725,7 +711,7 @@ else:
         assert accepted.returncode == 0, accepted.stdout + accepted.stderr
         excluded_init = root / "excluded_init.patch"
         excluded_init.write_text(
-            f"unlink\n{site_packages_relative}/fixture/__init__.py\n"
+            f"unlink\nfixture/__init__.py\n"
         )
         accepted = _run_unpack(
             unpack,
@@ -744,13 +730,12 @@ else:
         )
         assert accepted.returncode == 0, accepted.stdout + accepted.stderr
 
-        # A forwarded manifest requires the post-patch `.data/data/` prefix tree to
-        # match the forwarded (pre-patch) set exactly, since venv assembly projects
-        # that set per-file (issue #1366). good_wheel ships share/supplied.pyc as
-        # its only data file. A patch that REMOVES it is rejected: its projected
-        # symlink would dangle.
+        # Venv assembly projects the prefix tree per-file from analysis metadata
+        # (issue #1366), so a patch escaping site-packages may not change its file
+        # set. good_wheel ships share/supplied.pyc as its only data file. A patch
+        # that REMOVES it is rejected: its projected symlink would dangle.
         remove_data_patch = root / "remove_data.patch"
-        remove_data_patch.write_text("unlink\nshare/supplied.pyc\n")
+        remove_data_patch.write_text("unlink\n../../../share/supplied.pyc\n")
         removed_data = _run_unpack(
             unpack,
             good_wheel,
@@ -761,18 +746,17 @@ else:
                 str(remove_data_patch),
                 "--patch-tool",
                 str(mutation_tool),
-                *_verify_data_files(root, "removed.manifest", ("share/supplied.pyc",)),
             ),
         )
         assert removed_data.returncode != 0, removed_data.stdout + removed_data.stderr
-        assert "prefix files" in removed_data.stderr
+        assert "outside site-packages" in removed_data.stderr
         assert "removed=['share/supplied.pyc']" in removed_data.stderr
 
         # A patch that ADDS a data file is likewise rejected: venv assembly
         # projects only the pre-patch set, so the new file would be missing from
         # sys.prefix. Fail loudly rather than silently omit it.
         add_data_patch = root / "add_data.patch"
-        add_data_patch.write_text("write-native\nshare/added.bin\n")
+        add_data_patch.write_text("write-native\n../../../share/added.bin\n")
         added_data = _run_unpack(
             unpack,
             good_wheel,
@@ -783,20 +767,19 @@ else:
                 str(add_data_patch),
                 "--patch-tool",
                 str(mutation_tool),
-                *_verify_data_files(root, "added.manifest", ("share/supplied.pyc",)),
             ),
         )
         assert added_data.returncode != 0, added_data.stdout + added_data.stderr
-        assert "prefix files" in added_data.stderr
+        assert "outside site-packages" in added_data.stderr
         assert "added=['share/added.bin']" in added_data.stderr
 
         # A patch that RENAMES a data file (unlink old + write new, two patch
         # files) is rejected on both halves: the old path dangles and the new one
         # is unprojected.
         rename_unlink_patch = root / "rename_unlink.patch"
-        rename_unlink_patch.write_text("unlink\nshare/supplied.pyc\n")
+        rename_unlink_patch.write_text("unlink\n../../../share/supplied.pyc\n")
         rename_write_patch = root / "rename_write.patch"
-        rename_write_patch.write_text("write-native\nshare/renamed.pyc\n")
+        rename_write_patch.write_text("write-native\n../../../share/renamed.pyc\n")
         renamed_data = _run_unpack(
             unpack,
             good_wheel,
@@ -809,7 +792,6 @@ else:
                 str(rename_write_patch),
                 "--patch-tool",
                 str(mutation_tool),
-                *_verify_data_files(root, "renamed.manifest", ("share/supplied.pyc",)),
             ),
         )
         assert renamed_data.returncode != 0, renamed_data.stdout + renamed_data.stderr
@@ -820,7 +802,7 @@ else:
         # symlink resolves through to the patched bytes, so only the path set is
         # guarded.
         edit_data_patch = root / "edit_data.patch"
-        edit_data_patch.write_text("rewrite\nshare/supplied.pyc\n")
+        edit_data_patch.write_text("rewrite\n../../../share/supplied.pyc\n")
         edited_data_dir = root / "edited-data"
         edited_data = _run_unpack(
             unpack,
@@ -832,7 +814,6 @@ else:
                 str(edit_data_patch),
                 "--patch-tool",
                 str(mutation_tool),
-                *_verify_data_files(root, "edited.manifest", ("share/supplied.pyc",)),
             ),
         )
         assert edited_data.returncode == 0, edited_data.stdout + edited_data.stderr
@@ -840,34 +821,7 @@ else:
             edited_data_dir / "share" / "supplied.pyc"
         ).read_bytes() == b"patched contents\n"
 
-        # The manifest is compared against the tree the install produced, not
-        # trusted: a manifest that does not describe the patched tree fails.
-        stale_manifest = _run_unpack(
-            unpack,
-            good_wheel,
-            root / "stale-manifest",
-            Path(sys.executable),
-            (
-                "--patch",
-                str(rename_unlink_patch),
-                "--patch",
-                str(rename_write_patch),
-                "--patch-tool",
-                str(mutation_tool),
-                *_verify_data_files(root, "stale.manifest", ("share/wrong.pyc",)),
-            ),
-        )
-        assert stale_manifest.returncode != 0, (
-            stale_manifest.stdout + stale_manifest.stderr
-        )
-        assert "removed=['share/wrong.pyc']" in stale_manifest.stderr
-        assert "added=['share/renamed.pyc']" in stale_manifest.stderr
-
-        # Metadata extraction forwards venv-owned roots so the collision planner
-        # can report them, but `bin/` and `lib/` also hold `.data/scripts/`,
-        # `.data/headers/` and site-packages, which the on-disk scan cannot tell
-        # apart. Both sides drop those roots, so neither the forwarded
-        # `bin/tool` nor the installed `.data/scripts/script` trips the guard.
+        # Venv-owned roots (`bin/`, `lib/`, `pyvenv.cfg`) get no special treatment.
         owned_wheel = root / "owned-1.0-py3-none-any.whl"
         _write_wheel(
             owned_wheel,
@@ -882,23 +836,8 @@ else:
                 "owned-1.0.data/data/share/kept.txt": b"kept\n",
             },
         )
-        owned = _run_unpack(
-            unpack,
-            owned_wheel,
-            root / "owned",
-            Path(sys.executable),
-            _verify_data_files(
-                root,
-                "owned.manifest",
-                ("share/kept.txt", "bin/tool", "lib/libextra.so", "pyvenv.cfg"),
-            ),
-        )
-        assert owned.returncode == 0, owned.stdout + owned.stderr
-
-        # `pyvenv.cfg` is unambiguous on disk, so it stays in the comparison and
-        # a patch removing it is still rejected.
         remove_cfg_patch = root / "remove_cfg.patch"
-        remove_cfg_patch.write_text("unlink\npyvenv.cfg\n")
+        remove_cfg_patch.write_text("unlink\n../../../pyvenv.cfg\n")
         removed_cfg = _run_unpack(
             unpack,
             owned_wheel,
@@ -909,11 +848,6 @@ else:
                 str(remove_cfg_patch),
                 "--patch-tool",
                 str(mutation_tool),
-                *_verify_data_files(
-                    root,
-                    "owned-removed-cfg.manifest",
-                    ("share/kept.txt", "pyvenv.cfg"),
-                ),
             ),
         )
         assert removed_cfg.returncode != 0, removed_cfg.stdout + removed_cfg.stderr
@@ -1001,19 +935,15 @@ else:
         filter_patch = root / "filter.patch"
         filter_patch.write_text(
             f"""\
---- a/{site_packages_relative}/demo/keep.py
-+++ b/{site_packages_relative}/demo/keep.py
+--- a/demo/keep.py
++++ b/demo/keep.py
 @@ -1 +1 @@
 -VALUE = 2
 +VALUE = 3
 --- /dev/null
-+++ b/{site_packages_relative}/demo/tests/from_patch.py
++++ b/demo/tests/from_patch.py
 @@ -0,0 +1 @@
 +raise AssertionError()
---- /dev/null
-+++ b/share/demo/from_patch.txt
-@@ -0,0 +1 @@
-+patched data
 """
         )
         filtered_out = root / "filtered"
@@ -1072,7 +1002,6 @@ else:
         recorded = {str(path): path for path in distribution.files}
         assert "demo/keep.py" in recorded
         assert "../../../share/demo/retained.txt" in recorded
-        assert "../../../share/demo/from_patch.txt" in recorded
         assert "demo/tests/test_root.py" not in recorded
         assert "demo/tests/from_patch.py" not in recorded
         assert "demo/nested/tests/test_nested.py" not in recorded
@@ -1220,7 +1149,7 @@ else:
         ]:
             mutation = root / f"{name}.patch"
             mutation.write_text(
-                f"{operation}\n{site_packages_relative}/{changed_path}\n"
+                f"{operation}\n{changed_path}\n"
             )
             rejected = _run_unpack(
                 unpack,

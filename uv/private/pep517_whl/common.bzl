@@ -51,6 +51,14 @@ def patch_args_and_inputs(ctx):
 def memory_args(ctx):
     return ["--monitor-memory"] if ctx.attr.monitor_memory else []
 
+def config_setting_args(ctx):
+    """`--config-setting key=value` per listed value, keys sorted for a stable action key."""
+    args = []
+    for key in sorted(ctx.attr.config_settings):
+        for value in ctx.attr.config_settings[key]:
+            args += ["--config-setting", "{}={}".format(key, value)]
+    return args
+
 _PATCH_ATTRS = {
     "pre_build_patches": attr.label_list(
         default = [],
@@ -58,7 +66,7 @@ _PATCH_ATTRS = {
         doc = "Patch files to apply to the extracted source before building.",
     ),
     "pre_build_patch_strip": attr.int(
-        default = 0,
+        default = 1,
         doc = "Strip count for pre-build patches (-p flag to patch).",
     ),
 }
@@ -74,6 +82,10 @@ PEP517_WHL_ATTRS = {
         doc = "Console scripts discovered from the source distribution's entry-point metadata.",
     ),
     "args": attr.string_list(default = ["--validate-anyarch"]),
+    "config_settings": attr.string_list_dict(
+        default = {},
+        doc = "PEP 517 `config_settings` for the build backend. Each key maps to a list of values: a single value reaches the backend as a string, several as a list.",
+    ),
     "monitor_memory": attr.bool(
         default = False,
         doc = "Report approximate Linux process-tree RSS while building the wheel.",

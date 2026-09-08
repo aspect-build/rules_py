@@ -361,7 +361,7 @@ whl_install = repository_rule(
         "sbuild_console_scripts": attr.string_list(),
         "sbuild_console_scripts_override": attr.bool(),
         "post_install_patches": attr.string(default = ""),
-        "post_install_patch_strip": attr.int(default = 0),
+        "post_install_patch_strip": attr.int(default = 1),
         "exclude_glob": attr.string_list(),
         "extra_deps": attr.string(default = ""),
         "extra_data": attr.string(default = ""),

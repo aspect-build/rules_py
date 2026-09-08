@@ -35,9 +35,13 @@ def generate(
         ],
     )
 
-    native.alias(
+    # The ordinary stable ABI is not compatible with free-threaded builds.
+    native.config_setting(
         name = "abi3",
-        actual = "//uv/private/constraints/python:py33",
+        flag_values = {
+            "//uv/private/constraints/python:_py33_flag": "yes",
+            _FREETHREADING_FLAG: "false",
+        },
         visibility = visibility,
     )
 

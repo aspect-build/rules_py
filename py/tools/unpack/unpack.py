@@ -5,7 +5,8 @@ Installs a single wheel into::
     <into>/lib/python<M>.<m>/site-packages/
 
 following PEP 427 ``.data/`` routing for scripts, headers, and data files.
-Optionally applies patch files and pre-compiles ``.pyc`` bytecode.
+Optionally applies site-packages-relative patch files and pre-compiles ``.pyc``
+bytecode.
 
 Invoked by Bazel as::
 
@@ -79,32 +80,14 @@ def _import_root(path: Path) -> str | None:
     return None
 
 
-# Prefix roots whose on-disk contents cannot be attributed to a PEP 427
-# category: `bin/` holds `.data/scripts/` and generated console scripts, `lib/`
-# holds site-packages and `.data/headers/`, either alongside a `.data/data/`
-# file routed there. Both sides of the data-file comparison drop them — venv
-# assembly never projects a data file into them either (`VENV_OWNED_ROOTS` in
-# virtuals_resolvers.bzl), so a patch touching one is inconsequential.
-_AMBIGUOUS_PREFIX_ROOTS = ("bin", "lib")
-
-
-def _prefix_data_files(into: Path) -> set[str]:
-    """Prefix-relative paths of the installed `.data/data/` tree.
-
-    Descends only the roots that hold data files, so the walk is bounded by the
-    prefix tree rather than by site-packages, which for a large wheel is orders
-    of magnitude bigger and entirely excluded anyway.
-    """
+def _prefix_files(into: Path, site_packages: Path) -> set[str]:
+    """Prefix-relative paths of every installed file outside site-packages."""
     found: set[str] = set()
-    for entry in into.iterdir():
-        if entry.name in _AMBIGUOUS_PREFIX_ROOTS:
-            continue
-        if entry.is_file():
-            found.add(entry.name)
-            continue
-        for path in entry.rglob("*"):
-            if path.is_file():
-                found.add(path.relative_to(into).as_posix())
+    for dirpath, dirnames, filenames in os.walk(into):
+        directory = Path(dirpath)
+        dirnames[:] = [name for name in dirnames if directory / name != site_packages]
+        for name in filenames:
+            found.add((directory / name).relative_to(into).as_posix())
     return found
 
 
@@ -451,10 +434,9 @@ class _Args:
 
     def __init__(self) -> None:
         self.patches: list[Path] = []
-        self.patch_strip = 0
+        self.patch_strip = 1
         self.patch_tool = Path("patch")
         self.preserve_path: list[str] = []
-        self.expected_data_files_manifest: Path | None = None
         self.exclude_glob: list[tuple[str, ...]] = []
         # Interpreter that compiles the bytecode; presence enables compilation.
         self.compile_pyc: Path | None = None
@@ -484,13 +466,6 @@ def _parse_args(argv: Sequence[str]) -> _Args:
             args.patch_tool = Path(value)
         elif flag == "--preserve-path":
             args.preserve_path.append(value)
-        elif flag == "--expected-data-files-manifest":
-            # Newline-separated prefix-relative `.data/data/` paths; presence
-            # enables the post-patch data-file check (an empty manifest is a
-            # meaningful expectation). A file rather than repeated flags: a
-            # wheel like jupyterlab ships thousands of prefix paths, enough to
-            # risk ARG_MAX.
-            args.expected_data_files_manifest = Path(value)
         elif flag == "--exclude-glob":
             from exclude_glob import parse
 
@@ -547,6 +522,7 @@ def main() -> None:
         else:
             raise SystemExit("Preserved wheel path does not exist: {}".format(relative))
 
+    prefix_before = _prefix_files(args.into, site_packages) if args.patches else set()
     for patch_file in args.patches:
         import subprocess
 
@@ -559,7 +535,7 @@ def main() -> None:
                     "--no-backup-if-mismatch",
                     "-p{}".format(args.patch_strip),
                     "-d",
-                    str(args.into),
+                    str(site_packages),
                 ],
                 stdin=patch_stream,
             )
@@ -590,32 +566,19 @@ def main() -> None:
                 "Post-install patch changed observed native files: {}".format(relative)
             )
 
-    # Venv assembly projects the `.data/data/` prefix files (share/, etc/) from
-    # metadata settled during analysis. Unlike the site-packages topology they
-    # are not covered by the preserve-path checks above, so a patch that alters
-    # the set cannot be reflected: an added file would be missing from
-    # sys.prefix, a removed/renamed one would dangle. A forwarded manifest means
-    # the resulting prefix tree must match it exactly. Content edits are fine —
-    # the symlink resolves through — only the path set is guarded.
-    if args.expected_data_files_manifest:
-        expected = {
-            path
-            for path in args.expected_data_files_manifest.read_text(
-                encoding="utf-8",
-            ).splitlines()
-            if path and path.split("/")[0] not in _AMBIGUOUS_PREFIX_ROOTS
-        }
-        actual = _prefix_data_files(args.into)
-        removed = sorted(expected - actual)
-        added = sorted(actual - expected)
+    # Venv assembly projects the prefix tree (share/, bin/, ...) from metadata
+    # settled during analysis, so a patch escaping site-packages via `..` cannot
+    # add or remove a file there: an added file would be missing from
+    # sys.prefix, a removed one would dangle.
+    if args.patches:
+        prefix_after = _prefix_files(args.into, site_packages)
+        removed = sorted(prefix_before - prefix_after)
+        added = sorted(prefix_after - prefix_before)
         if removed or added:
             raise SystemExit(
-                "Post-install patch altered the wheel's `.data/data/` prefix files "
-                "(removed={}, added={}). Venv assembly projects the set settled "
-                "during analysis, so an added file is missing from sys.prefix and a "
-                "removed or renamed one leaves a dangling symlink. Keep the patch "
-                "out of the prefix tree; editing an existing data file's contents "
-                "is supported.".format(removed, added)
+                "Post-install patch altered files outside site-packages "
+                "(removed={}, added={}). Patches may only add or remove files "
+                "under site-packages.".format(removed, added)
             )
 
     if args.exclude_glob:

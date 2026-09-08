@@ -29,7 +29,8 @@ uv.project(
 )
 
 # The build benchmark rewrites this patch to simulate an incremental change to a
-# third-party wheel that every image binary depends on.
+# third-party wheel that every image binary depends on. The explicit strip count
+# covers releases whose default is 0.
 uv.override_package(
     name = "click",
     lock = "//workspace:uv.lock",

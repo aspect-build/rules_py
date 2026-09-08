@@ -57,7 +57,6 @@ uv.override_package(
 uv.override_package(
     name = "setproctitle",
     lock = "//pycross-setuptools:uv.lock",
-    pre_build_patch_strip = 1,
     pre_build_patches = ["//pycross-setuptools:require_extension.patch"],
 )
 uv.override_package(

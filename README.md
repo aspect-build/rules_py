@@ -197,7 +197,6 @@ uv.override_package(
     name = "some_other_package",
     lock = "//:uv.lock",
     post_install_patches = ["//third_party/patches:fix_some_other_package.patch"],
-    post_install_patch_strip = 1,
 )
 
 # 3c. (Optional) Remove bundled tests or other unused wheel content

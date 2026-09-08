@@ -16,6 +16,7 @@ load(
     "PEP517_WHL_ATTRS",
     "TARGET_EXEC_GROUP",
     "common_env",
+    "config_setting_args",
     "memory_args",
     "patch_args_and_inputs",
     "wheel_providers",
@@ -23,10 +24,12 @@ load(
 
 _CC_TOOLCHAIN_TYPE = Label("@bazel_tools//tools/cpp:toolchain_type")
 
-# TemplateVariableInfo make-variable -> build helper env key. Sources:
-# rules_rust's current_rust_toolchain (CARGO/RUSTC), rules_py's
-# rust_host_sysroot layer (RUST_HOST_SYSROOT), @bazel_tools' java runtime
-# (JAVA/JAVABASE) and an Ant layer exporting ANT_HOME/ANT_BIN_DIR.
+# TemplateVariableInfo make-variable -> build helper env key, for the
+# toolchains a native build commonly layers in: rules_rust's
+# current_rust_toolchain (CARGO/RUSTC), an exec-configured rust sysroot
+# layer (RUST_HOST_SYSROOT), a Java runtime (JAVA/JAVABASE) and an Ant layer
+# (ANT_HOME/ANT_BIN_DIR). The env keys are the helper's contract
+# (build_helper.py absolutizes exactly this set).
 _DERIVED_ENV = {
     "CARGO": "CARGO",
     "RUSTC": "RUSTC",
@@ -285,10 +288,10 @@ def _pep517_native_whl(ctx):
         extra_inputs.append(cc_files)
     known_variables.update({key: value for key, value in cc_tools.items() if key not in known_variables})
 
-    # Well-known make-variables exported by `toolchains` become the env keys
-    # the build helper consumes, so listing a toolchain is enough and the
-    # RULES_PY_* names stay a contract between this rule and the helper.
-    # Explicit `env` entries win.
+    # Listing a toolchain is enough for its well-known make-variables to reach
+    # the helper: no `"CARGO": "$(CARGO)"` boilerplate, and the RULES_PY_*
+    # names stay a contract between this rule and the helper. Explicit `env`
+    # entries win.
     for make_var, env_key in _DERIVED_ENV.items():
         if make_var in known_variables and env_key not in ctx.attr.env:
             env[env_key] = known_variables[make_var]
@@ -368,7 +371,7 @@ def _pep517_native_whl(ctx):
         progress_message = "Native source compiling {} to a whl".format(archive.basename),
         executable = tool,
         toolchain = None,
-        arguments = ctx.attr.args + [patch_args] + memory_args(ctx) + cross_args + [
+        arguments = ctx.attr.args + [patch_args] + memory_args(ctx) + config_setting_args(ctx) + cross_args + [
             "--execroot-marker",
             _EXECROOT_MARKER,
             archive.path,

@@ -139,7 +139,35 @@ def _resolve_archive_path(repository_ctx):
 
 # --- Repository rule implementation ---
 
-def _normalize_requirement(name):
+def _env_attr(env):
+    """Renders the generated rule call's `env` attribute, or "" when unset."""
+    if not env:
+        return ""
+
+    # repr() on both sides: user-supplied keys and values (a CFLAGS with quotes,
+    # a Windows path) must survive into the BUILD as valid Starlark literals.
+    lines = ["        {}: {},".format(repr(key), repr(env[key])) for key in sorted(env)]
+    return "\n    env = {{\n{}\n    }},".format("\n".join(lines))
+
+def _config_settings_attr(config_settings):
+    """Renders the generated rule call's `config_settings` attribute, or "" when unset."""
+    if not config_settings:
+        return ""
+
+    # repr() on both sides: keys are backend-defined free-form strings, so a
+    # quote or backslash in one must survive as a valid Starlark literal.
+    lines = ["        {}: {},".format(repr(key), repr(config_settings[key])) for key in sorted(config_settings)]
+    return "\n    config_settings = {{\n{}\n    }},".format("\n".join(lines))
+
+_REQUIREMENT_NAME_CHARS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-"
+
+def _normalize_requirement(requirement):
+    """PEP 508 requirement -> normalized project name (extras, specifiers and markers dropped)."""
+    name = ""
+    for ch in requirement.strip().elems():
+        if ch not in _REQUIREMENT_NAME_CHARS:
+            break
+        name += ch
     return name.lower().replace("_", "-").replace(".", "-")
 
 def _is_rust_build(inspection):
@@ -149,6 +177,42 @@ def _is_rust_build(inspection):
     if inspection.get("build_backend") == "maturin":
         return True
     return "setuptools-rust" in [_normalize_requirement(r) for r in inspection.get("build_requires", [])]
+
+_RUST_LAYER_LOAD = "\nload(\"@aspect_rules_py//uv/private/pep517_whl:rust_layer.bzl\", \"rust_host_sysroot\")"
+
+def _rust_wiring(rust_toolchain, inspection, toolchains):
+    """The generated BUILD's Rust wiring for a project-level `rust_toolchain`.
+
+    The configure tool already detected the build backend and its declared
+    requirements, so a Rust-based build (maturin, or setuptools with
+    setuptools-rust) gets the project's Rust toolchain plus an exec-configured
+    rust_host_sysroot layer without the user spelling either out per package.
+    pep517_native_whl derives CARGO/RUSTC/RULES_PY_RUST_HOST_SYSROOT from
+    their make-variables.
+
+    Args:
+        rust_toolchain: `uv.project(rust_toolchain = ...)` as a label string, or "".
+        inspection: The configure tool's JSON, or None.
+        toolchains: Extra toolchain labels from `uv.override_package`.
+
+    Returns:
+        struct(load_stmt, target, toolchains): the `load()` line and the
+        `rust_host_sysroot(...)` target to splice into the BUILD (both "" when
+        not wired), and the final `toolchains` list.
+    """
+    if not (rust_toolchain and _is_rust_build(inspection)):
+        return struct(load_stmt = "", target = "", toolchains = list(toolchains))
+    target = """
+rust_host_sysroot(
+    name = "rust_host_sysroot",
+    actual = {},
+)
+""".format(repr(rust_toolchain))
+    return struct(
+        load_stmt = _RUST_LAYER_LOAD,
+        target = target,
+        toolchains = [rust_toolchain, ":rust_host_sysroot"] + [t for t in toolchains if t != rust_toolchain],
+    )
 
 def _sdist_build_impl(repository_ctx):
     """Prepares a repository for building a wheel from a source distribution (sdist).
@@ -212,11 +276,13 @@ def _sdist_build_impl(repository_ctx):
             console_scripts = None,
             resource_set = repository_ctx.attr.resource_set,
             env = repository_ctx.attr.extra_env,
+            config_settings = repository_ctx.attr.config_settings,
             error = "sdist_build for '{}': the generated pure-Python `pep517_whl(...)` call cannot apply these native-build attributes: {{}}. Remove them, or configure this source distribution as native.".format(repository_ctx.name),
             monitor_memory = repository_ctx.attr.monitor_memory,
             pre_build_patches = repository_ctx.attr.pre_build_patches,
             pre_build_patch_strip = repository_ctx.attr.pre_build_patch_strip,
             supported = [
+                "config_settings",
                 "monitor_memory",
                 "pre_build_patches",
                 "pre_build_patch_strip",
@@ -284,39 +350,18 @@ def _sdist_build_impl(repository_ctx):
         toolchains = list(repository_ctx.attr.extra_toolchains)
         extra_env = repository_ctx.attr.extra_env
 
-        # Backend-driven defaults: the configure tool already detected the
-        # build backend and its declared requirements, so a Rust-based build
-        # (maturin, or setuptools + setuptools-rust) gets the project's Rust
-        # toolchain plus the exec-configured sysroot layer without the user
-        # spelling either out per package. The generated pep517_native_whl
-        # derives CARGO/RUSTC/RULES_PY_RUST_HOST_SYSROOT from their
-        # make-variables.
-        rust_toolchain = repository_ctx.attr.rust_toolchain
-        if rust_toolchain and _is_rust_build(inspection):
-            rust_layer_load = "\nload(\"@aspect_rules_py//uv/private/pep517_whl:rust_layer.bzl\", \"rust_host_sysroot\")"
-            rust_layer_target = """
-rust_host_sysroot(
-    name = "rust_host_sysroot",
-    actual = "{rust_toolchain}",
-)
-""".format(rust_toolchain = rust_toolchain)
-            toolchains = [rust_toolchain, ":rust_host_sysroot"] + [t for t in toolchains if t != rust_toolchain]
-        env_attr = ""
-        if extra_env:
-            env_attr = """
-    env = {{
-{env}
-    }},""".format(
-                env = "\n".join(["        \"{}\": \"{}\",".format(k, v) for k, v in sorted(extra_env.items())]),
-            )
+        rust = _rust_wiring(repository_ctx.attr.rust_toolchain, inspection, toolchains)
+        rust_layer_load = rust.load_stmt
+        rust_layer_target = rust.target
+        toolchains = rust.toolchains
         if toolchains:
             toolchain_attrs = """
     toolchains = [
 {toolchains}
     ],""".format(
-                toolchains = "\n".join(["        \"{}\",".format(t) for t in toolchains]),
+                toolchains = "\n".join(["        {},".format(repr(t)) for t in toolchains]),
             )
-        toolchain_attrs += env_attr
+        toolchain_attrs += _env_attr(extra_env)
 
     resource_set_attr = ""
     if repository_ctx.attr.resource_set != "default":
@@ -325,6 +370,7 @@ rust_host_sysroot(
     console_scripts_attr = ""
     if inspection and inspection.get("console_scripts"):
         console_scripts_attr = "\n    console_scripts = {},".format(repr(inspection["console_scripts"]))
+    config_settings_attr = _config_settings_attr(repository_ctx.attr.config_settings)
 
     # Leave args unset: the pure rule validates anyarch wheels by default,
     # while the native rule defaults to no validation.
@@ -363,7 +409,7 @@ py_binary(
     name = "whl",
     src = "{src}",
     tool = "{tool}",
-    version = "{version}",{console_scripts_attr}{monitor_memory_attr}{resource_set_attr}{patch_attrs}{toolchain_attrs}
+    version = "{version}",{console_scripts_attr}{config_settings_attr}{monitor_memory_attr}{resource_set_attr}{patch_attrs}{toolchain_attrs}
     visibility = ["//visibility:public"],
 )
 
@@ -375,6 +421,7 @@ exports_files(
         src = repository_ctx.attr.src,
         deps = repr(all_deps),
         console_scripts_attr = console_scripts_attr,
+        config_settings_attr = config_settings_attr,
         monitor_memory_attr = monitor_memory_attr,
         rule = "pep517_native_whl" if is_native else "pep517_whl",
         frontend_load = frontend_load,
@@ -425,7 +472,7 @@ sdist_build = repository_rule(
                   "action. Set via `uv.override_package(resource_set = ...)`.",
         ),
         "pre_build_patches": attr.label_list(default = []),
-        "pre_build_patch_strip": attr.int(default = 0),
+        "pre_build_patch_strip": attr.int(default = 1),
         "rust_toolchain": attr.string(
             default = "",
             doc = "Project-level Rust toolchain label; applied when the sdist's build backend is Rust-based.",
@@ -438,5 +485,17 @@ sdist_build = repository_rule(
             default = {},
             doc = "Environment variables forwarded to the generated pep517_native_whl(...) `env` dict. Values may reference $(VAR) make-variables from extra toolchains. Prefix an execroot-relative path with `$(EXECROOT)/` so it remains valid after the backend changes into the unpacked source tree. Set via `uv.override_package(env = {...})`.",
         ),
+        "config_settings": attr.string_list_dict(
+            default = {},
+            doc = "PEP 517 config settings forwarded to the generated pep517_*whl(...) `config_settings` attribute. Set via `uv.override_package(config_settings = {...})`.",
+        ),
     },
+)
+
+sdist_build_test_util = struct(
+    config_settings_attr = _config_settings_attr,
+    env_attr = _env_attr,
+    is_rust_build = _is_rust_build,
+    normalize_requirement = _normalize_requirement,
+    rust_wiring = _rust_wiring,
 )

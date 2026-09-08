@@ -1,0 +1,267 @@
+FILE bin/activate
+---
+# Adapted from CPython Lib/venv/scripts/common/activate
+
+deactivate () {
+    # reset old environment variables
+    if [ -n "${_OLD_VIRTUAL_PATH:-}" ] ; then
+        PATH="${_OLD_VIRTUAL_PATH:-}"
+        export PATH
+    fi
+
+    if [ "${_OLD_VIRTUAL_PYTHONHOME:-}" = "_activate_undef" ]; then
+        unset _OLD_VIRTUAL_PYTHONHOME
+        unset PYTHONHOME
+    elif [ -n "${_OLD_VIRTUAL_PYTHONHOME:-}" ] ; then
+        PYTHONHOME="${_OLD_VIRTUAL_PYTHONHOME:-}"
+        export PYTHONHOME
+    fi
+
+    # Call hash to forget past locations. Without forgetting past locations the
+    # $PATH changes we made may not be respected. See "man bash" for more
+    # details. hash is usually a builtin of your shell
+    hash -r 2> /dev/null
+
+    if [ -n "${_OLD_VIRTUAL_PS1:-}" ] ; then
+        PS1="${_OLD_VIRTUAL_PS1:-}"
+        export PS1
+    fi
+
+    unset _OLD_VIRTUAL_PS1
+    unset _OLD_VIRTUAL_PATH
+    unset _OLD_VIRTUAL_PYTHONHOME
+    unset VIRTUAL_ENV
+    unset VIRTUAL_ENV_PROMPT
+
+    # Unset Bazel-injected vars
+    unset BAZEL_TARGET
+    unset BAZEL_WORKSPACE
+    unset BAZEL_TARGET_NAME
+
+    if [ ! "${1:-}" = "nondestructive" ] ; then
+    # Self destruct!
+        unset -f deactivate
+    fi
+}
+
+# unset irrelevant variables
+deactivate nondestructive
+
+# For ZSH, emulate BASH_SOURCE.
+# The runfiles library code has some deps on this so we just set it :/
+: "${BASH_SOURCE:=$0}"
+
+VIRTUAL_ENV="$(dirname "$(dirname "${BASH_SOURCE}")")"
+export VIRTUAL_ENV
+
+# unset PYTHONHOME if set
+# this will fail if PYTHONHOME is set to the empty string (which is bad anyway)
+# could use `if (set -u; : $PYTHONHOME) ;` in bash.
+_OLD_VIRTUAL_PYTHONHOME="${PYTHONHOME:-_activate_undef}"
+unset PYTHONHOME
+
+_OLD_VIRTUAL_PATH="$PATH"
+
+# Aspect additions
+export BAZEL_TARGET="//py/private/py_venv/tests:_many_scripts_bin.venv"
+export BAZEL_WORKSPACE="_main"
+export BAZEL_TARGET_NAME="_many_scripts_bin.venv"
+
+# Now we can put the venv's absolute bin on the path
+PATH="$VIRTUAL_ENV/bin:$PATH"
+export PATH
+
+# Call hash to forget past commands. Without forgetting
+# past commands the $PATH changes we made may not be respected
+hash -r 2> /dev/null
+---
+FILE bin/coverage
+---
+#!/bin/sh
+case $0 in
+    */*) script_dir=${0%/*} ;;
+    *) script_dir=. ;;
+esac
+exec "${script_dir}/python" -c 'import sys; from importlib import import_module; from operator import attrgetter; sys.argv[0] = "coverage"; sys.exit(attrgetter("main")(import_module("coverage.cmdline"))())' "$@"
+---
+FILE bin/coverage-3.11
+---
+#!/bin/sh
+case $0 in
+    */*) script_dir=${0%/*} ;;
+    *) script_dir=. ;;
+esac
+exec "${script_dir}/python" -c 'import sys; from importlib import import_module; from operator import attrgetter; sys.argv[0] = "coverage-3.11"; sys.exit(attrgetter("main")(import_module("coverage.cmdline"))())' "$@"
+---
+FILE bin/coverage3
+---
+#!/bin/sh
+case $0 in
+    */*) script_dir=${0%/*} ;;
+    *) script_dir=. ;;
+esac
+exec "${script_dir}/python" -c 'import sys; from importlib import import_module; from operator import attrgetter; sys.argv[0] = "coverage3"; sys.exit(attrgetter("main")(import_module("coverage.cmdline"))())' "$@"
+---
+FILE bin/cowsay
+---
+#!/bin/sh
+case $0 in
+    */*) script_dir=${0%/*} ;;
+    *) script_dir=. ;;
+esac
+exec "${script_dir}/python" -c 'import sys; from importlib import import_module; from operator import attrgetter; sys.argv[0] = "cowsay"; sys.exit(attrgetter("cli")(import_module("cowsay.__main__"))())' "$@"
+---
+FILE bin/django-admin
+---
+#!/bin/sh
+case $0 in
+    */*) script_dir=${0%/*} ;;
+    *) script_dir=. ;;
+esac
+exec "${script_dir}/python" -c 'import sys; from importlib import import_module; from operator import attrgetter; sys.argv[0] = "django-admin"; sys.exit(attrgetter("execute_from_command_line")(import_module("django.core.management"))())' "$@"
+---
+FILE bin/futurize
+---
+#!/bin/sh
+case $0 in
+    */*) script_dir=${0%/*} ;;
+    *) script_dir=. ;;
+esac
+exec "${script_dir}/python" -c 'import sys; from importlib import import_module; from operator import attrgetter; sys.argv[0] = "futurize"; sys.exit(attrgetter("main")(import_module("libfuturize.main"))())' "$@"
+---
+FILE bin/jsonschema
+---
+#!/bin/sh
+case $0 in
+    */*) script_dir=${0%/*} ;;
+    *) script_dir=. ;;
+esac
+exec "${script_dir}/python" -c 'import sys; from importlib import import_module; from operator import attrgetter; sys.argv[0] = "jsonschema"; sys.exit(attrgetter("main")(import_module("jsonschema.cli"))())' "$@"
+---
+FILE bin/pasteurize
+---
+#!/bin/sh
+case $0 in
+    */*) script_dir=${0%/*} ;;
+    *) script_dir=. ;;
+esac
+exec "${script_dir}/python" -c 'import sys; from importlib import import_module; from operator import attrgetter; sys.argv[0] = "pasteurize"; sys.exit(attrgetter("main")(import_module("libpasteurize.main"))())' "$@"
+---
+FILE bin/py.test
+---
+#!/bin/sh
+case $0 in
+    */*) script_dir=${0%/*} ;;
+    *) script_dir=. ;;
+esac
+exec "${script_dir}/python" -c 'import sys; from importlib import import_module; from operator import attrgetter; sys.argv[0] = "py.test"; sys.exit(attrgetter("console_main")(import_module("pytest"))())' "$@"
+---
+FILE bin/pyproject-build
+---
+#!/bin/sh
+case $0 in
+    */*) script_dir=${0%/*} ;;
+    *) script_dir=. ;;
+esac
+exec "${script_dir}/python" -c 'import sys; from importlib import import_module; from operator import attrgetter; sys.argv[0] = "pyproject-build"; sys.exit(attrgetter("entrypoint")(import_module("build.__main__"))())' "$@"
+---
+FILE bin/pytest
+---
+#!/bin/sh
+case $0 in
+    */*) script_dir=${0%/*} ;;
+    *) script_dir=. ;;
+esac
+exec "${script_dir}/python" -c 'import sys; from importlib import import_module; from operator import attrgetter; sys.argv[0] = "pytest"; sys.exit(attrgetter("console_main")(import_module("pytest"))())' "$@"
+---
+LINK bin/python -> ../../../../../../../+python_interpreters+python_3_13_x86_64_unknown_linux_gnu/bin/python3
+LINK bin/python3 -> python
+LINK bin/python3.13 -> python
+FILE bin/sqlformat
+---
+#!/bin/sh
+case $0 in
+    */*) script_dir=${0%/*} ;;
+    *) script_dir=. ;;
+esac
+exec "${script_dir}/python" -c 'import sys; from importlib import import_module; from operator import attrgetter; sys.argv[0] = "sqlformat"; sys.exit(attrgetter("main")(import_module("sqlparse.__main__"))())' "$@"
+---
+LINK lib/python3.13/site-packages/Django-4.2.15.dist-info -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__django__4_2_15/actual_install.install/lib/python3.13/site-packages/Django-4.2.15.dist-info
+FILE lib/python3.13/site-packages/_many_scripts_bin.venv.pth
+---
+../../../../../../../../..
+import os, sys; _venv_bin = os.path.dirname(sys.executable); _path = os.environ.get("PATH", ""); os.environ["PATH"] = _path if _venv_bin in _path.split(os.pathsep) else _venv_bin + os.pathsep + _path; del _venv_bin, _path
+../../../../../../../../../_main
+../../../../../../../../../+uv+project__aspect_rules_py
+---
+LINK lib/python3.13/site-packages/_pytest -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__pytest__8_1_1/actual_install.install/lib/python3.13/site-packages/_pytest
+LINK lib/python3.13/site-packages/arrow -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__arrow__1_3_0/actual_install.install/lib/python3.13/site-packages/arrow
+LINK lib/python3.13/site-packages/arrow-1.3.0.dist-info -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__arrow__1_3_0/actual_install.install/lib/python3.13/site-packages/arrow-1.3.0.dist-info
+LINK lib/python3.13/site-packages/asgiref -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__asgiref__3_8_1/actual_install.install/lib/python3.13/site-packages/asgiref
+LINK lib/python3.13/site-packages/asgiref-3.8.1.dist-info -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__asgiref__3_8_1/actual_install.install/lib/python3.13/site-packages/asgiref-3.8.1.dist-info
+LINK lib/python3.13/site-packages/attr -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__attrs__23_2_0/actual_install.install/lib/python3.13/site-packages/attr
+LINK lib/python3.13/site-packages/attrs -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__attrs__23_2_0/actual_install.install/lib/python3.13/site-packages/attrs
+LINK lib/python3.13/site-packages/attrs-23.2.0.dist-info -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__attrs__23_2_0/actual_install.install/lib/python3.13/site-packages/attrs-23.2.0.dist-info
+LINK lib/python3.13/site-packages/build -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__build__1_3_0/actual_install.install/lib/python3.13/site-packages/build
+LINK lib/python3.13/site-packages/build-1.3.0.dist-info -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__build__1_3_0/actual_install.install/lib/python3.13/site-packages/build-1.3.0.dist-info
+LINK lib/python3.13/site-packages/coverage -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__coverage__7_6_10/actual_install.install/lib/python3.13/site-packages/coverage
+LINK lib/python3.13/site-packages/coverage-7.6.10.dist-info -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__coverage__7_6_10/actual_install.install/lib/python3.13/site-packages/coverage-7.6.10.dist-info
+LINK lib/python3.13/site-packages/cowsay -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__cowsay__6_1/actual_install.install/lib/python3.13/site-packages/cowsay
+LINK lib/python3.13/site-packages/cowsay-6.1.dist-info -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__cowsay__6_1/actual_install.install/lib/python3.13/site-packages/cowsay-6.1.dist-info
+LINK lib/python3.13/site-packages/dateutil -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__python_dateutil__2_9_0_post0/actual_install.install/lib/python3.13/site-packages/dateutil
+LINK lib/python3.13/site-packages/dateutil-stubs -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__types_python_dateutil__2_9_0_20240316/actual_install.install/lib/python3.13/site-packages/dateutil-stubs
+LINK lib/python3.13/site-packages/django -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__django__4_2_15/actual_install.install/lib/python3.13/site-packages/django
+LINK lib/python3.13/site-packages/fqdn -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__fqdn__1_5_1/actual_install.install/lib/python3.13/site-packages/fqdn
+LINK lib/python3.13/site-packages/fqdn-1.5.1.dist-info -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__fqdn__1_5_1/actual_install.install/lib/python3.13/site-packages/fqdn-1.5.1.dist-info
+LINK lib/python3.13/site-packages/future -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__future__1_0_0/actual_install.install/lib/python3.13/site-packages/future
+LINK lib/python3.13/site-packages/future-1.0.0.dist-info -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__future__1_0_0/actual_install.install/lib/python3.13/site-packages/future-1.0.0.dist-info
+LINK lib/python3.13/site-packages/idna -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__idna__3_7/actual_install.install/lib/python3.13/site-packages/idna
+LINK lib/python3.13/site-packages/idna-3.7.dist-info -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__idna__3_7/actual_install.install/lib/python3.13/site-packages/idna-3.7.dist-info
+LINK lib/python3.13/site-packages/iniconfig -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__iniconfig__2_0_0/actual_install.install/lib/python3.13/site-packages/iniconfig
+LINK lib/python3.13/site-packages/iniconfig-2.0.0.dist-info -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__iniconfig__2_0_0/actual_install.install/lib/python3.13/site-packages/iniconfig-2.0.0.dist-info
+LINK lib/python3.13/site-packages/isoduration -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__isoduration__20_11_0/actual_install.install/lib/python3.13/site-packages/isoduration
+LINK lib/python3.13/site-packages/isoduration-20.11.0.dist-info -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__isoduration__20_11_0/actual_install.install/lib/python3.13/site-packages/isoduration-20.11.0.dist-info
+LINK lib/python3.13/site-packages/jsonpointer-2.4.dist-info -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__jsonpointer__2_4/actual_install.install/lib/python3.13/site-packages/jsonpointer-2.4.dist-info
+LINK lib/python3.13/site-packages/jsonpointer.py -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__jsonpointer__2_4/actual_install.install/lib/python3.13/site-packages/jsonpointer.py
+LINK lib/python3.13/site-packages/jsonschema -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__jsonschema__4_21_1/actual_install.install/lib/python3.13/site-packages/jsonschema
+LINK lib/python3.13/site-packages/jsonschema-4.21.1.dist-info -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__jsonschema__4_21_1/actual_install.install/lib/python3.13/site-packages/jsonschema-4.21.1.dist-info
+LINK lib/python3.13/site-packages/jsonschema_specifications -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__jsonschema_specifications__2023_12_1/actual_install.install/lib/python3.13/site-packages/jsonschema_specifications
+LINK lib/python3.13/site-packages/jsonschema_specifications-2023.12.1.dist-info -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__jsonschema_specifications__2023_12_1/actual_install.install/lib/python3.13/site-packages/jsonschema_specifications-2023.12.1.dist-info
+LINK lib/python3.13/site-packages/libfuturize -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__future__1_0_0/actual_install.install/lib/python3.13/site-packages/libfuturize
+LINK lib/python3.13/site-packages/libpasteurize -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__future__1_0_0/actual_install.install/lib/python3.13/site-packages/libpasteurize
+LINK lib/python3.13/site-packages/packaging -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__packaging__24_0/actual_install.install/lib/python3.13/site-packages/packaging
+LINK lib/python3.13/site-packages/packaging-24.0.dist-info -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__packaging__24_0/actual_install.install/lib/python3.13/site-packages/packaging-24.0.dist-info
+LINK lib/python3.13/site-packages/past -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__future__1_0_0/actual_install.install/lib/python3.13/site-packages/past
+LINK lib/python3.13/site-packages/pluggy -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__pluggy__1_4_0/actual_install.install/lib/python3.13/site-packages/pluggy
+LINK lib/python3.13/site-packages/pluggy-1.4.0.dist-info -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__pluggy__1_4_0/actual_install.install/lib/python3.13/site-packages/pluggy-1.4.0.dist-info
+LINK lib/python3.13/site-packages/py.py -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__pytest__8_1_1/actual_install.install/lib/python3.13/site-packages/py.py
+LINK lib/python3.13/site-packages/pyproject_hooks -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__pyproject_hooks__1_2_0/actual_install.install/lib/python3.13/site-packages/pyproject_hooks
+LINK lib/python3.13/site-packages/pyproject_hooks-1.2.0.dist-info -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__pyproject_hooks__1_2_0/actual_install.install/lib/python3.13/site-packages/pyproject_hooks-1.2.0.dist-info
+LINK lib/python3.13/site-packages/pytest -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__pytest__8_1_1/actual_install.install/lib/python3.13/site-packages/pytest
+LINK lib/python3.13/site-packages/pytest-8.1.1.dist-info -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__pytest__8_1_1/actual_install.install/lib/python3.13/site-packages/pytest-8.1.1.dist-info
+LINK lib/python3.13/site-packages/python_dateutil-2.9.0.post0.dist-info -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__python_dateutil__2_9_0_post0/actual_install.install/lib/python3.13/site-packages/python_dateutil-2.9.0.post0.dist-info
+LINK lib/python3.13/site-packages/referencing -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__referencing__0_35_0/actual_install.install/lib/python3.13/site-packages/referencing
+LINK lib/python3.13/site-packages/referencing-0.35.0.dist-info -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__referencing__0_35_0/actual_install.install/lib/python3.13/site-packages/referencing-0.35.0.dist-info
+LINK lib/python3.13/site-packages/rfc3339_validator-0.1.4.dist-info -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__rfc3339_validator__0_1_4/actual_install.install/lib/python3.13/site-packages/rfc3339_validator-0.1.4.dist-info
+LINK lib/python3.13/site-packages/rfc3339_validator.py -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__rfc3339_validator__0_1_4/actual_install.install/lib/python3.13/site-packages/rfc3339_validator.py
+LINK lib/python3.13/site-packages/rfc3986_validator-0.1.1.dist-info -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__rfc3986_validator__0_1_1/actual_install.install/lib/python3.13/site-packages/rfc3986_validator-0.1.1.dist-info
+LINK lib/python3.13/site-packages/rfc3986_validator.py -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__rfc3986_validator__0_1_1/actual_install.install/lib/python3.13/site-packages/rfc3986_validator.py
+LINK lib/python3.13/site-packages/rpds -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__rpds_py__0_18_0/actual_install.install/lib/python3.13/site-packages/rpds
+LINK lib/python3.13/site-packages/rpds_py-0.18.0.dist-info -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__rpds_py__0_18_0/actual_install.install/lib/python3.13/site-packages/rpds_py-0.18.0.dist-info
+LINK lib/python3.13/site-packages/six-1.16.0.dist-info -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__six__1_16_0/actual_install.install/lib/python3.13/site-packages/six-1.16.0.dist-info
+LINK lib/python3.13/site-packages/six.py -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__six__1_16_0/actual_install.install/lib/python3.13/site-packages/six.py
+LINK lib/python3.13/site-packages/sqlparse -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__sqlparse__0_5_1/actual_install.install/lib/python3.13/site-packages/sqlparse
+LINK lib/python3.13/site-packages/sqlparse-0.5.1.dist-info -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__sqlparse__0_5_1/actual_install.install/lib/python3.13/site-packages/sqlparse-0.5.1.dist-info
+LINK lib/python3.13/site-packages/types_python_dateutil-2.9.0.20240316.dist-info -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__types_python_dateutil__2_9_0_20240316/actual_install.install/lib/python3.13/site-packages/types_python_dateutil-2.9.0.20240316.dist-info
+LINK lib/python3.13/site-packages/uri_template -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__uri_template__1_3_0/actual_install.install/lib/python3.13/site-packages/uri_template
+LINK lib/python3.13/site-packages/uri_template-1.3.0.dist-info -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__uri_template__1_3_0/actual_install.install/lib/python3.13/site-packages/uri_template-1.3.0.dist-info
+LINK lib/python3.13/site-packages/webcolors -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__webcolors__1_13/actual_install.install/lib/python3.13/site-packages/webcolors
+LINK lib/python3.13/site-packages/webcolors-1.13.dist-info -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__webcolors__1_13/actual_install.install/lib/python3.13/site-packages/webcolors-1.13.dist-info
+FILE pyvenv.cfg
+---
+home = ../../../../../../+python_interpreters+python_3_13_x86_64_unknown_linux_gnu/bin
+implementation = CPython
+version_info = 3.13.12
+include-system-site-packages = false
+relocatable = true
+---

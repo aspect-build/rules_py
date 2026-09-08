@@ -259,9 +259,9 @@ def _parse_projects(module_ctx, hub_specs):
                     mod.name,
                 ))
 
-            if override.pre_build_patch_strip and not override.pre_build_patches:
+            if override.pre_build_patch_strip != 1 and not override.pre_build_patches:
                 fail("uv.override_package() for '{}': `pre_build_patch_strip` requires `pre_build_patches`.".format(override.name))
-            if override.post_install_patch_strip and not override.post_install_patches:
+            if override.post_install_patch_strip != 1 and not override.post_install_patches:
                 fail("uv.override_package() for '{}': `post_install_patch_strip` requires `post_install_patches`.".format(override.name))
 
             has_target = override.target != None
@@ -274,6 +274,7 @@ def _parse_projects(module_ctx, hub_specs):
                 override.extra_data or
                 override.toolchains or
                 override.env or
+                override.config_settings or
                 override.monitor_memory or
                 override.resource_set != "default"
             )
@@ -524,6 +525,7 @@ def _parse_projects(module_ctx, hub_specs):
                         console_scripts = sbuild_console_scripts,
                         resource_set = pkg_override.resource_set,
                         env = pkg_override.env,
+                        config_settings = pkg_override.config_settings,
                         error = "uv.override_package() for '{}=={}' in lock '{}': build-only attributes require a source distribution, but the lock record has only wheels: {{}}".format(
                             package["name"],
                             package["version"],
@@ -571,7 +573,7 @@ def _parse_projects(module_ctx, hub_specs):
                     build_deps = sets.to_list(sets.make(build_deps + lock_build_deps))
 
                     pre_build_patches = []
-                    pre_build_patch_strip = 0
+                    pre_build_patch_strip = 1
                     if pkg_override and pkg_override.pre_build_patches:
                         pre_build_patches = [str(p) for p in pkg_override.pre_build_patches]
                         pre_build_patch_strip = pkg_override.pre_build_patch_strip
@@ -581,11 +583,13 @@ def _parse_projects(module_ctx, hub_specs):
                     # they don't replace them. Empty == no augmentation.
                     extra_toolchains = []
                     extra_env = {}
+                    config_settings = {}
                     monitor_memory = False
                     resource_set = "default"
                     if pkg_override:
                         extra_toolchains = [str(t) for t in pkg_override.toolchains]
                         extra_env = pkg_override.env
+                        config_settings = pkg_override.config_settings
                         monitor_memory = pkg_override.monitor_memory
                         resource_set = pkg_override.resource_set
 
@@ -600,6 +604,7 @@ def _parse_projects(module_ctx, hub_specs):
                         package_install = install_target,
                         extra_toolchains = extra_toolchains,
                         extra_env = extra_env,
+                        config_settings = config_settings,
                         monitor_memory = monitor_memory,
                         resource_set = resource_set,
                         rust_toolchain = str(project.rust_toolchain) if project.rust_toolchain else "",
@@ -608,7 +613,7 @@ def _parse_projects(module_ctx, hub_specs):
                     has_sbuild = True
 
                 post_install_patches = []
-                post_install_patch_strip = 0
+                post_install_patch_strip = 1
                 exclude_glob = []
                 extra_deps = []
                 extra_data = []
@@ -879,6 +884,8 @@ def _uv_impl(module_ctx):
             sbuild_kwargs["extra_toolchains"] = sbuild_cfg.extra_toolchains
         if sbuild_cfg.extra_env:
             sbuild_kwargs["extra_env"] = sbuild_cfg.extra_env
+        if sbuild_cfg.config_settings:
+            sbuild_kwargs["config_settings"] = sbuild_cfg.config_settings
         if sbuild_cfg.rust_toolchain:
             sbuild_kwargs["rust_toolchain"] = sbuild_cfg.rust_toolchain
         if sbuild_cfg.monitor_memory:
@@ -959,8 +966,8 @@ _project_tag = tag_class(
             mandatory = False,
             doc = "A rules_rust `current_rust_toolchain`-style target. When set, every sdist in " +
                   "this project whose build backend is maturin or setuptools-rust gets it (plus " +
-                  "rules_py's exec-configured sysroot layer) wired into its build automatically " +
-                  "— no per-package `uv.override_package(toolchains = ..., env = ...)`.",
+                  "rules_py's exec-configured sysroot layer) wired into its build automatically, " +
+                  "with no per-package `uv.override_package(toolchains = ...)`.",
         ),
         "default_build_dependencies": attr.string_list(
             mandatory = False,
@@ -1020,11 +1027,15 @@ _override_package_tag = tag_class(
         ),
         "toolchains": attr.label_list(
             default = [],
-            doc = "Extra toolchain targets forwarded to the generated pep517_native_whl(...) call's `toolchains` list. Each target's TemplateVariableInfo make-variables become available for $(VAR) expansion in `env`.",
+            doc = "Extra toolchain targets forwarded to the generated pep517_native_whl(...) call's `toolchains` list. Each target's TemplateVariableInfo make-variables become available for $(VAR) expansion in `env`; the well-known ones (CARGO, RUSTC, RUST_HOST_SYSROOT, JAVA, JAVABASE, ANT_HOME, ANT_BIN_DIR) reach the build environment automatically.",
         ),
         "env": attr.string_dict(
             default = {},
             doc = "Extra environment variables merged into the build action's `env` dict. Values may reference $(VAR) make-variables sourced from extra `toolchains` listed above. Prefix an execroot-relative path with `$(EXECROOT)/` so it remains valid after the backend changes into the unpacked source tree. Omit CC/CXX/AR/LD/STRIP to use the configured C++ action tools.",
+        ),
+        "config_settings": attr.string_list_dict(
+            default = {},
+            doc = "PEP 517 `config_settings` for this package's build backend. Each key maps to a list of values: a single value reaches the backend as a string, several as a list. Keys and their meaning are defined by the backend, e.g. `{\"setup-args\": [\"-Dblas=none\"]}` for meson-python or `{\"cmake.define.FOO\": [\"1\"]}` for scikit-build-core. Applies to pure and native source builds.",
         ),
         "pre_build_patches": attr.label_list(
             default = [],
@@ -1032,16 +1043,16 @@ _override_package_tag = tag_class(
             doc = "Patch files to apply to the sdist source tree before building a wheel.",
         ),
         "pre_build_patch_strip": attr.int(
-            default = 0,
+            default = 1,
             doc = "Strip count for pre-build patches (-p flag to the patch tool).",
         ),
         "post_install_patches": attr.label_list(
             default = [],
             allow_files = [".patch", ".diff"],
-            doc = "Patch files to apply to the installed package after wheel unpacking.",
+            doc = "Patch files to apply to the installed package after wheel unpacking. Paths are site-packages-relative.",
         ),
         "post_install_patch_strip": attr.int(
-            default = 0,
+            default = 1,
             doc = "Strip count for post-install patches (-p flag to the patch tool).",
         ),
         "exclude_glob": attr.string_list(
