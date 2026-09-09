@@ -202,6 +202,7 @@ cc_library(
 load("@rules_cc//cc:cc_import.bzl", "cc_import")
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("@aspect_rules_py//py/private/interpreter:runtime.bzl", "py_runtime_toolchain")
+load("@aspect_rules_py//py/private/toolchain:pyc_compiler.bzl", "py_pyc_compiler_toolchain")
 load("@rules_python//python/cc:py_cc_toolchain.bzl", "py_cc_toolchain")
 
 package(default_visibility = ["//visibility:public"])
@@ -254,6 +255,11 @@ py_runtime_toolchain(
         "releaselevel": "{releaselevel}",
         "serial": "{serial}",
     }},
+)
+
+py_pyc_compiler_toolchain(
+    name = "pyc_compiler",
+    runtime = ":runtime",
 )
 
 py_cc_toolchain(
@@ -319,6 +325,7 @@ def _platform_setting_name(flag, value):
     return "{}_is_{}".format(name, value)
 
 _EXEC_TOOLS_TOOLCHAIN_TYPE = "@aspect_rules_py//py/private/toolchain:exec_tools_toolchain_type"
+_PYC_COMPILER_TOOLCHAIN_TYPE = "@aspect_rules_py//py/private/toolchain:pyc_compiler_toolchain_type"
 
 def _exec_toolchain(name, exec_compatible_with, toolchain, toolchain_type, target_settings = None):
     """A toolchain() selected by exec platform, optionally gated on target settings."""
@@ -476,6 +483,7 @@ config_setting(
 # platform being built for. Version-gated so the exec interpreter follows the
 # version flags.""")
     exec_tools_fallbacks = {}  # repr(exec_compatible_with) -> (version tuple, name, repo, constraints)
+    pyc_compiler_fallbacks = {}
     for info, platform_setting_names in toolchain_infos:
         extra_config_settings = info.get("config_settings", [])
         extra_target_compatible = info.get("target_compatible_with", [])
@@ -529,11 +537,23 @@ toolchain(
             ))
             _note_fallback(exec_tools_fallbacks, info, exec_compatible_with)
 
+            # GIL modes share bytecode, so only the default-mode interpreter compiles.
+            if not info.get("freethreaded", False):
+                content.append(_exec_toolchain(
+                    info["name"] + "_pyc_compiler",
+                    exec_compatible_with,
+                    "@{}//:pyc_compiler".format(info["repo"]),
+                    _PYC_COMPILER_TOOLCHAIN_TYPE,
+                    target_settings = [version_setting],
+                ))
+                _note_fallback(pyc_compiler_fallbacks, info, exec_compatible_with)
+
     # Ungated exec-tools fallbacks: build actions only need *a* runnable host
     # interpreter, so configurations matching no version-gated entry (e.g. the
     # version flags at defaults not provisioned by this hub) fall back to the
     # platform's highest provisioned version.
     content.extend(_fallback_toolchains(exec_tools_fallbacks, "exec_tools", "runtime", _EXEC_TOOLS_TOOLCHAIN_TYPE))
+    content.extend(_fallback_toolchains(pyc_compiler_fallbacks, "pyc_compiler", "pyc_compiler", _PYC_COMPILER_TOOLCHAIN_TYPE))
 
     content.append("""
 exports_files(

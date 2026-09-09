@@ -1,0 +1,26 @@
+load("//py:defs.bzl", "py_pytest_test")
+
+package(default_testonly = True)
+
+# Each test lists the same conftest.py in its srcs, as hand-written pytest
+# BUILD files often do, and needs its fixture in every bytecode mode.
+[
+    py_pytest_test(
+        name = "{}_{}_test".format(test, mode),
+        srcs = [
+            "conftest.py",
+            "test_{}.py".format(test),
+        ],
+        precompile = mode,
+        deps = ["@pypi//pytest"],
+    )
+    for test in [
+        "a",
+        "b",
+    ]
+    for mode in [
+        "off",
+        "pycache",
+        "sourceless",
+    ]
+]
