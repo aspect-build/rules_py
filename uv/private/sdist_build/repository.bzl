@@ -171,12 +171,19 @@ def _normalize_requirement(requirement):
     return name.lower().replace("_", "-").replace(".", "-")
 
 def _is_rust_build(inspection):
-    """maturin backend, or setuptools with setuptools-rust among its build requirements."""
+    """maturin backend, or setuptools with setuptools-rust among its build requirements.
+
+    Declared requirements come with their PEP 508 spelling; inferred ones
+    (the configure tool adds setuptools-rust for sdists that ship .rs files
+    without declaring it) come normalized. Both are injected into the build
+    venv, so both need the Rust toolchain.
+    """
     if not inspection:
         return False
     if inspection.get("build_backend") == "maturin":
         return True
-    return "setuptools-rust" in [_normalize_requirement(r) for r in inspection.get("build_requires", [])]
+    requirements = list(inspection.get("build_requires", [])) + list(inspection.get("inferred_build_requires", []))
+    return "setuptools-rust" in [_normalize_requirement(r) for r in requirements]
 
 _RUST_LAYER_LOAD = "\nload(\"@aspect_rules_py//uv/private/pep517_whl:rust_layer.bzl\", \"rust_host_sysroot\")"
 
@@ -191,7 +198,7 @@ def _rust_wiring(rust_toolchain, inspection, toolchains):
     their make-variables.
 
     Args:
-        rust_toolchain: `uv.project(rust_toolchain = ...)` as a label string, or "".
+        rust_toolchain: `uv.project(rust_toolchain = ...)` rendered as a label string, or "".
         inspection: The configure tool's JSON, or None.
         toolchains: Extra toolchain labels from `uv.override_package`.
 
@@ -350,7 +357,11 @@ def _sdist_build_impl(repository_ctx):
         toolchains = list(repository_ctx.attr.extra_toolchains)
         extra_env = repository_ctx.attr.extra_env
 
-        rust = _rust_wiring(repository_ctx.attr.rust_toolchain, inspection, toolchains)
+        # str(Label) is the canonical form: the only spelling that resolves inside
+        # a repository the rules_py extension generates, whose repo mapping knows
+        # nothing about the user's rules_rust dependency.
+        rust_toolchain = repository_ctx.attr.rust_toolchain
+        rust = _rust_wiring(str(rust_toolchain) if rust_toolchain else "", inspection, toolchains)
         rust_layer_load = rust.load_stmt
         rust_layer_target = rust.target
         toolchains = rust.toolchains
@@ -473,9 +484,8 @@ sdist_build = repository_rule(
         ),
         "pre_build_patches": attr.label_list(default = []),
         "pre_build_patch_strip": attr.int(default = 1),
-        "rust_toolchain": attr.string(
-            default = "",
-            doc = "Project-level Rust toolchain label; applied when the sdist's build backend is Rust-based.",
+        "rust_toolchain": attr.label(
+            doc = "Project-level Rust toolchain; wired into the build when the sdist's build backend is Rust-based.",
         ),
         "extra_toolchains": attr.string_list(
             default = [],

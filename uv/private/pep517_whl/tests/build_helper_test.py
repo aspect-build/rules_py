@@ -217,6 +217,15 @@ class OverrideToolTest(unittest.TestCase):
         self.assertEqual(env["LDSHARED"], "/wrap/cc -shared -pthread")
 
 
+class NeedsCargoCrossEnvTest(unittest.TestCase):
+    def test_cargo_wired_by_the_rule_is_the_signal(self) -> None:
+        self.assertTrue(build_helper._needs_cargo_cross_env({"CARGO": "/tc/bin/cargo", "RUSTC": "/tc/bin/rustc"}))
+
+    def test_no_rust_toolchain_no_cargo_env(self) -> None:
+        self.assertFalse(build_helper._needs_cargo_cross_env({}))
+        self.assertFalse(build_helper._needs_cargo_cross_env({"CARGO": ""}), "an empty CARGO is not a toolchain")
+
+
 class MakeCompilerWrapperTest(unittest.TestCase):
     def test_wrapper_is_executable_and_bakes_the_driver(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -893,6 +902,54 @@ class ConfigureCargoCrossEnvTest(unittest.TestCase):
         self.assertTrue(path.islink(path.join(merged, "aarch64-unknown-linux-gnu")))
 
 
+    def test_target_sysroot_from_toolchain_wins_over_rustc_location(self) -> None:
+        # rules_rs-style layout: rustc in one repository, rust-std in another,
+        # both assembled into the toolchain's generated sysroot.
+        tmp = tempfile.mkdtemp()
+        target_rustc = path.join(tmp, "rustc_repo", "bin", "rustc")
+        makedirs(path.dirname(target_rustc))
+        open(target_rustc, "w").close()
+        generated = path.join(tmp, "generated_sysroot")
+        makedirs(path.join(generated, "lib", "rustlib", "aarch64-unknown-linux-gnu"))
+        host_sysroot = path.join(tmp, "host_sysroot")
+        makedirs(path.join(host_sysroot, "lib", "rustlib", "x86_64-unknown-linux-gnu"))
+
+        env = self._env()
+        env["RUSTC"] = target_rustc
+        env["RULES_PY_RUST_SYSROOT"] = generated
+        env["RULES_PY_RUST_HOST_SYSROOT"] = host_sysroot
+        build_helper._configure_cargo_cross_env(env, tmp, "linux", "aarch64", "glibc")
+
+        merged = path.join(tmp, ".rust_sysroot", "lib", "rustlib")
+        self.assertTrue(path.islink(path.join(merged, "aarch64-unknown-linux-gnu")))
+        self.assertTrue(path.islink(path.join(merged, "x86_64-unknown-linux-gnu")))
+
+
+class CargoNativeEnvTest(unittest.TestCase):
+    def test_rustc_gets_the_toolchain_sysroot(self) -> None:
+        tmp = tempfile.mkdtemp()
+        env = {"CARGO": "/tc/bin/cargo", "RUSTC": "/tc/bin/rustc", "RULES_PY_RUST_SYSROOT": "/tc/sysroot", "RULES_PY_RUST_HOST_SYSROOT": "/exec/sysroot"}
+        build_helper._configure_cargo_native_env(env, tmp)
+        with open(env["RUSTC"]) as f:
+            content = f.read()
+        self.assertIn('"--sysroot", \'/tc/sysroot\'', content)
+        self.assertIn("/tc/bin/rustc", content)
+        self.assertTrue(os.access(env["RUSTC"], os.X_OK))
+
+    def test_host_sysroot_is_the_fallback(self) -> None:
+        tmp = tempfile.mkdtemp()
+        env = {"CARGO": "/tc/bin/cargo", "RUSTC": "/tc/bin/rustc", "RULES_PY_RUST_HOST_SYSROOT": "/exec/sysroot"}
+        build_helper._configure_cargo_native_env(env, tmp)
+        with open(env["RUSTC"]) as f:
+            self.assertIn("/exec/sysroot", f.read())
+
+    def test_no_rust_toolchain_leaves_rustc_alone(self) -> None:
+        tmp = tempfile.mkdtemp()
+        env = {"RUSTC": "/usr/bin/rustc"}
+        build_helper._configure_cargo_native_env(env, tmp)
+        self.assertEqual("/usr/bin/rustc", env["RUSTC"])
+
+
 class BuildBackendTest(unittest.TestCase):
     def test_declared_backend(self) -> None:
         data = {"build-system": {"build-backend": "mesonpy"}}
@@ -902,28 +959,6 @@ class BuildBackendTest(unittest.TestCase):
         for data in (None, {}, {"build-system": {}}, {"build-system": "bogus"}, {"build-system": {"build-backend": 3}}):
             self.assertIsNone(build_helper._build_backend(data))
 
-
-class UsesSetuptoolsRustTest(unittest.TestCase):
-    def test_setuptools_rust_requirement_detected(self) -> None:
-        data = {"build-system": {"build-backend": "setuptools.build_meta", "requires": ["setuptools", "setuptools-rust>=1.8"]}}
-        self.assertTrue(build_helper._uses_setuptools_rust(data))
-
-    def test_no_backend_value_also_matches(self) -> None:
-        data = {"build-system": {"requires": ["setuptools-rust"]}}
-        self.assertTrue(build_helper._uses_setuptools_rust(data))
-
-    def test_plain_setuptools_does_not_match(self) -> None:
-        data = {"build-system": {"build-backend": "setuptools.build_meta", "requires": ["setuptools", "wheel"]}}
-        self.assertFalse(build_helper._uses_setuptools_rust(data))
-
-    def test_maturin_does_not_match(self) -> None:
-        data = {"build-system": {"build-backend": "maturin", "requires": ["maturin"]}}
-        self.assertFalse(build_helper._uses_setuptools_rust(data))
-
-    def test_requirement_name_strips_specifiers(self) -> None:
-        self.assertEqual("setuptools-rust", build_helper._requirement_name("setuptools-rust>=1.8"))
-        self.assertEqual("setuptools-rust", build_helper._requirement_name("setuptools-rust[extras] ~= 1.0 ; python_version > '3.9'"))
-        self.assertEqual("", build_helper._requirement_name(">=bogus"))
 
 
 class StaticRuntimeArchivesTest(unittest.TestCase):
