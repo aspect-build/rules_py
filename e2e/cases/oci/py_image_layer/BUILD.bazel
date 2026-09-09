@@ -57,6 +57,31 @@ py_image_layer(
     binary = ":my_app_bin",
 )
 
+py_binary(
+    name = "console_scripts_bin",
+    srcs = ["__main__.py"],
+    dep_group = "images",
+    include_console_scripts = True,
+    deps = ["@pypi_oci_py_image_layer//build"],
+)
+
+py_image_layer(
+    name = "console_scripts_layers",
+    binary = ":console_scripts_bin",
+)
+
+platform_transition_filegroup(
+    name = "platform_console_scripts_layers",
+    srcs = [":console_scripts_layers"],
+    target_platform = ":x86_64_linux",
+)
+
+assert_tar_listing(
+    name = "console_scripts_layers_test",
+    actual = [":platform_console_scripts_layers"],
+    expected = "console_scripts_layers_listing.yaml",
+)
+
 # Docker-free counterpart to the container_structure_test: run the same
 # entrypoint (verify_all(imports=["colorama"])) on the host so the venv's
 # site-packages symlinks must resolve to real files and colorama must import.

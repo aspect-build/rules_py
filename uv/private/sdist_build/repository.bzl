@@ -487,6 +487,7 @@ py_binary(
     main = "@aspect_rules_py//uv/private/pep517_whl/tools:build_helper.py",
     srcs = ["@aspect_rules_py//uv/private/pep517_whl/tools:build_helper.py"],
     deps = {deps},
+    include_console_scripts = True,
 )
 {frontend_target}{rust_layer_target}{vendored_crates_target}
 {rule}(

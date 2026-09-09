@@ -1,0 +1,7 @@
+dice
+inv
+invoke
+python
+python3
+python3.11
+roll

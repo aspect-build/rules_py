@@ -25,5 +25,6 @@ binary's launcher exec's the venv's `bin_python`.
         "runtime_runfiles": "Runfiles — venv, wheels, and data without Python import sources.",
         "transitive_sources": "depset[File] — source artifacts carried by this venv: its own `srcs`, sources from `deps` that emit `PyInfo`, and files contributed by virtual-resolution targets. Surfaced by py_binary as `PyInfo.transitive_sources` so downstream consumers see the same source closure they'd see if srcs/deps lived on the binary directly.",
         "runtime_files": "depset[File] — generated venv support files and the runfiles library; excludes dependency and interpreter runfiles.",
+        "console_scripts": "depset[File] — `bin/<name>` console-script wrappers. Not part of `runtime_runfiles`; launchers add them via `include_console_scripts`.",
     },
 )

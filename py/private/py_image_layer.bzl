@@ -559,6 +559,8 @@ def _layer_aspect_impl(target, ctx):
 
         own_source.append(target[DefaultInfo].files)
         own_source.extend(_opaque_dep_files(ctx.rule.attr, ("data",)))
+        if venv != None and getattr(ctx.rule.attr, "include_console_scripts", False):
+            own_source.append(venv[VirtualenvInfo].console_scripts)
 
     return [_LayerInfo(
         source_files = depset(transitive = transitive_source + own_source),

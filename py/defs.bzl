@@ -132,9 +132,16 @@ def py_binary(name, srcs = [], main = None, **kwargs):
             output happens to be `<name>.py`), the macro can't see that
             and you must pass `main =` explicitly.
         **kwargs: additional named parameters forwarded to the
-            underlying rule and the sibling py_venv. Two extras are
+            underlying rule and the sibling py_venv. Three extras are
             handled by this macro:
 
+            * `include_console_scripts` (bool, default `False`) — when
+              `True`, the binary's runfiles include the venv's
+              wheel-declared `bin/<name>` console-script wrappers so
+              subprocesses can invoke them by name via `PATH`.
+              Independent of `expose_venv`: the `.venv` target always
+              carries wrappers for `bazel run`, the binary only with
+              this flag.
             * `expose_venv` (bool, default `False`) — when `True`, emit
               a sibling `:{name}.venv` py_venv carrying all venv-shaping
               attrs (deps, imports, package_collisions,

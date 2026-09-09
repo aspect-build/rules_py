@@ -80,3 +80,21 @@ def extract_venv_pth(name, out, venv):
         tools = [venv],
         visibility = ["//:__pkg__"],
     )
+
+def extract_venv_bin(name, out, target):
+    """List the venv `bin/` entries materialised in a launcher's runfiles tree.
+
+    `target` may be a py_binary/py_test or the `.venv` sibling it exposes; the
+    two listings side by side show which `bin/` entries each carries.
+    """
+    native.genrule(
+        name = name,
+        testonly = True,
+        outs = [out],
+        cmd = """
+            find $(execpath {target}).runfiles -path "*.venv/bin/*" \
+            | sed 's|.*/bin/||' | LC_ALL=C sort > $@
+        """.format(target = target),
+        tools = [target],
+        visibility = ["//:__pkg__"],
+    )
