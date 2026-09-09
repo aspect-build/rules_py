@@ -19,6 +19,15 @@ uv.project(
     pyproject = "//pycross-tiktoken:pyproject.toml",
     rust_toolchain = "@rules_rust//rust/toolchain:current_rust_toolchain",
 )
+
+# tiktoken's sdist ships no Cargo.lock, so nothing pins its crates; this one
+# (`cargo generate-lockfile` on the extracted sdist) lets sdist_build vendor
+# them and the build run offline like every other case here.
+uv.override_package(
+    name = "tiktoken",
+    cargo_lock = "//pycross-tiktoken:Cargo.lock",
+    lock = "//pycross-tiktoken:uv.lock",
+)
 use_repo(
     uv,
     "pypi_pycross_tiktoken",

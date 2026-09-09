@@ -10,6 +10,12 @@ common --incompatible_strict_action_env
 # configuration-stripped cache keys; those that don't still work normally.
 build --experimental_output_paths=strip
 
+# Every sdist build must be hermetic: build deps come from the uv lock, the
+# C/C++ and Rust toolchains are action inputs, and cargo runs offline against
+# the crates sdist_build vendored from the sdist's Cargo.lock. A backend that
+# reaches for the network fails here instead of passing by accident.
+build --sandbox_default_allow_network=false
+
 # Build without the bytes
 common:ci --remote_download_outputs=minimal
 common:ci --nobuild_runfile_links

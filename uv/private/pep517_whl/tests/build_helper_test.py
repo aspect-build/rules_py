@@ -925,6 +925,66 @@ class ConfigureCargoCrossEnvTest(unittest.TestCase):
         self.assertTrue(path.islink(path.join(merged, "x86_64-unknown-linux-gnu")))
 
 
+class InjectCargoLockTest(unittest.TestCase):
+    def _tree(self, manifest_rel: str) -> tuple[str, str]:
+        tmp = tempfile.mkdtemp()
+        manifest = path.join(tmp, "worktree", manifest_rel)
+        makedirs(path.dirname(manifest), exist_ok=True)
+        open(manifest, "w").close()
+        lock = path.join(tmp, "user.Cargo.lock")
+        with open(lock, "w") as f:
+            f.write("version = 4\n")
+        return path.join(tmp, "worktree"), lock
+
+    def test_lock_lands_next_to_the_root_manifest(self) -> None:
+        worktree, lock = self._tree("Cargo.toml")
+        dest = build_helper._inject_cargo_lock(worktree, lock)
+        self.assertEqual(path.join(worktree, "Cargo.lock"), dest)
+        with open(dest) as f:
+            self.assertEqual("version = 4\n", f.read())
+
+    def test_nested_manifest_is_found_at_any_depth(self) -> None:
+        # bcrypt keeps its crate under src/_bcrypt/.
+        worktree, lock = self._tree(path.join("src", "_bcrypt", "Cargo.toml"))
+        self.assertEqual(path.join(worktree, "src", "_bcrypt", "Cargo.lock"), build_helper._inject_cargo_lock(worktree, lock))
+
+    def test_shallowest_manifest_wins(self) -> None:
+        worktree, lock = self._tree("Cargo.toml")
+        deeper = path.join(worktree, "vendor", "dep", "Cargo.toml")
+        makedirs(path.dirname(deeper))
+        open(deeper, "w").close()
+        self.assertEqual(path.join(worktree, "Cargo.lock"), build_helper._inject_cargo_lock(worktree, lock))
+
+    def test_no_manifest_no_copy(self) -> None:
+        worktree = tempfile.mkdtemp()
+        self.assertIsNone(build_helper._inject_cargo_lock(worktree, "/nonexistent/Cargo.lock"))
+        self.assertIsNone(build_helper._inject_cargo_lock(worktree, ""))
+
+
+class CargoOfflineTest(unittest.TestCase):
+    def test_vendor_dir_replaces_crates_io_and_forbids_network(self) -> None:
+        tmp = tempfile.mkdtemp()
+        env = {"CARGO": "/tc/bin/cargo", "CARGO_HOME": path.join(tmp, ".cargo_home")}
+        build_helper._configure_cargo_offline(env, "/exec/external/repo/vendor")
+        with open(path.join(tmp, ".cargo_home", "config.toml")) as f:
+            config = f.read()
+        self.assertIn('[source.crates-io]\nreplace-with = "vendored-sources"', config)
+        self.assertIn('[source.vendored-sources]\ndirectory = "/exec/external/repo/vendor"', config)
+        self.assertEqual("true", env["CARGO_NET_OFFLINE"])
+
+    def test_no_cargo_home_means_no_cargo(self) -> None:
+        env = {"RUSTC": "/usr/bin/rustc"}
+        build_helper._configure_cargo_offline(env, "/vendor")
+        self.assertNotIn("CARGO_NET_OFFLINE", env)
+
+    def test_no_vendor_dir_leaves_cargo_online(self) -> None:
+        tmp = tempfile.mkdtemp()
+        env = {"CARGO": "/tc/bin/cargo", "CARGO_HOME": tmp}
+        build_helper._configure_cargo_offline(env, "")
+        self.assertNotIn("CARGO_NET_OFFLINE", env)
+        self.assertFalse(path.exists(path.join(tmp, "config.toml")))
+
+
 class CargoNativeEnvTest(unittest.TestCase):
     def test_rustc_gets_the_toolchain_sysroot(self) -> None:
         tmp = tempfile.mkdtemp()

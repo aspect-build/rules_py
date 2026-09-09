@@ -11,6 +11,7 @@ from __future__ import annotations
 from argparse import ArgumentParser
 import glob
 import importlib
+import json
 import os
 import platform as _platform
 import re
@@ -1129,6 +1130,42 @@ def _configure_cargo_cross_env(build_env: dict[str, str], tmpdir: str, target_os
     build_env["MATURIN_PEP517_ARGS"] = (interpreter_arg + " " + existing).strip()
 
 
+def _inject_cargo_lock(worktree: str, lock_path: str) -> str | None:
+    """Copy a user-supplied Cargo.lock next to the source tree's top-level Cargo.toml.
+
+    Returns the destination, or None when the tree has no Cargo.toml (the lock
+    is then meaningless and cargo would ignore it anyway).
+    """
+    if not lock_path:
+        return None
+    # Shallowest manifest wins: setuptools-rust crates live in subdirectories
+    # (bcrypt: src/_bcrypt/Cargo.toml), maturin ones at the top.
+    manifests = sorted(glob.glob(path.join(worktree, "**", "Cargo.toml"), recursive=True), key=lambda m: (m.count(os.sep), m))
+    if not manifests:
+        return None
+    dest = path.join(path.dirname(manifests[0]), "Cargo.lock")
+    shutil.copyfile(lock_path, dest)
+    return dest
+
+
+def _configure_cargo_offline(build_env: dict[str, str], vendor_dir: str) -> None:
+    """Point cargo at the vendored crates and forbid the network.
+
+    CARGO_HOME is the sandbox-local one _compiler_env created for the wired
+    toolchain; without a toolchain there is no cargo to configure.
+    """
+    cargo_home = build_env.get("CARGO_HOME")
+    if not (vendor_dir and cargo_home):
+        return
+    makedirs(cargo_home, exist_ok=True)
+    with open(path.join(cargo_home, "config.toml"), "a") as f:
+        f.write(
+            '[source.crates-io]\nreplace-with = "vendored-sources"\n\n'
+            '[source.vendored-sources]\ndirectory = {}\n'.format(json.dumps(_absolutize_path(vendor_dir)))
+        )
+    build_env["CARGO_NET_OFFLINE"] = "true"
+
+
 def _configure_cargo_native_env(build_env: dict[str, str], tmpdir: str) -> None:
     """Point rustc at the toolchain's sysroot for a native build.
 
@@ -1290,6 +1327,8 @@ PARSER = ArgumentParser()
 PARSER.add_argument("srcarchive")
 PARSER.add_argument("output", help="Path the single built wheel is written to")
 PARSER.add_argument("--monitor-memory", action="store_true")
+PARSER.add_argument("--cargo-vendor-dir", default="", help="Cargo vendor directory; cargo runs offline against it")
+PARSER.add_argument("--cargo-lock", default="", help="Cargo.lock to place next to the source tree's Cargo.toml")
 PARSER.add_argument(
     "--config-setting",
     action="append",
@@ -1359,6 +1398,9 @@ def main() -> None:
         target_os=opts.target_os,
         target_cpu=opts.target_cpu,
     )
+
+    _configure_cargo_offline(build_env, opts.cargo_vendor_dir)
+    _inject_cargo_lock(t, opts.cargo_lock)
 
     if _legacy_metadata_conflicts_with_pyproject(t):
         print(

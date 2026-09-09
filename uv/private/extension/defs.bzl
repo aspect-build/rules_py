@@ -275,13 +275,14 @@ def _parse_projects(module_ctx, hub_specs):
                 override.toolchains or
                 override.env or
                 override.config_settings or
+                override.cargo_lock or
                 override.monitor_memory or
                 override.resource_set != "default"
             )
             if has_target and has_modifications:
                 fail("uv.override_package() for '{}': `target` is mutually exclusive with modification attributes. Use `target` for full replacement OR build, patch, and data attributes for modifications, not both.".format(override.name))
             if not has_target and not has_modifications:
-                fail("uv.override_package() for '{}': must specify either `target` for full replacement or at least one modification attribute (console_scripts, pre_build_patches, post_install_patches, exclude_glob, extra_deps, extra_data, toolchains, env, monitor_memory, resource_set).".format(override.name))
+                fail("uv.override_package() for '{}': must specify either `target` for full replacement or at least one modification attribute (console_scripts, pre_build_patches, post_install_patches, exclude_glob, extra_deps, extra_data, toolchains, env, config_settings, cargo_lock, monitor_memory, resource_set).".format(override.name))
 
         unscoped_matches = {i: 0 for i, override in enumerate(mod.tags.override_package) if override.lock == None}
 
@@ -534,6 +535,7 @@ def _parse_projects(module_ctx, hub_specs):
                         monitor_memory = pkg_override.monitor_memory,
                         pre_build_patches = pkg_override.pre_build_patches,
                         pre_build_patch_strip = pkg_override.pre_build_patch_strip,
+                        cargo_lock = pkg_override.cargo_lock,
                         supported = [],
                         toolchains = pkg_override.toolchains,
                     )
@@ -584,12 +586,14 @@ def _parse_projects(module_ctx, hub_specs):
                     extra_toolchains = []
                     extra_env = {}
                     config_settings = {}
+                    cargo_lock = None
                     monitor_memory = False
                     resource_set = "default"
                     if pkg_override:
                         extra_toolchains = [str(t) for t in pkg_override.toolchains]
                         extra_env = pkg_override.env
                         config_settings = pkg_override.config_settings
+                        cargo_lock = pkg_override.cargo_lock
                         monitor_memory = pkg_override.monitor_memory
                         resource_set = pkg_override.resource_set
 
@@ -605,6 +609,7 @@ def _parse_projects(module_ctx, hub_specs):
                         extra_toolchains = extra_toolchains,
                         extra_env = extra_env,
                         config_settings = config_settings,
+                        cargo_lock = cargo_lock,
                         monitor_memory = monitor_memory,
                         resource_set = resource_set,
                         rust_toolchain = project.rust_toolchain,
@@ -886,6 +891,8 @@ def _uv_impl(module_ctx):
             sbuild_kwargs["extra_env"] = sbuild_cfg.extra_env
         if sbuild_cfg.config_settings:
             sbuild_kwargs["config_settings"] = sbuild_cfg.config_settings
+        if sbuild_cfg.cargo_lock:
+            sbuild_kwargs["cargo_lock"] = sbuild_cfg.cargo_lock
         if sbuild_cfg.rust_toolchain:
             sbuild_kwargs["rust_toolchain"] = sbuild_cfg.rust_toolchain
         if sbuild_cfg.monitor_memory:
@@ -1032,6 +1039,10 @@ _override_package_tag = tag_class(
         "env": attr.string_dict(
             default = {},
             doc = "Extra environment variables merged into the build action's `env` dict. Values may reference $(VAR) make-variables sourced from extra `toolchains` listed above. Prefix an execroot-relative path with `$(EXECROOT)/` so it remains valid after the backend changes into the unpacked source tree. Omit CC/CXX/AR/LD/STRIP to use the configured C++ action tools.",
+        ),
+        "cargo_lock": attr.label(
+            allow_single_file = True,
+            doc = "Cargo.lock for a Rust sdist that ships none. Its crates.io entries are vendored while the repository is generated and the file is placed next to the sdist's Cargo.toml before the build, so cargo builds offline. Requires the project's `rust_toolchain`.",
         ),
         "config_settings": attr.string_list_dict(
             default = {},
