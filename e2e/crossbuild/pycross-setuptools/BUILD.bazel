@@ -11,6 +11,8 @@ exports_files(["require_extension.patch"])
 
 _PY = "3.12"
 
+_SETPROCTITLE_WHL = "@sdist_build__pycross_setuptools__setproctitle__1_3_2//:whl"
+
 _DEP_GROUP = "pycross_setuptools"
 
 py_test(
@@ -86,7 +88,7 @@ collect_wheels(
     ],
     wheels = [
         "@sdist_build__pycross_setuptools__pyyaml__6_0_1//:whl",
-        "@sdist_build__pycross_setuptools__setproctitle__1_3_7//:whl",
+        _SETPROCTITLE_WHL,
         "@sdist_build__pycross_setuptools__zstandard__0_22_0//:whl",
     ],
 )
@@ -98,5 +100,5 @@ pycross_wheel_export(
     amd64_platform = ":amd64_linux",
     arm64_platform = ":arm64_linux",
     main = "test_setproctitle.py",
-    wheel = "@sdist_build__pycross_setuptools__setproctitle__1_3_7//:whl",
+    wheel = _SETPROCTITLE_WHL,
 )

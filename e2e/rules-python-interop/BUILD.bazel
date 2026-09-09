@@ -1,6 +1,7 @@
 load("@aspect_rules_py//py:defs.bzl", "current_py_toolchain", "py_binary", "py_library", "py_venv", "py_wheel", "whl_filegroup", rules_py_test = "py_test")
 load("@bazel_skylib//rules:build_test.bzl", "build_test")
 load("@bazel_skylib//rules:diff_test.bzl", "diff_test")
+load("@rules_python//python:py_library.bzl", rules_python_library = "py_library")
 load("@rules_python//python:py_test.bzl", rules_python_test = "py_test")
 load("@rules_python//python/entry_points:py_console_script_binary.bzl", "py_console_script_binary")
 load("@rules_python//python/zipapp:py_zipapp_binary.bzl", "py_zipapp_binary")
@@ -205,6 +206,18 @@ rules_py_test(
         ":python3_var_313",
         ":python_launcher",
     ],
+)
+
+rules_python_library(
+    name = "import_path_lib",
+    srcs = ["rules_python_import/rp_import.py"],
+    imports = ["rules_python_import"],
+)
+
+rules_py_test(
+    name = "rules_python_import_path_test",
+    srcs = ["rules_python_import_path_test.py"],
+    deps = [":import_path_lib"],
 )
 
 # rules_python's console-script machinery reads the pip hub's dist-info to

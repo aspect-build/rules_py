@@ -1,5 +1,5 @@
 # Inherit the repo-wide flag preset. This module's workspace root is
-# e2e/rules-proto-grpc-python/, so %workspace% climbs two directories up to the
+# e2e/rules-python-protobuf/, so %workspace% climbs two directories up to the
 # repo root where bazelrc-preset.bzl generates bazel/defaults.bazelrc.
 import %workspace%/../../bazel/defaults.bazelrc
 

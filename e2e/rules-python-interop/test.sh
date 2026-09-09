@@ -75,3 +75,10 @@ if [[ "${launcher_version}" != "3.13" ]]; then
 fi
 
 echo "PASS: rules_py Python version selected the 3.13 launcher"
+
+"$BAZEL" test --lockfile_mode=off \
+    --@aspect_rules_py//py:python_version=3.13 \
+    -- \
+    //reset-data-edges:passthrough_terminals_test \
+    //reset-data-edges:reset_data_edges_test \
+    //reset-data-edges:shared_binaries_test
