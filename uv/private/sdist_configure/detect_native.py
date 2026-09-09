@@ -67,6 +67,7 @@ _REQ_NAME_RE = re.compile(r"^([A-Za-z0-9]([A-Za-z0-9._-]*[A-Za-z0-9])?)")
 
 class ConfigureContext(TypedDict, total=False):
     src: str
+    cargo_lock: str
     version: str
     deps: list[str]
     available_deps: dict[str, str]
@@ -74,6 +75,7 @@ class ConfigureContext(TypedDict, total=False):
 
 class _OptionalDetectionResult(TypedDict, total=False):
     backend_path: list[str]
+    cargo_crates: list[dict[str, str]]
 
 
 class DetectionResult(_OptionalDetectionResult):
@@ -402,6 +404,46 @@ def _parse_setup_py_requires(content: str) -> tuple[list[str], list[str]]:
 
 # --- Detection ---
 
+def _parse_cargo_lock(content: str) -> list[dict[str, str]]:
+    """The dependency crates a Cargo.lock pins: name, version, source, checksum.
+
+    Packages without a `source` are the workspace's own crates (the root
+    package, path dependencies) and are already in the sdist; everything else
+    is what cargo would otherwise fetch at build time.
+    """
+    if tomllib is None:
+        return []
+    try:
+        data = tomllib.loads(content)
+    except tomllib.TOMLDecodeError:
+        return []
+    crates = []
+    for pkg in data.get("package", []):
+        source = pkg.get("source")
+        if not source:
+            continue
+        crates.append({
+            "name": str(pkg.get("name", "")),
+            "version": str(pkg.get("version", "")),
+            "source": str(source),
+            "checksum": str(pkg.get("checksum", "")),
+        })
+    return crates
+
+
+def _find_cargo_lock(members: Sequence[str]) -> str | None:
+    """The sdist's Cargo.lock, wherever its crate lives.
+
+    setuptools-rust projects keep the crate in a subdirectory (bcrypt:
+    src/_bcrypt/Cargo.lock); maturin ones at the top. With several locks the
+    shallowest is the workspace's.
+    """
+    locks = [m for m in members if PurePosixPath(m).name == "Cargo.lock"]
+    if not locks:
+        return None
+    return min(locks, key=lambda m: (len(PurePosixPath(m).parts), m))
+
+
 def _find_config_file(members: Sequence[str], filename: str) -> str | None:
     """Find a config file, accounting for the typical top-level sdist directory."""
     if filename in members:
@@ -493,6 +535,18 @@ def detect(archive_path: str, context: ConfigureContext) -> DetectionResult:
             content = read_fn(setup_cfg_path)
             if content:
                 declared.extend(_parse_setup_cfg_build_requires(content))
+
+        cargo_crates = None
+        context_lock = context.get("cargo_lock")
+        if context_lock:
+            with open(context_lock, encoding="utf-8") as f:
+                cargo_crates = _parse_cargo_lock(f.read())
+        else:
+            cargo_lock_path = _find_cargo_lock(members)
+            if cargo_lock_path:
+                content = read_fn(cargo_lock_path)
+                if content:
+                    cargo_crates = _parse_cargo_lock(content)
 
         # Match the root distribution name rather than path depth: setuptools
         # src-layout projects place their own egg-info below src/ or another
@@ -595,6 +649,8 @@ def detect(archive_path: str, context: ConfigureContext) -> DetectionResult:
     }
     if backend_path is not None:
         result["backend_path"] = backend_path
+    if cargo_crates is not None:
+        result["cargo_crates"] = cargo_crates
     return result
 
 

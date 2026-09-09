@@ -34,6 +34,7 @@ load(
     "pep517_native_whl_derived_env_test",
     "pep517_native_whl_execroot_collision_test",
     "pep517_native_whl_toolchain_env_test",
+    "pep517_native_whl_vendored_crates_test",
     "pep517_whl_console_scripts_test",
     "python_host_platform_test",
     "rust_host_sysroot_test",
@@ -410,6 +411,29 @@ pep517_native_whl_derived_env_test(
         "RULES_PY_RUST_HOST_SYSROOT",
     ],
     target_under_test = ":__derived_rust_env_fixture",
+)
+
+# sdist_build's vendor directory shape: one subdirectory per crate with its
+# .cargo-checksum.json. The rule must hand the helper the vendor root and
+# ship every file as an action input.
+filegroup(
+    name = "__vendored_crates",
+    srcs = glob(["vendor/**"]),
+)
+
+pep517_native_whl(
+    name = "__vendored_crates_fixture",
+    src = ":__stub_sdist",
+    cargo_lock = "Cargo.lock",
+    tags = ["manual"],
+    tool = ":__stub_tool",
+    vendored_crates = ":__vendored_crates",
+    version = "0.0.1",
+)
+
+pep517_native_whl_vendored_crates_test(
+    name = "vendored_crates_test",
+    target_under_test = ":__vendored_crates_fixture",
 )
 
 execroot_collision_toolchain(name = "__execroot_collision_toolchain")

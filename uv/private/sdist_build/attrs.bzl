@@ -8,6 +8,7 @@ def validate_build_attrs(
         monitor_memory,
         pre_build_patches,
         pre_build_patch_strip,
+        cargo_lock,
         supported,
         toolchains,
         error):
@@ -21,6 +22,7 @@ def validate_build_attrs(
         monitor_memory: Whether to monitor the wheel-build action's memory.
         pre_build_patches: Patches applied before building the wheel.
         pre_build_patch_strip: Strip count for pre-build patches.
+        cargo_lock: A user-supplied Cargo.lock, or None.
         supported: Names of attributes consumed by the selected build path.
         toolchains: Toolchains used by the wheel-build action.
         error: Failure message with one `{}` slot for unsupported names.
@@ -40,6 +42,8 @@ def validate_build_attrs(
         active.append("pre_build_patches")
     if pre_build_patch_strip != 1:
         active.append("pre_build_patch_strip")
+    if cargo_lock:
+        active.append("cargo_lock")
     if toolchains:
         active.append("toolchains")
     unsupported = [name for name in active if name not in supported]
