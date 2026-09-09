@@ -10,6 +10,7 @@ load("@rules_cc//cc:action_names.bzl", "ACTION_NAMES")
 load("@rules_cc//cc/common:cc_common.bzl", "cc_common")
 load("//py/private/interpreter:versions.bzl", "PLATFORMS")
 load("//py/private/toolchain:types.bzl", "EXEC_TOOLS_TOOLCHAIN", "NATIVE_BUILD_TOOLCHAIN", "PY_TOOLCHAIN")
+load("//uv/private/rust:toolchain.bzl", "RUST_TOOLCHAIN_TYPE")
 load(":cc_layer.bzl", "CC_LAYER_ATTRS", "extract_cc_layer")
 load(
     ":common.bzl",
@@ -25,17 +26,10 @@ load(
 _CC_TOOLCHAIN_TYPE = Label("@bazel_tools//tools/cpp:toolchain_type")
 
 # TemplateVariableInfo make-variable -> build helper env key, for the
-# toolchains a native build commonly layers in: rules_rust's
-# current_rust_toolchain (CARGO/RUSTC and its generated RUST_SYSROOT, where
-# rustc and rust-std meet whatever repositories they were fetched into), an
-# exec-configured rust sysroot layer (RUST_HOST_SYSROOT), a Java runtime
+# toolchains a native build commonly layers in: a Java runtime
 # (JAVA/JAVABASE) and an Ant layer (ANT_HOME/ANT_BIN_DIR). The env keys are
 # the helper's contract (build_helper.py absolutizes exactly this set).
 _DERIVED_ENV = {
-    "CARGO": "CARGO",
-    "RUSTC": "RUSTC",
-    "RUST_SYSROOT": "RULES_PY_RUST_SYSROOT",
-    "RUST_HOST_SYSROOT": "RULES_PY_RUST_HOST_SYSROOT",
     "JAVA": "JAVA",
     "JAVABASE": "JAVA_HOME",
     "ANT_HOME": "ANT_HOME",
@@ -320,6 +314,15 @@ def _pep517_native_whl(ctx):
 
     cross_args = []
     cargo_args = []
+    if ctx.attr._rust:
+        # rules_py's own Rust toolchain, resolved for this exec/target pair:
+        # the exec platform's complete sysroot plus the target's std trees.
+        rust = eg_toolchains[RUST_TOOLCHAIN_TYPE]
+        env["CARGO"] = rust.cargo.path
+        env["RUSTC"] = rust.rustc.path
+        env["RULES_PY_RUST_SYSROOT"] = rust.sysroot
+        env["RULES_PY_RUST_TARGET_STD"] = ":".join(rust.target_std_roots)
+        extra_inputs.append(rust.all_files)
     if ctx.attr.vendored_crates:
         vendored = ctx.attr.vendored_crates[DefaultInfo].files
         extra_inputs.append(vendored)
@@ -411,86 +414,95 @@ def _pep517_native_whl(ctx):
 
     return wheel_providers(wheel_file, ctx.attr.console_scripts)
 
-pep517_native_whl = rule(
-    implementation = _pep517_native_whl,
-    doc = """PEP 517 sdist to platform-specific whl build rule.
+def _native_rule(rust):
+    return rule(
+        implementation = _pep517_native_whl,
+        doc = """PEP 517 sdist to platform-specific whl build rule.
 
-Consumes a sdist artifact and performs a build of that artifact with the
-specified Python dependencies under the configured Python toolchain to produce a
-platform-specific bdist we can subsequently install or deploy.
+    Consumes a sdist artifact and performs a build of that artifact with the
+    specified Python dependencies under the configured Python toolchain to produce a
+    platform-specific bdist we can subsequently install or deploy.
 
-Extra toolchains the build action depends on are passed via the standard `toolchains`
-attribute and each target's `DefaultInfo.files`, `ToolchainInfo.all_files`, and
-`TemplateVariableInfo.variables` are forwarded to the action. The `env`
-attribute maps environment variable names to strings that may reference
-`$(VAR)` make-variables sourced from those toolchains. This mirrors the
-pattern used by `rules_rust`'s `cargo_build_script`.
+    Extra toolchains the build action depends on are passed via the standard `toolchains`
+    attribute and each target's `DefaultInfo.files`, `ToolchainInfo.all_files`, and
+    `TemplateVariableInfo.variables` are forwarded to the action. The `env`
+    attribute maps environment variable names to strings that may reference
+    `$(VAR)` make-variables sourced from those toolchains. This mirrors the
+    pattern used by `rules_rust`'s `cargo_build_script`.
 
-The build is guaranteed to occur on an execution platform matching the
-constraints of the target platform.
+    The build is guaranteed to occur on an execution platform matching the
+    constraints of the target platform.
 
-""",
-    attrs = PEP517_WHL_ATTRS | {
-        "args": attr.string_list(),
-        "env": attr.string_dict(
-            doc = "Environment variables to set on the build action. Values may " +
-                  "contain `$(VAR)` references to the configured C++ action tools " +
-                  "or make-variables exposed by any target in the rule's " +
-                  "`toolchains` attribute (via `TemplateVariableInfo`). Prefix an " +
-                  "execroot-relative path with " +
-                  "`$(EXECROOT)/` so it remains valid after the backend changes into " +
-                  "the unpacked source tree. Omit CC/CXX/AR/LD/STRIP to use the " +
-                  "configured C++ action tools.",
-        ),
-        "cargo_lock": attr.label(
-            allow_single_file = True,
-            doc = "Cargo.lock placed next to the sdist's Cargo.toml before the build, replacing the sdist's own if any.",
-        ),
-        "vendored_crates": attr.label(
-            allow_files = True,
-            doc = "A cargo vendor directory (one subdirectory per crate, each with its " +
-                  "`.cargo-checksum.json`), as sdist_build materializes it from the sdist's " +
-                  "Cargo.lock. The build runs cargo offline against it.",
-        ),
-        "_platform_libc": attr.label(
-            default = "//uv/private/constraints/platform:platform_libc",
-            doc = "Read in cross mode to pick the rust target triple (gnu vs musl).",
-        ),
-    } | CC_LAYER_ATTRS,
-    fragments = ["cpp"],
-    toolchains = [
-        # Target-configured interpreter, read only for its platform triple in
-        # the cross detection; optional so unresolvable targets surface the
-        # rule's own error instead of a toolchain-resolution one.
-        config_common.toolchain_type(PY_TOOLCHAIN, mandatory = False),
-    ],
-    exec_groups = {
-        # Cross-compilation of sdists is intentionally unsupported: PEP 517
-        # build backends (setuptools, meson-python, etc.) have no standard
-        # mechanism for cross-compilation, Python headers for the target
-        # platform are not readily available, and output wheel tags would
-        # need to encode the target platform with no upstream tooling
-        # support. Packages that need cross-compiled native extensions should
-        # publish pre-built wheels for their target platforms instead.
-        #
-        # Detection inputs: NATIVE_BUILD_TOOLCHAIN has matching
-        # exec_compatible_with and target_compatible_with, so it resolves
-        # exactly when the exec and target platforms match — optional, its
-        # absence is a cross signal, not a resolution error. The exec- and
-        # target-configured interpreters' platform triples refine that signal
-        # (see _cross_decision); a cross decision switches the action into
-        # cross mode (cc_layer extraction + target-identity env) instead of
-        # failing.
-        TARGET_EXEC_GROUP: exec_group(
-            toolchains = [
-                PY_TOOLCHAIN,
-                config_common.toolchain_type(EXEC_TOOLS_TOOLCHAIN, mandatory = False),
-                config_common.toolchain_type(NATIVE_BUILD_TOOLCHAIN, mandatory = False),
-                # Optional for the same reason: on a cross target no C++
-                # toolchain may resolve, and the rule's own error must win
-                # over a resolution failure.
-                config_common.toolchain_type(_CC_TOOLCHAIN_TYPE, mandatory = False),
-            ],
-        ),
-    },
-)
+    """,
+        attrs = PEP517_WHL_ATTRS | {
+            "args": attr.string_list(),
+            "env": attr.string_dict(
+                doc = "Environment variables to set on the build action. Values may " +
+                      "contain `$(VAR)` references to the configured C++ action tools " +
+                      "or make-variables exposed by any target in the rule's " +
+                      "`toolchains` attribute (via `TemplateVariableInfo`). Prefix an " +
+                      "execroot-relative path with " +
+                      "`$(EXECROOT)/` so it remains valid after the backend changes into " +
+                      "the unpacked source tree. Omit CC/CXX/AR/LD/STRIP to use the " +
+                      "configured C++ action tools.",
+            ),
+            "cargo_lock": attr.label(
+                allow_single_file = True,
+                doc = "Cargo.lock placed next to the sdist's Cargo.toml before the build, replacing the sdist's own if any.",
+            ),
+            "vendored_crates": attr.label(
+                allow_files = True,
+                doc = "A cargo vendor directory (one subdirectory per crate, each with its " +
+                      "`.cargo-checksum.json`), as sdist_build materializes it from the sdist's " +
+                      "Cargo.lock. The build runs cargo offline against it.",
+            ),
+            "_rust": attr.bool(default = rust),
+            "_platform_libc": attr.label(
+                default = "//uv/private/constraints/platform:platform_libc",
+                doc = "Read in cross mode to pick the rust target triple (gnu vs musl).",
+            ),
+        } | CC_LAYER_ATTRS,
+        fragments = ["cpp"],
+        toolchains = [
+            # Target-configured interpreter, read only for its platform triple in
+            # the cross detection; optional so unresolvable targets surface the
+            # rule's own error instead of a toolchain-resolution one.
+            config_common.toolchain_type(PY_TOOLCHAIN, mandatory = False),
+        ],
+        exec_groups = {
+            # Cross-compilation of sdists is intentionally unsupported: PEP 517
+            # build backends (setuptools, meson-python, etc.) have no standard
+            # mechanism for cross-compilation, Python headers for the target
+            # platform are not readily available, and output wheel tags would
+            # need to encode the target platform with no upstream tooling
+            # support. Packages that need cross-compiled native extensions should
+            # publish pre-built wheels for their target platforms instead.
+            #
+            # Detection inputs: NATIVE_BUILD_TOOLCHAIN has matching
+            # exec_compatible_with and target_compatible_with, so it resolves
+            # exactly when the exec and target platforms match — optional, its
+            # absence is a cross signal, not a resolution error. The exec- and
+            # target-configured interpreters' platform triples refine that signal
+            # (see _cross_decision); a cross decision switches the action into
+            # cross mode (cc_layer extraction + target-identity env) instead of
+            # failing.
+            TARGET_EXEC_GROUP: exec_group(
+                toolchains = [
+                    PY_TOOLCHAIN,
+                    config_common.toolchain_type(EXEC_TOOLS_TOOLCHAIN, mandatory = False),
+                    config_common.toolchain_type(NATIVE_BUILD_TOOLCHAIN, mandatory = False),
+                    # Optional for the same reason: on a cross target no C++
+                    # toolchain may resolve, and the rule's own error must win
+                    # over a resolution failure.
+                    config_common.toolchain_type(_CC_TOOLCHAIN_TYPE, mandatory = False),
+                ] + ([RUST_TOOLCHAIN_TYPE] if rust else []),
+            ),
+        },
+    )
+
+pep517_native_whl = _native_rule(rust = False)
+
+# Same rule, plus rules_py's Rust toolchain in the build's exec group. Only
+# sdists whose backend is Rust (maturin, setuptools-rust) instantiate it, so
+# nobody else ever resolves or fetches a Rust toolchain.
+pep517_rust_whl = _native_rule(rust = True)

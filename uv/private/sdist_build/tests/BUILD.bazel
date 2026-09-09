@@ -13,7 +13,7 @@ load(
     "crate_vendoring_test",
     "env_attr_test",
     "is_rust_build_test",
-    "rust_wiring_test",
+    "rust_rule_test",
 )
 
 build_test(
@@ -27,6 +27,6 @@ env_attr_test(name = "env_attr_test")
 
 is_rust_build_test(name = "is_rust_build_test")
 
-rust_wiring_test(name = "rust_wiring_test")
+rust_rule_test(name = "rust_rule_test")
 
 crate_vendoring_test(name = "crate_vendoring_test")

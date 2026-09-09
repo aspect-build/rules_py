@@ -193,10 +193,18 @@ class ArLibtoolWrapperTest(unittest.TestCase):
 
 class AbsolutizeToolPathsTest(unittest.TestCase):
     def test_rust_keys_absolutized(self) -> None:
-        env = {"CARGO": "bazel-out/bin/rust/bin/cargo", "RUSTC": "bazel-out/bin/rust/bin/rustc", "RULES_PY_RUST_HOST_SYSROOT": "bazel-out/bin/rust"}
+        env = {
+            "CARGO": "bazel-out/bin/rust/bin/cargo",
+            "RUSTC": "bazel-out/bin/rust/bin/rustc",
+            "RULES_PY_RUST_SYSROOT": "bazel-out/bin/rust",
+            "RULES_PY_RUST_TARGET_STD": "external/std_gnu:external/std_musl",
+        }
         build_helper._absolutize_tool_paths(env)
-        for key in ("CARGO", "RUSTC", "RULES_PY_RUST_HOST_SYSROOT"):
+        for key in ("CARGO", "RUSTC", "RULES_PY_RUST_SYSROOT"):
             self.assertTrue(path.isabs(env[key]), key)
+        roots = env["RULES_PY_RUST_TARGET_STD"].split(os.pathsep)
+        self.assertEqual(2, len(roots))
+        self.assertTrue(all(path.isabs(r) for r in roots), roots)
 
     def test_ant_keys_absolutized(self) -> None:
         env = {"ANT_HOME": "bazel-out/bin/ant", "RULES_PY_ANT_BIN_DIR": "bazel-out/bin/ant/bin"}
@@ -874,55 +882,6 @@ class ConfigureCargoCrossEnvTest(unittest.TestCase):
             env["MATURIN_PEP517_ARGS"],
         )
 
-    def test_rustc_wrapper_uses_merged_sysroot(self) -> None:
-        tmp = tempfile.mkdtemp()
-        # Fake target toolchain (bin/rustc) and host sysroot with an exec-std entry.
-        target_rustc = path.join(tmp, "target_tc", "bin", "rustc")
-        makedirs(path.dirname(target_rustc))
-        open(target_rustc, "w").close()
-        makedirs(path.join(tmp, "target_tc", "lib", "rustlib", "aarch64-unknown-linux-gnu"))
-        host_sysroot = path.join(tmp, "host_sysroot")
-        makedirs(path.join(host_sysroot, "lib", "rustlib", "aarch64-apple-darwin"))
-
-        env = self._env()
-        env["RUSTC"] = target_rustc
-        env["RULES_PY_RUST_HOST_SYSROOT"] = host_sysroot
-        build_helper._configure_cargo_cross_env(env, tmp, "linux", "aarch64", "glibc")
-
-        wrapper = env["RUSTC"]
-        self.assertNotEqual(target_rustc, wrapper)
-        with open(wrapper) as f:
-            content = f.read()
-        self.assertIn("--sysroot", content)
-        self.assertTrue(os.access(wrapper, os.X_OK))
-        # The merged sysroot exposes the host's rustlib entries (exec std for
-        # build scripts) alongside the target's.
-        merged = path.join(tmp, ".rust_sysroot", "lib", "rustlib")
-        self.assertTrue(path.islink(path.join(merged, "aarch64-apple-darwin")))
-        self.assertTrue(path.islink(path.join(merged, "aarch64-unknown-linux-gnu")))
-
-
-    def test_target_sysroot_from_toolchain_wins_over_rustc_location(self) -> None:
-        # rules_rs-style layout: rustc in one repository, rust-std in another,
-        # both assembled into the toolchain's generated sysroot.
-        tmp = tempfile.mkdtemp()
-        target_rustc = path.join(tmp, "rustc_repo", "bin", "rustc")
-        makedirs(path.dirname(target_rustc))
-        open(target_rustc, "w").close()
-        generated = path.join(tmp, "generated_sysroot")
-        makedirs(path.join(generated, "lib", "rustlib", "aarch64-unknown-linux-gnu"))
-        host_sysroot = path.join(tmp, "host_sysroot")
-        makedirs(path.join(host_sysroot, "lib", "rustlib", "x86_64-unknown-linux-gnu"))
-
-        env = self._env()
-        env["RUSTC"] = target_rustc
-        env["RULES_PY_RUST_SYSROOT"] = generated
-        env["RULES_PY_RUST_HOST_SYSROOT"] = host_sysroot
-        build_helper._configure_cargo_cross_env(env, tmp, "linux", "aarch64", "glibc")
-
-        merged = path.join(tmp, ".rust_sysroot", "lib", "rustlib")
-        self.assertTrue(path.islink(path.join(merged, "aarch64-unknown-linux-gnu")))
-        self.assertTrue(path.islink(path.join(merged, "x86_64-unknown-linux-gnu")))
 
 
 class InjectCargoLockTest(unittest.TestCase):
@@ -985,10 +944,61 @@ class CargoOfflineTest(unittest.TestCase):
         self.assertFalse(path.exists(path.join(tmp, "config.toml")))
 
 
+class MergeRustSysrootTest(unittest.TestCase):
+    def _sysroot(self, tmp: str, name: str, *triples: str) -> str:
+        root = path.join(tmp, name)
+        makedirs(path.join(root, "bin"))
+        open(path.join(root, "bin", "rustc"), "w").close()
+        makedirs(path.join(root, "lib"))
+        open(path.join(root, "lib", "librustc_driver.so"), "w").close()
+        for triple in triples:
+            makedirs(path.join(root, "lib", "rustlib", triple, "lib"))
+        return root
+
+    def _std(self, tmp: str, name: str, triple: str) -> str:
+        root = path.join(tmp, name)
+        makedirs(path.join(root, "lib", "rustlib", triple, "lib"))
+        return root
+
+    def test_exec_sysroot_plus_target_stds(self) -> None:
+        tmp = tempfile.mkdtemp()
+        host = self._sysroot(tmp, "host", "aarch64-apple-darwin")
+        gnu = self._std(tmp, "std_gnu", "x86_64-unknown-linux-gnu")
+        musl = self._std(tmp, "std_musl", "x86_64-unknown-linux-musl")
+        merged = build_helper._merge_rust_sysroot(tmp, host, [gnu, musl])
+        rustlib = path.join(merged, "lib", "rustlib")
+        self.assertTrue(path.islink(path.join(merged, "bin")), "exec drivers come whole")
+        self.assertTrue(path.islink(path.join(merged, "lib", "librustc_driver.so")))
+        for triple in ("aarch64-apple-darwin", "x86_64-unknown-linux-gnu", "x86_64-unknown-linux-musl"):
+            self.assertTrue(path.islink(path.join(rustlib, triple)), triple)
+
+    def test_exec_entries_win_and_merge_is_idempotent(self) -> None:
+        tmp = tempfile.mkdtemp()
+        host = self._sysroot(tmp, "host", "x86_64-unknown-linux-gnu")
+        same = self._std(tmp, "std_same", "x86_64-unknown-linux-gnu")
+        merged = build_helper._merge_rust_sysroot(tmp, host, [same])
+        link = path.join(merged, "lib", "rustlib", "x86_64-unknown-linux-gnu")
+        self.assertEqual(path.join(host, "lib", "rustlib", "x86_64-unknown-linux-gnu"), os.readlink(link))
+        self.assertEqual(merged, build_helper._merge_rust_sysroot(tmp, host, [same]))
+
+    def test_cross_env_wraps_rustc_with_the_merged_sysroot(self) -> None:
+        tmp = tempfile.mkdtemp()
+        host = self._sysroot(tmp, "host", "aarch64-apple-darwin")
+        gnu = self._std(tmp, "std_gnu", "aarch64-unknown-linux-gnu")
+        env = {"CC": "/wrap/cc", "CXX": "/wrap/c++", "CARGO": path.join(host, "bin", "cargo"), "RUSTC": path.join(host, "bin", "rustc"),
+               "RULES_PY_RUST_SYSROOT": host, "RULES_PY_RUST_TARGET_STD": gnu}
+        build_helper._configure_cargo_cross_env(env, tmp, "linux", "aarch64", "glibc")
+        with open(env["RUSTC"]) as f:
+            content = f.read()
+        self.assertIn("--sysroot", content)
+        self.assertIn(path.join(tmp, ".rust_sysroot"), content)
+        self.assertTrue(path.islink(path.join(tmp, ".rust_sysroot", "lib", "rustlib", "aarch64-unknown-linux-gnu")))
+
+
 class CargoNativeEnvTest(unittest.TestCase):
     def test_rustc_gets_the_toolchain_sysroot(self) -> None:
         tmp = tempfile.mkdtemp()
-        env = {"CARGO": "/tc/bin/cargo", "RUSTC": "/tc/bin/rustc", "RULES_PY_RUST_SYSROOT": "/tc/sysroot", "RULES_PY_RUST_HOST_SYSROOT": "/exec/sysroot"}
+        env = {"CARGO": "/tc/bin/cargo", "RUSTC": "/tc/bin/rustc", "RULES_PY_RUST_SYSROOT": "/tc/sysroot"}
         build_helper._configure_cargo_native_env(env, tmp)
         with open(env["RUSTC"]) as f:
             content = f.read()
@@ -996,12 +1006,6 @@ class CargoNativeEnvTest(unittest.TestCase):
         self.assertIn("/tc/bin/rustc", content)
         self.assertTrue(os.access(env["RUSTC"], os.X_OK))
 
-    def test_host_sysroot_is_the_fallback(self) -> None:
-        tmp = tempfile.mkdtemp()
-        env = {"CARGO": "/tc/bin/cargo", "RUSTC": "/tc/bin/rustc", "RULES_PY_RUST_HOST_SYSROOT": "/exec/sysroot"}
-        build_helper._configure_cargo_native_env(env, tmp)
-        with open(env["RUSTC"]) as f:
-            self.assertIn("/exec/sysroot", f.read())
 
     def test_no_rust_toolchain_leaves_rustc_alone(self) -> None:
         tmp = tempfile.mkdtemp()

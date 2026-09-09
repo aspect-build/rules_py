@@ -1,8 +1,7 @@
 """bcrypt: setuptools-rust sdist build.
 
-`uv.project(rust_toolchain = ...)` is all the Rust wiring: sdist_build detects
-setuptools-rust in the build requirements and emits the toolchain plus the
-exec-platform sysroot into the generated pep517_native_whl.
+Nothing declares Rust: sdist_build detects setuptools-rust in the build
+requirements and builds with rules_py's own Rust toolchain.
 """
 
 uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
@@ -17,7 +16,6 @@ uv.project(
     hub_name = "pypi_pycross_bcrypt",
     lock = "//pycross-bcrypt:uv.lock",
     pyproject = "//pycross-bcrypt:pyproject.toml",
-    rust_toolchain = "@rules_rust//rust/toolchain:current_rust_toolchain",
 )
 use_repo(
     uv,

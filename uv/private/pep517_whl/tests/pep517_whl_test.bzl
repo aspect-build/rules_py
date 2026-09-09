@@ -368,38 +368,32 @@ config_settings_args_test = analysistest.make(
     },
 )
 
-def _fake_rust_toolchain_impl(ctx):
-    # The sysroot is this target's own output root: an "-exec" segment in it
-    # proves the dependent re-resolved us in the exec configuration. The
-    # make-variables mirror what rules_rust's current_rust_toolchain exports.
-    return [
-        platform_common.ToolchainInfo(sysroot = ctx.bin_dir.path, all_files = depset()),
-        platform_common.TemplateVariableInfo({
-            "CARGO": "/fake/bin/cargo",
-            "RUSTC": "/fake/bin/rustc",
-            "RUST_SYSROOT": ctx.bin_dir.path + "/fake_sysroot",
-        }),
-    ]
-
-fake_rust_toolchain = rule(
-    implementation = _fake_rust_toolchain_impl,
-    doc = "Stands in for rules_rust's current_rust_toolchain: ToolchainInfo with a sysroot.",
-)
-
-def _rust_host_sysroot_test_impl(ctx):
+def _rust_toolchain_env_test_impl(ctx):
     env = analysistest.begin(ctx)
     target = analysistest.target_under_test(env)
-    variables = target[platform_common.TemplateVariableInfo].variables
-    sysroot = variables.get("RUST_HOST_SYSROOT", "")
-    asserts.true(env, sysroot != "", "RUST_HOST_SYSROOT must be exported; got: {}".format(variables))
+    actions = [a for a in target.actions if a.mnemonic == "PySdistNativeBuild"]
+    asserts.equals(env, 1, len(actions), "expected exactly one PySdistNativeBuild action")
+    if not actions:
+        return analysistest.end(env)
+    action_env = actions[0].env
+    for key in ("CARGO", "RUSTC", "RULES_PY_RUST_SYSROOT", "RULES_PY_RUST_TARGET_STD"):
+        asserts.true(env, action_env.get(key), "{} must come from rules_py's Rust toolchain; env keys: {}".format(key, sorted(action_env.keys())))
+    rustc = action_env.get("RUSTC", "")
+    asserts.true(env, rustc.endswith("/bin/rustc"), "got: " + rustc)
+    asserts.true(env, rustc.startswith(action_env.get("RULES_PY_RUST_SYSROOT", "?")), "rustc lives inside its sysroot")
+    inputs = [f.path for f in actions[0].inputs.to_list()]
+    asserts.true(env, rustc in inputs, "the toolchain files must be action inputs")
     asserts.true(
         env,
-        "-exec" in sysroot,
-        "the sysroot must come from the toolchain re-resolved in the exec configuration; got: " + sysroot,
+        any(["/lib/rustlib/x86_64-unknown-linux-gnu/lib/" in p for p in inputs]),
+        "the target platform's std must be an action input",
     )
     return analysistest.end(env)
 
-rust_host_sysroot_test = analysistest.make(_rust_host_sysroot_test_impl)
+pep517_rust_whl_toolchain_env_test = analysistest.make(
+    _rust_toolchain_env_test_impl,
+    config_settings = {"//command_line_option:platforms": "@@//uv/private/pep517_whl/tests:cross_target_platform_x86_64"},
+)
 
 def _vendored_crates_test_impl(ctx):
     env = analysistest.begin(ctx)

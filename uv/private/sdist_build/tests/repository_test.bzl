@@ -45,8 +45,6 @@ def _env_attr_test_impl(ctx):
 
 env_attr_test = unittest.make(_env_attr_test_impl)
 
-_TOOLCHAIN = "@rules_rust//rust/toolchain:current_rust_toolchain"
-
 def _is_rust_build_test_impl(ctx):
     env = unittest.begin(ctx)
     is_rust = sdist_build_test_util.is_rust_build
@@ -70,41 +68,31 @@ def _is_rust_build_test_impl(ctx):
         "setuptools-rust inferred from .rs files counts too: it is injected into the build venv",
     )
     asserts.false(env, is_rust({"build_backend": "mesonpy"}), "meson-python is not Rust")
+    asserts.false(
+        env,
+        is_rust({"build_backend": "mesonpy", "inferred_build_requires": ["setuptools-rust"]}),
+        "stray .rs files under a non-setuptools backend (numpy) do not make a Rust build",
+    )
+    asserts.true(
+        env,
+        is_rust({"build_backend": None, "inferred_build_requires": ["setuptools-rust"]}),
+        "a bare setup.py with .rs sources is setuptools-rust",
+    )
     asserts.equals(env, "setuptools-rust", sdist_build_test_util.normalize_requirement("Setuptools_Rust>=1.7"))
     return unittest.end(env)
 
 is_rust_build_test = unittest.make(_is_rust_build_test_impl)
 
-def _rust_wiring_test_impl(ctx):
+def _rust_rule_test_impl(ctx):
     env = unittest.begin(ctx)
-    wiring = sdist_build_test_util.rust_wiring
-    rust_inspection = {"build_backend": "maturin"}
-
-    off = wiring("", rust_inspection, ["//x:jdk"])
-    asserts.equals(env, "", off.load_stmt, "no project rust_toolchain: nothing is wired")
-    asserts.equals(env, "", off.target)
-    asserts.equals(env, ["//x:jdk"], off.toolchains, "override toolchains pass through untouched")
-
-    not_rust = wiring(_TOOLCHAIN, {"build_backend": "mesonpy"}, [])
-    asserts.equals(env, "", not_rust.load_stmt, "a non-Rust backend ignores the project rust_toolchain")
-    asserts.equals(env, [], not_rust.toolchains)
-
-    on = wiring(_TOOLCHAIN, rust_inspection, ["//x:jdk", _TOOLCHAIN])
-    asserts.true(env, "rust_layer.bzl" in on.load_stmt and "rust_host_sysroot" in on.load_stmt, "load() for the layer rule")
-    asserts.true(
-        env,
-        'rust_host_sysroot(\n    name = "rust_host_sysroot",\n    actual = "{}",\n)'.format(_TOOLCHAIN) in on.target,
-        "an exec-configured sysroot layer over the project toolchain; got: " + on.target,
-    )
-    asserts.equals(
-        env,
-        [_TOOLCHAIN, ":rust_host_sysroot", "//x:jdk"],
-        on.toolchains,
-        "toolchain and layer first, override extras after, the toolchain not repeated",
-    )
+    rule = sdist_build_test_util.rust_rule
+    asserts.equals(env, "pep517_rust_whl", rule({"build_backend": "maturin"}), "maturin sdists take the Rust flavor")
+    asserts.equals(env, "pep517_rust_whl", rule({"build_backend": "setuptools.build_meta", "build_requires": ["setuptools-rust>=1.7"]}))
+    asserts.equals(env, None, rule({"build_backend": "mesonpy"}), "everything else stays on pep517_native_whl")
+    asserts.equals(env, None, rule(None))
     return unittest.end(env)
 
-rust_wiring_test = unittest.make(_rust_wiring_test_impl)
+rust_rule_test = unittest.make(_rust_rule_test_impl)
 
 def _crate_vendoring_test_impl(ctx):
     env = unittest.begin(ctx)

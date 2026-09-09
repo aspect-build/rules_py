@@ -5,9 +5,8 @@ load("@tar.bzl//tar:mtree.bzl", "mtree_mutate", "mtree_spec")
 load("@tar.bzl//tar:tar.bzl", "tar_rule")
 load("//py:defs.bzl", "py_binary", "py_test")
 load("//uv/private/pep517_whl:frontend.bzl", "pep517_frontend")
-load("//uv/private/pep517_whl:pep517_native_whl.bzl", "pep517_native_whl")
+load("//uv/private/pep517_whl:pep517_native_whl.bzl", "pep517_native_whl", "pep517_rust_whl")
 load("//uv/private/pep517_whl:pep517_whl.bzl", "pep517_whl")
-load("//uv/private/pep517_whl:rust_layer.bzl", "rust_host_sysroot")
 load(
     ":exec_platform_steering_test.bzl",
     "exec_platform_prefers_native_match_test",
@@ -27,7 +26,6 @@ load(
     "config_settings_args_test",
     "cross_decision_test",
     "execroot_collision_toolchain",
-    "fake_rust_toolchain",
     "hostile_python_env_target",
     "interpreter_platform_triple_test",
     "pep517_native_whl_cross_mode_test",
@@ -35,9 +33,9 @@ load(
     "pep517_native_whl_execroot_collision_test",
     "pep517_native_whl_toolchain_env_test",
     "pep517_native_whl_vendored_crates_test",
+    "pep517_rust_whl_toolchain_env_test",
     "pep517_whl_console_scripts_test",
     "python_host_platform_test",
-    "rust_host_sysroot_test",
     "target_python_artifacts_test",
 )
 
@@ -383,46 +381,28 @@ pep517_native_whl_derived_env_test(
     target_under_test = ":__derived_env_override_fixture",
 )
 
-fake_rust_toolchain(name = "__fake_rust_toolchain")
-
-rust_host_sysroot(
-    name = "__rust_host_sysroot",
-    actual = ":__fake_rust_toolchain",
+# rules_py's own Rust toolchain reaches the build: resolved for the exec
+# platform and a linux/x86_64 target, its cargo, rustc, sysroot and target
+# std land in the env and the inputs. Nothing is registered by the workspace.
+platform(
+    name = "cross_target_platform_x86_64",
+    constraint_values = [
+        "@platforms//os:linux",
+        "@platforms//cpu:x86_64",
+    ],
 )
 
-rust_host_sysroot_test(
-    name = "rust_host_sysroot_test",
-    target_under_test = ":__rust_host_sysroot",
-)
-
-# The shape sdist_build generates for a Rust sdist: the toolchain plus its
-# exec-configured sysroot layer. Their make-variables must reach the helper
-# under its env names, and the make-variable names themselves must not.
-pep517_native_whl(
-    name = "__derived_rust_env_fixture",
+pep517_rust_whl(
+    name = "__rust_toolchain_fixture",
     src = ":__stub_sdist",
     tags = ["manual"],
     tool = ":__stub_tool",
-    toolchains = [
-        ":__fake_rust_toolchain",
-        ":__rust_host_sysroot",
-    ],
     version = "0.0.1",
 )
 
-pep517_native_whl_derived_env_test(
-    name = "derived_rust_env_test",
-    absent_keys = [
-        "RUST_SYSROOT",
-        "RUST_HOST_SYSROOT",
-    ],
-    derived_keys = [
-        "CARGO",
-        "RUSTC",
-        "RULES_PY_RUST_SYSROOT",
-        "RULES_PY_RUST_HOST_SYSROOT",
-    ],
-    target_under_test = ":__derived_rust_env_fixture",
+pep517_rust_whl_toolchain_env_test(
+    name = "rust_toolchain_env_test",
+    target_under_test = ":__rust_toolchain_fixture",
 )
 
 # sdist_build's vendor directory shape: one subdirectory per crate with its

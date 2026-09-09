@@ -183,12 +183,17 @@ def _is_rust_build(inspection):
     """
     if not inspection:
         return False
-    if inspection.get("build_backend") == "maturin":
+    backend = inspection.get("build_backend")
+    if backend == "maturin":
         return True
+
+    # setuptools-rust only ever rides on a setuptools backend (or none, for a
+    # bare setup.py). Other backends may ship stray .rs files that make the
+    # configure tool infer setuptools-rust (numpy does), and are not Rust builds.
+    if backend not in (None, "setuptools.build_meta", "setuptools.build_meta:__legacy__"):
+        return False
     requirements = list(inspection.get("build_requires", [])) + list(inspection.get("inferred_build_requires", []))
     return "setuptools-rust" in [_normalize_requirement(r) for r in requirements]
-
-_RUST_LAYER_LOAD = "\nload(\"@aspect_rules_py//uv/private/pep517_whl:rust_layer.bzl\", \"rust_host_sysroot\")"
 
 _CRATES_IO_SOURCE = "registry+https://github.com/rust-lang/crates.io-index"
 
@@ -246,39 +251,13 @@ def _cargo_lock_attr(label):
 
 _VENDORED_CRATES_ATTR = "\n    vendored_crates = \":vendored_crates\","
 
-def _rust_wiring(rust_toolchain, inspection, toolchains):
-    """The generated BUILD's Rust wiring for a project-level `rust_toolchain`.
+def _rust_rule(inspection):
+    """The rule sdist_build instantiates for a Rust sdist, or None.
 
-    The configure tool already detected the build backend and its declared
-    requirements, so a Rust-based build (maturin, or setuptools with
-    setuptools-rust) gets the project's Rust toolchain plus an exec-configured
-    rust_host_sysroot layer without the user spelling either out per package.
-    pep517_native_whl derives CARGO/RUSTC/RULES_PY_RUST_HOST_SYSROOT from
-    their make-variables.
-
-    Args:
-        rust_toolchain: `uv.project(rust_toolchain = ...)` rendered as a label string, or "".
-        inspection: The configure tool's JSON, or None.
-        toolchains: Extra toolchain labels from `uv.override_package`.
-
-    Returns:
-        struct(load_stmt, target, toolchains): the `load()` line and the
-        `rust_host_sysroot(...)` target to splice into the BUILD (both "" when
-        not wired), and the final `toolchains` list.
+    pep517_rust_whl is pep517_native_whl plus rules_py's own Rust toolchain in
+    the build's exec group; nothing else resolves that toolchain.
     """
-    if not (rust_toolchain and _is_rust_build(inspection)):
-        return struct(load_stmt = "", target = "", toolchains = list(toolchains))
-    target = """
-rust_host_sysroot(
-    name = "rust_host_sysroot",
-    actual = {},
-)
-""".format(repr(rust_toolchain))
-    return struct(
-        load_stmt = _RUST_LAYER_LOAD,
-        target = target,
-        toolchains = [rust_toolchain, ":rust_host_sysroot"] + [t for t in toolchains if t != rust_toolchain],
-    )
+    return "pep517_rust_whl" if _is_rust_build(inspection) else None
 
 def _sdist_build_impl(repository_ctx):
     """Prepares a repository for building a wheel from a source distribution (sdist).
@@ -411,23 +390,15 @@ def _sdist_build_impl(repository_ctx):
     # AR, LD, and STRIP make variables can be synthetic. Only forward explicit
     # toolchains/env for JDK, Rust, and other package-specific overrides.
     toolchain_attrs = ""
-    rust_layer_load = ""
-    rust_layer_target = ""
+    rule = "pep517_native_whl" if is_native else "pep517_whl"
     vendored_crates_target = ""
     vendored_crates_attr = ""
     if is_native:
         toolchains = list(repository_ctx.attr.extra_toolchains)
         extra_env = repository_ctx.attr.extra_env
 
-        # str(Label) is the canonical form: the only spelling that resolves inside
-        # a repository the rules_py extension generates, whose repo mapping knows
-        # nothing about the user's rules_rust dependency.
-        rust_toolchain = repository_ctx.attr.rust_toolchain
-        rust = _rust_wiring(str(rust_toolchain) if rust_toolchain else "", inspection, toolchains)
-        rust_layer_load = rust.load_stmt
-        rust_layer_target = rust.target
-        toolchains = rust.toolchains
-        if rust.load_stmt:
+        if _rust_rule(inspection):
+            rule = "pep517_rust_whl"
             crates = inspection.get("cargo_crates") if inspection else None
             if crates:
                 _vendor_crates(repository_ctx, crates)
@@ -479,7 +450,7 @@ pep517_frontend(
         tool = ":frontend"
 
     repository_ctx.file("BUILD.bazel", content = """
-load("@aspect_rules_py//uv/private/pep517_whl:{rule}.bzl", "{rule}"){frontend_load}{rust_layer_load}
+load("@aspect_rules_py//uv/private/pep517_whl:{rule_bzl}.bzl", "{rule}"){frontend_load}
 load("@aspect_rules_py//py:defs.bzl", "py_binary")
 
 py_binary(
@@ -489,7 +460,7 @@ py_binary(
     deps = {deps},
     include_console_scripts = True,
 )
-{frontend_target}{rust_layer_target}{vendored_crates_target}
+{frontend_target}{vendored_crates_target}
 {rule}(
     name = "whl",
     src = "{src}",
@@ -508,10 +479,9 @@ exports_files(
         console_scripts_attr = console_scripts_attr,
         config_settings_attr = config_settings_attr,
         monitor_memory_attr = monitor_memory_attr,
-        rule = "pep517_native_whl" if is_native else "pep517_whl",
+        rule = rule,
+        rule_bzl = "pep517_native_whl" if is_native else "pep517_whl",
         frontend_load = frontend_load,
-        rust_layer_load = rust_layer_load,
-        rust_layer_target = rust_layer_target,
         vendored_crates_target = vendored_crates_target,
         vendored_crates_attr = vendored_crates_attr,
         frontend_target = frontend_target,
@@ -564,9 +534,6 @@ sdist_build = repository_rule(
             allow_single_file = True,
             doc = "Cargo.lock to vendor from and inject into the build in place of the sdist's. Set via `uv.override_package(cargo_lock = ...)`.",
         ),
-        "rust_toolchain": attr.label(
-            doc = "Project-level Rust toolchain; wired into the build when the sdist's build backend is Rust-based.",
-        ),
         "extra_toolchains": attr.string_list(
             default = [],
             doc = "Toolchain labels forwarded to the generated pep517_native_whl(...) `toolchains` list. Set via `uv.override_package(toolchains = [...])`.",
@@ -590,5 +557,5 @@ sdist_build_test_util = struct(
     env_attr = _env_attr,
     is_rust_build = _is_rust_build,
     normalize_requirement = _normalize_requirement,
-    rust_wiring = _rust_wiring,
+    rust_rule = _rust_rule,
 )

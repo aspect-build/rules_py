@@ -22,6 +22,7 @@ bzl_library(
         ":common",
         "//py/private/interpreter:versions",
         "//py/private/toolchain:types",
+        "//uv/private/rust:toolchain",
         "@bazel_lib//lib:resource_sets",
         "@rules_cc//cc:action_names_bzl",
         "@rules_cc//cc/common",
@@ -50,9 +51,4 @@ bzl_library(
         "//uv/private:source_built_wheel",
         "@bazel_lib//lib:resource_sets",
     ],
-)
-
-bzl_library(
-    name = "rust_layer",
-    srcs = ["rust_layer.bzl"],
 )
