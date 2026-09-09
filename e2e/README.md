@@ -35,9 +35,16 @@ workspace above must not carry: its `.bazelrc` turns on the rules_python provide
 compatibility layer, so rules_python `py_*` targets can depend on a rules_py `py_library`.
 Its `test.sh` asserts the same dependency is rejected with the flag off.
 
-`rules-python-protobuf` exercises rules_proto_grpc_python-generated bindings in
-an isolated module so its rules_python/protobuf/grpc dependency graph does not
-leak into the main test module.
+`pyc-batch` is a repo whose `.bazelrc` opts into sourceless first-party
+bytecode compiled in one `PyCompile` action per target
+(`--@aspect_rules_py//py:pyc_shards=1`). Sharding needs a module-wide
+guarantee that no `.py` is listed in two targets' `srcs`, which `e2e/cases`
+cannot make; its `test.sh` counts actions at the `.bazelrc` shard count, at
+two shards, and at the per-file default.
+
+`rules-python-protobuf` contains protobuf's native `py_proto_library` and
+rules_proto_grpc_python consumer tests. Keeping both generators here prevents
+their rules_python/protobuf dependency graph from leaking into the main test module.
 
 `crossbuild` covers `pep517_native_whl`'s cross-compilation path across the
 PEP 517 backends, each with more than one real package so no backend's cross

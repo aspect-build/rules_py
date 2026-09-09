@@ -3,6 +3,9 @@
 _DEP_GROUP_FLAG = "@aspect_rules_py//uv/private/constraints/dep_group:dep_group"
 _DEP_GROUP_BASELINE_FLAG = "@aspect_rules_py//uv/private/constraints/dep_group:baseline"
 
+# Read by terminal rules only; venv and runtime-data transitions reset it.
+PYC_FLAG = "@aspect_rules_py//py:pyc"
+
 # Our own python_version flag, replacing the rules_python one.
 _PYTHON_VERSION_FLAG = "@aspect_rules_py//py/private/interpreter:python_version"
 _PYTHON_VERSION_BASELINE_FLAG = "@aspect_rules_py//py/private/interpreter:baseline_python_version"
@@ -95,16 +98,30 @@ python_transition = transition(
     outputs = _ALL_FLAGS,
 )
 
+def _py_venv_transition_impl(settings, attr):
+    acc = _python_transition_base(settings, attr, validate = True)
+    acc[PYC_FLAG] = "source"
+    return acc
+
+# Venvs declare bytecode in every mode, so all launchers share one configured venv.
+py_venv_transition = transition(
+    implementation = _py_venv_transition_impl,
+    inputs = _ALL_FLAGS + [PYC_FLAG],
+    outputs = _ALL_FLAGS + [PYC_FLAG],
+)
+
 # The launcher -> venv edge. Validation never runs here: the venv's own rule
 # transition always applies next, may override either half of a version/GIL
 # combination, and is the sole authority for rejecting the final configuration.
 def _venv_python_transition_impl(settings, attr):
-    return _python_transition_base(settings, attr, validate = False)
+    acc = _python_transition_base(settings, attr, validate = False)
+    acc[PYC_FLAG] = "source"
+    return acc
 
 venv_python_transition = transition(
     implementation = _venv_python_transition_impl,
-    inputs = _ALL_FLAGS,
-    outputs = _ALL_FLAGS,
+    inputs = _ALL_FLAGS + [PYC_FLAG],
+    outputs = _ALL_FLAGS + [PYC_FLAG],
 )
 
 # Runtime data is outside the Python environment selected by terminal attrs.
@@ -112,7 +129,7 @@ venv_python_transition = transition(
 # clear the scratch state so data targets share the caller's canonical
 # configuration.
 def _reset_python_flags_transition_impl(settings, _attr):
-    acc = {}
+    acc = {PYC_FLAG: "source"}
     for flag, baseline_flag in _FLAG_BASELINE_PAIRS:
         baseline = settings[baseline_flag]
         if baseline == _BASELINE_UNSET:
@@ -126,6 +143,15 @@ def _reset_python_flags_transition_impl(settings, _attr):
 
 reset_python_flags_transition = transition(
     implementation = _reset_python_flags_transition_impl,
-    inputs = _ALL_FLAGS,
-    outputs = _ALL_FLAGS,
+    inputs = _ALL_FLAGS + [PYC_FLAG],
+    outputs = _ALL_FLAGS + [PYC_FLAG],
+)
+
+def _reset_pyc_transition_impl(_settings, _attr):
+    return {PYC_FLAG: "source"}
+
+reset_pyc_transition = transition(
+    implementation = _reset_pyc_transition_impl,
+    inputs = [PYC_FLAG],
+    outputs = [PYC_FLAG],
 )

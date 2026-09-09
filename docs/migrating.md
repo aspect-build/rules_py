@@ -59,6 +59,14 @@ providers. Temporary scaffolding: [virtual deps](/docs/virtual_deps.md) are not
 expressible in those providers (resolve them concretely in `deps`), and the
 flag belongs in `.bazelrc` only until the last rules_python target is gone.
 
+## Bytecode for unconverted targets
+
+rules_py's `pyc` modes compile dependencies still built by rules_python rules
+(`py_proto_library`, pip hub packages, unconverted `py_library` targets)
+itself. Set no rules_python `precompile` attribute or flag. Under `pyc_only`
+a rules_python `py_library` still ships its sources from its own runfiles;
+converting it to rules_py's `py_library` is the fix.
+
 ## Remaining notes
 
 Users are encouraged to send a Pull Request to add more documentation as they uncover issues during migrations.

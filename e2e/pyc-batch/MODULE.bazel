@@ -1,0 +1,19 @@
+"""A repo that opts into batched, sourceless first-party bytecode.
+
+Both settings live in .bazelrc so they apply module-wide: every `.py` here
+belongs to exactly one `srcs`, the precondition for `--@aspect_rules_py//py:pyc_batch`.
+"""
+
+module(name = "pyc_batch")
+
+bazel_dep(name = "aspect_rules_py")
+local_path_override(
+    module_name = "aspect_rules_py",
+    path = "../..",
+)
+
+interpreters = use_extension("@aspect_rules_py//py:extensions.bzl", "python_interpreters")
+interpreters.toolchain(python_version = "3.13")
+use_repo(interpreters, "python_interpreters")
+
+register_toolchains("@python_interpreters//:all")

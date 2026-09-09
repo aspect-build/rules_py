@@ -7,9 +7,11 @@ import tarfile
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--contains", action="append", default=[])
+    parser.add_argument("--present", action="append", default=[])
     parser.add_argument("--absent", action="append", default=[])
     parser.add_argument("--count", action="append", default=[])
     parser.add_argument("--tar-contains", action="append", default=[])
+    parser.add_argument("--tar-present", action="append", default=[])
     parser.add_argument("--tar-absent", action="append", default=[])
     parser.add_argument("--tar-mode", action="append", default=[])
     parser.add_argument("--interpreter-python-count", type=int)
@@ -24,6 +26,10 @@ def main() -> int:
     for expected in args.contains:
         if not any(expected in path for path in paths):
             parser.error("missing path containing {!r}".format(expected))
+
+    for expected in args.present:
+        if not any(path.endswith(expected) for path in paths):
+            parser.error("missing path ending in {!r}".format(expected))
 
     for unexpected in args.absent:
         if any(path.endswith(unexpected) for path in paths):
@@ -47,6 +53,17 @@ def main() -> int:
         with tarfile.open(archive, "r:*") as tar:
             if not any(expected in path for path in tar.getnames()):
                 parser.error("missing path containing {!r} in {!r}".format(expected, suffix))
+
+    for spec in args.tar_present:
+        suffix, separator, expected = spec.partition("=")
+        if not separator:
+            parser.error("--tar-present must be TAR_SUFFIX=PATH_SUFFIX")
+        archive = next((path for path in args.archives if path.endswith(suffix)), None)
+        if archive is None:
+            parser.error("missing archive ending in {!r}".format(suffix))
+        with tarfile.open(archive, "r:*") as tar:
+            if not any(path.endswith(expected) for path in tar.getnames()):
+                parser.error("missing path ending in {!r} in {!r}".format(expected, suffix))
 
     for spec in args.tar_absent:
         suffix, separator, unexpected = spec.partition("=")

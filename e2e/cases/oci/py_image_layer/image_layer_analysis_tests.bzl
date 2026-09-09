@@ -3,6 +3,7 @@
 load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_image_layer", "py_layer_tier", "py_library")
 load("@bazel_features//:features.bzl", "bazel_features")
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
+load("@bazel_skylib//rules:build_test.bzl", "build_test")
 
 _PY_TOOLCHAIN = "@bazel_tools//tools/python:toolchain_type"
 
@@ -216,17 +217,68 @@ def image_layer_analysis_test_suite():
 
     for prefix, package in [("wheel_scripts", "build"), ("pure_wheel", "colorama")]:
         for version in ["3.11", "3.12"]:
-            py_binary(
-                name = "_{}_{}".format(prefix, version.replace(".", "")),
-                srcs = ["server.py"],
-                dep_group = "images",
-                python_version = version,
-                deps = ["@pypi_oci_py_image_layer//" + package],
-            )
+            for mode in ["source", "pyc", "pyc_only"]:
+                py_binary(
+                    name = "_{}_{}{}".format(prefix, version.replace(".", ""), "" if mode == "source" else "_" + mode),
+                    srcs = ["server.py"],
+                    dep_group = "images",
+                    pyc = mode,
+                    python_version = version,
+                    deps = ["@pypi_oci_py_image_layer//" + package],
+                )
     py_layer_tier(
         name = "_wheel_scripts_tier",
         groups = {"@pip//build": "wheel_scripts"},
     )
+
+    py_image_layer(
+        name = "_pyc_mixed_runtimes_layers",
+        binaries = [":_wheel_scripts_311_pyc", ":_wheel_scripts_312_pyc"],
+        launcher_dir = "/app/bin",
+    )
+    build_test(
+        name = "pyc_mixed_runtimes_build_test",
+        targets = [":_pyc_mixed_runtimes_layers"],
+    )
+
+    _image_layer_failure(
+        name = "pyc_only_mixed_runtimes",
+        expected_error = "binaries compile conflicting bytecode for",
+        binaries = [":_wheel_scripts_311_pyc_only", ":_wheel_scripts_312_pyc_only"],
+        launcher_dir = "/app/bin",
+    )
+
+    _image_layer_failure(
+        name = "pyc_mixed_modes",
+        expected_error = "binaries mix bytecode modes",
+        binaries = [":_wheel_scripts_311", ":_wheel_scripts_311_pyc_only"],
+        launcher_dir = "/app/bin",
+    )
+
+    for dep_group in ["images", "venv_images"]:
+        for mode in ["pyc", "pyc_only"]:
+            py_binary(
+                name = "_pyc_same_runtime_{}_{}".format(dep_group, mode),
+                srcs = ["server.py"],
+                dep_group = dep_group,
+                pyc = mode,
+                python_version = "3.11",
+            )
+    for mode in ["pyc", "pyc_only"]:
+        layer_name = "_pyc_same_runtime_distinct_configs_{}_layers".format(mode)
+        py_image_layer(
+            name = layer_name,
+            binaries = [
+                ":_pyc_same_runtime_images_" + mode,
+                ":_pyc_same_runtime_venv_images_" + mode,
+            ],
+            launcher_dir = "/app/bin",
+        )
+        build_test(
+            name = "pyc_same_runtime_distinct_configs_{}_build_test".format(mode),
+            targets = [":" + layer_name],
+        )
+
     py_image_layer(
         name = "_configured_wheel_collision_layers",
         binaries = [":_wheel_scripts_311", ":_wheel_scripts_312"],

@@ -1,4 +1,6 @@
 load("@bazel_lib//:bzl_library.bzl", "bzl_library")
+load("@bazel_skylib//rules:common_settings.bzl", "int_flag", "string_flag")
+load("//py/private:pyc.bzl", "PYC_MODES")
 load("//py/private/interpreter:launcher.bzl", "py_interpreter_launcher")
 
 # Consumed by //docs:py_api (stardoc). exports_files gives the implicit .bzl file
@@ -51,6 +53,12 @@ alias(
     visibility = ["//visibility:public"],
 )
 
+alias(
+    name = "pyc_compiler_toolchain_type",
+    actual = "//py/private/toolchain:pyc_compiler_toolchain_type",
+    visibility = ["//visibility:public"],
+)
+
 # Compatibility layer for half-migrated trees: with
 # --@aspect_rules_py//py:emit_rules_python_providers, py_library, py_binary,
 # and py_test also emit the @rules_python providers so not-yet-migrated
@@ -68,6 +76,22 @@ alias(
 label_flag(
     name = "layer_tier",
     build_setting_default = "//py/private:default_layer_tier",
+    visibility = ["//visibility:public"],
+)
+
+string_flag(
+    name = "pyc",
+    build_setting_default = "source",
+    values = PYC_MODES,
+    visibility = ["//visibility:public"],
+)
+
+# PyCompile actions per target: 0 compiles each source separately (shareable
+# across targets); N shards a target's sources by path hash into N actions;
+# -1 picks N from the source count.
+int_flag(
+    name = "pyc_shards",
+    build_setting_default = 0,
     visibility = ["//visibility:public"],
 )
 
@@ -97,6 +121,7 @@ bzl_library(
         "//py/private/interpreter:current_py_toolchain",
         "//py/private/interpreter:runtime",
         "//py/private/py_venv:defs",
+        "//py/private/toolchain:pyc_compiler",
         "@bazel_lib//lib:utils",
         "@rules_python//python:packaging_bzl",
         "@rules_python//python:pip_bzl",
