@@ -315,23 +315,32 @@ jobs:
         if: always()
         steps:
             - name: All required jobs succeeded
+              env:
+                  NEEDS: ${{ toJSON(needs) }}
+                  # Same expression as crossbuild-wheels-darwin's `if`: where the
+                  # darwin pipeline is gated on, a skipped run job means its
+                  # upstream build failed or was cancelled, and must fail here.
+                  # Off the gated branches, skipped is the only expected result.
+                  DARWIN_GATED: ${{ github.ref_name == 'main' || contains(github.head_ref || github.ref_name, 'macos') }}
               run: |
-                for result in \
-                    "typecheck=${{ needs.typecheck.result }}" \
-                    "test=${{ needs.test.result }}" \
-                    "crossbuild-run-amd64-built=${{ needs['crossbuild-run-amd64-built'].result }}" \
-                    "crossbuild-run-arm64-built=${{ needs['crossbuild-run-arm64-built'].result }}"; do
-                    if [ "${result#*=}" != "success" ]; then
-                        echo "Required job did not succeed: ${result}"
-                        exit 1
-                    fi
+                set -euo pipefail
+                names=$(jq -r 'keys[]' <<<"${NEEDS}")
+                [ -n "${names}" ]
+                status=0
+                for name in ${names}; do
+                    result=$(jq -r --arg n "${name}" '.[$n].result' <<<"${NEEDS}")
+                    case "${name}:${result}" in
+                        *:success) ;;
+                        crossbuild-run-darwin-built:skipped)
+                            if [ "${DARWIN_GATED}" = "true" ]; then
+                                echo "${name} was skipped although the darwin pipeline is gated on: its upstream build did not succeed"
+                                status=1
+                            fi
+                            ;;
+                        *)
+                            echo "Required job did not succeed: ${name}=${result}"
+                            status=1
+                            ;;
+                    esac
                 done
-                # The darwin pipeline is gated to main and '*macos*' branches:
-                # skipped is expected elsewhere; anything that ran must pass.
-                case "${{ needs['crossbuild-run-darwin-built'].result }}" in
-                    success|skipped) ;;
-                    *)
-                        echo "crossbuild-run-darwin-built did not succeed: ${{ needs['crossbuild-run-darwin-built'].result }}"
-                        exit 1
-                        ;;
-                esac
+                exit "${status}"
