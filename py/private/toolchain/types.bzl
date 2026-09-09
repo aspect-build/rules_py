@@ -1,8 +1,11 @@
 """Constants for toolchain types"""
 
 PY_TOOLCHAIN = "@bazel_tools//tools/python:toolchain_type"
-EXEC_TOOLS_TOOLCHAIN = "@aspect_rules_py//py/private/toolchain:exec_tools_toolchain_type"
-NATIVE_BUILD_TOOLCHAIN = "@aspect_rules_py//py/private/toolchain:native_build_toolchain_type"
+
+# Labels, not strings: actions declared in other repos (e.g. by aspects) resolve these names there.
+EXEC_TOOLS_TOOLCHAIN = Label("//py/private/toolchain:exec_tools_toolchain_type")
+NATIVE_BUILD_TOOLCHAIN = Label("//py/private/toolchain:native_build_toolchain_type")
+PYC_COMPILER_TOOLCHAIN = Label("//py/private/toolchain:pyc_compiler_toolchain_type")
 
 def interpreter_files_and_version(toolchain):
     """Interpreter files and version from a resolved PY_TOOLCHAIN target.

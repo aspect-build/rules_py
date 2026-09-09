@@ -1,0 +1,2 @@
+# A separate Bazel module (pyc/setup.MODULE.bazel), not a package of this repo.
+pyc/submodule

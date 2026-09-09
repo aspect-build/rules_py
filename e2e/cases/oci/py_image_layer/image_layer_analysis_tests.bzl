@@ -2,8 +2,10 @@
 
 load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_image_layer", "py_layer_tier", "py_library")
 load("@aspect_rules_py//py/tests:analysis_failure_test.bzl", "analysis_failure_test")
+load("@aspect_rules_py//py/tests:pyc_testing.bzl", "expect_test")
 load("@bazel_features//:features.bzl", "bazel_features")
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
+load("@bazel_skylib//rules:build_test.bzl", "build_test")
 
 _PY_TOOLCHAIN = "@bazel_tools//tools/python:toolchain_type"
 
@@ -42,6 +44,39 @@ def _source_mtree_excludes_wheel_impl(ctx):
 
 _source_mtree_excludes_wheel_test = analysistest.make(
     _source_mtree_excludes_wheel_impl,
+)
+
+_StagedInputsInfo = provider(doc = "Private.", fields = ["violations"])
+
+# Tars skip stripped sources by path; the symlink mapping names group bytecode by path.
+def _staged_inputs_aspect_impl(target, _ctx):
+    violations = []
+    mtrees = 0
+    for action in target.actions:
+        inputs = [f.short_path for f in action.inputs.to_list()]
+        if action.mnemonic == "PyImageLayerMtree":
+            mtrees += 1
+            violations += [
+                "{} stages {}".format(action.outputs.to_list()[0].basename, path)
+                for path in inputs
+                if path.endswith(".py") and path.startswith("oci/py_image_layer/")
+            ]
+        elif action.mnemonic == "PyImageLayerSymlinkMappings" and "oci/py_image_layer/direct_source_helper.pyc" in inputs:
+            violations.append("symlink mapping stages oci/py_image_layer/direct_source_helper.pyc")
+    if not mtrees:
+        fail("{} declares no PyImageLayerMtree action".format(target.label))
+    return [_StagedInputsInfo(violations = violations)]
+
+_staged_inputs_aspect = aspect(implementation = _staged_inputs_aspect_impl)
+
+def _staged_input_violations_impl(ctx):
+    out = ctx.actions.declare_file(ctx.label.name + ".txt")
+    ctx.actions.write(out, "".join([v + "\n" for v in ctx.attr.target[_StagedInputsInfo].violations]))
+    return [DefaultInfo(files = depset([out]))]
+
+_staged_input_violations = rule(
+    implementation = _staged_input_violations_impl,
+    attrs = {"target": attr.label(aspects = [_staged_inputs_aspect], mandatory = True)},
 )
 
 def _target_file_symlink_impl(ctx):
@@ -90,6 +125,15 @@ def image_layer_analysis_test_suite():
     _source_mtree_excludes_wheel_test(
         name = "source_mtree_excludes_wheel_test",
         target_under_test = ":my_app_layers",
+    )
+    _staged_input_violations(
+        name = "_sourceless_staged_inputs",
+        target = ":pyc_rule_group_layers",
+    )
+    expect_test(
+        name = "sourceless_inputs_test",
+        actual = ":_sourceless_staged_inputs",
+        lines = [],
     )
 
     # An opaque data rule exposes only its direct file through DefaultInfo.files
@@ -206,17 +250,68 @@ def image_layer_analysis_test_suite():
 
     for prefix, package in [("wheel_scripts", "build"), ("pure_wheel", "colorama")]:
         for version in ["3.11", "3.12"]:
-            py_binary(
-                name = "_{}_{}".format(prefix, version.replace(".", "")),
-                srcs = ["server.py"],
-                dep_group = "images",
-                python_version = version,
-                deps = ["@pypi_oci_py_image_layer//" + package],
-            )
+            for mode in ["off", "pycache", "sourceless"]:
+                py_binary(
+                    name = "_{}_{}{}".format(prefix, version.replace(".", ""), "" if mode == "off" else "_" + mode),
+                    srcs = ["server.py"],
+                    dep_group = "images",
+                    precompile = mode,
+                    python_version = version,
+                    deps = ["@pypi_oci_py_image_layer//" + package],
+                )
     py_layer_tier(
         name = "_wheel_scripts_tier",
         groups = {"@pip//build": "wheel_scripts"},
     )
+
+    py_image_layer(
+        name = "_pyc_mixed_runtimes_layers",
+        binaries = [":_wheel_scripts_311_pycache", ":_wheel_scripts_312_pycache"],
+        launcher_dir = "/app/bin",
+    )
+    build_test(
+        name = "pyc_mixed_runtimes_build_test",
+        targets = [":_pyc_mixed_runtimes_layers"],
+    )
+
+    _image_layer_failure(
+        name = "pyc_only_mixed_runtimes",
+        expected_error = "binaries compile conflicting bytecode for",
+        binaries = [":_wheel_scripts_311_sourceless", ":_wheel_scripts_312_sourceless"],
+        launcher_dir = "/app/bin",
+    )
+
+    _image_layer_failure(
+        name = "pyc_mixed_modes",
+        expected_error = "binaries mix bytecode modes",
+        binaries = [":_wheel_scripts_311", ":_wheel_scripts_311_sourceless"],
+        launcher_dir = "/app/bin",
+    )
+
+    for dep_group in ["images", "venv_images"]:
+        for mode in ["pycache", "sourceless"]:
+            py_binary(
+                name = "_pyc_same_runtime_{}_{}".format(dep_group, mode),
+                srcs = ["server.py"],
+                dep_group = dep_group,
+                precompile = mode,
+                python_version = "3.11",
+            )
+    for mode in ["pycache", "sourceless"]:
+        layer_name = "_pyc_same_runtime_distinct_configs_{}_layers".format(mode)
+        py_image_layer(
+            name = layer_name,
+            binaries = [
+                ":_pyc_same_runtime_images_" + mode,
+                ":_pyc_same_runtime_venv_images_" + mode,
+            ],
+            launcher_dir = "/app/bin",
+        )
+        build_test(
+            name = "pyc_same_runtime_distinct_configs_{}_build_test".format(mode),
+            targets = [":" + layer_name],
+        )
+
     py_image_layer(
         name = "_configured_wheel_collision_layers",
         binaries = [":_wheel_scripts_311", ":_wheel_scripts_312"],

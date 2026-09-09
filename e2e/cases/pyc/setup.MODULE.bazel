@@ -1,0 +1,15 @@
+local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
+
+# Generated sources in another repo's subpackage have `../<repo>/<pkg>/` short paths.
+local_repository(
+    name = "pyc_extrepo",
+    path = "./pyc/extrepo",
+)
+
+# A separate module with its own repo mapping, unlike local_repository above:
+# the bytecode aspect declares actions there that must not name aspect_rules_py.
+bazel_dep(name = "pyc_submodule")
+local_path_override(
+    module_name = "pyc_submodule",
+    path = "./pyc/submodule",
+)

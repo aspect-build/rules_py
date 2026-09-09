@@ -241,6 +241,8 @@ write_source_files(
         "snapshots/venv_bin_scripts_423.opt_in_bin.bin.txt": "//venv-bin-scripts-423:opt_in_bin.bin.txt",
         "snapshots/pth_install_tree_fallback.venv.pth": "//pth-install-tree-fallback:test.venv.pth",
         "snapshots/pth_install_tree_fallback_namespace.venv.pth": "//pth-install-tree-fallback:namespace_test.venv.pth",
+        # A bytecode-compiling venv refuses PYTHONOPTIMIZE for a sourceless main.
+        "snapshots/pyc_optimize_guard.venv.pth": "//pyc:optimize_guard_venv_pth_sourceless",
 
         # PBS pyvenv.cfg home handling (cases/pbs-symlink-prefix-1048).
         # 3.11 is inside the narrow empty-home gate; 3.13 proves the normal
