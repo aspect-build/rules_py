@@ -1,0 +1,4 @@
+../../../../../..
+import os, sys; _venv_bin = os.path.dirname(sys.executable); _path = os.environ.get("PATH", ""); os.environ["PATH"] = _path if _venv_bin in _path.split(os.pathsep) else _venv_bin + os.pathsep + _path; del _venv_bin, _path
+import os, sys; sys.flags.optimize and "aspect_rules_py_sourceless" in sys._xoptions and (sys.stderr.write("sourceless bytecode is level 0; unset PYTHONOPTIMIZE or use precompile = \"pycache\"\n"), os._exit(1))
+../../../../../../_main

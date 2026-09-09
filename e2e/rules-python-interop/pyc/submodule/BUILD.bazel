@@ -1,0 +1,16 @@
+load("@rules_python//python:py_library.bzl", "py_library")
+
+py_library(
+    name = "plain",
+    srcs = ["submodule_plain.py"],
+    imports = ["."],
+    visibility = ["//visibility:public"],
+)
+
+py_library(
+    name = "precompiled",
+    srcs = ["submodule_precompiled.py"],
+    imports = ["."],
+    precompile = "enabled",
+    visibility = ["//visibility:public"],
+)
