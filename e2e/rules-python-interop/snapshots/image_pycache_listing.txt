@@ -1,0 +1,8 @@
+./app.runfiles/_main/__pycache__/precompiled_lib.cpython-311.pyc
+./app.runfiles/_main/precompiled_lib.py
+./app.runfiles/rules_python++pip+pip_311_six/site-packages/six-1.17.0.dist-info/INSTALLER
+./app.runfiles/rules_python++pip+pip_311_six/site-packages/six-1.17.0.dist-info/LICENSE
+./app.runfiles/rules_python++pip+pip_311_six/site-packages/six-1.17.0.dist-info/METADATA
+./app.runfiles/rules_python++pip+pip_311_six/site-packages/six-1.17.0.dist-info/WHEEL
+./app.runfiles/rules_python++pip+pip_311_six/site-packages/six-1.17.0.dist-info/top_level.txt
+./app.runfiles/rules_python++pip+pip_311_six/site-packages/six.py

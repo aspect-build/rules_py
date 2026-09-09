@@ -1,0 +1,9 @@
+pyc_bin: pyc=off,sourceless configurations=2
+pyc_data_library: pyc=off,sourceless configurations=2
+_pyc_bin.venv: pyc=off,sourceless configurations=2
+canonical_venv: pyc=off,sourceless configurations=2
+pyc_binary_data_probe: pyc=off configurations=1
+pyc_data_probe: pyc=off configurations=1
+pyc_shared: pyc=off,sourceless configurations=2
+pyc_binary_data_probe.txt: artifacts=1
+pyc_data_probe.txt: artifacts=1

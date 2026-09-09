@@ -1,0 +1,199 @@
+load("@bazel_skylib//rules:diff_test.bzl", "diff_test")
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+load("//py:defs.bzl", "py_library", "py_pyc_compiler_toolchain", "py_runtime", "py_test", "py_unittest_test", "py_venv")
+load("//py/private/interpreter:runtime.bzl", "py_runtime_toolchain")
+load("//py/tests:pyc_testing.bzl", "bytecode_producers_test", "compiled_source_count_test", "expect_test", "shared_bytecode_test")
+load(":bytecode_compat_test.bzl", "bytecode_compat_test_suite")
+load(":bytecode_identity.bzl", "configured_bytecode")
+load(":pyc_compiler_toolchain_test.bzl", "failure_test", "standalone_tool_test")
+
+package(default_testonly = True)
+
+sh_binary(
+    name = "fake_pyc_compiler",
+    srcs = ["fake_pyc_compiler.sh"],
+)
+
+py_runtime(
+    name = "fake_runtime",
+    interpreter = ":fake_pyc_compiler",
+    python_version = "PY3",
+)
+
+py_pyc_compiler_toolchain(
+    name = "standalone_pyc_compiler",
+    tool = ":fake_pyc_compiler",
+)
+
+toolchain(
+    name = "standalone_pyc_compiler_registration",
+    toolchain = ":standalone_pyc_compiler",
+    toolchain_type = "//py:pyc_compiler_toolchain_type",
+)
+
+standalone_tool_test(
+    name = "standalone_pyc_compiler_test",
+    target_under_test = ":standalone_pyc_compiler",
+)
+
+py_pyc_compiler_toolchain(
+    name = "missing_pyc_compiler",
+    tags = ["manual"],
+)
+
+failure_test(
+    name = "missing_pyc_compiler_test",
+    expected_error = "exactly one of runtime or tool must be set",
+    target_under_test = ":missing_pyc_compiler",
+)
+
+py_pyc_compiler_toolchain(
+    name = "ambiguous_pyc_compiler",
+    runtime = ":fake_runtime",
+    tags = ["manual"],
+    tool = ":fake_pyc_compiler",
+)
+
+failure_test(
+    name = "ambiguous_pyc_compiler_test",
+    expected_error = "exactly one of runtime or tool must be set",
+    target_under_test = ":ambiguous_pyc_compiler",
+)
+
+genquery(
+    name = "pyc_bzl_library_deps",
+    expression = "deps(//py/private:pyc)",
+    scope = ["//py/private:pyc"],
+)
+
+sh_test(
+    name = "pyc_bzl_library_providers_dep_repro_test",
+    srcs = ["assert_query_contains.sh"],
+    args = [
+        "$(location :pyc_bzl_library_deps)",
+        "//py/private:providers",
+    ],
+    data = [":pyc_bzl_library_deps"],
+)
+
+py_test(
+    name = "version_check_test",
+    srcs = ["version_check_test.py"],
+    data = ["//py/private:pyc_compile.py"],
+    env = {"PYC_COMPILE": "$(rootpath //py/private:pyc_compile.py)"},
+)
+
+bytecode_compat_test_suite(name = "bytecode_compat_test")
+
+py_venv(
+    name = "layout_venv",
+    srcs = ["version_check_test.py"],
+    python_version = "3.13",
+)
+
+py_library(
+    name = "layout_lib",
+    srcs = ["version_check_test.py"],
+)
+
+# One PyCompile action emits both layouts of a source; neither is copied.
+[
+    bytecode_producers_test(
+        name = name + "_single_compile_test",
+        expected = ["py/tests/pyc-compile/version_check_test.py PyCompile"],
+        target = ":" + name,
+    )
+    for name in [
+        "layout_lib",
+        "layout_venv",
+    ]
+]
+
+# GIL and free-threaded builds share identical bytecode.
+py_library(
+    name = "gil_modes_lib",
+    srcs = ["gil_modes_probe.py"],
+)
+
+[
+    configured_bytecode(
+        name = "gil_modes_bytecode_freethreaded_" + mode,
+        freethreaded = mode,
+        lib = ":gil_modes_lib",
+        python_version = "3.13",
+    )
+    for mode in [
+        "true",
+        "false",
+    ]
+]
+
+diff_test(
+    name = "bytecode_identity_across_gil_modes_test",
+    file1 = ":gil_modes_bytecode_freethreaded_true",
+    file2 = ":gil_modes_bytecode_freethreaded_false",
+)
+
+# The driver's generated main compiles under the venv's Python version.
+py_unittest_test(
+    name = "unittest_pyc_only_non_default_version_test",
+    srcs = ["non_default_version_test.py"],
+    precompile = "sourceless",
+    python_version = "3.12",
+)
+
+genrule(
+    name = "non_default_version_entrypoint_magic",
+    srcs = [":unittest_pyc_only_non_default_version_test"],
+    outs = ["non_default_version_entrypoint_magic.txt"],
+    cmd = "for f in $(SRCS); do case $$f in *.pyc) od -An -tx1 -N4 $$f | tr -d ' \\n' > $@; echo >> $@;; esac; done",
+)
+
+# CPython 3.12 bytecode magic.
+expect_test(
+    name = "non_default_version_entrypoint_magic_test",
+    actual = ":non_default_version_entrypoint_magic",
+    lines = ["cb0d0d0a"],
+)
+
+py_library(
+    name = "fork_lib",
+    srcs = ["fork_lib.py"],
+    imports = ["."],
+)
+
+# The flag value is kept below launchers, so one build holding both values configures the library twice.
+shared_bytecode_test(
+    name = "global_flag_modes_share_library_bytecode_test",
+    expected = "different",
+    lib = ":fork_lib",
+    modes = [
+        "pycache",
+        "sourceless",
+    ],
+)
+
+# A target runtime no compiler or exec interpreter matches; it must never compile.
+py_runtime_toolchain(
+    name = "foreign_runtime",
+    interpreter = "fake_pyc_compiler.sh",
+    interpreter_version_info = {
+        "major": "3",
+        "minor": "9",
+        "micro": "0",
+    },
+)
+
+toolchain(
+    name = "foreign_py_toolchain",
+    toolchain = ":foreign_runtime",
+    toolchain_type = "@bazel_tools//tools/python:toolchain_type",
+)
+
+compiled_source_count_test(
+    name = "target_interpreter_never_compiles_test",
+    expected = 0,
+    lib = ":fork_lib",
+    toolchain = ":foreign_py_toolchain",
+)

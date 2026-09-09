@@ -12,6 +12,7 @@ bazel_dep(name = "aspect_rules_py")
 bazel_dep(name = "bazel_skylib", version = "1.4.2")
 bazel_dep(name = "rules_python", version = "1.9.0")
 bazel_dep(name = "rules_shell", version = "0.4.1")
+bazel_dep(name = "tar.bzl", version = "0.10.1")
 
 local_path_override(
     module_name = "aspect_rules_py",
@@ -24,6 +25,7 @@ python.toolchain(
     python_version = "3.12",
 )
 python.toolchain(python_version = "3.11")
+use_repo(python, "python_3_11")
 
 # Third-party deps also come from rules_python (pip hub, not uv). A hub's
 # package aliases select on rules_python's version flag, so each hub is parsed
@@ -74,7 +76,10 @@ use_repo(interpreters, "python_interpreters")
 # Resolution takes the first registered match and the root module's
 # registrations come before any dependency's, so at 3.12 — the one version both
 # rulesets declare — rules_py's toolchain wins over rules_python's.
-register_toolchains("@python_interpreters//:all")
+register_toolchains(
+    "//:rules_python_311_pyc_compiler_toolchain",
+    "@python_interpreters//:all",
+)
 
 # A rules_py uv hub: whl_install must find an exec-tools runtime even when the
 # target interpreter is rules_python's (3.11, outside every hub version) — the
@@ -100,3 +105,7 @@ uv.project(
     pyproject = "//:pyproject.toml",
 )
 use_repo(uv, "rpy_pypi")
+
+# Layer tars for the pip-hub image snapshot.
+tar_toolchains = use_extension("@tar.bzl//tar:extensions.bzl", "toolchains")
+use_repo(tar_toolchains, "bsd_tar_toolchains")

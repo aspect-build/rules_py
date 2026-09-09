@@ -187,3 +187,41 @@ def make_wheel_record(
         metadata_top_levels = tuple(metadata_top_levels),
         cs_claims = tuple(cs_claims),
     )
+
+PycInfo = provider(
+    doc = "Private: first-party Python bytecode artifacts.",
+    fields = {
+        "complete": "bool — whether every transitive Python source has a bytecode entry.",
+        "conflicts": "depset[string] — dependencies whose own bytecode at the natural paths is unusable at level 0.",
+        "direct_entries": "list[struct(source, pyc, pycache, bytecode_key)] — bytecode mappings declared directly by this target.",
+        "entries": "depset[struct(source, pyc, pycache, bytecode_key)] — transitive bytecode mappings; pyc is the colocated sourceless layout, byte-identical to pycache; bytecode_key identifies the target runtime's bytecode, or None.",
+        "missing_sources": "depset[File] — Python sources without bytecode entries.",
+        "pycache_files": "depset[File] — PEP 3147 __pycache__ files for source-retaining mode.",
+        "transitive_pycache_files": "depset[File] — pycache_files of dependencies only, without this target's direct entries.",
+        "sourceless_files": "depset[File] — colocated .pyc files plus non-Python source artifacts retained by sourceless.",
+    },
+)
+
+# Outside a bytecode launcher's closure no compilation is declared.
+INACTIVE_PYC_INFO = PycInfo(
+    complete = False,
+    conflicts = depset(),
+    direct_entries = [],
+    entries = depset(),
+    missing_sources = depset(),
+    pycache_files = depset(),
+    transitive_pycache_files = depset(),
+    sourceless_files = depset(),
+)
+
+# Wheels carry no first-party sources, so nothing is left to compile.
+WHEEL_PYC_INFO = PycInfo(
+    complete = True,
+    conflicts = depset(),
+    direct_entries = [],
+    entries = depset(),
+    missing_sources = depset(),
+    pycache_files = depset(),
+    transitive_pycache_files = depset(),
+    sourceless_files = depset(),
+)

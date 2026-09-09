@@ -11,7 +11,9 @@ load("//py/private:providers.bzl", "PyWheelsInfo")
 load("//py/private:pth.bzl", "make_imports_depset")
 load("//py/private:py_info.bzl", "PyInfo")
 load("//py/private:py_info_interop.bzl", "RulesPythonPyInfo", "get_py_info", "get_transitive_pyi_files", "get_transitive_sources", "has_py_info")
+load("//py/private:pyc.bzl", "PYC_ATTRS", "PYC_TOOLCHAINS", "pyc_aspect", "target_pyc_info")
 load("//py/private:transitions.bzl", "reset_python_flags_transition")
+load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN")
 
 def _is_type_stub(file):
     return file.extension == "pyi"
@@ -198,6 +200,8 @@ def _py_library_impl(ctx):
         instrumented_files_info,
     ]
 
+    providers.append(target_pyc_info(ctx))
+
     if getattr(ctx.attr, "_emit_rules_python_providers", None) and ctx.attr._emit_rules_python_providers[BuildSettingInfo].value:
         # Compatibility shim for trees mid-migration: keeps not-yet-converted
         # @rules_python py_* targets able to depend on this library.
@@ -229,6 +233,7 @@ _attrs = dict({
         # rules_py emits @rules_python providers only under the
         # migration-only //py:emit_rules_python_providers flag.
         providers = [[PyInfo], [RulesPythonPyInfo], [CcInfo]],
+        aspects = [pyc_aspect],
     ),
     "data": attr.label_list(
         doc = """Runtime dependencies of the program.
@@ -251,6 +256,7 @@ _attrs = dict({
         See virtual_deps.
         """,
         providers = [[PyInfo], [RulesPythonPyInfo]],
+        aspects = [pyc_aspect],
     ),
 })
 
@@ -277,6 +283,7 @@ py_library = rule(
     attrs = dict({
         "virtual_deps": attr.string_list(allow_empty = True, default = []),
         "_emit_rules_python_providers": attr.label(default = "//py/private:emit_rules_python_providers"),
-    }, **py_library_utils.attrs),
+    }, **py_library_utils.attrs) | PYC_ATTRS,
     provides = py_library_utils.py_library_providers,
+    toolchains = [config_common.toolchain_type(PY_TOOLCHAIN, mandatory = False)] + PYC_TOOLCHAINS,
 )
