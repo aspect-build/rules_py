@@ -24,6 +24,9 @@ def _write_context_file(repository_ctx, available_deps):
         "deps": [str(d) for d in repository_ctx.attr.deps],
         "available_deps": available_deps,
     }
+    if repository_ctx.attr.cargo_lock:
+        # A user-supplied lock replaces whatever the sdist ships (usually nothing).
+        context["cargo_lock"] = str(repository_ctx.path(repository_ctx.attr.cargo_lock))
 
     context_path = repository_ctx.path("_configure_context.json")
     repository_ctx.file("_configure_context.json", content = json.encode(context))
@@ -195,6 +198,62 @@ def _is_rust_build(inspection):
 
 _RUST_LAYER_LOAD = "\nload(\"@aspect_rules_py//uv/private/pep517_whl:rust_layer.bzl\", \"rust_host_sysroot\")"
 
+_CRATES_IO_SOURCE = "registry+https://github.com/rust-lang/crates.io-index"
+
+def _crate_url(name, version):
+    return "https://static.crates.io/crates/{name}/{name}-{version}.crate".format(name = name, version = version)
+
+def _unsupported_crate_sources(crates):
+    """Crates that cannot be vendored hermetically: anything not on crates.io."""
+    return ["{}@{} ({})".format(c["name"], c["version"], c["source"]) for c in crates if c.get("source") != _CRATES_IO_SOURCE or not c.get("checksum")]
+
+def _vendor_crates(repository_ctx, crates):
+    """Materialize a Cargo.lock's crates.io dependencies as a cargo vendor directory.
+
+    Cargo otherwise downloads them inside the build action, which needs
+    network in the sandbox and cannot work under remote execution. Bazel's
+    downloader fetches each crate with the checksum the lock records, so the
+    build is as pinned as the lock is; the per-crate `.cargo-checksum.json`
+    is what cargo's `vendored-sources` replacement requires.
+    """
+    unsupported = _unsupported_crate_sources(crates)
+    if unsupported:
+        fail("sdist_build for '{}': cannot vendor crates that are not on crates.io with a checksum: {}. Provide a Cargo.lock that pins them to crates.io.".format(
+            repository_ctx.name,
+            ", ".join(unsupported),
+        ))
+    repository_ctx.report_progress("Vendoring {} crates for {}".format(len(crates), repository_ctx.name))
+    downloads = []
+    for crate in crates:
+        # .crate files are gzipped tarballs; extract() picks the format from the name.
+        archive = "_crates/{}-{}.tar.gz".format(crate["name"], crate["version"])
+        token = repository_ctx.download(
+            url = _crate_url(crate["name"], crate["version"]),
+            output = archive,
+            sha256 = crate["checksum"],
+            block = False,
+        )
+        downloads.append((token, crate, archive))
+    for token, crate, archive in downloads:
+        token.wait()
+        crate_dir = "vendor/{}-{}".format(crate["name"], crate["version"])
+        repository_ctx.extract(archive, output = crate_dir, stripPrefix = "{}-{}".format(crate["name"], crate["version"]))
+        repository_ctx.file(crate_dir + "/.cargo-checksum.json", json.encode({"package": crate["checksum"], "files": {}}))
+    repository_ctx.delete("_crates")
+
+_VENDORED_CRATES_TARGET = """
+filegroup(
+    name = "vendored_crates",
+    srcs = glob(["vendor/**"]),
+)
+"""
+
+def _cargo_lock_attr(label):
+    """Renders the generated rule call's `cargo_lock` attribute."""
+    return "\n    cargo_lock = {},".format(repr(label))
+
+_VENDORED_CRATES_ATTR = "\n    vendored_crates = \":vendored_crates\","
+
 def _rust_wiring(rust_toolchain, inspection, toolchains):
     """The generated BUILD's Rust wiring for a project-level `rust_toolchain`.
 
@@ -296,6 +355,7 @@ def _sdist_build_impl(repository_ctx):
             monitor_memory = repository_ctx.attr.monitor_memory,
             pre_build_patches = repository_ctx.attr.pre_build_patches,
             pre_build_patch_strip = repository_ctx.attr.pre_build_patch_strip,
+            cargo_lock = repository_ctx.attr.cargo_lock,
             supported = [
                 "config_settings",
                 "monitor_memory",
@@ -361,6 +421,8 @@ def _sdist_build_impl(repository_ctx):
     toolchain_attrs = ""
     rust_layer_load = ""
     rust_layer_target = ""
+    vendored_crates_target = ""
+    vendored_crates_attr = ""
     if is_native:
         toolchains = list(repository_ctx.attr.extra_toolchains)
         extra_env = repository_ctx.attr.extra_env
@@ -373,6 +435,17 @@ def _sdist_build_impl(repository_ctx):
         rust_layer_load = rust.load_stmt
         rust_layer_target = rust.target
         toolchains = rust.toolchains
+        if rust.load_stmt:
+            crates = inspection.get("cargo_crates") if inspection else None
+            if crates:
+                _vendor_crates(repository_ctx, crates)
+                vendored_crates_target = _VENDORED_CRATES_TARGET
+                vendored_crates_attr = _VENDORED_CRATES_ATTR
+                if repository_ctx.attr.cargo_lock:
+                    vendored_crates_attr += _cargo_lock_attr(str(repository_ctx.attr.cargo_lock))
+            elif crates == None:
+                # buildifier: disable=print
+                print("WARNING: {} builds Rust but its sdist ships no Cargo.lock; cargo will fetch crates during the build. Declare the lock to make the build hermetic.".format(repository_ctx.name))
         if toolchains:
             toolchain_attrs = """
     toolchains = [
@@ -424,12 +497,12 @@ py_binary(
     deps = {deps},
     include_console_scripts = True,
 )
-{frontend_target}{rust_layer_target}
+{frontend_target}{rust_layer_target}{vendored_crates_target}
 {rule}(
     name = "whl",
     src = "{src}",
     tool = "{tool}",
-    version = "{version}",{console_scripts_attr}{config_settings_attr}{monitor_memory_attr}{resource_set_attr}{patch_attrs}{toolchain_attrs}
+    version = "{version}",{console_scripts_attr}{config_settings_attr}{monitor_memory_attr}{resource_set_attr}{patch_attrs}{toolchain_attrs}{vendored_crates_attr}
     visibility = ["//visibility:public"],
 )
 
@@ -447,6 +520,8 @@ exports_files(
         frontend_load = frontend_load,
         rust_layer_load = rust_layer_load,
         rust_layer_target = rust_layer_target,
+        vendored_crates_target = vendored_crates_target,
+        vendored_crates_attr = vendored_crates_attr,
         frontend_target = frontend_target,
         tool = tool,
         version = repository_ctx.attr.version,
@@ -493,6 +568,10 @@ sdist_build = repository_rule(
         ),
         "pre_build_patches": attr.label_list(default = []),
         "pre_build_patch_strip": attr.int(default = 1),
+        "cargo_lock": attr.label(
+            allow_single_file = True,
+            doc = "Cargo.lock to vendor from and inject into the build in place of the sdist's. Set via `uv.override_package(cargo_lock = ...)`.",
+        ),
         "rust_toolchain": attr.label(
             doc = "Project-level Rust toolchain; wired into the build when the sdist's build backend is Rust-based.",
         ),
@@ -512,6 +591,9 @@ sdist_build = repository_rule(
 )
 
 sdist_build_test_util = struct(
+    cargo_lock_attr = _cargo_lock_attr,
+    crate_url = _crate_url,
+    unsupported_crate_sources = _unsupported_crate_sources,
     config_settings_attr = _config_settings_attr,
     env_attr = _env_attr,
     is_rust_build = _is_rust_build,
