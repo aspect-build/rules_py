@@ -138,3 +138,27 @@ def _crate_vendoring_test_impl(ctx):
     return unittest.end(env)
 
 crate_vendoring_test = unittest.make(_crate_vendoring_test_impl)
+
+def _missing_rust_toolchain_test_impl(ctx):
+    env = unittest.begin(ctx)
+    missing = sdist_build_test_util.missing_rust_toolchain
+    maturin = {"build_backend": "maturin"}
+    st_rust = {"build_backend": "setuptools.build_meta", "build_requires": ["setuptools-rust>=1.7"]}
+
+    asserts.equals(env, None, missing("r", "", {"build_backend": "mesonpy"}, []), "not Rust: nothing to demand")
+    asserts.equals(env, None, missing("r", "@rules_rust//rust/toolchain:current_rust_toolchain", maturin, []), "declared toolchain")
+    asserts.equals(env, None, missing("r", "", maturin, ["//tools:my_rust_toolchain"]), "hand-wired toolchains are trusted")
+    asserts.equals(
+        env,
+        None,
+        missing("r", "", {"build_backend": "setuptools.build_meta", "build_requires": ["setuptools", "cffi"], "inferred_build_requires": ["setuptools-rust"]}, []),
+        "inferred setuptools-rust is a guess (zstandard's optional rust-ext): never grounds to demand a toolchain",
+    )
+
+    msg = missing("sdist_build__x__pkg__1_0", "", maturin, [])
+    asserts.true(env, msg != None and "its build backend is maturin" in msg and "uv.project(rust_toolchain" in msg, "got: {}".format(msg))
+    msg = missing("r", "", st_rust, [])
+    asserts.true(env, msg != None and "setuptools-rust is among its declared build requirements" in msg, "got: {}".format(msg))
+    return unittest.end(env)
+
+missing_rust_toolchain_test = unittest.make(_missing_rust_toolchain_test_impl)
