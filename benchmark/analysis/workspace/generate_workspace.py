@@ -42,6 +42,13 @@ EXTERNAL_DEPS = [
     "djangorestframework",
 ]
 
+# Extras unique to each PEP 735 group in pyproject.toml (dev/test include the
+# default group, so default-pool deps stay resolvable under every group).
+GROUP_EXTRA_DEPS = {
+    "dev": ["black", "flake8", "mypy", "isort", "coverage"],
+    "test": ["pytest_cov", "responses"],
+}
+
 LIBRARY_BUILD_TEMPLATE = '''load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_library")
 
 py_library(
@@ -58,9 +65,9 @@ py_library(
 py_binary(
     name = "{name}_bin",
     srcs = ["main.py"],
-    main = "main.py",
+{dep_group_attr}    main = "main.py",
     visibility = ["//visibility:public"],
-    deps = [":{name}"],
+    deps = {bin_deps},
 )
 '''
 
@@ -68,11 +75,23 @@ TEST_BUILD_TEMPLATE = '''load("@aspect_rules_py//py:defs.bzl", "py_test")
 
 py_test(
     name = "{name}_test",
-    srcs = ["test.py"],
-    main = "test.py",
-    deps = ["//workspace/src/{name}:{name}"],
+    srcs = {srcs},
+{dep_group_attr}    main = "test.py",
+    deps = {test_deps},
 )
 '''
+
+# Gazelle per-file generation mode: each extra test file gets its own target,
+# and therefore its own venv, multiplying venv-assembly analysis and actions.
+EXTRA_TEST_TEMPLATE = '''
+py_test(
+    name = "{name}_test_{k}",
+    srcs = ["test_{k}.py"],
+{dep_group_attr}    main = "test_{k}.py",
+    deps = {test_deps},
+)
+'''
+
 
 INIT_TEMPLATE = '''"""Generated package {name}."""
 
@@ -120,9 +139,38 @@ def test_compute():
 '''
 
 
-def generate_package(pkg_dir: Path, name: str, deps: list[str], seed: int) -> None:
-    """Generate source and BUILD files for one local package."""
+def _deps_str(deps: list[str]) -> str:
+    return "[" + ", ".join(f'"{d}"' for d in deps) + "]"
+
+
+def _dep_group_attr(group: str) -> str:
+    # "default" is the baseline flag value from .bazelrc; setting the attr
+    # anyway would fork a second config via the baseline scratch flag.
+    if group and group != "default":
+        return f'    dep_group = "{group}",\n'
+    return ""
+
+
+def generate_package(
+    pkg_dir: Path,
+    name: str,
+    deps: list[str],
+    seed: int,
+    test_generation_mode: str = "file",
+    test_groups: list[tuple[str, list[str]]] | None = None,
+) -> None:
+    """Generate source and BUILD files for one local package.
+
+    test_groups assigns each test file its own (dep_group, group-only deps),
+    so one BUILD holds venvs under different configs; one entry per test file.
+    The binary shares the first entry's group.
+    """
     pkg_dir.mkdir(parents=True, exist_ok=True)
+    test_groups = test_groups or [("", [])]
+    test_files_per_package = len(test_groups)
+    dep_group, group_deps = test_groups[0]
+
+    dep_group_attr = _dep_group_attr(dep_group)
 
     rng = random.Random(seed)
     multiplier = rng.randint(2, 100)
@@ -156,19 +204,40 @@ def generate_package(pkg_dir: Path, name: str, deps: list[str], seed: int) -> No
         LIBRARY_BUILD_TEMPLATE.format(
             name=name,
             deps=str(external_deps + local_deps),
+            dep_group_attr=dep_group_attr,
+            bin_deps=_deps_str([f":{name}"] + group_deps),
         )
     )
 
     test_dir = pkg_dir.parent.with_name("tests") / name
     test_dir.mkdir(parents=True, exist_ok=True)
-    (test_dir / "test.py").write_text(
-        TEST_TEMPLATE.format(name=name, multiplier=multiplier, offset=offset)
-    )
-    (test_dir / "BUILD.bazel").write_text(
-        TEST_BUILD_TEMPLATE.format(
-            name=name,
+
+    def _test_deps(test_group_deps: list[str]) -> str:
+        return _deps_str([f"//workspace/src/{name}:{name}"] + test_group_deps)
+
+    test_files = ["test.py"] + [f"test_{k}.py" for k in range(1, test_files_per_package)]
+    for f in test_files:
+        (test_dir / f).write_text(
+            TEST_TEMPLATE.format(name=name, multiplier=multiplier, offset=offset)
         )
+
+    # "package" bundles all files into the one py_test (one venv);
+    # "file" gives every file its own py_test (one venv each).
+    test_content = TEST_BUILD_TEMPLATE.format(
+        name=name,
+        srcs=_deps_str(test_files if test_generation_mode == "package" else ["test.py"]),
+        dep_group_attr=_dep_group_attr(test_groups[0][0]),
+        test_deps=_test_deps(test_groups[0][1]),
     )
+    if test_generation_mode == "file":
+        for k in range(1, test_files_per_package):
+            test_content += EXTRA_TEST_TEMPLATE.format(
+                name=name,
+                k=k,
+                dep_group_attr=_dep_group_attr(test_groups[k][0]),
+                test_deps=_test_deps(test_groups[k][1]),
+            )
+    (test_dir / "BUILD.bazel").write_text(test_content)
 
 
 def generate_root_build(
@@ -267,6 +336,26 @@ def main() -> int:
         action="store_true",
         help="Give the image target a py_layer_tier with first-party, pip, and interpreter groups",
     )
+    parser.add_argument(
+        "--test-files-per-package",
+        type=int,
+        default=1,
+        help="test files per package (default: 1)",
+    )
+    parser.add_argument(
+        "--test-generation-mode",
+        choices=["file", "package"],
+        default="file",
+        help="gazelle-directive analog: 'file' = one py_test (and venv) per "
+        "test file; 'package' = one py_test bundling all files (default: file)",
+    )
+    parser.add_argument(
+        "--dep-groups",
+        default="",
+        help="Comma-separated dep_group names to assign round-robin to packages "
+        "(e.g. 'default,dev,test'); names must exist in pyproject.toml. "
+        "Empty (default) keeps the single-config workspace.",
+    )
     args = parser.parse_args()
 
     root = Path(args.root)
@@ -275,6 +364,11 @@ def main() -> int:
 
     dep_pool = args.external_deps.split(",") if args.external_deps else EXTERNAL_DEPS
     image_binaries = min(args.image_binaries, args.packages)
+    dep_groups = [g for g in args.dep_groups.split(",") if g]
+    for group in dep_groups:
+        if group != "default" and group not in GROUP_EXTRA_DEPS:
+            print(f"ERROR: unknown dep_group '{group}' (no extras mapping)", file=sys.stderr)
+            return 1
 
     clean_generated(root)
 
@@ -294,12 +388,38 @@ def main() -> int:
         external_count = rng.randint(1, min(2, len(dep_pool)))
         external_deps = [f"@pypi//{d}" for d in rng.sample(dep_pool, external_count)]
 
+        # A group-only dep on the binary/test (not the library) makes each
+        # group's closure distinct while keeping the library graph identical
+        # across --dep-groups values, so action counts stay comparable.
+        # Picked without touching `rng` so the shared draw sequence is stable.
+        def _group_deps(g: str, idx: int) -> list[str]:
+            extras = GROUP_EXTRA_DEPS.get(g)
+            return [f"@pypi//{extras[idx % len(extras)]}"] if extras else []
+
+        # Test files rotate through the groups so a single BUILD holds venvs
+        # under different dep_group configs; the binary shares entry 0.
+        if dep_groups:
+            test_groups = [
+                (g, _group_deps(g, i + k))
+                for k in range(args.test_files_per_package)
+                for g in [dep_groups[(i + k) % len(dep_groups)]]
+            ]
+        else:
+            test_groups = [("", [])] * args.test_files_per_package
+
         if args.image_common_dep and i >= args.packages - image_binaries:
             common = f"@pypi//{args.image_common_dep}"
             if common not in external_deps:
                 external_deps.append(common)
 
-        generate_package(pkg_dir, name, external_deps + local_deps, seed=args.seed + i)
+        generate_package(
+            pkg_dir,
+            name,
+            external_deps + local_deps,
+            seed=args.seed + i,
+            test_generation_mode=args.test_generation_mode,
+            test_groups=test_groups,
+        )
 
     generate_root_build(
         root,

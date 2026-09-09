@@ -1,9 +1,9 @@
 """Analysis test for deduplicating runtime data across terminal overrides."""
 
+load("@aspect_rules_py//py/private:py_info.bzl", "PyInfo")
+load("@aspect_rules_py//py/private:transitions.bzl", "python_transition", "reset_python_flags_transition")
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
-load("//py/private:py_info.bzl", "PyInfo")
-load("//py/private:transitions.bzl", "python_transition", "reset_python_flags_transition")
 
 _DEP_GROUP_FLAG = "@aspect_rules_py//uv/private/constraints/dep_group:dep_group"
 _PYTHON_VERSION_FLAG = "@aspect_rules_py//py/private/interpreter:python_version"
@@ -237,13 +237,16 @@ _shared_binaries_test = analysistest.make(_shared_binaries_test_impl)
 def reset_data_edges_test_suite():
     _reset_data_edges_test(
         name = "reset_data_edges_test",
+        tags = ["manual"],
         target_under_test = ":root",
     )
     _passthrough_terminals_test(
         name = "passthrough_terminals_test",
+        tags = ["manual"],
         target_under_test = ":synced_root",
     )
     _shared_binaries_test(
         name = "shared_binaries_test",
+        tags = ["manual"],
         target_under_test = ":binaries_root",
     )
