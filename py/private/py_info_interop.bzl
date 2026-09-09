@@ -37,3 +37,16 @@ def get_py_info(target):
     if RulesPythonPyInfo in target:
         return target[RulesPythonPyInfo]
     return None
+
+def get_transitive_sources(target):
+    """The target's transitive first-party sources, from either `PyInfo`.
+
+    `@rules_python` drops precompiled sources from `transitive_sources` under
+    `precompile_source_retention = omit_source` and carries them only in
+    `transitive_implicit_pyc_source_files`.
+    """
+    info = get_py_info(target)
+    return depset(transitive = [
+        info.transitive_sources,
+        getattr(info, "transitive_implicit_pyc_source_files", depset()),
+    ])

@@ -117,3 +117,13 @@ py_test(
     },
     deps = [":proj"],
 )
+
+py_test(
+    name = "resolution_bytecode_test",
+    srcs = ["resolution_bytecode_test.py"],
+    main = "resolution_bytecode_test.py",
+    package_collisions = "warning",
+    pyc = "pyc_only",
+    resolutions = django_resolutions,
+    deps = [":proj"],
+)

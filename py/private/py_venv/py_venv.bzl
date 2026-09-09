@@ -25,11 +25,13 @@ Shared venv-assembly logic lives in
 layout details.
 """
 
+load("@bazel_lib//lib:copy_file.bzl", "COPY_FILE_TOOLCHAINS")
 load("@bazel_lib//lib:expand_make_vars.bzl", "expand_locations", "expand_variables")
 load("@bazel_lib//lib:paths.bzl", "BASH_RLOCATION_FUNCTION", "to_rlocation_path")
 load("//py/private:py_library.bzl", _py_library = "py_library_utils")
 load("//py/private:py_semantics.bzl", _py_semantics = "semantics")
-load("//py/private:transitions.bzl", "python_transition")
+load("//py/private:pyc.bzl", "PYC_ATTRS", "compile_pycs", "make_pyc_info", "own_compile_sources")
+load("//py/private:transitions.bzl", "py_venv_transition")
 load("//py/private/toolchain:types.bzl", "EXEC_TOOLS_TOOLCHAIN", "PY_TOOLCHAIN")
 load(":py_venv_exec.bzl", _py_venv_exec = "py_venv_exec")
 load(":types.bzl", "VirtualenvInfo", "venv_root")
@@ -120,6 +122,7 @@ def _venv_providers(ctx, venv, venv_only, executable = None, include_sources = F
     runfiles = venv.runtime_runfiles.merge(ctx.runfiles(files = venv_only))
     if include_sources:
         runfiles = runfiles.merge(ctx.runfiles(transitive_files = venv.transitive_sources))
+
     return [
         DefaultInfo(
             files = depset([executable]) if executable != None else None,
@@ -134,6 +137,12 @@ def _venv_providers(ctx, venv, venv_only, executable = None, include_sources = F
             source_attributes = ["srcs"],
             dependency_attributes = ["deps"],
             extensions = ["py"],
+        ),
+        make_pyc_info(
+            compile_pycs(ctx, own_compile_sources(ctx.attr.srcs)),
+            sources = ctx.files.srcs,
+            deps = ctx.attr.deps,
+            resolutions = getattr(ctx.attr, "resolutions", {}).values(),
         ),
     ]
 
@@ -257,6 +266,7 @@ does not reinsert a wheel.
 })
 
 _lib_attrs.update(**_py_library.attrs)
+_lib_attrs.update(**PYC_ATTRS)
 
 # Attrs only the executable variant reads — launcher template, REPL
 # flags, env vars forwarded via RunEnvironmentInfo.
@@ -297,7 +307,7 @@ _venv_toolchains = [
     # site_merge action. Optional so venvs keep analyzing in setups
     # that never registered rules_py's exec-tools toolchain.
     config_common.toolchain_type(EXEC_TOOLS_TOOLCHAIN, mandatory = False),
-]
+] + COPY_FILE_TOOLCHAINS
 
 _py_venv = rule(
     doc = """Build a Python virtual environment and execute its interpreter.""",
@@ -305,7 +315,7 @@ _py_venv = rule(
     attrs = _attrs,
     toolchains = _venv_toolchains,
     executable = True,
-    cfg = python_transition,
+    cfg = py_venv_transition,
 )
 
 def _py_venv_lib_rule_impl(ctx):
@@ -325,7 +335,7 @@ _py_venv_lib = rule(
         "include_console_scripts": attr.bool(default = False),
     },
     toolchains = _venv_toolchains,
-    cfg = python_transition,
+    cfg = py_venv_transition,
 )
 
 def _wrap_with_debug(rule):
@@ -503,6 +513,9 @@ def py_venv_link(name, venv, link_name = None, **kwargs):
         **kwargs: Forwarded to the underlying `py_binary`.
     """
     link_script = str(Label("//py/private/py_venv:templates/link.py"))
+
+    # The link script is not part of the venv, so bytecode modes cannot apply.
+    kwargs["pyc"] = "source"
     _py_venv_exec(
         name = name,
         main = link_script,

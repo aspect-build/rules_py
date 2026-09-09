@@ -1,3 +1,4 @@
+load("@bazel_skylib//rules:build_test.bzl", "build_test")
 load("//py:defs.bzl", "py_binary", "py_test")
 
 package(default_testonly = True)
@@ -14,6 +15,29 @@ py_binary(
     name = "main_from_genrule_bin",
     srcs = [":gen_main"],
     main = ":gen_main",
+)
+
+# Bytecode compilation requires the generated file's label in `srcs`.
+py_binary(
+    name = "main_from_genrule_pyc_bin",
+    srcs = ["main_generated.py"],
+    main = ":gen_main",
+    pyc = "pyc_only",
+)
+
+py_binary(
+    name = "main_from_genrule_pyc_and_source_bin",
+    srcs = ["main_generated.py"],
+    main = ":gen_main",
+    pyc = "pyc",
+)
+
+build_test(
+    name = "pyc_binaries_build",
+    targets = [
+        ":main_from_genrule_pyc_bin",
+        ":main_from_genrule_pyc_and_source_bin",
+    ],
 )
 
 genrule(

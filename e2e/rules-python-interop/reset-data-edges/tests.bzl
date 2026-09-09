@@ -10,9 +10,10 @@ _PYTHON_VERSION_FLAG = "@aspect_rules_py//py/private/interpreter:python_version"
 _RPY_VERSION_FLAG = "@rules_python//python/config_settings:python_version"
 _FREETHREADED_FLAG = "@aspect_rules_py//py/private/interpreter:freethreaded"
 _RPY_FREETHREADED_FLAG = "@rules_python//python/config_settings:py_freethreaded"
+_PYC_FLAG = "@aspect_rules_py//py:pyc"
 
 _ProbeInfo = provider(fields = ["file"])
-_ProbeFilesInfo = provider(fields = ["files", "modes", "bin_dirs"])
+_ProbeFilesInfo = provider(fields = ["files", "modes", "pyc_modes", "bin_dirs"])
 
 def _probe_impl(ctx):
     out = ctx.actions.declare_file(ctx.label.name + ".txt")
@@ -34,6 +35,7 @@ def _probe_aspect_impl(target, ctx):
 
     transitive = []
     transitive_modes = []
+    transitive_pyc_modes = []
     transitive_bin_dirs = []
     deps = []
     for attr_name in ["data", "deps"]:
@@ -48,6 +50,7 @@ def _probe_aspect_impl(target, ctx):
         if _ProbeFilesInfo in dep:
             transitive.append(dep[_ProbeFilesInfo].files)
             transitive_modes.append(dep[_ProbeFilesInfo].modes)
+            transitive_pyc_modes.append(dep[_ProbeFilesInfo].pyc_modes)
             transitive_bin_dirs.append(dep[_ProbeFilesInfo].bin_dirs)
 
     # Record every visited target; the test impl filters to the names it
@@ -64,6 +67,10 @@ def _probe_aspect_impl(target, ctx):
     return [_ProbeFilesInfo(
         files = depset(direct = direct, transitive = transitive),
         modes = depset(direct = modes, transitive = transitive_modes),
+        pyc_modes = depset(
+            direct = [(ctx.label.name, ctx.attr._pyc[BuildSettingInfo].value)],
+            transitive = transitive_pyc_modes,
+        ),
         bin_dirs = depset(direct = bin_dirs, transitive = transitive_bin_dirs),
     )]
 
@@ -72,6 +79,7 @@ _probe_aspect = aspect(
     attr_aspects = ["data", "deps", "venv"],
     attrs = {
         "_freethreaded": attr.label(default = _FREETHREADED_FLAG),
+        "_pyc": attr.label(default = _PYC_FLAG),
         "_rpy_freethreaded": attr.label(default = _RPY_FREETHREADED_FLAG),
     },
 )
@@ -112,6 +120,7 @@ def _root_impl(ctx):
     return [_ProbeFilesInfo(
         files = depset(transitive = transitive),
         modes = depset(transitive = [dep[_ProbeFilesInfo].modes for dep in ctx.attr.deps]),
+        pyc_modes = depset(transitive = [dep[_ProbeFilesInfo].pyc_modes for dep in ctx.attr.deps]),
         bin_dirs = depset(transitive = [dep[_ProbeFilesInfo].bin_dirs for dep in ctx.attr.deps]),
     )]
 
@@ -163,6 +172,32 @@ root = rule(
         # Both flag pairs already agree, so a terminal that keeps their values
         # has nothing to synchronize.
         "synced": attr.bool(default = False),
+        "_allowlist_function_transition": attr.label(
+            default = "@bazel_tools//tools/allowlists/function_transition_allowlist",
+        ),
+    },
+)
+
+def _pyc_split_transition_impl(_settings, _attr):
+    return {
+        "source": {_PYC_FLAG: "source"},
+        "pyc_only": {_PYC_FLAG: "pyc_only"},
+    }
+
+_pyc_split_transition = transition(
+    implementation = _pyc_split_transition_impl,
+    inputs = [],
+    outputs = [_PYC_FLAG],
+)
+
+pyc_fanout_root = rule(
+    implementation = _root_impl,
+    attrs = {
+        "deps": attr.label_list(
+            allow_empty = False,
+            aspects = [_probe_aspect],
+            cfg = _pyc_split_transition,
+        ),
         "_allowlist_function_transition": attr.label(
             default = "@bazel_tools//tools/allowlists/function_transition_allowlist",
         ),
@@ -234,6 +269,54 @@ def _shared_binaries_test_impl(ctx):
 
 _shared_binaries_test = analysistest.make(_shared_binaries_test_impl)
 
+def _pyc_resets_test_impl(ctx):
+    env = analysistest.begin(ctx)
+    under_test = analysistest.target_under_test(env)[_ProbeFilesInfo]
+    actual = {}
+    for name, mode in under_test.pyc_modes.to_list():
+        actual.setdefault(name, {})[mode] = True
+
+    expected = {
+        # The runnable and a directly configured library remain mode-specific.
+        "pyc_bin": {"pyc_only": True, "source": True},
+        "pyc_data_library": {"pyc_only": True, "source": True},
+
+        # Venvs, their Python graph, and runtime data are mode-independent.
+        "_pyc_bin.venv": {"source": True},
+        "canonical_venv": {"source": True},
+        "pyc_binary_data_probe": {"source": True},
+        "pyc_data_probe": {"source": True},
+        "pyc_shared": {"source": True},
+    }
+    for name, modes in expected.items():
+        asserts.equals(env, modes, actual.get(name), name + " pyc configurations")
+
+    bin_dirs = {}
+    for name, path in under_test.bin_dirs.to_list():
+        bin_dirs.setdefault(name, {})[path] = True
+    for name in [
+        "_pyc_bin.venv",
+        "canonical_venv",
+        "pyc_binary_data_probe",
+        "pyc_data_probe",
+        "pyc_shared",
+    ]:
+        asserts.equals(env, 1, len(bin_dirs[name]), name + " should have one configured target")
+    for name in ["pyc_bin", "pyc_data_library"]:
+        asserts.equals(env, 2, len(bin_dirs[name]), name + " should retain both terminal configurations")
+
+    files = under_test.files.to_list()
+    for basename in ["pyc_binary_data_probe.txt", "pyc_data_probe.txt"]:
+        asserts.equals(
+            env,
+            1,
+            len([f for f in files if f.basename == basename]),
+            basename + " should be one shared artifact",
+        )
+    return analysistest.end(env)
+
+_pyc_resets_test = analysistest.make(_pyc_resets_test_impl)
+
 def reset_data_edges_test_suite():
     _reset_data_edges_test(
         name = "reset_data_edges_test",
@@ -249,4 +332,9 @@ def reset_data_edges_test_suite():
         name = "shared_binaries_test",
         tags = ["manual"],
         target_under_test = ":binaries_root",
+    )
+    _pyc_resets_test(
+        name = "pyc_resets_test",
+        tags = ["manual"],
+        target_under_test = ":pyc_reset_root",
     )

@@ -1,0 +1,6 @@
+syntax = "proto3";
+
+message NativeGreeting {
+  string recipient = 1;
+  int32 times = 2;
+}

@@ -1,0 +1,138 @@
+load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_pex_binary", "py_test", "py_venv")
+load("@aspect_rules_py//py/private/py_venv:defs.bzl", "py_venv_exec_test")
+
+# Fixtures for test.sh, which flips the global flag and inspects the
+# action/configuration graph. The launchers mirror py/tests/py-venv-multi-exec,
+# where their runfiles assertions live.
+
+py_venv(
+    name = "shared_venv",
+    srcs = [
+        "entry_a.py",
+        "shared_lib.py",
+    ],
+    imports = ["."],
+)
+
+py_venv_exec_test(
+    name = "test_pyc_default",
+    main = "entry_a.py",
+    venv = ":shared_venv",
+)
+
+py_venv_exec_test(
+    name = "test_pyc_cache",
+    main = "entry_a.py",
+    pyc = "pyc",
+    venv = ":shared_venv",
+)
+
+py_venv_exec_test(
+    name = "test_pyc_only",
+    main = "entry_a.py",
+    pyc = "pyc_only",
+    venv = ":shared_venv",
+)
+
+py_venv(
+    name = "shared_versioned_venv",
+    srcs = ["entry_versioned.py"],
+    imports = ["."],
+)
+
+[
+    py_venv_exec_test(
+        name = "{}_python_{}".format(
+            prefix,
+            version.replace(".", ""),
+        ),
+        main = "entry_versioned.py",
+        pyc = mode,
+        python_version = version,
+        venv = ":shared_versioned_venv",
+    )
+    for mode, prefix in {
+        "source": "test_pyc_source",
+        "pyc": "test_pyc",
+        "pyc_only": "test_pyc_only",
+    }.items()
+    for version in ("3.12", "3.13")
+]
+
+genrule(
+    name = "gen_main",
+    outs = ["main_generated.py"],
+    cmd = "echo 'print(\"ok\")' > $@",
+)
+
+# A rule target in `srcs` is opaque to bytecode compilation.
+py_binary(
+    name = "main_from_genrule_bin",
+    srcs = [":gen_main"],
+    main = ":gen_main",
+)
+
+# Bytecode compilation requires the generated file's own label in `srcs`.
+py_binary(
+    name = "main_from_genrule_pyc_bin",
+    srcs = ["main_generated.py"],
+    main = ":gen_main",
+    pyc = "pyc_only",
+)
+
+platform(
+    name = "linux_amd64",
+    constraint_values = [
+        "@platforms//os:linux",
+        "@platforms//cpu:x86_64",
+    ],
+    # Pin libc so the PBS linux-gnu toolchain matches regardless of host.
+    flags = ["--@aspect_rules_py//uv/private/constraints/platform:platform_libc=glibc"],
+)
+
+platform(
+    name = "linux_arm64",
+    constraint_values = [
+        "@platforms//os:linux",
+        "@platforms//cpu:aarch64",
+    ],
+    flags = ["--@aspect_rules_py//uv/private/constraints/platform:platform_libc=glibc"],
+)
+
+py_binary(
+    name = "noop_bin",
+    srcs = ["noop.py"],
+)
+
+# The emitted .venv_link runs rules_py's own link script; bytecode modes never apply to it.
+py_binary(
+    name = "link_bin",
+    srcs = ["noop.py"],
+    expose_venv_link = True,
+)
+
+py_pex_binary(
+    name = "noop_pex",
+    binary = ":noop_bin",
+    python_interpreter_constraints = [],
+)
+
+py_test(
+    name = "pex_no_bytecode_test",
+    srcs = ["pex_no_bytecode_test.py"],
+    data = [":noop_pex"],
+    main = "pex_no_bytecode_test.py",
+)
+
+py_binary(
+    name = "pyc_only_noop_bin",
+    srcs = ["noop.py"],
+    pyc = "pyc_only",
+    tags = ["manual"],
+)
+
+py_pex_binary(
+    name = "pyc_only_noop_pex",
+    binary = ":pyc_only_noop_bin",
+    tags = ["manual"],
+)

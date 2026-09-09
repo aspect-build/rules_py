@@ -1,12 +1,8 @@
-"Standalone e2e: rules_py consuming rules_proto_grpc_python-generated code"
+"Standalone e2e: rules_py consuming protobuf-generated rules_python libraries"
 
-# rules_proto_grpc_python generates Python bindings as a rules_python
-# py_library (which advertises the upstream PyInfo provider) and pulls in the
-# protobuf runtime via @protobuf//:protobuf_python. This lives in its own
-# module — rather than as a case in the shared e2e MODULE — so the
-# rules_proto_grpc/protobuf/grpc dependency surface never leaks into the
-# standard cases. It complements //examples/protobuf, which exercises the same
-# consumer seam against protobuf's native py_proto_library.
+# protobuf's py_proto_library and rules_proto_grpc_python both generate Python
+# bindings as rules_python py_library targets. This lives in its own module so
+# the protobuf/grpc dependency surface never leaks into the main workspace.
 #
 # rules_python is named nowhere here or in BUILD.bazel — it is only pulled in
 # transitively, and the interpreter toolchain is provisioned through rules_py's

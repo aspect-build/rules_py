@@ -1,0 +1,62 @@
+load("@bazel_lib//lib:write_source_files.bzl", "write_source_files")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+load("//py:defs.bzl", "py_test", "py_venv")
+load("//py/private/py_venv:defs.bzl", "py_venv_exec")
+load(":bytecode_compat_test.bzl", "bytecode_compat_test_suite")
+
+package(default_testonly = True)
+
+genquery(
+    name = "pyc_bzl_library_deps",
+    expression = "deps(//py/private:pyc)",
+    scope = ["//py/private:pyc"],
+)
+
+sh_test(
+    name = "pyc_bzl_library_providers_dep_repro_test",
+    srcs = ["assert_query_contains.sh"],
+    args = [
+        "$(location :pyc_bzl_library_deps)",
+        "//py/private:providers",
+    ],
+    data = [":pyc_bzl_library_deps"],
+)
+
+py_test(
+    name = "version_check_test",
+    srcs = ["version_check_test.py"],
+    data = ["//py/private:pyc_compile.py"],
+    env = {"PYC_COMPILE": "$(rootpath //py/private:pyc_compile.py)"},
+)
+
+# Refresh after changing the source or Python 3.13 interpreter:
+#   bazel run //py/tests/pyc-compile:snapshots
+py_venv(
+    name = "snapshot_venv",
+    srcs = ["version_check_test.py"],
+    python_version = "3.13",
+)
+
+py_venv_exec(
+    name = "snapshot_bin",
+    main = "version_check_test.py",
+    pyc = "pyc_only",
+    python_version = "3.13",
+    venv = ":snapshot_venv",
+)
+
+genrule(
+    name = "snapshot_pyc",
+    srcs = [":snapshot_bin"],
+    outs = ["snapshot_extracted.pyc"],
+    cmd = "for f in $(SRCS); do case $$f in *.pyc) cp $$f $@;; esac; done",
+)
+
+write_source_files(
+    name = "snapshots",
+    files = {
+        "snapshots/version_check_test.pyc": ":snapshot_pyc",
+    },
+)
+
+bytecode_compat_test_suite(name = "bytecode_compat_test")

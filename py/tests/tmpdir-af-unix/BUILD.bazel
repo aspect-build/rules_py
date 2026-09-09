@@ -1,4 +1,5 @@
 load("//py:defs.bzl", "py_library", "py_pytest_test", "py_test", "py_unittest_test")
+load("//py/tests/py-venv-multi-exec:pyc_runfiles_test.bzl", "pyc_runfiles_test")
 
 package(default_testonly = True)
 
@@ -18,10 +19,59 @@ py_pytest_test(
     ],
 )
 
+py_pytest_test(
+    name = "pytest_pyc_af_unix_test",
+    srcs = ["pytest_af_unix_test.py"],
+    # Exercise configurable pyc forwarding through the public wrapper.
+    pyc = select({"//conditions:default": "pyc"}),
+    deps = [
+        ":af_unix_probe",
+        "@pypi//pytest",
+    ],
+)
+
+pyc_runfiles_test(
+    name = "pytest_pyc_runfiles_test",
+    mode = "pyc",
+    module = "pytest_af_unix_test",
+    target_under_test = ":pytest_pyc_af_unix_test",
+)
+
+py_pytest_test(
+    name = "pytest_pyc_only_af_unix_test",
+    srcs = ["pytest_af_unix_test.py"],
+    pyc = "pyc_only",
+    deps = [
+        ":af_unix_probe",
+        "@pypi//pytest",
+    ],
+)
+
+pyc_runfiles_test(
+    name = "pytest_pyc_only_runfiles_test",
+    mode = "pyc",
+    module = "pytest_af_unix_test",
+    target_under_test = ":pytest_pyc_only_af_unix_test",
+)
+
 py_unittest_test(
     name = "unittest_af_unix_test",
     srcs = ["unittest_af_unix_test.py"],
     deps = [":af_unix_probe"],
+)
+
+py_unittest_test(
+    name = "unittest_pyc_af_unix_test",
+    srcs = ["unittest_af_unix_test.py"],
+    pyc = "pyc",
+    deps = [":af_unix_probe"],
+)
+
+pyc_runfiles_test(
+    name = "unittest_pyc_runfiles_test",
+    mode = "pyc",
+    module = "unittest_af_unix_test",
+    target_under_test = ":unittest_pyc_af_unix_test",
 )
 
 py_test(
