@@ -39,15 +39,23 @@ Its `test.sh` asserts the same dependency is rejected with the flag off.
 an isolated module so its rules_python/protobuf/grpc dependency graph does not
 leak into the main test module.
 
-`crossbuild` hosts the rules_pycross ports (`pycross-*`): suites that force
-packages to build from their sdists — pure-Python backends, setuptools C
-extensions, pre/post-install patch phases, the distutils probe — and assert
-properties of the resulting wheels, including rebuilding them under non-host
-target platforms via `collect_wheels`. They live apart from `cases/` because
-this workspace is where the cross-compilation test matrix grows, and their
-sdist hubs carry package-specific overrides (`default_build_dependencies`,
-patches, `resource_set`) that shouldn't leak onto unrelated cases sharing a
-module — see its `MODULE.bazel` docstring.
+`crossbuild` covers `pep517_native_whl`'s cross-compilation path across the
+PEP 517 backends, each with more than one real package so no backend's cross
+support rests on a single case: setuptools/distutils C extensions
+(`pycross-geohash`, `pycross-psutil`, `pycross-msgpack`, `pycross-setuptools`),
+meson-python (`pycross-meson`, `pycross-numpy`), scikit-build-core/CMake
+(`pycross-cmake`, `pycross-jdk` — the latter also needing a JDK and a
+hermetically vendored Apache Ant) and maturin/PyO3 (`pycross-rust`).
+Every case builds for linux/amd64 and linux/arm64; in-suite verification is
+structural (`Tag:` metadata, ELF arch of every bundled `.so`), and the
+non-Rust cases export a wheel bundle that CI installs and runs on NATIVE
+amd64 and arm64 runners — no emulation in the verdict. The suites are isolated from
+`e2e/cases` because their hubs need package-specific configuration
+(`default_build_dependencies`, pre-build patches, a larger `resource_set`)
+that would otherwise leak onto unrelated packages sharing the hub. On a macOS
+host, `test.sh` additionally cross-builds `pycross-geohash` for macOS amd64
+(a manual target: the platform transition always resolves to os:macos, so
+`target_compatible_with` cannot tell hosts apart).
 
 Each isolated workspace points back at repo-root rules_py with
 `local_path_override(path = "../..")`.
