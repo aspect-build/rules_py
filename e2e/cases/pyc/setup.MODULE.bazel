@@ -1,0 +1,7 @@
+local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
+
+# Generated sources in another repo's subpackage have `../<repo>/<pkg>/` short paths.
+local_repository(
+    name = "pyc_extrepo",
+    path = "./pyc/extrepo",
+)

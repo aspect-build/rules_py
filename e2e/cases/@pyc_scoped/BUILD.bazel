@@ -1,0 +1,23 @@
+load("@aspect_rules_py//py:defs.bzl", "py_library", "py_test")
+
+package(default_testonly = True)
+
+py_library(
+    name = "scoped",
+    srcs = ["scoped_lib.py"],
+    imports = ["."],
+)
+
+# A source exec path starting with "@" must not read as a worker flagfile line.
+[
+    py_test(
+        name = "at_package_{}_test".format(mode),
+        srcs = ["at_package_test.py"],
+        precompile = mode,
+        deps = [":scoped"],
+    )
+    for mode in [
+        "pycache",
+        "sourceless",
+    ]
+]

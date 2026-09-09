@@ -1,0 +1,28 @@
+load("@aspect_rules_py//py:defs.bzl", "py_test")
+load("@aspect_rules_py//py/tests:pyc_testing.bzl", "pyc_config_test")
+
+# rules_python libraries from another module, plain and precompiled, compiled by the bytecode aspect.
+[
+    py_test(
+        name = "submodule_{}_test".format(mode),
+        srcs = ["submodule_test.py"],
+        main = "submodule_test.py",
+        precompile = mode,
+        deps = [
+            "@pyc_submodule//:plain",
+            "@pyc_submodule//:precompiled",
+        ],
+    )
+    for mode in [
+        "off",
+        "pycache",
+        "sourceless",
+    ]
+]
+
+# checked-hash validates the reused bytecode with an action declared in that module too.
+pyc_config_test(
+    name = "submodule_checked_hash_test",
+    pyc_invalidation_mode = "checked-hash",
+    target = ":submodule_pycache_test",
+)

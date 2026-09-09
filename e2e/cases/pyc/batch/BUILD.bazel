@@ -1,0 +1,154 @@
+load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_library", "py_test")
+load("@aspect_rules_py//py/tests:analysis_failure_test.bzl", "analysis_failure_test")
+load("@aspect_rules_py//py/tests:pyc_testing.bzl", "compile_action_count_test", "pyc_config_files", "pyc_config_test")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
+package(default_testonly = True)
+
+# A closure where every .py is listed by exactly one target, so sharding is
+# safe. The launchers pin sourceless so they run from sharded bytecode.
+
+py_library(
+    name = "meta",
+    srcs = ["version.py"],
+    imports = ["."],
+)
+
+py_library(
+    name = "app",
+    srcs = [
+        "formatting.py",
+        "greeting.py",
+        "styling.py",
+    ],
+    imports = ["."],
+    deps = [":meta"],
+)
+
+py_binary(
+    name = "cli",
+    srcs = ["cli.py"],
+    precompile = "sourceless",
+    deps = [":app"],
+)
+
+py_test(
+    name = "app_test",
+    srcs = ["app_test.py"],
+    main = "app_test.py",
+    precompile = "sourceless",
+    deps = [":app"],
+)
+
+# A hundred generated sources: enough for `pyc_shards=-1` to pick two shards.
+[
+    genrule(
+        name = "gen_{}".format(i),
+        outs = ["many/mod_{}.py".format(i)],
+        cmd = "echo 'VALUE = {}' > $@".format(i),
+    )
+    for i in range(100)
+]
+
+py_library(
+    name = "many",
+    srcs = ["many/mod_{}.py".format(i) for i in range(100)],
+)
+
+# Two libraries and two launchers own six sources between them; by path hash,
+# three shards place the three-source library's files in two of them.
+compile_action_count_test(
+    name = "batch_compiles_default_shards_test",
+    expected = 6,
+    targets = [
+        ":app_test",
+        ":cli",
+    ],
+)
+
+compile_action_count_test(
+    name = "batch_compiles_1_shards_test",
+    expected = 4,
+    pyc_shards = "1",
+    targets = [
+        ":app_test",
+        ":cli",
+    ],
+)
+
+compile_action_count_test(
+    name = "batch_compiles_3_shards_test",
+    expected = 5,
+    pyc_shards = "3",
+    targets = [
+        ":app_test",
+        ":cli",
+    ],
+)
+
+compile_action_count_test(
+    name = "batch_compiles_-1_shards_test",
+    expected = 4,
+    pyc_shards = "-1",
+    targets = [
+        ":app_test",
+        ":cli",
+    ],
+)
+
+compile_action_count_test(
+    name = "automatic_shards_split_many_sources_test",
+    expected = 2,
+    precompile = "pycache",
+    pyc_shards = "-1",
+    targets = [":many"],
+)
+
+pyc_config_files(
+    name = "invalid_shards",
+    srcs = [":cli"],
+    pyc_shards = "-2",
+    tags = ["manual"],
+)
+
+analysis_failure_test(
+    name = "invalid_shards_rejected_test",
+    expected_error = "pyc_shards must be -1 (automatic), 0 (per source) or a shard count",
+    target_under_test = ":invalid_shards",
+)
+
+pyc_config_test(
+    name = "cli_one_shard",
+    pyc_shards = "1",
+    tags = ["manual"],
+    target = ":cli",
+)
+
+sh_test(
+    name = "cli_one_shard_test",
+    srcs = ["cli_output_test.sh"],
+    args = ["$(rootpath :cli_one_shard)"],
+    data = [":cli_one_shard"],
+)
+
+pyc_config_test(
+    name = "app_test_one_shard_test",
+    pyc_shards = "1",
+    target = ":app_test",
+)
+
+# A library requested beside its launcher compiles once per global flag value;
+# `off` launchers activate `pycache`, so the three modes compile the five sources twice.
+compile_action_count_test(
+    name = "global_flag_shares_library_compiles_test",
+    expected = 10,
+    modes = [
+        "off",
+        "pycache",
+        "sourceless",
+    ],
+    targets = [
+        ":app",
+        ":cli",
+    ],
+)

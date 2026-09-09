@@ -1,11 +1,12 @@
 load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_library", "py_venv")
-load(":tests.bzl", "probe", "reset_data_edges_test_suite", "root", "terminal", "versioned_terminal")
+load("@bazel_skylib//rules:diff_test.bzl", "diff_test")
+load(":tests.bzl", "probe", "pyc_fanout_report", "reset_data_edges_test_suite", "root", "terminal", "versioned_terminal")
 
 package(default_testonly = True)
 
 probe(name = "probe")
 
-# The launcher's data edge is reached through each parent venv's deps edge.
+# The launcher's data edge is reached through each parent terminal's configuration.
 py_binary(
     name = "launcher",
     srcs = ["main.py"],
@@ -29,10 +30,17 @@ py_venv(
     freethreaded = True,
     python_version = "3.13",
     tags = ["manual"],
-    deps = [
-        ":launcher",
-        ":library",
-    ],
+    deps = [":library"],
+)
+
+# A launcher is not a Python dependency, so a transitioning terminal carries it.
+terminal(
+    name = "first_launcher",
+    dep_group = "first",
+    freethreaded = "true",
+    python_version = "3.13",
+    tags = ["manual"],
+    deps = [":launcher"],
 )
 
 # Nested terminal transitions must keep the baseline inherited above their
@@ -81,10 +89,16 @@ py_venv(
     freethreaded = False,
     python_version = "3.12",
     tags = ["manual"],
-    deps = [
-        ":launcher",
-        ":library",
-    ],
+    deps = [":library"],
+)
+
+terminal(
+    name = "second_launcher",
+    dep_group = "second",
+    freethreaded = "false",
+    python_version = "3.12",
+    tags = ["manual"],
+    deps = [":launcher"],
 )
 
 root(
@@ -93,11 +107,13 @@ root(
     tags = ["manual"],
     deps = [
         ":first",
+        ":first_launcher",
         ":inherit_terminal",
         ":no_freethreaded_attr_terminal",
         ":parent_terminal",
         ":probe",
         ":second",
+        ":second_launcher",
     ],
 )
 
@@ -192,6 +208,68 @@ root(
         ":bin_b",
         ":shared",
     ],
+)
+
+probe(name = "pyc_binary_data_probe")
+
+probe(name = "pyc_data_probe")
+
+py_library(
+    name = "pyc_shared",
+    srcs = ["main.py"],
+    tags = ["manual"],
+)
+
+py_library(
+    name = "pyc_data_library",
+    srcs = ["main.py"],
+    data = [":pyc_data_probe"],
+    tags = ["manual"],
+)
+
+py_venv(
+    name = "canonical_venv",
+    srcs = ["main.py"],
+    tags = ["manual"],
+    deps = [":pyc_shared"],
+)
+
+py_binary(
+    name = "pyc_bin",
+    srcs = ["main.py"],
+    data = [":pyc_binary_data_probe"],
+    main = "main.py",
+    tags = ["manual"],
+    deps = [":pyc_shared"],
+)
+
+# Under off and sourceless: libraries and venvs split into bytecode-requested or not; runtime data canonicalizes.
+pyc_fanout_report(
+    name = "pyc_reset_report",
+    artifacts = [
+        "pyc_binary_data_probe.txt",
+        "pyc_data_probe.txt",
+    ],
+    names = [
+        "pyc_bin",
+        "pyc_data_library",
+        "_pyc_bin.venv",
+        "canonical_venv",
+        "pyc_binary_data_probe",
+        "pyc_data_probe",
+        "pyc_shared",
+    ],
+    deps = [
+        ":canonical_venv",
+        ":pyc_bin",
+        ":pyc_data_library",
+    ],
+)
+
+diff_test(
+    name = "pyc_resets_test",
+    file1 = ":pyc_reset_report",
+    file2 = "pyc_reset_report.expected.txt",
 )
 
 reset_data_edges_test_suite()
