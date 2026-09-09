@@ -115,3 +115,26 @@ def _rust_wiring_test_impl(ctx):
     return unittest.end(env)
 
 rust_wiring_test = unittest.make(_rust_wiring_test_impl)
+
+def _crate_vendoring_test_impl(ctx):
+    env = unittest.begin(ctx)
+    asserts.equals(
+        env,
+        "https://static.crates.io/crates/ahash/ahash-0.8.11.crate",
+        sdist_build_test_util.crate_url("ahash", "0.8.11"),
+    )
+    crates_io = "registry+https://github.com/rust-lang/crates.io-index"
+    ok = {"name": "ahash", "version": "0.8.11", "source": crates_io, "checksum": "e89d"}
+    git = {"name": "pyo3-fork", "version": "0.22.0", "source": "git+https://github.com/x/pyo3#abc", "checksum": ""}
+    unchecked = {"name": "odd", "version": "1.0.0", "source": crates_io, "checksum": ""}
+    asserts.equals(env, [], sdist_build_test_util.unsupported_crate_sources([ok]), "crates.io with a checksum vendors fine")
+    asserts.equals(env, '\n    cargo_lock = "@@//pkg:Cargo.lock",', sdist_build_test_util.cargo_lock_attr("@@//pkg:Cargo.lock"))
+    asserts.equals(
+        env,
+        ["pyo3-fork@0.22.0 (git+https://github.com/x/pyo3#abc)", "odd@1.0.0 (" + crates_io + ")"],
+        sdist_build_test_util.unsupported_crate_sources([ok, git, unchecked]),
+        "git sources and checksum-less entries cannot be vendored hermetically",
+    )
+    return unittest.end(env)
+
+crate_vendoring_test = unittest.make(_crate_vendoring_test_impl)

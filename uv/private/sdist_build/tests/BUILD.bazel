@@ -10,6 +10,7 @@ load("@bazel_skylib//rules:build_test.bzl", "build_test")
 load(
     ":repository_test.bzl",
     "config_settings_attr_test",
+    "crate_vendoring_test",
     "env_attr_test",
     "is_rust_build_test",
     "rust_wiring_test",
@@ -27,3 +28,5 @@ env_attr_test(name = "env_attr_test")
 is_rust_build_test(name = "is_rust_build_test")
 
 rust_wiring_test(name = "rust_wiring_test")
+
+crate_vendoring_test(name = "crate_vendoring_test")

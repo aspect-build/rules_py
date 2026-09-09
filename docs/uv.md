@@ -419,7 +419,15 @@ uv.project(
 Every sdist in that project whose build backend is maturin, or whose build
 requirements include setuptools-rust, then gets the toolchain and an
 exec-configured `rust_host_sysroot` layer wired into its build. No
-`uv.override_package` entry is needed for Rust packages. Any target exposing
+`uv.override_package` entry is needed for Rust packages. The crates the
+sdist's `Cargo.lock` pins on crates.io are fetched with their checksums while
+the repository is generated and vendored into it; cargo then builds offline,
+so the build needs no network and works under remote execution. A lock that
+pins crates outside crates.io (git or path sources) is rejected. An sdist
+without a `Cargo.lock` builds with network access and a warning; give it one
+with `uv.override_package(cargo_lock = "//:pkg.Cargo.lock")`, generated once
+with `cargo generate-lockfile` on the extracted sdist, and it is vendored and
+placed next to the sdist's `Cargo.toml` before the build. Any target exposing
 rules_rust's toolchain providers works, so the same label serves
 [rules_rs](https://github.com/hermeticbuild/rules_rs) toolchains, which are
 declared with rules_rust's `rust_toolchain` rule.

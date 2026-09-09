@@ -400,3 +400,29 @@ def _rust_host_sysroot_test_impl(ctx):
     return analysistest.end(env)
 
 rust_host_sysroot_test = analysistest.make(_rust_host_sysroot_test_impl)
+
+def _vendored_crates_test_impl(ctx):
+    env = analysistest.begin(ctx)
+    target = analysistest.target_under_test(env)
+    actions = [a for a in target.actions if a.mnemonic == "PySdistNativeBuild"]
+    asserts.equals(env, 1, len(actions), "expected exactly one PySdistNativeBuild action")
+    if actions:
+        argv = list(actions[0].argv)
+        asserts.true(env, "--cargo-vendor-dir" in argv, "the vendor dir must reach the helper; got: {}".format(argv))
+        if "--cargo-vendor-dir" in argv:
+            vendor_dir = argv[argv.index("--cargo-vendor-dir") + 1]
+            asserts.true(env, vendor_dir.endswith("/tests/vendor"), "the vendor root, not a crate file; got: " + vendor_dir)
+        inputs = [f.path for f in actions[0].inputs.to_list()]
+        asserts.true(
+            env,
+            any([p.endswith("/vendor/fake-0.1.0/.cargo-checksum.json") for p in inputs]),
+            "vendored crate files must be action inputs",
+        )
+        asserts.true(env, "--cargo-lock" in argv, "the supplied Cargo.lock must reach the helper; got: {}".format(argv))
+        if "--cargo-lock" in argv:
+            lock = argv[argv.index("--cargo-lock") + 1]
+            asserts.true(env, lock.endswith("/tests/Cargo.lock"), "got: " + lock)
+            asserts.true(env, lock in inputs, "the Cargo.lock must be an action input")
+    return analysistest.end(env)
+
+pep517_native_whl_vendored_crates_test = analysistest.make(_vendored_crates_test_impl)
