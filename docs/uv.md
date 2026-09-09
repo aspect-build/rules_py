@@ -483,8 +483,10 @@ Rust needs one more step. Every sdist runs its build logic on the exec
 platform, but in a cross build cargo also *compiles* code for the exec platform
 and runs it there: `build.rs` scripts and proc-macro crates. Those need the
 exec platform's Rust standard library in the sysroot, and a toolchain resolved
-for the target platform ships only the target's. Declare the toolchain once per
-project and rules_py adds an exec-configured sysroot layer next to it:
+for the target platform ships only the target's. rules_py cannot resolve a
+Rust toolchain on its own without making rules_rust a dependency of every
+consumer, so point it at the one your project already registers, once per
+project; rules_py adds an exec-configured sysroot layer next to it:
 
 ```starlark
 uv.project(
@@ -498,7 +500,9 @@ uv.project(
 Every sdist in that project whose build backend is maturin, or whose build
 requirements include setuptools-rust, then gets the toolchain and an
 exec-configured `rust_host_sysroot` layer wired into its build. No
-`uv.override_package` entry is needed for Rust packages. The crates the
+`uv.override_package` entry is needed for Rust packages, and a Rust sdist in a
+project that declares no `rust_toolchain` fails while the repository is
+generated, naming the attribute to set. The crates the
 sdist's `Cargo.lock` pins on crates.io are fetched with their checksums while
 the repository is generated and vendored into it; cargo then builds offline,
 so the build needs no network and works under remote execution. A lock that

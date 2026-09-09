@@ -254,6 +254,24 @@ def _cargo_lock_attr(label):
 
 _VENDORED_CRATES_ATTR = "\n    vendored_crates = \":vendored_crates\","
 
+def _missing_rust_toolchain(repo_name, rust_toolchain, inspection, toolchains):
+    """The error for a Rust sdist in a project that declares no Rust toolchain, or None.
+
+    Without one, cargo or maturin fail deep inside the build action with no
+    hint of the cause. Explicit `uv.override_package(toolchains = [...])`
+    entries are trusted: they are the escape hatch for wiring a toolchain by
+    hand, and the rule cannot tell a Rust toolchain from any other.
+    """
+    if rust_toolchain or toolchains or not _is_rust_build(inspection):
+        return None
+    if inspection.get("build_backend") == "maturin":
+        reason = "its build backend is maturin"
+    else:
+        reason = "setuptools-rust is among its build requirements"
+    return ("sdist_build for '{}': this sdist builds Rust ({}) but the project declares no Rust toolchain. " +
+            "Set `uv.project(rust_toolchain = \"@rules_rust//rust/toolchain:current_rust_toolchain\")`, " +
+            "or wire one by hand with `uv.override_package(toolchains = [...])`.").format(repo_name, reason)
+
 def _rust_wiring(rust_toolchain, inspection, toolchains):
     """The generated BUILD's Rust wiring for a project-level `rust_toolchain`.
 
@@ -431,6 +449,9 @@ def _sdist_build_impl(repository_ctx):
         # a repository the rules_py extension generates, whose repo mapping knows
         # nothing about the user's rules_rust dependency.
         rust_toolchain = repository_ctx.attr.rust_toolchain
+        missing = _missing_rust_toolchain(repository_ctx.name, rust_toolchain, inspection, toolchains)
+        if missing:
+            fail(missing)
         rust = _rust_wiring(str(rust_toolchain) if rust_toolchain else "", inspection, toolchains)
         rust_layer_load = rust.load_stmt
         rust_layer_target = rust.target
@@ -597,6 +618,7 @@ sdist_build_test_util = struct(
     config_settings_attr = _config_settings_attr,
     env_attr = _env_attr,
     is_rust_build = _is_rust_build,
+    missing_rust_toolchain = _missing_rust_toolchain,
     normalize_requirement = _normalize_requirement,
     rust_wiring = _rust_wiring,
 )
