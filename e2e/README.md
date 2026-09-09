@@ -35,6 +35,10 @@ workspace above must not carry: its `.bazelrc` turns on the rules_python provide
 compatibility layer, so rules_python `py_*` targets can depend on a rules_py `py_library`.
 Its `test.sh` asserts the same dependency is rejected with the flag off.
 
+`rules-python-protobuf` exercises rules_proto_grpc_python-generated bindings in
+an isolated module so its rules_python/protobuf/grpc dependency graph does not
+leak into the main test module.
+
 `crossbuild` hosts the rules_pycross ports (`pycross-*`): suites that force
 packages to build from their sdists — pure-Python backends, setuptools C
 extensions, pre/post-install patch phases, the distutils probe — and assert

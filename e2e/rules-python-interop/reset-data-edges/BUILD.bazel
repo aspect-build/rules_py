@@ -1,4 +1,4 @@
-load("//py:defs.bzl", "py_binary", "py_library", "py_venv")
+load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_library", "py_venv")
 load(":tests.bzl", "probe", "reset_data_edges_test_suite", "root", "terminal", "versioned_terminal")
 
 package(default_testonly = True)
