@@ -113,6 +113,7 @@ def _assemble_venv_target(ctx, executable, console_scripts):
         transitive_sources = srcs_depset,
         runtime_files = runtime_files,
         console_scripts = depset(assembled.console_scripts),
+        activate = assembled.activate,
     ), venv_only
 
 def _venv_providers(ctx, venv, venv_only, executable = None, include_sources = False):

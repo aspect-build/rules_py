@@ -538,6 +538,10 @@ def _layer_aspect_impl(target, ctx):
         # wheel install trees must stay out of the source layer's inputs.
         own_source.append(target[VirtualenvInfo].runtime_files)
         own_source.append(depset(ctx.rule.files.srcs))
+
+        # `bin/activate` is not in `runtime_files`; ship it so an extracted layer can be sourced.
+        if target[VirtualenvInfo].activate != None:
+            own_source.append(depset([target[VirtualenvInfo].activate]))
         own_source.extend(_opaque_dep_files(ctx.rule.attr, ("data", "deps")))
         if PY_TOOLCHAIN in ctx.rule.toolchains:
             py_tc = ctx.rule.toolchains[PY_TOOLCHAIN]
