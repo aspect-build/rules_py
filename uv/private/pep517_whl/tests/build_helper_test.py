@@ -897,6 +897,33 @@ class RustcWrapperTest(unittest.TestCase):
         self.assertIn("codegen-units=1", argv)
 
 
+class DisableMaturinSbomTest(unittest.TestCase):
+    def _worktree(self, pyproject: str | None) -> str:
+        tmp = tempfile.mkdtemp()
+        if pyproject is not None:
+            with open(path.join(tmp, "pyproject.toml"), "w") as f:
+                f.write(pyproject)
+        return tmp
+
+    def test_sbom_is_turned_off(self) -> None:
+        tmp = self._worktree('[build-system]\nbuild-backend = "maturin"\n')
+        self.assertTrue(build_helper._disable_maturin_sbom(tmp))
+        with open(path.join(tmp, "pyproject.toml")) as f:
+            content = f.read()
+        self.assertIn("[tool.maturin.sbom]\nrust = false\nauditwheel = false\n", content)
+        self.assertTrue(content.startswith("[build-system]"), "the sdist's own configuration is kept")
+
+    def test_explicit_sbom_configuration_is_respected(self) -> None:
+        original = '[tool.maturin.sbom]\nrust = true\n'
+        tmp = self._worktree(original)
+        self.assertFalse(build_helper._disable_maturin_sbom(tmp))
+        with open(path.join(tmp, "pyproject.toml")) as f:
+            self.assertEqual(original, f.read())
+
+    def test_no_pyproject_no_change(self) -> None:
+        self.assertFalse(build_helper._disable_maturin_sbom(self._worktree(None)))
+
+
 class CcRsEnvTest(unittest.TestCase):
     def test_cc_rs_finds_the_wired_toolchain_under_both_spellings(self) -> None:
         tmp = tempfile.mkdtemp()

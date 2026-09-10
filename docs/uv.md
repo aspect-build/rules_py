@@ -463,8 +463,9 @@ instead of fetching rustc inside the build.
 The rustc cargo runs is a wrapper that also makes the extension independent
 of where the action ran: sandbox and execroot paths are remapped out of the
 binaries (`--remap-path-prefix`) and target crates compile as one codegen
-unit, so the wheel's bytes match across hosts and downstream actions hit the
-cache. Crates that compile C or C++ through cc-rs (`ring`, `zstd-sys`) find
+unit, and maturin's SBOM, which records sandbox paths, is turned off unless
+the sdist configures it; the wheel's bytes then match across hosts and
+downstream actions hit the cache. Crates that compile C or C++ through cc-rs (`ring`, `zstd-sys`) find
 the wired C toolchain under `CC_<triple>`, `CXX_<triple>`, `AR_<triple>` and
 `RANLIB_<triple>` instead of whatever is on the PATH.
 
