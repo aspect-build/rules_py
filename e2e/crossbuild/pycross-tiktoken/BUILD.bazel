@@ -62,6 +62,8 @@ collect_wheels(
     ],
 )
 
+# Execution verification: the cross-built wheel is installed and the case's
+# standalone test is run on a native runner of the target architecture.
 pycross_wheel_export(
     name = "tiktoken",
     amd64_platform = ":amd64_linux",
