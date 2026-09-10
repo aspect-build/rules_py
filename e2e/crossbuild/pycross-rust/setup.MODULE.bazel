@@ -1,21 +1,17 @@
-"""maturin (Cargo/PyO3) cross-compilation case.
+"""maturin (Cargo/PyO3) cross case: pydantic-core built from its sdist.
 
-pydantic-core 2.47.0 is forced to build from its sdist (`[tool.uv]
-no-binary-package`): a Rust extension whose maturin backend needs the
-cargo cross env `build_helper` sets up — CARGO_BUILD_TARGET (triple keyed
-by the target's libc), CARGO_TARGET_<TRIPLE>_LINKER, PYO3_CROSS_PYTHON_VERSION,
-and a rustc wrapper whose sysroot merges the target toolchain's std with
-the exec platform's std (build scripts/proc-macros are always exec
-artifacts).
-
-`uv.project(rust_toolchain = ...)` is all the Rust wiring: sdist_build
-detects the maturin backend and emits the toolchain plus an exec-configured
-rust_host_sysroot into the generated pep517_native_whl, whose
-CARGO/RUSTC/RUST_HOST_SYSROOT make variables reach the helper's env.
+The module-wide `uv.package_toolchains(rust_toolchain = ...)` below is all
+the Rust wiring for this workspace: sdist_build detects the maturin backend
+(or setuptools-rust) and wires that toolchain, plus rules_py's
+exec-configured sysroot layer, into every such build. //pycross-tiktoken
+inherits it; //pycross-rust-rs overrides it for its own lock.
 """
 
 uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
 uv.declare_hub(hub_name = "pypi_pycross_rust")
+uv.package_toolchains(
+    rust_toolchain = "@rules_rust//rust/toolchain:current_rust_toolchain",
+)
 uv.project(
     default_build_dependencies = [
         "build",
@@ -24,7 +20,6 @@ uv.project(
     hub_name = "pypi_pycross_rust",
     lock = "//pycross-rust:uv.lock",
     pyproject = "//pycross-rust:pyproject.toml",
-    rust_toolchain = "@rules_rust//rust/toolchain:current_rust_toolchain",
 )
 use_repo(
     uv,

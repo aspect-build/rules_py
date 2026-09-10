@@ -401,10 +401,10 @@ toolchain exports still needs an explicit `env` entry (`"FOO": "$(FOO)"`),
 and an explicit entry always wins over the derived value.
 
 Rust sdists (maturin, setuptools-rust) build with the Rust toolchain your
-project registers. Fetching rustc and cargo is the Rust rulesets' job, and
-rules_py depends on neither of them, so point it at the toolchain once per
-project and every Rust sdist in that project is wired to it. Either ruleset
-works:
+module registers. Fetching rustc and cargo is the Rust rulesets' job, and
+rules_py depends on neither of them, so point it at the toolchain once and
+every Rust sdist of every `uv.project()` in the module is wired to it. Either
+ruleset works:
 
 - [rules_rust](https://github.com/bazelbuild/rules_rust):
   `rust_toolchain = "@rules_rust//rust/toolchain:current_rust_toolchain"`
@@ -421,24 +421,32 @@ works:
   then `rust_toolchain = "@rules_rust_rs//rust/toolchain:current_rust_toolchain"`.
 
 ```starlark
-uv.project(
-    hub_name = "pypi",
-    lock = "//:uv.lock",
-    pyproject = "//:pyproject.toml",
+uv.package_toolchains(
     rust_toolchain = "@rules_rust//rust/toolchain:current_rust_toolchain",
 )
 ```
 
-Every sdist in that project whose build backend is maturin, or whose build
-requirements include setuptools-rust, then gets the toolchain and an
+Scope a declaration with `lock` to apply it to one project only; it wins over
+the module-wide one for that project. That is how a workspace builds one
+project on rules_rust and another on rules_rs:
+
+```starlark
+uv.package_toolchains(
+    lock = "//other:uv.lock",
+    rust_toolchain = "@rules_rust_rs//rust/toolchain:current_rust_toolchain",
+)
+```
+
+Every sdist whose build backend is maturin, or whose build requirements
+include setuptools-rust, then gets the toolchain and an
 exec-configured `rust_host_sysroot` layer wired into its build. In a cross
 build cargo also *compiles* code for the exec platform and runs it there
 (`build.rs` scripts, proc-macro crates); that layer supplies the exec
 platform's standard library next to the target's, the way rustup keeps
 several targets in one install. No `uv.override_package` entry is needed for
-Rust packages, and a Rust sdist in a project that declares no
-`rust_toolchain` fails while the repository is generated, naming the
-attribute to set; only declared Rust builds are demanding, an sdist that
+Rust packages, and a Rust sdist in a module with no `uv.package_toolchains()`
+covering its project fails while the repository is generated, naming the
+declaration to add; only declared Rust builds are demanding, an sdist that
 merely ships `.rs` files (zstandard's optional extension) builds as before. The crates the
 sdist's `Cargo.lock` pins on crates.io are fetched with their checksums while
 the repository is generated and vendored into it; cargo then builds offline,

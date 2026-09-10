@@ -284,11 +284,11 @@ def _missing_rust_toolchain(repo_name, rust_toolchain, inspection, toolchains):
     else:
         reason = "setuptools-rust is among its declared build requirements"
     return ("sdist_build for '{}': this sdist builds Rust ({}) but the project declares no Rust toolchain. " +
-            "Set `uv.project(rust_toolchain = \"@rules_rust//rust/toolchain:current_rust_toolchain\")`, " +
+            "Declare `uv.package_toolchains(rust_toolchain = \"@rules_rust//rust/toolchain:current_rust_toolchain\")`, " +
             "or wire one by hand with `uv.override_package(toolchains = [...])`.").format(repo_name, reason)
 
 def _rust_wiring(rust_toolchain, inspection, toolchains):
-    """The generated BUILD's Rust wiring for a project-level `rust_toolchain`.
+    """The generated BUILD's Rust wiring for the project's `rust_toolchain`.
 
     The configure tool already detected the build backend and its declared
     requirements, so a Rust-based build (maturin, or setuptools with
@@ -298,7 +298,7 @@ def _rust_wiring(rust_toolchain, inspection, toolchains):
     their make-variables.
 
     Args:
-        rust_toolchain: `uv.project(rust_toolchain = ...)` rendered as a label string, or "".
+        rust_toolchain: The `uv.package_toolchains(rust_toolchain = ...)` that applies to the project, rendered as a label string, or "".
         inspection: The configure tool's JSON, or None.
         toolchains: Extra toolchain labels from `uv.override_package`.
 

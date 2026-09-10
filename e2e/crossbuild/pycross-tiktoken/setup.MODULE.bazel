@@ -1,8 +1,9 @@
 """tiktoken: setuptools-rust sdist build.
 
-`uv.project(rust_toolchain = ...)` is all the Rust wiring: sdist_build detects
-setuptools-rust in the build requirements and emits the toolchain plus the
-exec-platform sysroot into the generated pep517_native_whl.
+The module-wide `uv.package_toolchains()` (see //pycross-rust) is all the Rust
+wiring: sdist_build detects setuptools-rust in the build requirements and
+emits the toolchain plus the exec-platform sysroot into the generated
+pep517_native_whl.
 """
 
 uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
@@ -17,7 +18,6 @@ uv.project(
     hub_name = "pypi_pycross_tiktoken",
     lock = "//pycross-tiktoken:uv.lock",
     pyproject = "//pycross-tiktoken:pyproject.toml",
-    rust_toolchain = "@rules_rust//rust/toolchain:current_rust_toolchain",
 )
 
 # tiktoken's sdist ships no Cargo.lock, so nothing pins its crates; this one
