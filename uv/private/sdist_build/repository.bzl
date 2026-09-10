@@ -183,8 +183,16 @@ def _is_rust_build(inspection):
     """
     if not inspection:
         return False
-    if inspection.get("build_backend") == "maturin":
+    backend = inspection.get("build_backend")
+    if backend == "maturin":
         return True
+
+    # setuptools-rust only ever rides on a setuptools backend (or none, for a
+    # bare setup.py). Other backends may ship stray .rs files that make the
+    # configure tool infer setuptools-rust (numpy vendors meson's test suite),
+    # and are not Rust builds.
+    if backend not in (None, "setuptools.build_meta", "setuptools.build_meta:__legacy__"):
+        return False
     requirements = list(inspection.get("build_requires", [])) + list(inspection.get("inferred_build_requires", []))
     return "setuptools-rust" in [_normalize_requirement(r) for r in requirements]
 

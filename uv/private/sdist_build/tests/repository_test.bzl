@@ -70,6 +70,16 @@ def _is_rust_build_test_impl(ctx):
         "setuptools-rust inferred from .rs files counts too: it is injected into the build venv",
     )
     asserts.false(env, is_rust({"build_backend": "mesonpy"}), "meson-python is not Rust")
+    asserts.false(
+        env,
+        is_rust({"build_backend": "mesonpy", "inferred_build_requires": ["setuptools-rust"]}),
+        "stray .rs files under a non-setuptools backend (numpy) do not make a Rust build",
+    )
+    asserts.true(
+        env,
+        is_rust({"build_backend": None, "inferred_build_requires": ["setuptools-rust"]}),
+        "a bare setup.py with .rs sources is setuptools-rust",
+    )
     asserts.equals(env, "setuptools-rust", sdist_build_test_util.normalize_requirement("Setuptools_Rust>=1.7"))
     return unittest.end(env)
 
