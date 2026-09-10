@@ -1074,6 +1074,30 @@ def _configure_cargo_cross_env(build_env: dict[str, str], tmpdir: str, target_os
     build_env["MATURIN_PEP517_ARGS"] = (interpreter_arg + " " + existing).strip()
 
 
+_MATURIN_SBOM_OFF = "\n[tool.maturin.sbom]\nrust = false\nauditwheel = false\n"
+
+
+def _disable_maturin_sbom(worktree: str) -> bool:
+    """Turn off maturin's CycloneDX SBOM unless the sdist configures it itself.
+
+    The SBOM records every crate as `path+file:///<sandbox>/...`: the sandbox
+    id differs per action, so two builds of one sdist never produce the same
+    wheel while it is on. maturin 1.15 offers no flag or variable for it, only
+    the `[tool.maturin.sbom]` table, so it is appended to the extracted
+    pyproject.toml. Returns whether the file was changed.
+    """
+    pyproject = path.join(worktree, "pyproject.toml")
+    if not path.exists(pyproject):
+        return False
+    with open(pyproject, encoding="utf-8") as f:
+        content = f.read()
+    if "[tool.maturin.sbom]" in content:
+        return False
+    with open(pyproject, "a", encoding="utf-8") as f:
+        f.write(_MATURIN_SBOM_OFF)
+    return True
+
+
 def _inject_cargo_lock(worktree: str, lock_path: str) -> str | None:
     """Copy a user-supplied Cargo.lock next to the source tree's top-level Cargo.toml.
 
@@ -1327,6 +1351,8 @@ def main() -> None:
     _forbid_backend_toolchain_downloads(build_env)
     _configure_cargo_offline(build_env, opts.cargo_vendor_dir)
     _inject_cargo_lock(t, opts.cargo_lock)
+    if _build_backend(_load_pyproject_data(t)) == "maturin":
+        _disable_maturin_sbom(t)
 
     if _legacy_metadata_conflicts_with_pyproject(t):
         print(
