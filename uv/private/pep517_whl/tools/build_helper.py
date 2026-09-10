@@ -886,11 +886,7 @@ def _generate_cmake_toolchain_file(
     contain spaces, which unquoted set() would parse as list separators.
     """
     ar = build_env.get("AR", "ar")
-    ranlib = _write_generated_file(
-        path.join(tmpdir, "cmake_ranlib"),
-        '#!/bin/sh\nexec "{}" s "$@"\n'.format(ar),
-        executable=True,
-    )
+    ranlib = _ranlib_wrapper(tmpdir, ar)
     return _write_generated_file(
         path.join(tmpdir, "cross_toolchain.cmake"),
         textwrap.dedent("""\
@@ -923,12 +919,66 @@ _RUST_TARGET_OS = {
     ("darwin", "libsystem"): "apple-darwin",
 }
 
+# Beyond the explicit sysroot, the wrapper makes the compiled artifacts
+# independent of where the action ran: rustc bakes source paths into debug
+# info and panic messages, and the sandbox root and execroot differ per host
+# and per action, so they are remapped away. A single codegen unit keeps
+# LLVM's module ids, which leak into symbol names, stable across hosts; it
+# is applied to target crates only (build scripts and proc-macros never
+# reach the wheel), or to everything in a native build where cargo passes
+# no --target.
 _RUSTC_WRAPPER = """#!/usr/bin/env python3
 import os
 import sys
 
-os.execv({rustc!r}, [{rustc!r}, "--sysroot", {sysroot!r}] + sys.argv[1:])
+args = sys.argv[1:]
+final = [{rustc!r}, "--sysroot", {sysroot!r}]
+for prefix in {remap_prefixes!r}:
+    final += ["--remap-path-prefix", prefix + "/=", "--remap-path-prefix", prefix + "="]
+target = {target_triple!r}
+if target is None or target in args:
+    final += ["-C", "codegen-units=1"]
+os.execv(final[0], final + args)
 """
+
+
+def _write_rustc_wrapper(tmpdir: str, rustc: str, sysroot: str, target_triple: str | None) -> str:
+    """The rustc cargo runs: explicit sysroot, reproducible paths and codegen (see _RUSTC_WRAPPER)."""
+    return _write_generated_file(
+        path.join(tmpdir, ".aspect_rules_py_rustc", "rustc"),
+        _RUSTC_WRAPPER.format(
+            rustc=rustc,
+            sysroot=sysroot,
+            remap_prefixes=[path.abspath(tmpdir), os.getcwd()],
+            target_triple=target_triple,
+        ),
+        executable=True,
+    )
+
+
+def _ranlib_wrapper(tmpdir: str, ar: str) -> str:
+    """`ar s` is ranlib: a ranlib for toolchains that ship none as a separate tool."""
+    return _write_generated_file(
+        path.join(tmpdir, ".aspect_rules_py_compilers", "ranlib"),
+        '#!/bin/sh\nexec "{}" s "$@"\n'.format(ar),
+        executable=True,
+    )
+
+
+def _cc_rs_env(build_env: dict[str, str], tmpdir: str, triple: str) -> None:
+    """Point cc-rs at the wired C toolchain for crates that compile C or C++.
+
+    cc-rs (ring, zstd-sys, ...) looks up CC_<triple>, CXX_<triple>, AR_<triple>
+    and RANLIB_<triple>, in the dashed and the underscored spelling, before
+    falling back to whatever `cc` is on PATH. The generic CC/CXX/AR only
+    steer host compiles.
+    """
+    ar = build_env.get("AR", "")
+    tools = {"CC": build_env.get("CC", ""), "CXX": build_env.get("CXX", ""), "AR": ar, "RANLIB": _ranlib_wrapper(tmpdir, ar) if ar else ""}
+    for spelling in (triple, triple.replace("-", "_")):
+        for tool, value in tools.items():
+            if value:
+                build_env["{}_{}".format(tool, spelling)] = value
 
 
 def _merge_rust_sysroot(tmpdir: str, target_rustc: str, host_sysroot: str, target_sysroot: str | None = None) -> str:
@@ -1002,6 +1052,7 @@ def _configure_cargo_cross_env(build_env: dict[str, str], tmpdir: str, target_os
     build_env["CARGO_BUILD_TARGET"] = triple
     linker_var = "CARGO_TARGET_{}_LINKER".format(triple.upper().replace("-", "_"))
     build_env[linker_var] = build_env["CC"]
+    _cc_rs_env(build_env, tmpdir, triple)
 
     # pyo3-ffi refuses to cross-compile without an explicit target Python
     # version. Unused (harmless) for non-PyO3 crates.
@@ -1010,11 +1061,7 @@ def _configure_cargo_cross_env(build_env: dict[str, str], tmpdir: str, target_os
     host_sysroot = build_env.get("RULES_PY_RUST_HOST_SYSROOT")
     if host_sysroot:
         merged_sysroot = _merge_rust_sysroot(tmpdir, build_env["RUSTC"], host_sysroot, build_env.get("RULES_PY_RUST_SYSROOT"))
-        build_env["RUSTC"] = _write_generated_file(
-            path.join(tmpdir, ".aspect_rules_py_rustc", "rustc"),
-            _RUSTC_WRAPPER.format(rustc=build_env["RUSTC"], sysroot=merged_sysroot),
-            executable=True,
-        )
+        build_env["RUSTC"] = _write_rustc_wrapper(tmpdir, build_env["RUSTC"], merged_sysroot, triple)
 
     # In cross mode maturin name-parses its -i interpreter argument for a
     # "pythonX.Y"-shaped basename instead of executing it; our venv's
@@ -1086,11 +1133,7 @@ def _configure_cargo_native_env(build_env: dict[str, str], tmpdir: str) -> None:
     sysroot = build_env.get("RULES_PY_RUST_SYSROOT") or build_env.get("RULES_PY_RUST_HOST_SYSROOT")
     if not (build_env.get("CARGO") and sysroot):
         return
-    build_env["RUSTC"] = _write_generated_file(
-        path.join(tmpdir, ".aspect_rules_py_rustc", "rustc"),
-        _RUSTC_WRAPPER.format(rustc=build_env["RUSTC"], sysroot=sysroot),
-        executable=True,
-    )
+    build_env["RUSTC"] = _write_rustc_wrapper(tmpdir, build_env["RUSTC"], sysroot, None)
 
 
 def _build_backend(pyproject_data: dict[str, object] | None) -> str | None:
