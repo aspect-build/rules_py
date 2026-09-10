@@ -1,0 +1,14 @@
+[project]
+name = "pycross_bcrypt"
+version = "0.0.0"
+requires-python = ">=3.11"
+dependencies = [
+    "bcrypt==5.0.0",
+    "build",
+    "setuptools",
+    "setuptools-rust",
+    "wheel",
+]
+
+[tool.uv]
+no-binary-package = ["bcrypt"]

@@ -143,7 +143,6 @@ manifest:
     pkg_resources: setuptools
     pluggy: pluggy
     psutil: psutil
-    psycopg2: psycopg2_binary
     pycparser: pycparser
     pydantic: pydantic
     pydantic_core: pydantic_core

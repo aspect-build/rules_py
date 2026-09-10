@@ -892,3 +892,100 @@ if __name__ == "__main__":
     if failures:
         print(f"Failures: {', '.join(failures)}")
         sys.exit(1)
+
+
+# --- Cargo.lock ---
+
+_CARGO_LOCK = """\
+version = 4
+
+[[package]]
+name = "pkg"
+version = "1.0.0"
+dependencies = ["ahash", "local-helper"]
+
+[[package]]
+name = "ahash"
+version = "0.8.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e89da841a80418a9b391ebaea17f5c112ffaaa96f621d2c285b5174da76b9011"
+
+[[package]]
+name = "local-helper"
+version = "0.1.0"
+
+[[package]]
+name = "pyo3-fork"
+version = "0.22.0"
+source = "git+https://github.com/example/pyo3?rev=abc123#abc123"
+"""
+
+
+def test_cargo_lock_crates() -> None:
+    archive = _make_tar_gz({
+        "pkg-1.0/": None,
+        "pkg-1.0/Cargo.lock": _CARGO_LOCK,
+        "pkg-1.0/src/lib.rs": "",
+    })
+    result = detect(archive, {})
+    # Workspace crates (no source) are in the sdist already; everything else is a fetch.
+    assert result["cargo_crates"] == [
+        {
+            "name": "ahash",
+            "version": "0.8.11",
+            "source": "registry+https://github.com/rust-lang/crates.io-index",
+            "checksum": "e89da841a80418a9b391ebaea17f5c112ffaaa96f621d2c285b5174da76b9011",
+        },
+        {
+            "name": "pyo3-fork",
+            "version": "0.22.0",
+            "source": "git+https://github.com/example/pyo3?rev=abc123#abc123",
+            "checksum": "",
+        },
+    ]
+
+
+def test_no_cargo_lock_reports_nothing() -> None:
+    archive = _make_tar_gz({"pkg-1.0/": None, "pkg-1.0/src/lib.rs": ""})
+    result = detect(archive, {})
+    assert "cargo_crates" not in result
+
+
+def test_context_cargo_lock_replaces_the_sdists() -> None:
+    archive = _make_tar_gz({
+        "pkg-1.0/": None,
+        "pkg-1.0/Cargo.lock": _CARGO_LOCK,
+        "pkg-1.0/src/lib.rs": "",
+    })
+    provided = os.path.join(tempfile.mkdtemp(), "Cargo.lock")
+    with open(provided, "w") as f:
+        f.write(
+            '[[package]]\nname = "pkg"\nversion = "1.0.0"\n\n'
+            '[[package]]\nname = "bstr"\nversion = "1.10.0"\n'
+            'source = "registry+https://github.com/rust-lang/crates.io-index"\n'
+            'checksum = "abcd"\n'
+        )
+    result = detect(archive, {"cargo_lock": provided})
+    assert [c["name"] for c in result["cargo_crates"]] == ["bstr"]
+
+
+def test_nested_cargo_lock_is_found() -> None:
+    # setuptools-rust layout: the crate lives in a subdirectory.
+    archive = _make_tar_gz({
+        "pkg-1.0/": None,
+        "pkg-1.0/src/_pkg/Cargo.lock": _CARGO_LOCK,
+        "pkg-1.0/src/_pkg/src/lib.rs": "",
+    })
+    result = detect(archive, {})
+    assert [c["name"] for c in result["cargo_crates"]] == ["ahash", "pyo3-fork"]
+
+
+def test_shallowest_cargo_lock_wins() -> None:
+    archive = _make_tar_gz({
+        "pkg-1.0/": None,
+        "pkg-1.0/Cargo.lock": _CARGO_LOCK,
+        "pkg-1.0/vendor/dep/Cargo.lock": '[[package]]\nname = "other"\nversion = "1.0.0"\nsource = "registry+x"\nchecksum = "1"\n',
+        "pkg-1.0/src/lib.rs": "",
+    })
+    result = detect(archive, {})
+    assert [c["name"] for c in result["cargo_crates"]] == ["ahash", "pyo3-fork"]

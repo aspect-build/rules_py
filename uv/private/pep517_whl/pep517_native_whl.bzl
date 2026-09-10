@@ -26,13 +26,15 @@ _CC_TOOLCHAIN_TYPE = Label("@bazel_tools//tools/cpp:toolchain_type")
 
 # TemplateVariableInfo make-variable -> build helper env key, for the
 # toolchains a native build commonly layers in: rules_rust's
-# current_rust_toolchain (CARGO/RUSTC), an exec-configured rust sysroot
-# layer (RUST_HOST_SYSROOT), a Java runtime (JAVA/JAVABASE) and an Ant layer
-# (ANT_HOME/ANT_BIN_DIR). The env keys are the helper's contract
-# (build_helper.py absolutizes exactly this set).
+# current_rust_toolchain (CARGO/RUSTC and its generated RUST_SYSROOT, where
+# rustc and rust-std meet whatever repositories they were fetched into), an
+# exec-configured rust sysroot layer (RUST_HOST_SYSROOT), a Java runtime
+# (JAVA/JAVABASE) and an Ant layer (ANT_HOME/ANT_BIN_DIR). The env keys are
+# the helper's contract (build_helper.py absolutizes exactly this set).
 _DERIVED_ENV = {
     "CARGO": "CARGO",
     "RUSTC": "RUSTC",
+    "RUST_SYSROOT": "RULES_PY_RUST_SYSROOT",
     "RUST_HOST_SYSROOT": "RULES_PY_RUST_HOST_SYSROOT",
     "JAVA": "JAVA",
     "JAVABASE": "JAVA_HOME",
@@ -249,6 +251,15 @@ cross_identity_test_util = struct(
     target_python_artifacts = _target_python_artifacts,
 )
 
+def _vendor_dir(files):
+    """The `vendor/` root shared by the vendored crate files, from any one of them."""
+    for f in files.to_list():
+        marker = "/vendor/"
+        idx = f.path.find(marker)
+        if idx != -1:
+            return f.path[:idx + len(marker) - 1]
+    return None
+
 def _pep517_native_whl(ctx):
     archive = ctx.file.src
 
@@ -308,6 +319,16 @@ def _pep517_native_whl(ctx):
         env[_INFER_CXX_COMPANION] = "1"
 
     cross_args = []
+    cargo_args = []
+    if ctx.attr.vendored_crates:
+        vendored = ctx.attr.vendored_crates[DefaultInfo].files
+        extra_inputs.append(vendored)
+        vendor_dir = _vendor_dir(vendored)
+        if vendor_dir:
+            cargo_args = ["--cargo-vendor-dir", vendor_dir]
+    if ctx.file.cargo_lock:
+        extra_inputs.append(depset([ctx.file.cargo_lock]))
+        cargo_args = cargo_args + ["--cargo-lock", ctx.file.cargo_lock.path]
     if cross:
         cc_toolchain = cc_toolchain_raw
         if hasattr(cc_toolchain, "cc_provider_in_toolchain") and hasattr(cc_toolchain, "cc"):
@@ -371,7 +392,7 @@ def _pep517_native_whl(ctx):
         progress_message = "Native source compiling {} to a whl".format(archive.basename),
         executable = tool,
         toolchain = None,
-        arguments = ctx.attr.args + [patch_args] + memory_args(ctx) + config_setting_args(ctx) + cross_args + [
+        arguments = ctx.attr.args + [patch_args] + memory_args(ctx) + config_setting_args(ctx) + cross_args + cargo_args + [
             "--execroot-marker",
             _EXECROOT_MARKER,
             archive.path,
@@ -420,6 +441,16 @@ constraints of the target platform.
                   "`$(EXECROOT)/` so it remains valid after the backend changes into " +
                   "the unpacked source tree. Omit CC/CXX/AR/LD/STRIP to use the " +
                   "configured C++ action tools.",
+        ),
+        "cargo_lock": attr.label(
+            allow_single_file = True,
+            doc = "Cargo.lock placed next to the sdist's Cargo.toml before the build, replacing the sdist's own if any.",
+        ),
+        "vendored_crates": attr.label(
+            allow_files = True,
+            doc = "A cargo vendor directory (one subdirectory per crate, each with its " +
+                  "`.cargo-checksum.json`), as sdist_build materializes it from the sdist's " +
+                  "Cargo.lock. The build runs cargo offline against it.",
         ),
         "_platform_libc": attr.label(
             default = "//uv/private/constraints/platform:platform_libc",

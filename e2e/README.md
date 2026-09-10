@@ -45,11 +45,13 @@ support rests on a single case: setuptools/distutils C extensions
 (`pycross-geohash`, `pycross-psutil`, `pycross-msgpack`, `pycross-setuptools`),
 meson-python (`pycross-meson`, `pycross-numpy`), scikit-build-core/CMake
 (`pycross-cmake`, `pycross-jdk` — the latter also needing a JDK and a
-hermetically vendored Apache Ant) and maturin/PyO3 (`pycross-rust`).
-Every case builds for linux/amd64 and linux/arm64; in-suite verification is
-structural (`Tag:` metadata, ELF arch of every bundled `.so`), and the
-non-Rust cases export a wheel bundle that CI installs and runs on NATIVE
-amd64 and arm64 runners — no emulation in the verdict. The suites are isolated from
+hermetically vendored Apache Ant), maturin/PyO3 (`pycross-rust` on a
+rules_rust toolchain, `pycross-rust-rs` on a rules_rs one, `pycross-rpds_py`)
+and setuptools-rust (`pycross-bcrypt`, `pycross-tiktoken`). Every case builds
+for linux/amd64 and linux/arm64; in-suite verification is structural (`Tag:`
+metadata, ELF arch of every bundled `.so`), and each case exports a wheel
+bundle that CI installs and runs on NATIVE amd64 and arm64 runners — no
+emulation in the verdict. The suites are isolated from
 `e2e/cases` because their hubs need package-specific configuration
 (`default_build_dependencies`, pre-build patches, a larger `resource_set`)
 that would otherwise leak onto unrelated packages sharing the hub. On a macOS

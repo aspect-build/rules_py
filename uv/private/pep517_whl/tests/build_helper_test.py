@@ -8,6 +8,7 @@ guard — before it, importing the module ran the build.
 
 import os
 import sys
+import sysconfig
 import tempfile
 import unittest
 from os import makedirs, path
@@ -216,6 +217,15 @@ class OverrideToolTest(unittest.TestCase):
         self.assertEqual(env["LDSHARED"], "/wrap/cc -shared -pthread")
 
 
+class NeedsCargoCrossEnvTest(unittest.TestCase):
+    def test_cargo_wired_by_the_rule_is_the_signal(self) -> None:
+        self.assertTrue(build_helper._needs_cargo_cross_env({"CARGO": "/tc/bin/cargo", "RUSTC": "/tc/bin/rustc"}))
+
+    def test_no_rust_toolchain_no_cargo_env(self) -> None:
+        self.assertFalse(build_helper._needs_cargo_cross_env({}))
+        self.assertFalse(build_helper._needs_cargo_cross_env({"CARGO": ""}), "an empty CARGO is not a toolchain")
+
+
 class MakeCompilerWrapperTest(unittest.TestCase):
     def test_wrapper_is_executable_and_bakes_the_driver(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -225,6 +235,115 @@ class MakeCompilerWrapperTest(unittest.TestCase):
                 content = f.read()
             self.assertIn("/opt/real-cc", content)
             self.assertIn(build_helper._DEBUG_FLAG, content)
+
+    def _echo_wrapper(self, tmp: str, is_cxx: bool) -> str:
+        echo = path.join(tmp, "echo_cc")
+        with open(echo, "w") as f:
+            f.write('#!/bin/sh\nprintf \'%s\\n\' "$@"\n')
+        os.chmod(echo, 0o755)
+        return build_helper._make_compiler_wrapper(tmp, "c++" if is_cxx else "cc", echo, is_cxx=is_cxx)
+
+    @unittest.skipIf(sys.platform == "darwin", "the native wrapper skips libstdc++ on Darwin by design")
+    def test_native_gnu_cxx_link_gets_static_libstdcxx(self) -> None:
+        static = list(build_helper._STATIC_LIBSTDCXX_FLAGS)
+        with tempfile.TemporaryDirectory() as tmp:
+            cxx = self._echo_wrapper(tmp, is_cxx=True)
+            self.assertEqual(["-shared", "a.o"] + static, _run_wrapper(cxx, ["-shared", "a.o"]))
+            self.assertEqual(["-c", "a.cc"], _run_wrapper(cxx, ["-c", "a.cc"]))
+            self.assertEqual(["-E", "-v", "-"], _run_wrapper(cxx, ["-E", "-v", "-"]), "meson's introspection probe")
+            self.assertEqual(["-shared", "a.o"], _run_wrapper(self._echo_wrapper(tmp, is_cxx=False), ["-shared", "a.o"]))
+
+    @unittest.skipUnless(sys.platform == "darwin", "Darwin keeps libc++ implicit")
+    def test_native_darwin_cxx_link_is_untouched(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            cxx = self._echo_wrapper(tmp, is_cxx=True)
+            self.assertNotIn("-lstdc++", _run_wrapper(cxx, ["-shared", "a.o"]))
+
+
+class MesonBuildDirArgsTest(unittest.TestCase):
+    def test_pins_build_dir_for_mesonpy_only(self) -> None:
+        self.assertEqual(
+            ["-C", "build-dir=/wt/.mesonpy-build"],
+            build_helper._meson_build_dir_args("mesonpy", ["setup-args=-Dblas=none"], "/wt"),
+        )
+        self.assertEqual([], build_helper._meson_build_dir_args("setuptools.build_meta", [], "/wt"))
+        self.assertEqual([], build_helper._meson_build_dir_args(None, [], "/wt"))
+
+    def test_user_build_dir_wins(self) -> None:
+        self.assertEqual([], build_helper._meson_build_dir_args("mesonpy", ["build-dir=build"], "/wt"))
+
+
+class PythonPkgconfigEnvTest(unittest.TestCase):
+    def test_cross_describes_the_target_interpreter(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            env: dict[str, str] = {}
+            build_helper._python_pkgconfig_env(env, tmp, target_include="/sysroot/py/include/python3.13t")
+            pc_dir = env["PKG_CONFIG_LIBDIR"]
+            self.assertEqual(path.join(tmp, ".pkgconfig"), pc_dir)
+            self.assertEqual(sorted(os.listdir(pc_dir)), ["python-3.13.pc", "python3.pc"])
+            with open(path.join(pc_dir, "python3.pc")) as f:
+                pc = f.read()
+            self.assertIn("Version: 3.13\n", pc)
+            self.assertIn("includedir=/sysroot/py/include/python3.13t\n", pc)
+            self.assertIn("prefix=/sysroot/py\n", pc)
+            self.assertIn("Cflags: -I${includedir}\n", pc)
+            self.assertIn("Libs:\n", pc, "extension modules link no libpython")
+
+    def test_native_uses_the_interpreter_pc_dir_when_shipped(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            prefix = path.join(tmp, "py")
+            makedirs(path.join(prefix, "lib", "pkgconfig"))
+            with open(path.join(prefix, "lib", "pkgconfig", "python3.pc"), "w") as f:
+                f.write("prefix=${pcfiledir}/../..\n")
+            env: dict[str, str] = {}
+            build_helper._python_pkgconfig_env(env, tmp, base_prefix=prefix)
+            self.assertEqual(path.join(prefix, "lib", "pkgconfig"), env["PKG_CONFIG_LIBDIR"])
+
+    def test_native_generates_pc_when_the_interpreter_ships_none(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            env: dict[str, str] = {}
+            build_helper._python_pkgconfig_env(env, tmp, base_prefix=path.join(tmp, "no-such-prefix"))
+            self.assertEqual(path.join(tmp, ".pkgconfig"), env["PKG_CONFIG_LIBDIR"])
+            with open(path.join(env["PKG_CONFIG_LIBDIR"], "python3.pc")) as f:
+                pc = f.read()
+            self.assertIn("Version: {}.{}\n".format(*sys.version_info[:2]), pc)
+            self.assertIn("includedir=" + sysconfig.get_paths()["include"] + "\n", pc)
+
+    def test_explicit_pkg_config_libdir_wins(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            env = {"PKG_CONFIG_LIBDIR": "/custom"}
+            build_helper._python_pkgconfig_env(env, tmp, target_include="/t/include/python3.12")
+            self.assertEqual("/custom", env["PKG_CONFIG_LIBDIR"])
+            self.assertFalse(path.exists(path.join(tmp, ".pkgconfig")))
+
+
+class DumpMesonLogTest(unittest.TestCase):
+    def test_prints_tail_of_every_meson_log(self) -> None:
+        import io
+        from contextlib import redirect_stderr
+
+        with tempfile.TemporaryDirectory() as tmp:
+            logs = path.join(tmp, ".mesonpy-abc", "meson-logs")
+            makedirs(logs)
+            with open(path.join(logs, "meson-log.txt"), "w") as f:
+                f.write("".join("line {}\n".format(i) for i in range(200)))
+            err = io.StringIO()
+            with redirect_stderr(err):
+                build_helper._dump_meson_log(tmp, tail=5)
+            out = err.getvalue()
+            self.assertIn(".mesonpy-abc/meson-logs/meson-log.txt (last 5 lines)", out)
+            self.assertIn("line 199\n", out)
+            self.assertNotIn("line 194\n", out)
+
+    def test_silent_without_a_meson_log(self) -> None:
+        import io
+        from contextlib import redirect_stderr
+
+        with tempfile.TemporaryDirectory() as tmp:
+            err = io.StringIO()
+            with redirect_stderr(err):
+                build_helper._dump_meson_log(tmp)
+            self.assertEqual("", err.getvalue())
 
 
 class LegacyMetadataConflictTest(unittest.TestCase):
@@ -443,6 +562,7 @@ class CrossCompilerWrapperTest(unittest.TestCase):
         wrapper_flags: list[str] | None = None,
         static_runtime_archives: list[str] | None = None,
         exe_link_flags: list[str] | None = None,
+        is_cxx: bool = False,
     ) -> str:
         echo = path.join(tmp, "echo_cc")
         with open(echo, "w") as f:
@@ -450,13 +570,39 @@ class CrossCompilerWrapperTest(unittest.TestCase):
         os.chmod(echo, 0o755)
         return build_helper._make_cross_compiler_wrapper(
             tmp,
-            "cc",
+            "c++" if is_cxx else "cc",
             echo,
             wrapper_flags or [],
             is_darwin=is_darwin,
             static_runtime_archives=static_runtime_archives,
             exe_link_flags=exe_link_flags,
+            is_cxx=is_cxx,
         )
+
+    def test_gnu_cxx_link_gets_static_libstdcxx(self) -> None:
+        # gcc_toolchain drives C++ through "gcc": no implicit -lstdc++, so
+        # the wrapper must force the static archive into shared and exe links.
+        static = list(build_helper._STATIC_LIBSTDCXX_FLAGS)
+        with tempfile.TemporaryDirectory() as tmp:
+            cxx = self._wrapper(tmp, is_cxx=True)
+            self.assertEqual(["-shared", "a.o", "-o", "a.so"] + static, _run_wrapper(cxx, ["-shared", "a.o", "-o", "a.so"]))
+            self.assertEqual(["probe.o", "-o", "probe"] + static, _run_wrapper(cxx, ["probe.o", "-o", "probe"]))
+            self.assertEqual(["-c", "a.cc"], _run_wrapper(cxx, ["-c", "a.cc"]), "compiles take no link flags")
+            self.assertEqual(["--version"], _run_wrapper(cxx, ["--version"]), "probes take no link flags")
+            cc = self._wrapper(tmp)
+            self.assertEqual(["-shared", "a.o"], _run_wrapper(cc, ["-shared", "a.o"]), "the C driver never links libstdc++")
+
+    def test_nostdlibcxx_toolchain_uses_its_archives_not_libstdcxx(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            cxx = self._wrapper(tmp, is_cxx=True, static_runtime_archives=["/rt/libc++.a"], exe_link_flags=["-B/tc/bin"])
+            argv = _run_wrapper(cxx, ["-shared", "a.o"])
+            self.assertIn("/rt/libc++.a", argv)
+            self.assertNotIn("-lstdc++", argv)
+
+    def test_darwin_cxx_link_keeps_libcxx_implicit(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            cxx = self._wrapper(tmp, is_cxx=True, is_darwin=True)
+            self.assertNotIn("-lstdc++", _run_wrapper(cxx, ["-bundle", "a.o"]))
 
     def test_identity_flags_are_reinjected(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -756,6 +902,114 @@ class ConfigureCargoCrossEnvTest(unittest.TestCase):
         self.assertTrue(path.islink(path.join(merged, "aarch64-unknown-linux-gnu")))
 
 
+    def test_target_sysroot_from_toolchain_wins_over_rustc_location(self) -> None:
+        # rules_rs-style layout: rustc in one repository, rust-std in another,
+        # both assembled into the toolchain's generated sysroot.
+        tmp = tempfile.mkdtemp()
+        target_rustc = path.join(tmp, "rustc_repo", "bin", "rustc")
+        makedirs(path.dirname(target_rustc))
+        open(target_rustc, "w").close()
+        generated = path.join(tmp, "generated_sysroot")
+        makedirs(path.join(generated, "lib", "rustlib", "aarch64-unknown-linux-gnu"))
+        host_sysroot = path.join(tmp, "host_sysroot")
+        makedirs(path.join(host_sysroot, "lib", "rustlib", "x86_64-unknown-linux-gnu"))
+
+        env = self._env()
+        env["RUSTC"] = target_rustc
+        env["RULES_PY_RUST_SYSROOT"] = generated
+        env["RULES_PY_RUST_HOST_SYSROOT"] = host_sysroot
+        build_helper._configure_cargo_cross_env(env, tmp, "linux", "aarch64", "glibc")
+
+        merged = path.join(tmp, ".rust_sysroot", "lib", "rustlib")
+        self.assertTrue(path.islink(path.join(merged, "aarch64-unknown-linux-gnu")))
+        self.assertTrue(path.islink(path.join(merged, "x86_64-unknown-linux-gnu")))
+
+
+class InjectCargoLockTest(unittest.TestCase):
+    def _tree(self, manifest_rel: str) -> tuple[str, str]:
+        tmp = tempfile.mkdtemp()
+        manifest = path.join(tmp, "worktree", manifest_rel)
+        makedirs(path.dirname(manifest), exist_ok=True)
+        open(manifest, "w").close()
+        lock = path.join(tmp, "user.Cargo.lock")
+        with open(lock, "w") as f:
+            f.write("version = 4\n")
+        return path.join(tmp, "worktree"), lock
+
+    def test_lock_lands_next_to_the_root_manifest(self) -> None:
+        worktree, lock = self._tree("Cargo.toml")
+        dest = build_helper._inject_cargo_lock(worktree, lock)
+        self.assertEqual(path.join(worktree, "Cargo.lock"), dest)
+        with open(dest) as f:
+            self.assertEqual("version = 4\n", f.read())
+
+    def test_nested_manifest_is_found_at_any_depth(self) -> None:
+        # bcrypt keeps its crate under src/_bcrypt/.
+        worktree, lock = self._tree(path.join("src", "_bcrypt", "Cargo.toml"))
+        self.assertEqual(path.join(worktree, "src", "_bcrypt", "Cargo.lock"), build_helper._inject_cargo_lock(worktree, lock))
+
+    def test_shallowest_manifest_wins(self) -> None:
+        worktree, lock = self._tree("Cargo.toml")
+        deeper = path.join(worktree, "vendor", "dep", "Cargo.toml")
+        makedirs(path.dirname(deeper))
+        open(deeper, "w").close()
+        self.assertEqual(path.join(worktree, "Cargo.lock"), build_helper._inject_cargo_lock(worktree, lock))
+
+    def test_no_manifest_no_copy(self) -> None:
+        worktree = tempfile.mkdtemp()
+        self.assertIsNone(build_helper._inject_cargo_lock(worktree, "/nonexistent/Cargo.lock"))
+        self.assertIsNone(build_helper._inject_cargo_lock(worktree, ""))
+
+
+class CargoOfflineTest(unittest.TestCase):
+    def test_vendor_dir_replaces_crates_io_and_forbids_network(self) -> None:
+        tmp = tempfile.mkdtemp()
+        env = {"CARGO": "/tc/bin/cargo", "CARGO_HOME": path.join(tmp, ".cargo_home")}
+        build_helper._configure_cargo_offline(env, "/exec/external/repo/vendor")
+        with open(path.join(tmp, ".cargo_home", "config.toml")) as f:
+            config = f.read()
+        self.assertIn('[source.crates-io]\nreplace-with = "vendored-sources"', config)
+        self.assertIn('[source.vendored-sources]\ndirectory = "/exec/external/repo/vendor"', config)
+        self.assertEqual("true", env["CARGO_NET_OFFLINE"])
+
+    def test_no_cargo_home_means_no_cargo(self) -> None:
+        env = {"RUSTC": "/usr/bin/rustc"}
+        build_helper._configure_cargo_offline(env, "/vendor")
+        self.assertNotIn("CARGO_NET_OFFLINE", env)
+
+    def test_no_vendor_dir_leaves_cargo_online(self) -> None:
+        tmp = tempfile.mkdtemp()
+        env = {"CARGO": "/tc/bin/cargo", "CARGO_HOME": tmp}
+        build_helper._configure_cargo_offline(env, "")
+        self.assertNotIn("CARGO_NET_OFFLINE", env)
+        self.assertFalse(path.exists(path.join(tmp, "config.toml")))
+
+
+class CargoNativeEnvTest(unittest.TestCase):
+    def test_rustc_gets_the_toolchain_sysroot(self) -> None:
+        tmp = tempfile.mkdtemp()
+        env = {"CARGO": "/tc/bin/cargo", "RUSTC": "/tc/bin/rustc", "RULES_PY_RUST_SYSROOT": "/tc/sysroot", "RULES_PY_RUST_HOST_SYSROOT": "/exec/sysroot"}
+        build_helper._configure_cargo_native_env(env, tmp)
+        with open(env["RUSTC"]) as f:
+            content = f.read()
+        self.assertIn('"--sysroot", \'/tc/sysroot\'', content)
+        self.assertIn("/tc/bin/rustc", content)
+        self.assertTrue(os.access(env["RUSTC"], os.X_OK))
+
+    def test_host_sysroot_is_the_fallback(self) -> None:
+        tmp = tempfile.mkdtemp()
+        env = {"CARGO": "/tc/bin/cargo", "RUSTC": "/tc/bin/rustc", "RULES_PY_RUST_HOST_SYSROOT": "/exec/sysroot"}
+        build_helper._configure_cargo_native_env(env, tmp)
+        with open(env["RUSTC"]) as f:
+            self.assertIn("/exec/sysroot", f.read())
+
+    def test_no_rust_toolchain_leaves_rustc_alone(self) -> None:
+        tmp = tempfile.mkdtemp()
+        env = {"RUSTC": "/usr/bin/rustc"}
+        build_helper._configure_cargo_native_env(env, tmp)
+        self.assertEqual("/usr/bin/rustc", env["RUSTC"])
+
+
 class BuildBackendTest(unittest.TestCase):
     def test_declared_backend(self) -> None:
         data = {"build-system": {"build-backend": "mesonpy"}}
@@ -764,6 +1018,7 @@ class BuildBackendTest(unittest.TestCase):
     def test_missing_cases(self) -> None:
         for data in (None, {}, {"build-system": {}}, {"build-system": "bogus"}, {"build-system": {"build-backend": 3}}):
             self.assertIsNone(build_helper._build_backend(data))
+
 
 
 class StaticRuntimeArchivesTest(unittest.TestCase):

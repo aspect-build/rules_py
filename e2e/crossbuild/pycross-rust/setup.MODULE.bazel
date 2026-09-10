@@ -8,10 +8,10 @@ and a rustc wrapper whose sysroot merges the target toolchain's std with
 the exec platform's std (build scripts/proc-macros are always exec
 artifacts).
 
-The override lists the resolved rust toolchain and the exec platform's
-sysroot (//tools:rust_host_sysroot); pep517_native_whl maps their
-CARGO/RUSTC/RUST_HOST_SYSROOT make variables into the helper's env, so no
-`env` entry spells them out.
+`uv.project(rust_toolchain = ...)` is all the Rust wiring: sdist_build
+detects the maturin backend and emits the toolchain plus an exec-configured
+rust_host_sysroot into the generated pep517_native_whl, whose
+CARGO/RUSTC/RUST_HOST_SYSROOT make variables reach the helper's env.
 """
 
 uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
@@ -24,14 +24,7 @@ uv.project(
     hub_name = "pypi_pycross_rust",
     lock = "//pycross-rust:uv.lock",
     pyproject = "//pycross-rust:pyproject.toml",
-)
-uv.override_package(
-    name = "pydantic-core",
-    lock = "//pycross-rust:uv.lock",
-    toolchains = [
-        "@rules_rust//rust/toolchain:current_rust_toolchain",
-        "//tools:rust_host_sysroot",
-    ],
+    rust_toolchain = "@rules_rust//rust/toolchain:current_rust_toolchain",
 )
 use_repo(
     uv,

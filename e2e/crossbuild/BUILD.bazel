@@ -1,0 +1,16 @@
+# Only //tools needs a workspace-level linux platform (exec toolchain
+# resolution test); each case declares its own flag-carrying platforms.
+package(default_visibility = ["//tools:__pkg__"])
+
+platform(
+    name = "arm64_linux",
+    constraint_values = [
+        "@platforms//os:linux",
+        "@platforms//cpu:aarch64",
+    ],
+    flags = [
+        "--@aspect_rules_py//uv/private/constraints/platform:platform_libc=glibc",
+        "--@aspect_rules_py//uv/private/constraints/platform:platform_version=2.39",
+        "--stripopt=--strip-all",
+    ],
+)

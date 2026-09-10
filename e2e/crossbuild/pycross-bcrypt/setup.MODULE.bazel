@@ -1,0 +1,26 @@
+"""bcrypt: setuptools-rust sdist build.
+
+`uv.project(rust_toolchain = ...)` is all the Rust wiring: sdist_build detects
+setuptools-rust in the build requirements and emits the toolchain plus the
+exec-platform sysroot into the generated pep517_native_whl.
+"""
+
+uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv.declare_hub(hub_name = "pypi_pycross_bcrypt")
+uv.project(
+    default_build_dependencies = [
+        "build",
+        "setuptools",
+        "setuptools-rust",
+        "wheel",
+    ],
+    hub_name = "pypi_pycross_bcrypt",
+    lock = "//pycross-bcrypt:uv.lock",
+    pyproject = "//pycross-bcrypt:pyproject.toml",
+    rust_toolchain = "@rules_rust//rust/toolchain:current_rust_toolchain",
+)
+use_repo(
+    uv,
+    "pypi_pycross_bcrypt",
+    "sdist_build__pycross_bcrypt__bcrypt__5_0_0",
+)
