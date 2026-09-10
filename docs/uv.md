@@ -456,6 +456,9 @@ without a `Cargo.lock` builds with network access and a warning; give it one
 with `uv.override_package(cargo_lock = "//:pkg.Cargo.lock")`, generated once
 with `cargo generate-lockfile` on the extracted sdist, and it is vendored and
 placed next to the sdist's `Cargo.toml` before the build.
+maturin is told not to download a Rust toolchain of its own
+(`MATURIN_NO_INSTALL_RUST=1`): a Rust sdist with no toolchain wired fails
+instead of fetching rustc inside the build.
 
 ### Backend config settings
 

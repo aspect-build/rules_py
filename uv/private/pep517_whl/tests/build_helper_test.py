@@ -824,6 +824,18 @@ class InjectCargoLockTest(unittest.TestCase):
         self.assertIsNone(build_helper._inject_cargo_lock(worktree, ""))
 
 
+class ForbidBackendToolchainDownloadsTest(unittest.TestCase):
+    def test_maturin_may_not_download_rust(self) -> None:
+        env: dict[str, str] = {}
+        build_helper._forbid_backend_toolchain_downloads(env)
+        self.assertEqual("1", env["MATURIN_NO_INSTALL_RUST"])
+
+    def test_explicit_package_env_wins(self) -> None:
+        env = {"MATURIN_NO_INSTALL_RUST": "0"}
+        build_helper._forbid_backend_toolchain_downloads(env)
+        self.assertEqual("0", env["MATURIN_NO_INSTALL_RUST"])
+
+
 class CargoOfflineTest(unittest.TestCase):
     def test_vendor_dir_replaces_crates_io_and_forbids_network(self) -> None:
         tmp = tempfile.mkdtemp()
