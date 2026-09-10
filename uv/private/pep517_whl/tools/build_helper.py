@@ -1045,6 +1045,17 @@ def _inject_cargo_lock(worktree: str, lock_path: str) -> str | None:
     return dest
 
 
+def _forbid_backend_toolchain_downloads(build_env: dict[str, str]) -> None:
+    """Backends must use the toolchain they were given, or fail.
+
+    maturin 1.8+ downloads a Rust toolchain (puccinialin) when it finds no
+    cargo: a Rust sdist without a wired toolchain, or one the inference left
+    unwired, would then fetch rustc from the network inside the action and
+    build with it. Set for every build; it is inert for other backends.
+    """
+    build_env.setdefault("MATURIN_NO_INSTALL_RUST", "1")
+
+
 def _configure_cargo_offline(build_env: dict[str, str], vendor_dir: str) -> None:
     """Point cargo at the vendored crates and forbid the network.
 
@@ -1270,6 +1281,7 @@ def main() -> None:
         target_cpu=opts.target_cpu,
     )
 
+    _forbid_backend_toolchain_downloads(build_env)
     _configure_cargo_offline(build_env, opts.cargo_vendor_dir)
     _inject_cargo_lock(t, opts.cargo_lock)
 
