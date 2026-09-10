@@ -611,8 +611,6 @@ alias(
 #     "aspect_rules_py": {
 #         "colorama__0_4_6": {
 #             "": 1,
-#             "os_name == 'nt'": 1,
-#             "sys_platform == 'win32'": 1,
 #         },
 #     },
 # }
@@ -3057,7 +3055,6 @@ alias(
 #     "aspect_rules_py": {
 #         "typing_extensions__4_12_2": {
 #             "": 1,
-#             "python_full_version < '3.11'": 1,
 #         },
 #     },
 # }
@@ -3104,7 +3101,6 @@ alias(
 #     "aspect_rules_py": {
 #         "tzdata__2024_1": {
 #             "": 1,
-#             "sys_platform == 'win32'": 1,
 #         },
 #     },
 # }
@@ -3380,7 +3376,7 @@ alias(
 # {
 #     "aspect_rules_py": {
 #         "zipp__3_23_0": {
-#             "": 1,
+#             "python_full_version < '3.10.2'": 1,
 #         },
 #     },
 # }
@@ -3389,7 +3385,8 @@ alias(
 alias(
     name = "_package_zipp_aspect_rules_py",
     actual = select({
-        "//conditions:default": "//private/sccs:zipp__3_23_0",
+        "//private/markers:marker_1": "//private/sccs:zipp__3_23_0",
+        "//conditions:default": "//private/sccs:empty",
     }),
     visibility = ["//visibility:private"],
 )
@@ -3398,7 +3395,8 @@ alias(
 alias(
     name = "_package_zipp_aspect_rules_py_whl",
     actual = select({
-        "//conditions:default": "@whl_install__aspect_rules_py__zipp__3_23_0//:whl",
+        "//private/markers:marker_1": "@whl_install__aspect_rules_py__zipp__3_23_0//:whl",
+        "//conditions:default": ":empty_whl",
     }),
     visibility = ["//visibility:private"],
 )
