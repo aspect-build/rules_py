@@ -1,0 +1,10 @@
+"""Hub for the relocatable venv archive case (cowsay only)."""
+
+uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv.declare_hub(hub_name = "pypi_venv_pack")
+uv.project(
+    hub_name = "pypi_venv_pack",
+    lock = "//venv-pack:uv.lock",
+    pyproject = "//venv-pack:pyproject.toml",
+)
+use_repo(uv, "pypi_venv_pack")
