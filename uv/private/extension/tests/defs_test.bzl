@@ -1,7 +1,7 @@
 """Unit tests for helpers in defs.bzl"""
 
 load("@bazel_skylib//lib:unittest.bzl", "asserts", "unittest")
-load("//uv/private/extension:defs.bzl", "dedupe_shared_installs", "map_scc_installs", "parse_declared_console_script", "shared_install_key")
+load("//uv/private/extension:defs.bzl", "dedupe_shared_installs", "map_scc_installs", "parse_declared_console_script", "parse_package_toolchains", "project_rust_toolchain", "shared_install_key")
 load("//uv/private/extension:graph_utils.bzl", "collect_build_deps")
 load("//uv/private/extension:lockfile.bzl", "url_basename")
 
@@ -205,6 +205,59 @@ def _map_scc_installs_conditional_union_test_impl(ctx):
 
 map_scc_installs_conditional_union_test = unittest.make(_map_scc_installs_conditional_union_test_impl)
 
+def _tag(lock = None, rust_toolchain = None):
+    return struct(lock = lock, rust_toolchain = rust_toolchain)
+
+_RULES_RUST = "@rules_rust//rust/toolchain:current_rust_toolchain"
+_RULES_RS = "@rules_rust_rs//rust/toolchain:current_rust_toolchain"
+
+def _package_toolchains_scope_test_impl(ctx):
+    env = unittest.begin(ctx)
+    locks = {"//a:uv.lock": True, "//b:uv.lock": True}
+
+    none = parse_package_toolchains([], locks, "m")
+    asserts.equals(env, None, none.error)
+    asserts.equals(env, None, project_rust_toolchain(none, "//a:uv.lock"), "no declaration: no toolchain")
+
+    module_wide = parse_package_toolchains([_tag(rust_toolchain = _RULES_RUST)], locks, "m")
+    asserts.equals(env, None, module_wide.error)
+    asserts.equals(env, _RULES_RUST, project_rust_toolchain(module_wide, "//a:uv.lock"), "a lock-less declaration covers every project")
+    asserts.equals(env, _RULES_RUST, project_rust_toolchain(module_wide, "//b:uv.lock"))
+
+    mixed = parse_package_toolchains(
+        [_tag(rust_toolchain = _RULES_RUST), _tag(lock = "//b:uv.lock", rust_toolchain = _RULES_RS)],
+        locks,
+        "m",
+    )
+    asserts.equals(env, None, mixed.error)
+    asserts.equals(env, _RULES_RUST, project_rust_toolchain(mixed, "//a:uv.lock"), "unscoped projects keep the module-wide toolchain")
+    asserts.equals(env, _RULES_RS, project_rust_toolchain(mixed, "//b:uv.lock"), "a lock-scoped declaration wins for its project")
+
+    scoped_only = parse_package_toolchains([_tag(lock = "//b:uv.lock", rust_toolchain = _RULES_RS)], locks, "m")
+    asserts.equals(env, None, project_rust_toolchain(scoped_only, "//a:uv.lock"), "a lock-scoped declaration leaves other projects alone")
+    return unittest.end(env)
+
+package_toolchains_scope_test = unittest.make(_package_toolchains_scope_test_impl)
+
+def _package_toolchains_errors_test_impl(ctx):
+    env = unittest.begin(ctx)
+    locks = {"//a:uv.lock": True}
+
+    err = parse_package_toolchains([_tag(rust_toolchain = _RULES_RUST), _tag(rust_toolchain = _RULES_RS)], locks, "m").error
+    asserts.true(env, err != None and "more than one module-wide" in err, "two module-wide declarations: got {}".format(err))
+
+    err = parse_package_toolchains([_tag(lock = "//a:uv.lock", rust_toolchain = _RULES_RUST), _tag(lock = "//a:uv.lock", rust_toolchain = _RULES_RS)], locks, "m").error
+    asserts.true(env, err != None and "declared twice" in err, "same lock twice: got {}".format(err))
+
+    err = parse_package_toolchains([_tag(lock = "//nope:uv.lock", rust_toolchain = _RULES_RUST)], locks, "m").error
+    asserts.true(env, err != None and "has no uv.project() for that lock" in err, "unknown lock: got {}".format(err))
+
+    err = parse_package_toolchains([_tag()], locks, "m").error
+    asserts.true(env, err != None and "at least one toolchain" in err, "empty tag: got {}".format(err))
+    return unittest.end(env)
+
+package_toolchains_errors_test = unittest.make(_package_toolchains_errors_test_impl)
+
 def defs_test_suite():
     unittest.suite(
         "url_basename_tests",
@@ -221,6 +274,11 @@ def defs_test_suite():
     unittest.suite(
         "dedupe_shared_installs_tests",
         dedupe_shared_installs_test,
+    )
+    unittest.suite(
+        "package_toolchains_tests",
+        package_toolchains_scope_test,
+        package_toolchains_errors_test,
     )
     unittest.suite(
         "map_scc_installs_tests",

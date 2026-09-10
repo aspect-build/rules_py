@@ -203,6 +203,43 @@ def _parse_hubs(module_ctx):
 
     return hub_specs
 
+def parse_package_toolchains(tags, project_locks, module_name):
+    """Resolve a module's `uv.package_toolchains()` tags into per-lock and module-wide toolchains.
+
+    Args:
+        tags: The module's `package_toolchains` tags (anything with `lock` and
+            `rust_toolchain` fields).
+        project_locks: Lock labels of the module's own `uv.project()` tags.
+        module_name: For error messages.
+
+    Returns:
+        struct(default, by_lock, error): `default` is the module-wide tag or
+        None, `by_lock` maps a lock label to its tag, and `error` is the message
+        to fail with, or None. Two tags with the same scope, an unknown lock and
+        a tag that names no toolchain are errors.
+    """
+    default = None
+    by_lock = {}
+    for tag in tags:
+        if not tag.rust_toolchain:
+            return struct(default = None, by_lock = {}, error = "uv.package_toolchains() in module '{}': set at least one toolchain (rust_toolchain).".format(module_name))
+        if tag.lock == None:
+            if default != None:
+                return struct(default = None, by_lock = {}, error = "uv.package_toolchains() in module '{}': more than one module-wide declaration; scope all but one with `lock`.".format(module_name))
+            default = tag
+        elif tag.lock not in project_locks:
+            return struct(default = None, by_lock = {}, error = "uv.package_toolchains() refers to lock '{}', but module '{}' has no uv.project() for that lock.".format(tag.lock, module_name))
+        elif tag.lock in by_lock:
+            return struct(default = None, by_lock = {}, error = "uv.package_toolchains() in module '{}': lock '{}' is declared twice.".format(module_name, tag.lock))
+        else:
+            by_lock[tag.lock] = tag
+    return struct(default = default, by_lock = by_lock, error = None)
+
+def project_rust_toolchain(package_toolchains, lock):
+    """The Rust toolchain for the project pinned by `lock`: its own declaration, else the module-wide one, else None."""
+    tag = package_toolchains.by_lock.get(lock) or package_toolchains.default
+    return tag.rust_toolchain if tag else None
+
 def _parse_projects(module_ctx, hub_specs):
     """Resolve every `uv.project()` declaration into repository-rule inputs.
 
@@ -285,6 +322,10 @@ def _parse_projects(module_ctx, hub_specs):
                 fail("uv.override_package() for '{}': must specify either `target` for full replacement or at least one modification attribute (console_scripts, pre_build_patches, post_install_patches, exclude_glob, extra_deps, extra_data, toolchains, env, config_settings, cargo_lock, monitor_memory, resource_set).".format(override.name))
 
         unscoped_matches = {i: 0 for i, override in enumerate(mod.tags.override_package) if override.lock == None}
+
+        package_toolchains = parse_package_toolchains(mod.tags.package_toolchains, project_locks, mod.name)
+        if package_toolchains.error:
+            fail(package_toolchains.error)
 
         for project in mod.tags.project:
             project_data = toml.decode_file(module_ctx, project.pyproject)
@@ -612,7 +653,7 @@ def _parse_projects(module_ctx, hub_specs):
                         cargo_lock = cargo_lock,
                         monitor_memory = monitor_memory,
                         resource_set = resource_set,
-                        rust_toolchain = project.rust_toolchain,
+                        rust_toolchain = project_rust_toolchain(package_toolchains, project.lock),
                     )
 
                     has_sbuild = True
@@ -969,13 +1010,6 @@ _project_tag = tag_class(
             mandatory = True,
             doc = "The `uv.lock` pinning this project's dependency graph.",
         ),
-        "rust_toolchain": attr.label(
-            mandatory = False,
-            doc = "A rules_rust `current_rust_toolchain`-style target. When set, every sdist in " +
-                  "this project whose build backend is maturin or setuptools-rust gets it (plus " +
-                  "rules_py's exec-configured sysroot layer) wired into its build automatically, " +
-                  "with no per-package `uv.override_package(toolchains = ...)`.",
-        ),
         "default_build_dependencies": attr.string_list(
             mandatory = False,
             default = [
@@ -1087,6 +1121,30 @@ project locks declared by the same module. Specifying `target` requires `lock`
 and is mutually exclusive with all other modification attributes.""",
 )
 
+_package_toolchains_tag = tag_class(
+    attrs = {
+        "lock": attr.label(
+            mandatory = False,
+            doc = "Scope the declaration to the `uv.project()` pinned by this `uv.lock`. Without it the " +
+                  "declaration applies to every project of the module; a `lock`-scoped one wins over it.",
+        ),
+        "rust_toolchain": attr.label(
+            mandatory = False,
+            doc = "A rules_rust `current_rust_toolchain`-style target: any target exposing rules_rust's " +
+                  "toolchain providers, from rules_rust or rules_rs. Every sdist whose build backend is " +
+                  "maturin or setuptools-rust gets it, plus rules_py's exec-configured sysroot layer, wired " +
+                  "into its build automatically, with no per-package `uv.override_package(toolchains = ...)`.",
+        ),
+    },
+    doc = """Toolchains for the sdists a module's `uv.project()` declarations build from source.
+
+The extension detects which sdists need which toolchain (a maturin backend or
+setuptools-rust for Rust) and wires it into their builds; nothing is named per
+package. One declaration without `lock` covers every project of the module,
+and a `lock`-scoped one overrides it for that project. A tag must set at
+least one toolchain.""",
+)
+
 uv = module_extension(
     implementation = _uv_impl,
     tag_classes = {
@@ -1094,5 +1152,6 @@ uv = module_extension(
         "project": _project_tag,
         "annotate_packages": _annotations_tag,
         "override_package": _override_package_tag,
+        "package_toolchains": _package_toolchains_tag,
     },
 )
