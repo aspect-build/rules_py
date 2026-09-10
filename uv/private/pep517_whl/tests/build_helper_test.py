@@ -681,7 +681,7 @@ class CmakeToolchainFileTest(unittest.TestCase):
         # that is the host's ranlib against the target's archives. The wrapper
         # must route `ar s` (ranlib's POSIX spelling) through our AR.
         content, tmp = self._toolchain("linux", "x86_64")
-        ranlib = path.join(tmp, "cmake_ranlib")
+        ranlib = path.join(tmp, ".aspect_rules_py_compilers", "ranlib")
         self.assertIn('set(CMAKE_RANLIB "{}")'.format(ranlib), content)
         with open(ranlib) as f:
             wrapper = f.read()
@@ -858,6 +858,73 @@ class CargoOfflineTest(unittest.TestCase):
         build_helper._configure_cargo_offline(env, "")
         self.assertNotIn("CARGO_NET_OFFLINE", env)
         self.assertFalse(path.exists(path.join(tmp, "config.toml")))
+
+
+class RustcWrapperTest(unittest.TestCase):
+    """Runs the generated rustc wrapper around an argv-echoing fake rustc."""
+
+    def _fake_rustc(self, tmp: str) -> str:
+        rustc = path.join(tmp, "tc", "bin", "rustc")
+        makedirs(path.dirname(rustc))
+        with open(rustc, "w") as f:
+            f.write('#!/bin/sh\nprintf \'%s\\n\' "$@"\n')
+        os.chmod(rustc, 0o755)
+        return rustc
+
+    def test_paths_are_remapped_and_target_crates_get_one_codegen_unit(self) -> None:
+        tmp = tempfile.mkdtemp()
+        wrapper = build_helper._write_rustc_wrapper(tmp, self._fake_rustc(tmp), "/tc/sysroot", "aarch64-unknown-linux-gnu")
+        argv = _run_wrapper(wrapper, ["--crate-name", "ext", "--target", "aarch64-unknown-linux-gnu"])
+        self.assertEqual(["--sysroot", "/tc/sysroot"], argv[:2])
+        self.assertIn("--remap-path-prefix", argv)
+        remapped = [argv[i + 1] for i, a in enumerate(argv) if a == "--remap-path-prefix"]
+        self.assertIn(path.abspath(tmp) + "/=", remapped, "the sandbox root is remapped away")
+        self.assertIn(os.getcwd() + "=", remapped, "the execroot is remapped away")
+        self.assertIn("codegen-units=1", argv)
+        self.assertEqual(["--crate-name", "ext", "--target", "aarch64-unknown-linux-gnu"], argv[-4:], "cargo's own arguments come last, untouched")
+
+    def test_exec_platform_crates_keep_cargo_codegen(self) -> None:
+        tmp = tempfile.mkdtemp()
+        wrapper = build_helper._write_rustc_wrapper(tmp, self._fake_rustc(tmp), "/tc/sysroot", "aarch64-unknown-linux-gnu")
+        argv = _run_wrapper(wrapper, ["--crate-name", "build_script_build"])
+        self.assertNotIn("codegen-units=1", argv, "build scripts and proc-macros never reach the wheel")
+        self.assertIn("--remap-path-prefix", argv)
+
+    def test_native_build_treats_every_crate_as_target(self) -> None:
+        tmp = tempfile.mkdtemp()
+        wrapper = build_helper._write_rustc_wrapper(tmp, self._fake_rustc(tmp), "/tc/sysroot", None)
+        argv = _run_wrapper(wrapper, ["--crate-name", "ext"])
+        self.assertIn("codegen-units=1", argv)
+
+
+class CcRsEnvTest(unittest.TestCase):
+    def test_cc_rs_finds_the_wired_toolchain_under_both_spellings(self) -> None:
+        tmp = tempfile.mkdtemp()
+        env = {"CC": "/w/cc", "CXX": "/w/c++", "AR": "/w/ar"}
+        build_helper._cc_rs_env(env, tmp, "aarch64-unknown-linux-gnu")
+        for spelling in ("aarch64-unknown-linux-gnu", "aarch64_unknown_linux_gnu"):
+            self.assertEqual("/w/cc", env["CC_" + spelling])
+            self.assertEqual("/w/c++", env["CXX_" + spelling])
+            self.assertEqual("/w/ar", env["AR_" + spelling])
+            ranlib = env["RANLIB_" + spelling]
+            self.assertTrue(os.access(ranlib, os.X_OK))
+            with open(ranlib) as f:
+                self.assertIn('exec "/w/ar" s "$@"', f.read())
+
+    def test_no_ar_no_archiver_vars(self) -> None:
+        env = {"CC": "/w/cc", "CXX": "/w/c++"}
+        build_helper._cc_rs_env(env, tempfile.mkdtemp(), "x86_64-unknown-linux-gnu")
+        self.assertNotIn("AR_x86_64-unknown-linux-gnu", env)
+        self.assertNotIn("RANLIB_x86_64_unknown_linux_gnu", env)
+        self.assertEqual("/w/cc", env["CC_x86_64_unknown_linux_gnu"])
+
+    def test_cross_env_exports_cc_rs_vars(self) -> None:
+        tmp = tempfile.mkdtemp()
+        env = {"CARGO": "/tc/bin/cargo", "RUSTC": "/tc/bin/rustc", "CC": "/w/cc", "CXX": "/w/c++", "AR": "/w/ar"}
+        build_helper._configure_cargo_cross_env(env, tmp, "linux", "x86_64", "musl")
+        self.assertEqual("/w/cc", env["CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER"])
+        self.assertEqual("/w/cc", env["CC_x86_64-unknown-linux-musl"])
+        self.assertEqual("/w/c++", env["CXX_x86_64_unknown_linux_musl"])
 
 
 class CargoNativeEnvTest(unittest.TestCase):
