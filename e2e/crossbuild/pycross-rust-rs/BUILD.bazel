@@ -5,6 +5,7 @@
 
 load("@aspect_rules_py//py:defs.bzl", "py_test")
 load("//tools:collect_wheels.bzl", "collect_wheels")
+load("//tools:wheel_export.bzl", "pycross_wheel_export")
 
 _PY = "3.12"
 
@@ -12,9 +13,9 @@ _DEP_GROUP = "pycross_rust_rs"
 
 py_test(
     name = "test_pydantic_core",
-    srcs = ["test_pydantic_core.py"],
+    srcs = ["test_pydantic_core_rs.py"],
     dep_group = _DEP_GROUP,
-    main = "test_pydantic_core.py",
+    main = "test_pydantic_core_rs.py",
     python_version = _PY,
     deps = ["@pypi_pycross_rust_rs//pydantic_core"],
 )
@@ -59,4 +60,14 @@ collect_wheels(
         ":arm64_linux",
     ],
     wheels = ["@sdist_build__pycross_rust_rs__pydantic_core__2_47_0//:whl"],
+)
+
+# Execution verification: the cross-built wheel is installed and the case's
+# standalone test is run on a native runner of the target architecture.
+pycross_wheel_export(
+    name = "pydantic_core_rs",
+    amd64_platform = ":amd64_linux",
+    arm64_platform = ":arm64_linux",
+    main = "test_pydantic_core_rs.py",
+    wheel = "@sdist_build__pycross_rust_rs__pydantic_core__2_47_0//:whl",
 )
