@@ -84,15 +84,6 @@ use_repo(
 
 register_toolchains("@python_interpreters//:all")
 
-# Rust for PEP 517 builds of Rust sdists (maturin, setuptools-rust): fetched by
-# rules_py like the interpreters and uv, so a Rust package in a lock builds with
-# nothing registered by the consumer. Only pep517_rust_whl resolves it.
-rust_tools = use_extension("//uv:extensions.bzl", "rust_tools")
-rust_tools.toolchain()
-use_repo(rust_tools, "rules_py_rust_toolchains")
-
-register_toolchains("@rules_py_rust_toolchains//:all")
-
 bazel_dep(name = "aspect_tools_telemetry", version = "0.5.2")
 
 tel = use_extension("@aspect_tools_telemetry//:extension.bzl", "telemetry")

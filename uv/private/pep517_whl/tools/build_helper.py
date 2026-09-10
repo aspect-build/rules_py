@@ -216,12 +216,10 @@ def _override_tool(env: dict[str, str], key: str, wrapper: str) -> None:
 
 def _absolutize_tool_paths(env: dict[str, str]) -> None:
     """Resolve toolchain paths before the backend changes cwd."""
-    for key in ("JAVA_HOME", "JAVA", "CARGO", "RUSTC", "RULES_PY_RUST_SYSROOT", "ANT_HOME", "RULES_PY_ANT_BIN_DIR"):
+    for key in ("JAVA_HOME", "JAVA", "CARGO", "RUSTC", "RULES_PY_RUST_SYSROOT", "RULES_PY_RUST_HOST_SYSROOT", "ANT_HOME", "RULES_PY_ANT_BIN_DIR"):
         value = env.get(key)
         if value:
             env[key] = _absolutize_path(value)
-    if env.get("RULES_PY_RUST_TARGET_STD"):
-        env["RULES_PY_RUST_TARGET_STD"] = pathsep.join(_absolutize_path(p) for p in env["RULES_PY_RUST_TARGET_STD"].split(pathsep) if p)
 
     for key in ("AR", "LD", "STRIP"):
         value = env.get(key)
@@ -1036,37 +1034,44 @@ os.execv({rustc!r}, [{rustc!r}, "--sysroot", {sysroot!r}] + sys.argv[1:])
 """
 
 
-def _merge_rust_sysroot(tmpdir: str, host_sysroot: str, target_std_roots: list[str]) -> str:
-    """Overlay the target platforms' rust-std onto the exec platform's sysroot.
+def _merge_rust_sysroot(tmpdir: str, target_rustc: str, host_sysroot: str, target_sysroot: str | None = None) -> str:
+    """Symlink-merge the target toolchain's sysroot with the host's rust-std.
 
-    rules_py's toolchain ships the exec sysroot (rustc, cargo, exec std) and
-    the target std trees separately; cargo needs both in one sysroot: exec
-    std for build scripts and proc-macros, target std for the extension.
-    rustup keeps every target's std side by side in one install; recreate
-    that with symlinks. Exec entries win on collision.
+    A cross rust_toolchain's sysroot has no exec-platform rust-std, but
+    cargo needs one to compile build scripts/proc-macros (always host
+    artifacts regardless of --target). rustup holds every target's std side
+    by side in one install; recreate that by merging the two Bazel-fetched
+    single-target sysroots. The host's rustlib entries win: exec-platform
+    code must resolve against exec-platform std.
+
+    The target sysroot is the toolchain's generated one when known: rulesets
+    such as rules_rs fetch rustc and rust-std into separate repositories, so
+    the directory above rustc holds no std at all.
     """
+    target_sysroot = target_sysroot or path.dirname(path.dirname(target_rustc))
     merged = path.join(tmpdir, ".rust_sysroot")
     if path.exists(merged):
         return merged
     makedirs(merged)
-    for entry in os.listdir(host_sysroot):
+    for entry in os.listdir(target_sysroot):
         if entry != "lib":
-            os.symlink(path.join(host_sysroot, entry), path.join(merged, entry))
+            os.symlink(path.join(target_sysroot, entry), path.join(merged, entry))
     merged_lib = path.join(merged, "lib")
     makedirs(merged_lib)
-    for entry in os.listdir(path.join(host_sysroot, "lib")):
+    for entry in os.listdir(path.join(target_sysroot, "lib")):
         if entry != "rustlib":
-            os.symlink(path.join(host_sysroot, "lib", entry), path.join(merged_lib, entry))
+            os.symlink(path.join(target_sysroot, "lib", entry), path.join(merged_lib, entry))
     merged_rustlib = path.join(merged_lib, "rustlib")
     makedirs(merged_rustlib)
-    for root in [host_sysroot] + list(target_std_roots):
-        rustlib = path.join(root, "lib", "rustlib")
-        if not path.isdir(rustlib):
-            continue
-        for entry in os.listdir(rustlib):
-            dest = path.join(merged_rustlib, entry)
-            if not path.lexists(dest):
-                os.symlink(path.join(rustlib, entry), dest)
+    host_rustlib = path.join(host_sysroot, "lib", "rustlib")
+    target_rustlib = path.join(target_sysroot, "lib", "rustlib")
+    overridden = set()
+    for entry in os.listdir(host_rustlib):
+        os.symlink(path.join(host_rustlib, entry), path.join(merged_rustlib, entry))
+        overridden.add(entry)
+    for entry in os.listdir(target_rustlib):
+        if entry not in overridden:
+            os.symlink(path.join(target_rustlib, entry), path.join(merged_rustlib, entry))
     return merged
 
 
@@ -1105,10 +1110,9 @@ def _configure_cargo_cross_env(build_env: dict[str, str], tmpdir: str, target_os
     # version. Unused (harmless) for non-PyO3 crates.
     build_env["PYO3_CROSS_PYTHON_VERSION"] = "{}.{}".format(sys.version_info.major, sys.version_info.minor)
 
-    sysroot = build_env.get("RULES_PY_RUST_SYSROOT")
-    if sysroot:
-        target_std = [p for p in build_env.get("RULES_PY_RUST_TARGET_STD", "").split(pathsep) if p]
-        merged_sysroot = _merge_rust_sysroot(tmpdir, sysroot, target_std)
+    host_sysroot = build_env.get("RULES_PY_RUST_HOST_SYSROOT")
+    if host_sysroot:
+        merged_sysroot = _merge_rust_sysroot(tmpdir, build_env["RUSTC"], host_sysroot, build_env.get("RULES_PY_RUST_SYSROOT"))
         build_env["RUSTC"] = _write_generated_file(
             path.join(tmpdir, ".aspect_rules_py_rustc", "rustc"),
             _RUSTC_WRAPPER.format(rustc=build_env["RUSTC"], sysroot=merged_sysroot),
@@ -1165,11 +1169,13 @@ def _configure_cargo_offline(build_env: dict[str, str], vendor_dir: str) -> None
 def _configure_cargo_native_env(build_env: dict[str, str], tmpdir: str) -> None:
     """Point rustc at the toolchain's sysroot for a native build.
 
-    rules_py's toolchain publishes the exec platform's complete sysroot
-    (RULES_PY_RUST_SYSROOT); pass it explicitly rather than trusting rustc to
-    infer it from its own location.
+    Bare rustc infers its sysroot from its own location, which only works
+    when rust-std was unpacked next to it. rules_rust's toolchain always
+    publishes the sysroot it assembled (RUST_SYSROOT), so pass that
+    explicitly; the exec-configured layer's sysroot is the same toolchain in
+    native mode and serves as the fallback.
     """
-    sysroot = build_env.get("RULES_PY_RUST_SYSROOT")
+    sysroot = build_env.get("RULES_PY_RUST_SYSROOT") or build_env.get("RULES_PY_RUST_HOST_SYSROOT")
     if not (build_env.get("CARGO") and sysroot):
         return
     build_env["RUSTC"] = _write_generated_file(
