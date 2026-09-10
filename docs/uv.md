@@ -400,14 +400,25 @@ Rust build path reads; `$(ANT_HOME)` and `$(ANT_BIN_DIR)` likewise. Any other ma
 toolchain exports still needs an explicit `env` entry (`"FOO": "$(FOO)"`),
 and an explicit entry always wins over the derived value.
 
-Rust needs one more step. Every sdist runs its build logic on the exec
-platform, but in a cross build cargo also *compiles* code for the exec platform
-and runs it there: `build.rs` scripts and proc-macro crates. Those need the
-exec platform's Rust standard library in the sysroot, and a toolchain resolved
-for the target platform ships only the target's. rules_py cannot resolve a
-Rust toolchain on its own without making rules_rust a dependency of every
-consumer, so point it at the one your project already registers, once per
-project; rules_py adds an exec-configured sysroot layer next to it:
+Rust sdists (maturin, setuptools-rust) build with the Rust toolchain your
+project registers. Fetching rustc and cargo is the Rust rulesets' job, and
+rules_py depends on neither of them, so point it at the toolchain once per
+project and every Rust sdist in that project is wired to it. Either ruleset
+works:
+
+- [rules_rust](https://github.com/bazelbuild/rules_rust):
+  `rust_toolchain = "@rules_rust//rust/toolchain:current_rust_toolchain"`
+- [rules_rs](https://github.com/hermeticbuild/rules_rs): its toolchains are
+  rules_rust `rust_toolchain` instances declared in the patched `rules_rust`
+  repository it fetches, so expose that repository and point at its
+  `current_rust_toolchain`:
+
+  ```starlark
+  rules_rust_rs = use_extension("@rules_rs//rs:rules_rust.bzl", "rules_rust")
+  use_repo(rules_rust_rs, rules_rust_rs = "rules_rust")
+  ```
+
+  then `rust_toolchain = "@rules_rust_rs//rust/toolchain:current_rust_toolchain"`.
 
 ```starlark
 uv.project(
@@ -420,10 +431,15 @@ uv.project(
 
 Every sdist in that project whose build backend is maturin, or whose build
 requirements include setuptools-rust, then gets the toolchain and an
-exec-configured `rust_host_sysroot` layer wired into its build. No
-`uv.override_package` entry is needed for Rust packages, and a Rust sdist in a
-project that declares no `rust_toolchain` fails while the repository is
-generated, naming the attribute to set. The crates the
+exec-configured `rust_host_sysroot` layer wired into its build. In a cross
+build cargo also *compiles* code for the exec platform and runs it there
+(`build.rs` scripts, proc-macro crates); that layer supplies the exec
+platform's standard library next to the target's, the way rustup keeps
+several targets in one install. No `uv.override_package` entry is needed for
+Rust packages, and a Rust sdist in a project that declares no
+`rust_toolchain` fails while the repository is generated, naming the
+attribute to set; only declared Rust builds are demanding, an sdist that
+merely ships `.rs` files (zstandard's optional extension) builds as before. The crates the
 sdist's `Cargo.lock` pins on crates.io are fetched with their checksums while
 the repository is generated and vendored into it; cargo then builds offline,
 so the build needs no network and works under remote execution. A lock that
@@ -431,10 +447,7 @@ pins crates outside crates.io (git or path sources) is rejected. An sdist
 without a `Cargo.lock` builds with network access and a warning; give it one
 with `uv.override_package(cargo_lock = "//:pkg.Cargo.lock")`, generated once
 with `cargo generate-lockfile` on the extracted sdist, and it is vendored and
-placed next to the sdist's `Cargo.toml` before the build. Any target exposing
-rules_rust's toolchain providers works, so the same label serves
-[rules_rs](https://github.com/hermeticbuild/rules_rs) toolchains, which are
-declared with rules_rust's `rust_toolchain` rule.
+placed next to the sdist's `Cargo.toml` before the build.
 
 ### Backend config settings
 
