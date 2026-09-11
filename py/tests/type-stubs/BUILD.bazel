@@ -1,0 +1,138 @@
+load("//py:defs.bzl", "py_binary", "py_library", "py_test", "py_venv")
+load(
+    ":type_stubs_test.bzl",
+    "first_party_stubs_test",
+    "launcher_stubs_test",
+    "merged_stubs_test",
+    "rules_python_provider_stubs_test",
+    "rules_python_pyi_fixture",
+    "venv_stubs_test",
+)
+
+package(default_testonly = True)
+
+# A first-party library shipping its own stub next to the module.
+py_library(
+    name = "annotated",
+    srcs = [
+        "annotated.py",
+        "annotated.pyi",
+    ],
+    imports = ["."],
+)
+
+first_party_stubs_test(
+    name = "first_party_stubs_test",
+    target_under_test = ":annotated",
+)
+
+# Stubs that only exist in @rules_python's PyInfo (the py_proto_library shape).
+rules_python_pyi_fixture(
+    name = "foreign_stubs",
+    srcs = ["foreign.pyi"],
+)
+
+py_library(
+    name = "middle",
+    deps = [":foreign_stubs"],
+)
+
+# Both origins merge one level further up.
+py_library(
+    name = "consumer",
+    deps = [
+        ":annotated",
+        ":middle",
+    ],
+)
+
+merged_stubs_test(
+    name = "merged_stubs_test",
+    target_under_test = ":consumer",
+)
+
+# Stubs reached only through a virtual dependency's resolution.
+py_library(
+    name = "stubby_impl",
+    srcs = [
+        "stubby.py",
+        "stubby.pyi",
+    ],
+    imports = ["."],
+)
+
+py_library(
+    name = "needs_stubby",
+    virtual_deps = ["stubby"],
+)
+
+py_binary(
+    name = "bin",
+    srcs = ["main.py"],
+    main = "main.py",
+    resolutions = {"stubby": ":stubby_impl"},
+    deps = [
+        ":consumer",
+        ":needs_stubby",
+    ],
+)
+
+launcher_stubs_test(
+    name = "launcher_stubs_test",
+    target_under_test = ":bin",
+)
+
+py_venv(
+    name = "venv",
+    srcs = ["main.py"],
+    resolutions = {"stubby": ":stubby_impl"},
+    deps = [
+        ":consumer",
+        ":needs_stubby",
+    ],
+)
+
+venv_stubs_test(
+    name = "venv_stubs_test",
+    target_under_test = ":venv",
+)
+
+rules_python_provider_stubs_test(
+    name = "rules_python_provider_library_test",
+    expected_direct = ["annotated.pyi"],
+    expected_transitive = ["annotated.pyi"],
+    target_under_test = ":annotated",
+)
+
+rules_python_provider_stubs_test(
+    name = "rules_python_provider_consumer_test",
+    expected_direct = [],
+    expected_transitive = [
+        "annotated.pyi",
+        "foreign.pyi",
+    ],
+    target_under_test = ":consumer",
+)
+
+rules_python_provider_stubs_test(
+    name = "rules_python_provider_launcher_test",
+    expected_direct = [],
+    expected_transitive = [
+        "annotated.pyi",
+        "foreign.pyi",
+        "stubby.pyi",
+    ],
+    target_under_test = ":bin",
+)
+
+# Execution-time check: the stubs land in runfiles beside their modules.
+py_test(
+    name = "stubs_in_runfiles_test",
+    srcs = ["main.py"],
+    main = "main.py",
+    resolutions = {"stubby": ":stubby_impl"},
+    deps = [
+        ":consumer",
+        ":needs_stubby",
+    ],
+)

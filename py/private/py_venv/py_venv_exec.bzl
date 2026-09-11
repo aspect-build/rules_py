@@ -10,7 +10,7 @@ load("@bazel_lib//lib:expand_make_vars.bzl", "expand_locations", "expand_variabl
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load("@hermetic_launcher//launcher:lib.bzl", "launcher")
 load("//py/private:py_info.bzl", "PyInfo")
-load("//py/private:py_info_interop.bzl", "RulesPythonPyInfo", "get_py_info", "has_py_info")
+load("//py/private:py_info_interop.bzl", "RulesPythonPyInfo", "get_py_info", "get_transitive_pyi_files", "has_py_info")
 load("//py/private:py_semantics.bzl", _py_semantics = "semantics")
 load("//py/private:transitions.bzl", "reset_python_flags_transition", "venv_python_transition")
 load(":types.bzl", "VirtualenvInfo", "venv_root")
@@ -122,6 +122,9 @@ def _py_venv_exec_impl(ctx):
         get_py_info(target).transitive_sources
         for target in ctx.attr.data
         if has_py_info(target)
+    ] + [
+        get_transitive_pyi_files(target)
+        for target in ctx.attr.data
     ]
 
     # First-party import sources attach explicitly; everything else the venv
@@ -130,7 +133,7 @@ def _py_venv_exec_impl(ctx):
     # re-deriving the rest.
     runfiles = ctx.runfiles(
         files = ctx.files.data + [main],
-        transitive_files = depset(transitive = [vinfo.transitive_sources] + data_sources),
+        transitive_files = depset(transitive = [vinfo.transitive_sources, vinfo.transitive_pyi_files] + data_sources),
     ).merge(vinfo.runtime_runfiles).merge_all(
         [target[DefaultInfo].default_runfiles for target in ctx.attr.data],
     )
@@ -157,6 +160,7 @@ def _py_venv_exec_impl(ctx):
             # launcher will run with. `srcs` / `deps` live on the
             # sibling venv, not on this rule.
             imports = vinfo.imports,
+            transitive_pyi_files = vinfo.transitive_pyi_files,
             transitive_sources = vinfo.transitive_sources,
             virtual_dependencies = depset(),
             virtual_resolutions = depset(),
@@ -171,6 +175,7 @@ def _py_venv_exec_impl(ctx):
     if ctx.attr._emit_rules_python_providers[BuildSettingInfo].value:
         providers.append(RulesPythonPyInfo(
             imports = vinfo.imports,
+            transitive_pyi_files = vinfo.transitive_pyi_files,
             transitive_sources = vinfo.transitive_sources,
         ))
 
