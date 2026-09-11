@@ -1,7 +1,8 @@
 """Unit tests for helpers in defs.bzl"""
 
 load("@bazel_skylib//lib:unittest.bzl", "asserts", "unittest")
-load("//uv/private/extension:defs.bzl", "dedupe_shared_installs", "map_scc_installs", "parse_declared_console_script", "parse_package_toolchains", "project_rust_toolchain", "shared_install_key")
+load("//uv/private:normalize_name.bzl", "normalize_name")
+load("//uv/private/extension:defs.bzl", "check_package_toolchains_matched", "dedupe_shared_installs", "map_scc_installs", "parse_declared_console_script", "parse_package_toolchains", "resolve_package_toolchains", "shared_install_key")
 load("//uv/private/extension:graph_utils.bzl", "collect_build_deps")
 load("//uv/private/extension:lockfile.bzl", "url_basename")
 
@@ -205,55 +206,77 @@ def _map_scc_installs_conditional_union_test_impl(ctx):
 
 map_scc_installs_conditional_union_test = unittest.make(_map_scc_installs_conditional_union_test_impl)
 
-def _tag(lock = None, rust_toolchain = None):
-    return struct(lock = lock, rust_toolchain = rust_toolchain)
+def _tag(lock = None, name = None, rust_toolchain = None, toolchains = []):
+    return struct(lock = lock, name = name, rust_toolchain = rust_toolchain, toolchains = toolchains)
 
 _RULES_RUST = "@rules_rust//rust/toolchain:current_rust_toolchain"
 _RULES_RS = "@rules_rust_rs//rust/toolchain:current_rust_toolchain"
+_NIGHTLY = "//tools:nightly_rust"
+_JDK = "@bazel_tools//tools/jdk:current_java_runtime"
+_ANT = "//tools:ant_home"
+_LOCKS = {"//a:uv.lock": True, "//b:uv.lock": True}
+
+def _resolve(tags, lock, name):
+    parsed = parse_package_toolchains(tags, _LOCKS, "m")
+    return parsed, resolve_package_toolchains(parsed, lock, name, tags)
 
 def _package_toolchains_scope_test_impl(ctx):
     env = unittest.begin(ctx)
-    locks = {"//a:uv.lock": True, "//b:uv.lock": True}
 
-    none = parse_package_toolchains([], locks, "m")
-    asserts.equals(env, None, none.error)
-    asserts.equals(env, None, project_rust_toolchain(none, "//a:uv.lock"), "no declaration: no toolchain")
+    _, none = _resolve([], "//a:uv.lock", "pkg")
+    asserts.equals(env, None, none.rust_toolchain, "no declaration: no toolchain")
+    asserts.equals(env, [], none.toolchains)
 
-    module_wide = parse_package_toolchains([_tag(rust_toolchain = _RULES_RUST)], locks, "m")
-    asserts.equals(env, None, module_wide.error)
-    asserts.equals(env, _RULES_RUST, project_rust_toolchain(module_wide, "//a:uv.lock"), "a lock-less declaration covers every project")
-    asserts.equals(env, _RULES_RUST, project_rust_toolchain(module_wide, "//b:uv.lock"))
+    _, module_wide = _resolve([_tag(rust_toolchain = _RULES_RUST, toolchains = [_JDK])], "//b:uv.lock", "pkg")
+    asserts.equals(env, _RULES_RUST, module_wide.rust_toolchain, "a lock-less, name-less declaration covers every package of every project")
+    asserts.equals(env, [_JDK], module_wide.toolchains)
 
-    mixed = parse_package_toolchains(
-        [_tag(rust_toolchain = _RULES_RUST), _tag(lock = "//b:uv.lock", rust_toolchain = _RULES_RS)],
-        locks,
-        "m",
-    )
-    asserts.equals(env, None, mixed.error)
-    asserts.equals(env, _RULES_RUST, project_rust_toolchain(mixed, "//a:uv.lock"), "unscoped projects keep the module-wide toolchain")
-    asserts.equals(env, _RULES_RS, project_rust_toolchain(mixed, "//b:uv.lock"), "a lock-scoped declaration wins for its project")
-
-    scoped_only = parse_package_toolchains([_tag(lock = "//b:uv.lock", rust_toolchain = _RULES_RS)], locks, "m")
-    asserts.equals(env, None, project_rust_toolchain(scoped_only, "//a:uv.lock"), "a lock-scoped declaration leaves other projects alone")
+    tags = [
+        _tag(rust_toolchain = _RULES_RUST, toolchains = [_JDK]),
+        _tag(lock = "//b:uv.lock", rust_toolchain = _RULES_RS),
+        _tag(name = "Pydantic_Core", rust_toolchain = _NIGHTLY),
+        _tag(lock = "//b:uv.lock", name = "jpype1", toolchains = [_ANT]),
+    ]
+    _, a_pkg = _resolve(tags, "//a:uv.lock", "pkg")
+    asserts.equals(env, _RULES_RUST, a_pkg.rust_toolchain, "unscoped projects keep the module-wide toolchain")
+    _, b_pkg = _resolve(tags, "//b:uv.lock", "pkg")
+    asserts.equals(env, _RULES_RS, b_pkg.rust_toolchain, "a lock-scoped declaration wins over the module-wide one for its project")
+    asserts.equals(env, [_JDK], b_pkg.toolchains, "attributes resolve independently: the lock declaration sets no toolchains, so the module-wide list applies")
+    _, b_pydantic = _resolve(tags, "//b:uv.lock", normalize_name("pydantic-core"))
+    asserts.equals(env, _NIGHTLY, b_pydantic.rust_toolchain, "a package declaration (normalized name) wins over the lock one, in every lock")
+    _, b_jpype = _resolve(tags, "//b:uv.lock", "jpype1")
+    asserts.equals(env, [_ANT], b_jpype.toolchains, "a package-in-lock declaration is the most specific")
+    asserts.equals(env, _RULES_RS, b_jpype.rust_toolchain, "and leaves the other attribute to the next scope")
+    _, a_jpype = _resolve(tags, "//a:uv.lock", "jpype1")
+    asserts.equals(env, [_JDK], a_jpype.toolchains, "a package-in-lock declaration does not reach the same package in another lock")
     return unittest.end(env)
 
 package_toolchains_scope_test = unittest.make(_package_toolchains_scope_test_impl)
 
 def _package_toolchains_errors_test_impl(ctx):
     env = unittest.begin(ctx)
-    locks = {"//a:uv.lock": True}
 
-    err = parse_package_toolchains([_tag(rust_toolchain = _RULES_RUST), _tag(rust_toolchain = _RULES_RS)], locks, "m").error
+    def error(tags):
+        return parse_package_toolchains(tags, _LOCKS, "m").error
+
+    err = error([_tag(rust_toolchain = _RULES_RUST), _tag(toolchains = [_JDK])])
     asserts.true(env, err != None and "more than one module-wide" in err, "two module-wide declarations: got {}".format(err))
-
-    err = parse_package_toolchains([_tag(lock = "//a:uv.lock", rust_toolchain = _RULES_RUST), _tag(lock = "//a:uv.lock", rust_toolchain = _RULES_RS)], locks, "m").error
+    err = error([_tag(lock = "//a:uv.lock", rust_toolchain = _RULES_RUST), _tag(lock = "//a:uv.lock", rust_toolchain = _RULES_RS)])
     asserts.true(env, err != None and "declared twice" in err, "same lock twice: got {}".format(err))
-
-    err = parse_package_toolchains([_tag(lock = "//nope:uv.lock", rust_toolchain = _RULES_RUST)], locks, "m").error
+    err = error([_tag(name = "x", rust_toolchain = _RULES_RUST), _tag(name = "X", toolchains = [_JDK])])
+    asserts.true(env, err != None and "package 'X' is declared twice" in err, "same package twice (normalized): got {}".format(err))
+    asserts.equals(env, None, error([_tag(name = "x", rust_toolchain = _RULES_RUST), _tag(lock = "//a:uv.lock", name = "x", toolchains = [_JDK])]), "the same package everywhere and in one lock are two scopes")
+    err = error([_tag(lock = "//nope:uv.lock", rust_toolchain = _RULES_RUST)])
     asserts.true(env, err != None and "has no uv.project() for that lock" in err, "unknown lock: got {}".format(err))
+    err = error([_tag()])
+    asserts.true(env, err != None and "at least one of" in err, "empty tag: got {}".format(err))
 
-    err = parse_package_toolchains([_tag()], locks, "m").error
-    asserts.true(env, err != None and "at least one toolchain" in err, "empty tag: got {}".format(err))
+    tags = [_tag(name = "ghost", rust_toolchain = _RULES_RUST), _tag(name = "pkg", toolchains = [_JDK])]
+    parsed, _ = _resolve(tags, "//a:uv.lock", "pkg")
+    err = check_package_toolchains_matched(parsed, tags, "m")
+    asserts.true(env, err != None and "'ghost' matches no package" in err, "a name that never applied: got {}".format(err))
+    resolve_package_toolchains(parsed, "//b:uv.lock", "ghost", tags)
+    asserts.equals(env, None, check_package_toolchains_matched(parsed, tags, "m"), "once every name applied somewhere, nothing to report")
     return unittest.end(env)
 
 package_toolchains_errors_test = unittest.make(_package_toolchains_errors_test_impl)

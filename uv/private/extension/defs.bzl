@@ -204,41 +204,102 @@ def _parse_hubs(module_ctx):
     return hub_specs
 
 def parse_package_toolchains(tags, project_locks, module_name):
-    """Resolve a module's `uv.package_toolchains()` tags into per-lock and module-wide toolchains.
+    """Index a module's `uv.package_toolchains()` tags by scope.
 
     Args:
-        tags: The module's `package_toolchains` tags (anything with `lock` and
-            `rust_toolchain` fields).
+        tags: The module's `package_toolchains` tags (anything with `lock`,
+            `name`, `rust_toolchain` and `toolchains` fields).
         project_locks: Lock labels of the module's own `uv.project()` tags.
         module_name: For error messages.
 
     Returns:
-        struct(default, by_lock, error): `default` is the module-wide tag or
-        None, `by_lock` maps a lock label to its tag, and `error` is the message
-        to fail with, or None. Two tags with the same scope, an unknown lock and
-        a tag that names no toolchain are errors.
+        struct(default, by_lock, by_package, hits, error): `default` is the
+        module-wide tag or None; `by_lock` maps a lock label to its tag;
+        `by_package` maps (lock or None, normalized package name) to its tag;
+        `hits` counts, per index of a `name`-scoped tag, the packages it
+        applied to (see check_package_toolchains_matched); `error` is the
+        message to fail with, or None. Two tags with the same scope, an
+        unknown lock and a tag that names no toolchain are errors.
     """
     default = None
     by_lock = {}
-    for tag in tags:
-        if not tag.rust_toolchain:
-            return struct(default = None, by_lock = {}, error = "uv.package_toolchains() in module '{}': set at least one toolchain (rust_toolchain).".format(module_name))
-        if tag.lock == None:
-            if default != None:
-                return struct(default = None, by_lock = {}, error = "uv.package_toolchains() in module '{}': more than one module-wide declaration; scope all but one with `lock`.".format(module_name))
-            default = tag
-        elif tag.lock not in project_locks:
-            return struct(default = None, by_lock = {}, error = "uv.package_toolchains() refers to lock '{}', but module '{}' has no uv.project() for that lock.".format(tag.lock, module_name))
-        elif tag.lock in by_lock:
-            return struct(default = None, by_lock = {}, error = "uv.package_toolchains() in module '{}': lock '{}' is declared twice.".format(module_name, tag.lock))
-        else:
+    by_package = {}
+    hits = {}
+    err = None
+    for i, tag in enumerate(tags):
+        if not tag.rust_toolchain and not tag.toolchains:
+            err = "uv.package_toolchains() in module '{}': set at least one of `rust_toolchain` or `toolchains`.".format(module_name)
+        elif tag.lock != None and tag.lock not in project_locks:
+            err = "uv.package_toolchains() refers to lock '{}', but module '{}' has no uv.project() for that lock.".format(tag.lock, module_name)
+        elif tag.name:
+            key = (tag.lock, normalize_name(tag.name))
+            if key in by_package:
+                err = "uv.package_toolchains() in module '{}': package '{}' is declared twice for {}.".format(module_name, tag.name, "lock '{}'".format(tag.lock) if tag.lock != None else "every lock")
+            by_package[key] = tag
+            hits[i] = 0
+        elif tag.lock != None:
+            if tag.lock in by_lock:
+                err = "uv.package_toolchains() in module '{}': lock '{}' is declared twice.".format(module_name, tag.lock)
             by_lock[tag.lock] = tag
-    return struct(default = default, by_lock = by_lock, error = None)
+        else:
+            if default != None:
+                err = "uv.package_toolchains() in module '{}': more than one module-wide declaration; scope all but one with `lock` or `name`.".format(module_name)
+            default = tag
+        if err:
+            return struct(default = None, by_lock = {}, by_package = {}, hits = {}, error = err)
+    return struct(default = default, by_lock = by_lock, by_package = by_package, hits = hits, error = None)
 
-def project_rust_toolchain(package_toolchains, lock):
-    """The Rust toolchain for the project pinned by `lock`: its own declaration, else the module-wide one, else None."""
-    tag = package_toolchains.by_lock.get(lock) or package_toolchains.default
-    return tag.rust_toolchain if tag else None
+def resolve_package_toolchains(package_toolchains, lock, name, tags = None):
+    """The toolchains for one sdist: each attribute from the most specific declaration that sets it.
+
+    Precedence: the package within its lock, the package in every lock, the
+    lock, the module. `rust_toolchain` and `toolchains` resolve independently,
+    so a package-level Rust toolchain does not discard a module-wide JDK.
+
+    Args:
+        package_toolchains: As returned by parse_package_toolchains.
+        lock: The project's lock label.
+        name: The package's normalized name.
+        tags: The module's tags, to count which `name`-scoped ones applied.
+
+    Returns:
+        struct(rust_toolchain, toolchains): a label or None, and a list of
+        label strings.
+    """
+    candidates = [
+        package_toolchains.by_package.get((lock, name)),
+        package_toolchains.by_package.get((None, name)),
+        package_toolchains.by_lock.get(lock),
+        package_toolchains.default,
+    ]
+    candidates = [c for c in candidates if c != None]
+    if tags != None:
+        for i, tag in enumerate(tags):
+            if tag.name and tag in candidates:
+                package_toolchains.hits[i] += 1
+    rust_toolchain = None
+    toolchains = []
+    for c in candidates:
+        if c.rust_toolchain:
+            rust_toolchain = c.rust_toolchain
+            break
+    for c in candidates:
+        if c.toolchains:
+            toolchains = [str(t) for t in c.toolchains]
+            break
+    return struct(rust_toolchain = rust_toolchain, toolchains = toolchains)
+
+def check_package_toolchains_matched(package_toolchains, tags, module_name):
+    """The error for a `name`-scoped declaration that applied to no package, or None."""
+    for i, count in package_toolchains.hits.items():
+        if not count:
+            tag = tags[i]
+            return "uv.package_toolchains() for '{}' matches no package building from source in {} of module '{}'.".format(
+                tag.name,
+                "lock '{}'".format(tag.lock) if tag.lock != None else "any uv.project() lock",
+                module_name,
+            )
+    return None
 
 def _parse_projects(module_ctx, hub_specs):
     """Resolve every `uv.project()` declaration into repository-rule inputs.
@@ -638,6 +699,9 @@ def _parse_projects(module_ctx, hub_specs):
                         monitor_memory = pkg_override.monitor_memory
                         resource_set = pkg_override.resource_set
 
+                    pkg_toolchains = resolve_package_toolchains(package_toolchains, project.lock, normalize_name(package["name"]), mod.tags.package_toolchains)
+                    extra_toolchains = extra_toolchains + [t for t in pkg_toolchains.toolchains if t not in extra_toolchains]
+
                     sbuild_specs[sbuild_id] = struct(
                         src = sdist,
                         deps = ["@{0}//:{1}".format(*it) for it in build_deps],
@@ -653,7 +717,7 @@ def _parse_projects(module_ctx, hub_specs):
                         cargo_lock = cargo_lock,
                         monitor_memory = monitor_memory,
                         resource_set = resource_set,
-                        rust_toolchain = project_rust_toolchain(package_toolchains, project.lock),
+                        rust_toolchain = pkg_toolchains.rust_toolchain,
                     )
 
                     has_sbuild = True
@@ -767,6 +831,10 @@ def _parse_projects(module_ctx, hub_specs):
             for package, cfgs in version_activations.items():
                 for cfg in cfgs.keys():
                     hub_cfg.packages.setdefault(package, {})[cfg] = "@{}//:{}".format(project_id, package)
+
+        unmatched = check_package_toolchains_matched(package_toolchains, mod.tags.package_toolchains, mod.name)
+        if unmatched:
+            fail(unmatched)
 
         for i, override in enumerate(mod.tags.override_package):
             if override.lock == None and not unscoped_matches[i]:
@@ -1068,7 +1136,7 @@ _override_package_tag = tag_class(
         ),
         "toolchains": attr.label_list(
             default = [],
-            doc = "Extra toolchain targets forwarded to the generated pep517_native_whl(...) call's `toolchains` list. Each target's TemplateVariableInfo make-variables become available for $(VAR) expansion in `env`; the well-known ones (CARGO, RUSTC, RUST_SYSROOT, RUST_HOST_SYSROOT, JAVA, JAVABASE, ANT_HOME, ANT_BIN_DIR) reach the build environment automatically.",
+            doc = "Extra toolchain targets forwarded to the generated pep517_native_whl(...) call's `toolchains` list; `uv.package_toolchains(toolchains = ...)` does the same for a whole project or module. Each target's TemplateVariableInfo make-variables become available for $(VAR) expansion in `env`; the well-known ones (CARGO, RUSTC, RUST_SYSROOT, RUST_HOST_SYSROOT, JAVA, JAVABASE, ANT_HOME, ANT_BIN_DIR) reach the build environment automatically.",
         ),
         "env": attr.string_dict(
             default = {},
@@ -1126,23 +1194,38 @@ _package_toolchains_tag = tag_class(
         "lock": attr.label(
             mandatory = False,
             doc = "Scope the declaration to the `uv.project()` pinned by this `uv.lock`. Without it the " +
-                  "declaration applies to every project of the module; a `lock`-scoped one wins over it.",
+                  "declaration applies to every project of the module.",
+        ),
+        "name": attr.string(
+            mandatory = False,
+            doc = "Scope the declaration to one package, like `uv.override_package`; with `lock`, to that " +
+                  "package in that project only. Must match a package that builds from source.",
         ),
         "rust_toolchain": attr.label(
             mandatory = False,
             doc = "A rules_rust `current_rust_toolchain`-style target: any target exposing rules_rust's " +
-                  "toolchain providers, from rules_rust or rules_rs. Every sdist whose build backend is " +
-                  "maturin or setuptools-rust gets it, plus rules_py's exec-configured sysroot layer, wired " +
-                  "into its build automatically, with no per-package `uv.override_package(toolchains = ...)`.",
+                  "toolchain providers, from rules_rust or rules_rs. Every sdist in scope whose build backend " +
+                  "is maturin or setuptools-rust gets it, plus rules_py's exec-configured sysroot layer, wired " +
+                  "into its build automatically; other sdists ignore it.",
+        ),
+        "toolchains": attr.label_list(
+            default = [],
+            doc = "Toolchain targets forwarded to every source build in scope, as `uv.override_package(toolchains = ...)` " +
+                  "does for one package: their `TemplateVariableInfo` make-variables become available for `$(VAR)` " +
+                  "expansion in `env`, and the well-known ones (JAVA, JAVABASE, ANT_HOME, ANT_BIN_DIR) reach the " +
+                  "build environment automatically.",
         ),
     },
     doc = """Toolchains for the sdists a module's `uv.project()` declarations build from source.
 
-The extension detects which sdists need which toolchain (a maturin backend or
-setuptools-rust for Rust) and wires it into their builds; nothing is named per
-package. One declaration without `lock` covers every project of the module,
-and a `lock`-scoped one overrides it for that project. A tag must set at
-least one toolchain.""",
+`rust_toolchain` is detected into place: the extension wires it only into
+builds whose backend is maturin or setuptools-rust. `toolchains` is forwarded
+as-is to every source build in scope. Scope is the module (no `lock`, no
+`name`), one project (`lock`), one package everywhere (`name`) or one package
+in one project (both); each attribute resolves from the most specific
+declaration that sets it. Two declarations with the same scope fail, and a
+`name` that matches no source build fails. A tag must set at least one of the
+two attributes.""",
 )
 
 uv = module_extension(

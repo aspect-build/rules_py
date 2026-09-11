@@ -1,5 +1,9 @@
 """jpype1: setuptools sdist whose build shells out to Ant/javac to produce a
 JAR before compiling the _jpype C++ extension.
+
+The JDK and Ant reach the build through a lock-scoped
+`uv.package_toolchains(toolchains = ...)`: jpype1 is the only source build in
+this project, so nothing needs the per-package `uv.override_package(toolchains)`.
 """
 
 bazel_dep(name = "rules_java", version = "8.14.0")
@@ -19,8 +23,7 @@ uv.project(
     lock = "//pycross-jdk:uv.lock",
     pyproject = "//pycross-jdk:pyproject.toml",
 )
-uv.override_package(
-    name = "jpype1",
+uv.package_toolchains(
     lock = "//pycross-jdk:uv.lock",
     toolchains = [
         "//pycross-jdk:jdk",
