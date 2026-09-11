@@ -9,7 +9,9 @@ Mostly exists to allow debugging.
 from __future__ import annotations
 
 from argparse import ArgumentParser
+import glob
 import importlib
+import json
 import os
 import platform as _platform
 import re
@@ -189,7 +191,7 @@ def _override_tool(env: dict[str, str], key: str, wrapper: str) -> None:
 
 def _absolutize_tool_paths(env: dict[str, str]) -> None:
     """Resolve toolchain paths before the backend changes cwd."""
-    for key in ("JAVA_HOME", "JAVA", "CARGO", "RUSTC", "RULES_PY_RUST_HOST_SYSROOT", "ANT_HOME", "RULES_PY_ANT_BIN_DIR"):
+    for key in ("JAVA_HOME", "JAVA", "CARGO", "RUSTC", "RULES_PY_RUST_SYSROOT", "RULES_PY_RUST_HOST_SYSROOT", "ANT_HOME", "RULES_PY_ANT_BIN_DIR"):
         value = env.get(key)
         if value:
             env[key] = _absolutize_path(value)
@@ -884,11 +886,7 @@ def _generate_cmake_toolchain_file(
     contain spaces, which unquoted set() would parse as list separators.
     """
     ar = build_env.get("AR", "ar")
-    ranlib = _write_generated_file(
-        path.join(tmpdir, "cmake_ranlib"),
-        '#!/bin/sh\nexec "{}" s "$@"\n'.format(ar),
-        executable=True,
-    )
+    ranlib = _ranlib_wrapper(tmpdir, ar)
     return _write_generated_file(
         path.join(tmpdir, "cross_toolchain.cmake"),
         textwrap.dedent("""\
@@ -921,15 +919,69 @@ _RUST_TARGET_OS = {
     ("darwin", "libsystem"): "apple-darwin",
 }
 
+# Beyond the explicit sysroot, the wrapper makes the compiled artifacts
+# independent of where the action ran: rustc bakes source paths into debug
+# info and panic messages, and the sandbox root and execroot differ per host
+# and per action, so they are remapped away. A single codegen unit keeps
+# LLVM's module ids, which leak into symbol names, stable across hosts; it
+# is applied to target crates only (build scripts and proc-macros never
+# reach the wheel), or to everything in a native build where cargo passes
+# no --target.
 _RUSTC_WRAPPER = """#!/usr/bin/env python3
 import os
 import sys
 
-os.execv({rustc!r}, [{rustc!r}, "--sysroot", {sysroot!r}] + sys.argv[1:])
+args = sys.argv[1:]
+final = [{rustc!r}, "--sysroot", {sysroot!r}]
+for prefix in {remap_prefixes!r}:
+    final += ["--remap-path-prefix", prefix + "/=", "--remap-path-prefix", prefix + "="]
+target = {target_triple!r}
+if target is None or target in args:
+    final += ["-C", "codegen-units=1"]
+os.execv(final[0], final + args)
 """
 
 
-def _merge_rust_sysroot(tmpdir: str, target_rustc: str, host_sysroot: str) -> str:
+def _write_rustc_wrapper(tmpdir: str, rustc: str, sysroot: str, target_triple: str | None) -> str:
+    """The rustc cargo runs: explicit sysroot, reproducible paths and codegen (see _RUSTC_WRAPPER)."""
+    return _write_generated_file(
+        path.join(tmpdir, ".aspect_rules_py_rustc", "rustc"),
+        _RUSTC_WRAPPER.format(
+            rustc=rustc,
+            sysroot=sysroot,
+            remap_prefixes=[path.abspath(tmpdir), os.getcwd()],
+            target_triple=target_triple,
+        ),
+        executable=True,
+    )
+
+
+def _ranlib_wrapper(tmpdir: str, ar: str) -> str:
+    """`ar s` is ranlib: a ranlib for toolchains that ship none as a separate tool."""
+    return _write_generated_file(
+        path.join(tmpdir, ".aspect_rules_py_compilers", "ranlib"),
+        '#!/bin/sh\nexec "{}" s "$@"\n'.format(ar),
+        executable=True,
+    )
+
+
+def _cc_rs_env(build_env: dict[str, str], tmpdir: str, triple: str) -> None:
+    """Point cc-rs at the wired C toolchain for crates that compile C or C++.
+
+    cc-rs (ring, zstd-sys, ...) looks up CC_<triple>, CXX_<triple>, AR_<triple>
+    and RANLIB_<triple>, in the dashed and the underscored spelling, before
+    falling back to whatever `cc` is on PATH. The generic CC/CXX/AR only
+    steer host compiles.
+    """
+    ar = build_env.get("AR", "")
+    tools = {"CC": build_env.get("CC", ""), "CXX": build_env.get("CXX", ""), "AR": ar, "RANLIB": _ranlib_wrapper(tmpdir, ar) if ar else ""}
+    for spelling in (triple, triple.replace("-", "_")):
+        for tool, value in tools.items():
+            if value:
+                build_env["{}_{}".format(tool, spelling)] = value
+
+
+def _merge_rust_sysroot(tmpdir: str, target_rustc: str, host_sysroot: str, target_sysroot: str | None = None) -> str:
     """Symlink-merge the target toolchain's sysroot with the host's rust-std.
 
     A cross rust_toolchain's sysroot has no exec-platform rust-std, but
@@ -938,8 +990,12 @@ def _merge_rust_sysroot(tmpdir: str, target_rustc: str, host_sysroot: str) -> st
     by side in one install; recreate that by merging the two Bazel-fetched
     single-target sysroots. The host's rustlib entries win: exec-platform
     code must resolve against exec-platform std.
+
+    The target sysroot is the toolchain's generated one when known: rulesets
+    such as rules_rs fetch rustc and rust-std into separate repositories, so
+    the directory above rustc holds no std at all.
     """
-    target_sysroot = path.dirname(path.dirname(target_rustc))
+    target_sysroot = target_sysroot or path.dirname(path.dirname(target_rustc))
     merged = path.join(tmpdir, ".rust_sysroot")
     if path.exists(merged):
         return merged
@@ -966,6 +1022,21 @@ def _merge_rust_sysroot(tmpdir: str, target_rustc: str, host_sysroot: str) -> st
     return merged
 
 
+def _needs_cargo_cross_env(build_env: dict[str, str]) -> bool:
+    """Whether this cross build compiles Rust.
+
+    The decision is made once, at repository-generation time: sdist_build
+    wires the project's Rust toolchain into the build only for maturin
+    backends and setuptools-rust requirements (declared or inferred), and
+    pep517_native_whl turns its make-variables into CARGO/RUSTC. Their
+    presence is therefore the signal; the helper does not re-derive it from
+    pyproject.toml, which would miss inferred setuptools-rust builds. A Rust
+    toolchain listed on a package that never invokes cargo costs an unused
+    environment, nothing more.
+    """
+    return bool(build_env.get("CARGO"))
+
+
 def _configure_cargo_cross_env(build_env: dict[str, str], tmpdir: str, target_os: str, target_cpu: str, target_libc: str) -> None:
     """Cross env vars for maturin (Cargo-driven PyO3 builds).
 
@@ -981,6 +1052,7 @@ def _configure_cargo_cross_env(build_env: dict[str, str], tmpdir: str, target_os
     build_env["CARGO_BUILD_TARGET"] = triple
     linker_var = "CARGO_TARGET_{}_LINKER".format(triple.upper().replace("-", "_"))
     build_env[linker_var] = build_env["CC"]
+    _cc_rs_env(build_env, tmpdir, triple)
 
     # pyo3-ffi refuses to cross-compile without an explicit target Python
     # version. Unused (harmless) for non-PyO3 crates.
@@ -988,12 +1060,8 @@ def _configure_cargo_cross_env(build_env: dict[str, str], tmpdir: str, target_os
 
     host_sysroot = build_env.get("RULES_PY_RUST_HOST_SYSROOT")
     if host_sysroot:
-        merged_sysroot = _merge_rust_sysroot(tmpdir, build_env["RUSTC"], host_sysroot)
-        build_env["RUSTC"] = _write_generated_file(
-            path.join(tmpdir, ".aspect_rules_py_rustc", "rustc"),
-            _RUSTC_WRAPPER.format(rustc=build_env["RUSTC"], sysroot=merged_sysroot),
-            executable=True,
-        )
+        merged_sysroot = _merge_rust_sysroot(tmpdir, build_env["RUSTC"], host_sysroot, build_env.get("RULES_PY_RUST_SYSROOT"))
+        build_env["RUSTC"] = _write_rustc_wrapper(tmpdir, build_env["RUSTC"], merged_sysroot, triple)
 
     # In cross mode maturin name-parses its -i interpreter argument for a
     # "pythonX.Y"-shaped basename instead of executing it; our venv's
@@ -1004,6 +1072,92 @@ def _configure_cargo_cross_env(build_env: dict[str, str], tmpdir: str, target_os
     interpreter_arg = "--interpreter python{}.{}".format(sys.version_info.major, sys.version_info.minor)
     existing = build_env.get("MATURIN_PEP517_ARGS", "")
     build_env["MATURIN_PEP517_ARGS"] = (interpreter_arg + " " + existing).strip()
+
+
+_MATURIN_SBOM_OFF = "\n[tool.maturin.sbom]\nrust = false\nauditwheel = false\n"
+
+
+def _disable_maturin_sbom(worktree: str) -> bool:
+    """Turn off maturin's CycloneDX SBOM unless the sdist configures it itself.
+
+    The SBOM records every crate as `path+file:///<sandbox>/...`: the sandbox
+    id differs per action, so two builds of one sdist never produce the same
+    wheel while it is on. maturin 1.15 offers no flag or variable for it, only
+    the `[tool.maturin.sbom]` table, so it is appended to the extracted
+    pyproject.toml. Returns whether the file was changed.
+    """
+    pyproject = path.join(worktree, "pyproject.toml")
+    if not path.exists(pyproject):
+        return False
+    with open(pyproject, encoding="utf-8") as f:
+        content = f.read()
+    if "[tool.maturin.sbom]" in content:
+        return False
+    with open(pyproject, "a", encoding="utf-8") as f:
+        f.write(_MATURIN_SBOM_OFF)
+    return True
+
+
+def _inject_cargo_lock(worktree: str, lock_path: str) -> str | None:
+    """Copy a user-supplied Cargo.lock next to the source tree's top-level Cargo.toml.
+
+    Returns the destination, or None when the tree has no Cargo.toml (the lock
+    is then meaningless and cargo would ignore it anyway).
+    """
+    if not lock_path:
+        return None
+    # Shallowest manifest wins: setuptools-rust crates live in subdirectories
+    # (bcrypt: src/_bcrypt/Cargo.toml), maturin ones at the top.
+    manifests = sorted(glob.glob(path.join(worktree, "**", "Cargo.toml"), recursive=True), key=lambda m: (m.count(os.sep), m))
+    if not manifests:
+        return None
+    dest = path.join(path.dirname(manifests[0]), "Cargo.lock")
+    shutil.copyfile(lock_path, dest)
+    return dest
+
+
+def _forbid_backend_toolchain_downloads(build_env: dict[str, str]) -> None:
+    """Backends must use the toolchain they were given, or fail.
+
+    maturin 1.8+ downloads a Rust toolchain (puccinialin) when it finds no
+    cargo: a Rust sdist without a wired toolchain, or one the inference left
+    unwired, would then fetch rustc from the network inside the action and
+    build with it. Set for every build; it is inert for other backends.
+    """
+    build_env.setdefault("MATURIN_NO_INSTALL_RUST", "1")
+
+
+def _configure_cargo_offline(build_env: dict[str, str], vendor_dir: str) -> None:
+    """Point cargo at the vendored crates and forbid the network.
+
+    CARGO_HOME is the sandbox-local one _compiler_env created for the wired
+    toolchain; without a toolchain there is no cargo to configure.
+    """
+    cargo_home = build_env.get("CARGO_HOME")
+    if not (vendor_dir and cargo_home):
+        return
+    makedirs(cargo_home, exist_ok=True)
+    with open(path.join(cargo_home, "config.toml"), "a") as f:
+        f.write(
+            '[source.crates-io]\nreplace-with = "vendored-sources"\n\n'
+            '[source.vendored-sources]\ndirectory = {}\n'.format(json.dumps(_absolutize_path(vendor_dir)))
+        )
+    build_env["CARGO_NET_OFFLINE"] = "true"
+
+
+def _configure_cargo_native_env(build_env: dict[str, str], tmpdir: str) -> None:
+    """Point rustc at the toolchain's sysroot for a native build.
+
+    Bare rustc infers its sysroot from its own location, which only works
+    when rust-std was unpacked next to it. rules_rust's toolchain always
+    publishes the sysroot it assembled (RUST_SYSROOT), so pass that
+    explicitly; the exec-configured layer's sysroot is the same toolchain in
+    native mode and serves as the fallback.
+    """
+    sysroot = build_env.get("RULES_PY_RUST_SYSROOT") or build_env.get("RULES_PY_RUST_HOST_SYSROOT")
+    if not (build_env.get("CARGO") and sysroot):
+        return
+    build_env["RUSTC"] = _write_rustc_wrapper(tmpdir, build_env["RUSTC"], sysroot, None)
 
 
 def _build_backend(pyproject_data: dict[str, object] | None) -> str | None:
@@ -1122,6 +1276,8 @@ PARSER = ArgumentParser()
 PARSER.add_argument("srcarchive")
 PARSER.add_argument("output", help="Path the single built wheel is written to")
 PARSER.add_argument("--monitor-memory", action="store_true")
+PARSER.add_argument("--cargo-vendor-dir", default="", help="Cargo vendor directory; cargo runs offline against it")
+PARSER.add_argument("--cargo-lock", default="", help="Cargo.lock to place next to the source tree's Cargo.toml")
 PARSER.add_argument(
     "--config-setting",
     action="append",
@@ -1192,6 +1348,12 @@ def main() -> None:
         target_cpu=opts.target_cpu,
     )
 
+    _forbid_backend_toolchain_downloads(build_env)
+    _configure_cargo_offline(build_env, opts.cargo_vendor_dir)
+    _inject_cargo_lock(t, opts.cargo_lock)
+    if _build_backend(_load_pyproject_data(t)) == "maturin":
+        _disable_maturin_sbom(t)
+
     if _legacy_metadata_conflicts_with_pyproject(t):
         print(
             "Warning: falling back to setup.py because pyproject.toml omits dynamic dependency metadata "
@@ -1251,8 +1413,10 @@ def main() -> None:
             elif backend == "scikit_build_core.build":
                 toolchain = _generate_cmake_toolchain_file(tmp_root, build_env, opts.target_os, opts.target_cpu)
                 cmd += ["-C", "cmake.toolchain-file=" + toolchain]
-            elif backend == "maturin" and build_env.get("CARGO"):
+            if _needs_cargo_cross_env(build_env):
                 _configure_cargo_cross_env(build_env, tmp_root, opts.target_os, opts.target_cpu, opts.target_libc)
+        else:
+            _configure_cargo_native_env(build_env, tmp_root)
     else:
         print("Error: Unable to detect build command! Neither pyproject.toml nor setup.py found!", file=sys.stderr)
         raise SystemExit(1)

@@ -382,23 +382,98 @@ useful when a pre-build patch removes stale entry-point metadata.
 ### Build-time toolchains
 
 A native sdist build may need tools beyond the C++ toolchain: a JDK for JNI
-extensions, cargo and rustc for Rust extensions, Ant. List them on the
-package's override and their well-known make-variables reach the build
+extensions, Ant, cargo and rustc for Rust extensions. Declare them once with
+`uv.package_toolchains()` and their well-known make-variables reach the build
 environment on their own:
 
 ```starlark
-uv.override_package(
+uv.package_toolchains(
     lock = "//:uv.lock",
-    name = "jpype1",
     toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
 )
 ```
 
-`$(JAVA)` and `$(JAVABASE)` arrive as `JAVA` and `JAVA_HOME`; `$(CARGO)`,
-`$(RUSTC)` and `$(RUST_HOST_SYSROOT)` as the variables the Rust build path
-reads; `$(ANT_HOME)` and `$(ANT_BIN_DIR)` likewise. Any other make-variable a
-toolchain exports still needs an explicit `env` entry (`"FOO": "$(FOO)"`),
-and an explicit entry always wins over the derived value.
+`toolchains` is forwarded to every sdist built from source in scope. The scope
+is the module when neither `lock` nor `name` is given, one project with
+`lock`, one package everywhere with `name`, or one package in one project with
+both; each attribute resolves from the most specific declaration that sets it.
+`uv.override_package(toolchains = ...)` still works for a single package.
+
+`$(JAVA)` and `$(JAVABASE)` arrive as `JAVA` and `JAVA_HOME`; `$(ANT_HOME)` and
+`$(ANT_BIN_DIR)` likewise; `$(CARGO)`, `$(RUSTC)`, `$(RUST_SYSROOT)` and
+`$(RUST_HOST_SYSROOT)` as the variables the Rust build path reads, for
+toolchains wired by hand. Any other make-variable a toolchain exports still
+needs an explicit `env` entry (`"FOO": "$(FOO)"`), and an explicit entry always
+wins over the derived value.
+
+Rust sdists (maturin, setuptools-rust) build with the Rust toolchain your
+module registers. Fetching rustc and cargo is the Rust rulesets' job, and
+rules_py depends on neither of them, so point it at the toolchain once and
+every Rust sdist of every `uv.project()` in the module is wired to it. Either
+ruleset works:
+
+- [rules_rust](https://github.com/bazelbuild/rules_rust):
+  `rust_toolchain = "@rules_rust//rust/toolchain:current_rust_toolchain"`
+- [rules_rs](https://github.com/hermeticbuild/rules_rs): its toolchains are
+  rules_rust `rust_toolchain` instances declared in the patched `rules_rust`
+  repository it fetches, so expose that repository and point at its
+  `current_rust_toolchain`:
+
+  ```starlark
+  rules_rust_rs = use_extension("@rules_rs//rs:rules_rust.bzl", "rules_rust")
+  use_repo(rules_rust_rs, rules_rust_rs = "rules_rust")
+  ```
+
+  then `rust_toolchain = "@rules_rust_rs//rust/toolchain:current_rust_toolchain"`.
+
+```starlark
+uv.package_toolchains(
+    rust_toolchain = "@rules_rust//rust/toolchain:current_rust_toolchain",
+)
+```
+
+Scope a declaration with `lock` to apply it to one project only, or with
+`name` to one package; the most specific declaration wins. That is how a
+workspace builds one project on rules_rust and another on rules_rs:
+
+```starlark
+uv.package_toolchains(
+    lock = "//other:uv.lock",
+    rust_toolchain = "@rules_rust_rs//rust/toolchain:current_rust_toolchain",
+)
+```
+
+Every sdist whose build backend is maturin, or whose build requirements
+include setuptools-rust, then gets the toolchain and an
+exec-configured `rust_host_sysroot` layer wired into its build. In a cross
+build cargo also *compiles* code for the exec platform and runs it there
+(`build.rs` scripts, proc-macro crates); that layer supplies the exec
+platform's standard library next to the target's, the way rustup keeps
+several targets in one install. No `uv.override_package` entry is needed for
+Rust packages, and a Rust sdist in a module with no `uv.package_toolchains()`
+covering its project fails while the repository is generated, naming the
+declaration to add; only declared Rust builds are demanding, an sdist that
+merely ships `.rs` files (zstandard's optional extension) builds as before. The crates the
+sdist's `Cargo.lock` pins on crates.io are fetched with their checksums while
+the repository is generated and vendored into it; cargo then builds offline,
+so the build needs no network and works under remote execution. A lock that
+pins crates outside crates.io (git or path sources) is rejected. An sdist
+without a `Cargo.lock` builds with network access and a warning; give it one
+with `uv.override_package(cargo_lock = "//:pkg.Cargo.lock")`, generated once
+with `cargo generate-lockfile` on the extracted sdist, and it is vendored and
+placed next to the sdist's `Cargo.toml` before the build.
+maturin is told not to download a Rust toolchain of its own
+(`MATURIN_NO_INSTALL_RUST=1`): a Rust sdist with no toolchain wired fails
+instead of fetching rustc inside the build.
+
+The rustc cargo runs is a wrapper that also makes the extension independent
+of where the action ran: sandbox and execroot paths are remapped out of the
+binaries (`--remap-path-prefix`) and target crates compile as one codegen
+unit, and maturin's SBOM, which records sandbox paths, is turned off unless
+the sdist configures it; the wheel's bytes then match across hosts and
+downstream actions hit the cache. Crates that compile C or C++ through cc-rs (`ring`, `zstd-sys`) find
+the wired C toolchain under `CC_<triple>`, `CXX_<triple>`, `AR_<triple>` and
+`RANLIB_<triple>` instead of whatever is on the PATH.
 
 ### Backend config settings
 
