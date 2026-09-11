@@ -170,7 +170,7 @@ py_library(<a href="#py_library-name">name</a>, <a href="#py_library-deps">deps<
 | :------------- | :------------- | :------------- | :------------- | :------------- |
 | <a id="py_library-name"></a>name |  A unique name for this target.   | <a href="https://bazel.build/concepts/labels#target-names">Name</a> | required |  |
 | <a id="py_library-deps"></a>deps |  Targets that produce Python code, commonly `py_library` rules.   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional |  `[]`  |
-| <a id="py_library-srcs"></a>srcs |  Python source files.   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional |  `[]`  |
+| <a id="py_library-srcs"></a>srcs |  Python source files.<br><br>`.pyi` type stubs listed here are carried as `PyInfo.transitive_pyi_files` rather than as runtime sources; both reach the runfiles of venvs and launchers that include this library.   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional |  `[]`  |
 | <a id="py_library-data"></a>data |  Runtime dependencies of the program.<br><br>The transitive closure of the `data` dependencies will be available in the `.runfiles` folder for this binary/test. The program may optionally use the Runfiles lookup library to locate the data files, see https://pypi.org/project/bazel-runfiles/. Data is analyzed in the inherited caller configuration. Put artifacts that must match the terminal's Python environment in `deps`.   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional |  `[]`  |
 | <a id="py_library-imports"></a>imports |  List of import directories to be added to the PYTHONPATH.   | List of strings | optional |  `[]`  |
 | <a id="py_library-resolutions"></a>resolutions |  Satisfy a virtual_dep with a mapping from external package name to the label of an installed package that provides it. See virtual_deps.   | Dictionary: String -> Label | optional |  `{}`  |
@@ -297,8 +297,8 @@ Python source, import-path, and virtual-dependency information for a target's de
 
 | Name  | Description |
 | :------------- | :------------- |
-| <a id="PyInfo-transitive_sources"></a>transitive_sources |  depset[File] — postorder depset of first-party `.py` sources in the transitive closure.    |
-| <a id="PyInfo-transitive_pyi_files"></a>transitive_pyi_files |  depset[File] — postorder depset of `.pyi` type stubs in the transitive closure.    |
+| <a id="PyInfo-transitive_sources"></a>transitive_sources |  depset[File] — postorder depset of first-party runtime sources in the transitive closure; `.pyi` stubs are excluded.    |
+| <a id="PyInfo-transitive_pyi_files"></a>transitive_pyi_files |  depset[File] — postorder depset of `.pyi` type stubs in the transitive closure: stubs listed in `srcs` plus those carried by deps of either ruleset.    |
 | <a id="PyInfo-imports"></a>imports |  depset[str] — import roots to place on `sys.path` (rlocation-root-relative).    |
 | <a id="PyInfo-virtual_dependencies"></a>virtual_dependencies |  depset[str] — names of required virtual dependencies, independent of their resolution status.    |
 | <a id="PyInfo-virtual_resolutions"></a>virtual_resolutions |  depset[struct(virtual, target)] — virtual-dependency-name to concrete-target resolutions.    |
