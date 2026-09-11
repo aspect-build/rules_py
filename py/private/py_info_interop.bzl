@@ -39,7 +39,7 @@ def get_py_info(target):
     return None
 
 def get_transitive_pyi_files(target):
-    """Return type stubs from rules_py's or `@rules_python`'s `PyInfo`."""
+    """Return the `.pyi` closure from either ruleset's `PyInfo`, or an empty depset for targets carrying neither."""
     if PyInfo in target:
         return target[PyInfo].transitive_pyi_files
     if RulesPythonPyInfo in target:
