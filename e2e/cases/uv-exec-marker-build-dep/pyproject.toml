@@ -1,0 +1,11 @@
+[project]
+name = "uv-exec-marker-build-dep"
+version = "0.0.0"
+requires-python = ">=3.10"
+dependencies = [
+    "docopt",
+    "build",
+    "setuptools",
+    "setuptools-scm",
+    "wheel",
+]

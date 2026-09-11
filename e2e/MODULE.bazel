@@ -531,6 +531,33 @@ uv.project(
 )
 # }}}
 
+# For cases/uv-exec-marker-build-dep
+# Regression: marker-gated transitive deps of sdist build tools (e.g.
+# setuptools-scm -> vcs-versioning -> typing-extensions under
+# `python_full_version < '3.11'`) must stay in the build_tool venv when the
+# tool is analyzed in the exec configuration.
+# {{{
+uv.declare_hub(hub_name = "pypi-exec-marker")
+uv.project(
+    default_build_dependencies = [
+        "build",
+        "setuptools",
+        "setuptools-scm",
+        "wheel",
+    ],
+    hub_name = "pypi-exec-marker",
+    lock = "//cases/uv-exec-marker-build-dep:uv.lock",
+    pyproject = "//cases/uv-exec-marker-build-dep:pyproject.toml",
+)
+uv.override_package(
+    name = "docopt",
+    lock = "//cases/uv-exec-marker-build-dep:uv.lock",
+    pre_build_patch_strip = 1,
+    pre_build_patches = ["//cases/uv-exec-marker-build-dep/patches:import_typing_extensions.patch"],
+)
+use_repo(uv, "pypi-exec-marker")
+# }}}
+
 # For cases/uv-group-multi-version
 # Regression: the same package locked at multiple marker-gated versions
 # within a single dependency group must resolve per-platform instead of
