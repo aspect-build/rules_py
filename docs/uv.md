@@ -382,23 +382,29 @@ useful when a pre-build patch removes stale entry-point metadata.
 ### Build-time toolchains
 
 A native sdist build may need tools beyond the C++ toolchain: a JDK for JNI
-extensions, cargo and rustc for Rust extensions, Ant. List them on the
-package's override and their well-known make-variables reach the build
+extensions, Ant, cargo and rustc for Rust extensions. Declare them once with
+`uv.package_toolchains()` and their well-known make-variables reach the build
 environment on their own:
 
 ```starlark
-uv.override_package(
+uv.package_toolchains(
     lock = "//:uv.lock",
-    name = "jpype1",
     toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
 )
 ```
 
-`$(JAVA)` and `$(JAVABASE)` arrive as `JAVA` and `JAVA_HOME`; `$(CARGO)`,
-`$(RUSTC)`, `$(RUST_SYSROOT)` and `$(RUST_HOST_SYSROOT)` as the variables the
-Rust build path reads; `$(ANT_HOME)` and `$(ANT_BIN_DIR)` likewise. Any other make-variable a
-toolchain exports still needs an explicit `env` entry (`"FOO": "$(FOO)"`),
-and an explicit entry always wins over the derived value.
+`toolchains` is forwarded to every sdist built from source in scope. The scope
+is the module when neither `lock` nor `name` is given, one project with
+`lock`, one package everywhere with `name`, or one package in one project with
+both; each attribute resolves from the most specific declaration that sets it.
+`uv.override_package(toolchains = ...)` still works for a single package.
+
+`$(JAVA)` and `$(JAVABASE)` arrive as `JAVA` and `JAVA_HOME`; `$(ANT_HOME)` and
+`$(ANT_BIN_DIR)` likewise; `$(CARGO)`, `$(RUSTC)`, `$(RUST_SYSROOT)` and
+`$(RUST_HOST_SYSROOT)` as the variables the Rust build path reads, for
+toolchains wired by hand. Any other make-variable a toolchain exports still
+needs an explicit `env` entry (`"FOO": "$(FOO)"`), and an explicit entry always
+wins over the derived value.
 
 Rust sdists (maturin, setuptools-rust) build with the Rust toolchain your
 module registers. Fetching rustc and cargo is the Rust rulesets' job, and
@@ -426,9 +432,9 @@ uv.package_toolchains(
 )
 ```
 
-Scope a declaration with `lock` to apply it to one project only; it wins over
-the module-wide one for that project. That is how a workspace builds one
-project on rules_rust and another on rules_rs:
+Scope a declaration with `lock` to apply it to one project only, or with
+`name` to one package; the most specific declaration wins. That is how a
+workspace builds one project on rules_rust and another on rules_rs:
 
 ```starlark
 uv.package_toolchains(
