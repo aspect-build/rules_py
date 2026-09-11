@@ -209,6 +209,11 @@ rules_py_test(
 )
 
 rules_python_library(
+    name = "precompiled_lib",
+    srcs = ["precompiled_lib.py"],
+)
+
+rules_python_library(
     name = "import_path_lib",
     srcs = ["rules_python_import/rp_import.py"],
     imports = ["rules_python_import"],
@@ -218,6 +223,64 @@ rules_py_test(
     name = "rules_python_import_path_test",
     srcs = ["rules_python_import_path_test.py"],
     deps = [":import_path_lib"],
+)
+
+rules_py_test(
+    name = "rules_python_dep_test",
+    srcs = ["rules_python_dep_test.py"],
+    deps = [":precompiled_lib"],
+)
+
+rules_py_test(
+    name = "rules_python_dep_pyc_test",
+    srcs = ["rules_python_dep_test.py"],
+    env = {"EXPECT_PYC": "pyc"},
+    main = "rules_python_dep_test.py",
+    pyc = "pyc",
+    deps = [":precompiled_lib"],
+)
+
+# Same dependency on the foreign runtime: rules_py's hub has no 3.11, so the
+# aspect must read rules_python's PyRuntimeInfo for the cache tag and compile
+# with the target interpreter rather than an exec-tools fallback.
+rules_py_test(
+    name = "rules_python_dep_pyc_311_test",
+    srcs = ["rules_python_dep_test.py"],
+    env = {"EXPECT_PYC": "pyc"},
+    main = "rules_python_dep_test.py",
+    pyc = "pyc",
+    python_version = "3.11",
+    deps = [":precompiled_lib"],
+)
+
+rules_py_test(
+    name = "rules_python_dep_pyc_only_311_test",
+    srcs = ["rules_python_dep_test.py"],
+    env = {
+        "EXPECT_PYC": "pyc_only",
+        "EXPECT_SOURCE_IN_RUNFILES": "1",
+    },
+    main = "rules_python_dep_test.py",
+    pyc = "pyc_only",
+    python_version = "3.11",
+    deps = [":precompiled_lib"],
+)
+
+# The aspect only compiles sources owned by the library's own package, so a
+# source borrowed from another package leaves pyc_only incomplete. test.sh
+# asserts the analysis failure names the file.
+rules_python_library(
+    name = "cross_package_lib",
+    srcs = ["//cross-package:helper.py"],
+)
+
+rules_py_test(
+    name = "cross_package_pyc_only_test",
+    srcs = ["rules_python_dep_test.py"],
+    main = "rules_python_dep_test.py",
+    pyc = "pyc_only",
+    tags = ["manual"],
+    deps = [":cross_package_lib"],
 )
 
 # rules_python's console-script machinery reads the pip hub's dist-info to

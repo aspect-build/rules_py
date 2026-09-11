@@ -10,7 +10,8 @@ load("@rules_cc//cc/common:cc_info.bzl", "CcInfo")
 load("//py/private:providers.bzl", "PyWheelsInfo")
 load("//py/private:pth.bzl", "make_imports_depset")
 load("//py/private:py_info.bzl", "PyInfo")
-load("//py/private:py_info_interop.bzl", "RulesPythonPyInfo", "get_py_info", "has_py_info")
+load("//py/private:py_info_interop.bzl", "RulesPythonPyInfo", "get_py_info", "get_transitive_sources", "has_py_info")
+load("//py/private:pyc.bzl", "PYC_ATTRS", "PYC_TOOLCHAINS", "compile_pycs", "make_pyc_info", "own_compile_sources", "pyc_aspect")
 load("//py/private:transitions.bzl", "reset_python_flags_transition")
 
 def _make_instrumented_files_info(ctx):
@@ -28,7 +29,7 @@ def _make_srcs_depset(ctx, extra_depsets = []):
         order = "postorder",
         direct = ctx.files.srcs,
         transitive = [
-            get_py_info(target).transitive_sources
+            get_transitive_sources(target)
             for target in ctx.attr.deps
             if has_py_info(target)
         ] + extra_depsets,
@@ -47,9 +48,8 @@ def _make_virtual_depset(ctx):
 
 def _make_resolved_virtual_depset(target):
     transitive = [target[DefaultInfo].files]
-    info = get_py_info(target)
-    if info:
-        transitive.append(info.transitive_sources)
+    if has_py_info(target):
+        transitive.append(get_transitive_sources(target))
 
     return depset(
         order = "postorder",
@@ -177,6 +177,14 @@ def _py_library_impl(ctx):
         instrumented_files_info,
     ]
 
+    compiled = compile_pycs(ctx, own_compile_sources(ctx.attr.srcs))
+    providers.append(make_pyc_info(
+        compiled,
+        sources = ctx.files.srcs,
+        deps = ctx.attr.deps,
+        resolutions = getattr(ctx.attr, "resolutions", {}).values(),
+    ))
+
     if getattr(ctx.attr, "_emit_rules_python_providers", None) and ctx.attr._emit_rules_python_providers[BuildSettingInfo].value:
         # Compatibility shim for trees mid-migration: keeps not-yet-converted
         # @rules_python py_* targets able to depend on this library.
@@ -203,6 +211,7 @@ _attrs = dict({
         # rules_py emits @rules_python providers only under the
         # migration-only //py:emit_rules_python_providers flag.
         providers = [[PyInfo], [RulesPythonPyInfo], [CcInfo]],
+        aspects = [pyc_aspect],
     ),
     "data": attr.label_list(
         doc = """Runtime dependencies of the program.
@@ -225,6 +234,7 @@ _attrs = dict({
         See virtual_deps.
         """,
         providers = [[PyInfo], [RulesPythonPyInfo]],
+        aspects = [pyc_aspect],
     ),
 })
 
@@ -250,6 +260,7 @@ py_library = rule(
     attrs = dict({
         "virtual_deps": attr.string_list(allow_empty = True, default = []),
         "_emit_rules_python_providers": attr.label(default = "//py/private:emit_rules_python_providers"),
-    }, **py_library_utils.attrs),
+    }, **py_library_utils.attrs) | PYC_ATTRS,
     provides = py_library_utils.py_library_providers,
+    toolchains = PYC_TOOLCHAINS,
 )

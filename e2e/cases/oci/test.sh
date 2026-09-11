@@ -146,3 +146,19 @@ if [[ "${USE_BAZEL_VERSION:-}" != 9* ]]; then
     fi
     echo "PASS: nested launcher prefixes share the same runfiles layout"
 fi
+
+echo "== a binary hard-wired to source fails under a pyc_only image =="
+if "$BAZEL" build //oci/py_venv_image_layer:my_app_pyc_mismatch_layers >"$output_log" 2>&1; then
+    fail "expected the pyc-mode mismatch to fail analysis"
+fi
+expect_diagnostic "has pyc=source but the image requires pyc=pyc_only"
+echo "PASS: bytecode-mode mismatch is rejected"
+
+echo "== images inherit the global pyc flag when the attribute is unset =="
+if ! "$BAZEL" build --@aspect_rules_py//py:pyc=pyc_only \
+    //oci/py_venv_image_layer:pyc_only_amd64_layers \
+    //oci/py_venv_image_layer:my_app_layers >"$output_log" 2>&1; then
+    cat "$output_log" >&2
+    fail "expected flag-inherited bytecode images to build"
+fi
+echo "PASS: global pyc flag flows into images"

@@ -316,8 +316,9 @@ This interpreter provisioning is designed to coexist with `rules_python`:
   falls back to the hub's highest provisioned version — including the hub
   rules_py itself registers, so this resolves even in modules that provision
   interpreters only through `rules_python`'s `python.toolchain()`. rules_py
-  registers nothing under `rules_python`'s exec-tools type, leaving it —
-  including precompiling — entirely to `rules_python`.
+  registers nothing under `rules_python`'s exec-tools type; with interpreters
+  from `interpreters.toolchain()` alone, `rules_python` never precompiles and
+  rules_py compiles bytecode for `rules_python`-built dependencies itself.
 
 Note that runtimes provisioned by `interpreters.toolchain()` carry
 `rules_python`'s public `PyRuntimeInfo` (re-exported from

@@ -164,6 +164,75 @@ py_test(
 )
 ```
 
+### First-party bytecode
+
+`py_binary` and `py_test` accept `pyc = "source" | "pyc" | "pyc_only"`
+(a `select()` value is also accepted). The default is `source`, and may be
+changed for inheriting targets with
+`--@aspect_rules_py//py:pyc=source|pyc|pyc_only`; an explicit `pyc`
+attribute pins the target's mode regardless of the flag.
+
+- `source` packages first-party `.py` sources.
+- `pyc` packages sources and PEP 3147 `__pycache__` bytecode.
+- `pyc_only` packages colocated first-party `.pyc` files without their source.
+  Tracebacks then carry no source lines, and every first-party source must be
+  directly owned by a rules_py `py_*` target. A `.py` file also declared through
+  `data` remains available as source because explicit runtime data takes
+  precedence over source stripping.
+
+Only `.py` files listed in a `py_*` target's `srcs` by their own file label
+(checked-in or generated) are compiled. A `.py` file reached through a rule
+target in `srcs` — a `filegroup`, a `genrule`, or another `py_library` —
+stays in source form; `pyc_only` reports it as missing bytecode.
+
+Only sources directly owned by a `py_*` target's package are compiled.
+Files a target lists from another package have no bytecode: `pyc` mode
+ships them as plain source, and `pyc_only` fails analysis listing them.
+
+Dependencies built by rules_python rules (`py_proto_library`, pip hub
+packages, unconverted `py_library` targets) are compiled by rules_py through
+an aspect over `deps`. No rules_python `precompile` attribute or flag is
+needed; with interpreters from the rules_py interpreter extension,
+rules_python never precompiles. Bytecode rules_python does compile is reused.
+
+Limits: a `*_pb2.py` is compiled only when its `py_proto_library` shares the
+`proto_library`'s package; the protobuf runtime is runfiles data and stays
+source; a rules_python `py_library` carries its sources in its own runfiles,
+so under `pyc_only` they ship beside the bytecode until the library is
+converted to rules_py.
+
+Bytecode is compiled by an exec-platform interpreter of the target's
+implementation/cache tag and feature version (major.minor; prereleases must
+match exactly) when one is provisioned (the default with the
+rules_py interpreter hub), so cross-platform builds work out of the box. With
+toolchains not provisioned by rules_py (e.g. rules_python runtimes) the
+target interpreter itself must be runnable on the build host, unless the
+toolchain supplies a custom `pyc_compile_tool`.
+
+Compilation runs one `PyCompile` action per source, served by a Bazel
+persistent worker so the interpreter starts once per worker rather than per
+file; size the pool with `--worker_max_instances=PyCompile=N`.
+
+`bazel coverage` always runs `pyc_only` targets from sources so coverage.py
+can instrument them.
+
+Bytecode is compiled at optimization level 0. Under `pyc` an optimized
+interpreter (`-O`/`-OO`, `PYTHONOPTIMIZE`) ignores the cache and runs from
+source. Under `pyc_only` there is no source, so `-O`/`-OO`
+`interpreter_options` and `PYTHONOPTIMIZE` set or inherited by the launcher
+or its venv fail analysis; with `isolated = False` a `PYTHONOPTIMIZE` from the
+invoking shell still runs the level-0 bytecode unoptimized.
+
+`py_unittest_test` supports `pyc_only`. Because pytest collects `.py` source
+files, `py_pytest_test` automatically falls back to `pyc` when `pyc_only` is
+requested explicitly or through the global flag.
+
+`py_image_layer` accepts the same `pyc` attribute as a plain string (a
+transition reads it, so no `select()`); unset, it inherits the
+`--@aspect_rules_py//py:pyc` flag. Binaries with an unset `pyc` attribute
+follow the image's mode automatically; a binary whose explicit `pyc`
+attribute disagrees with the image fails analysis.
+
 ## Dependency Resolution with `uv`
 
 `aspect_rules_py//uv` is our alternative to `rules_python`'s `pip.parse`:
@@ -532,8 +601,9 @@ bazel run //:gazelle
 1. **Swap the rules**: Load `py_binary`, `py_library`, `py_test` from `@aspect_rules_py//py:defs.bzl` instead of
    `@rules_python//python:defs.bzl`
 2. **Migrate dependencies**: Replace `pip.parse` with `uv.declare_hub` and generate a `uv.lock`
-3. **Optionally migrate toolchains**: Replace `rules_python` interpreter provisioning with
-   the `aspect_rules_py` interpreter extension for fully independent hermetic interpreters
+3. **Migrate toolchains**: Replace `rules_python` interpreter provisioning with
+   the `aspect_rules_py` interpreter extension; rules_py then also compiles
+   bytecode for the rules_python-built targets that remain
 
 For detailed migration guidance, see [docs/migrating.md](docs/migrating.md).
 

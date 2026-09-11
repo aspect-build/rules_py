@@ -41,6 +41,14 @@ def _py_runtime_toolchain_impl(ctx):
         zip_main_template = ctx.file._zip_main_template,
     )
 
+    pyc_compile_tool = None
+    if ctx.attr.pyc_compile_tool:
+        pyc_compile_tool = struct(
+            executable = ctx.attr.pyc_compile_tool[DefaultInfo].files_to_run,
+            arguments = [],
+            inputs = depset(),
+        )
+
     return [
         runtime,
         platform_common.ToolchainInfo(
@@ -50,6 +58,7 @@ def _py_runtime_toolchain_impl(ctx):
             py3_runtime = runtime,
             # The //py/private/toolchain:exec_tools_toolchain_type contract.
             exec_runtime = runtime,
+            pyc_compile_tool = pyc_compile_tool,
         ),
         DefaultInfo(files = depset([ctx.file.interpreter], transitive = [runtime.files])),
     ]
@@ -78,6 +87,21 @@ build host regardless of the target platform being built for).""",
         ),
         "abi_flags": attr.string(
             doc = "CPython ABI flag suffix, e.g. \"t\" for freethreaded.",
+        ),
+        "pyc_compile_tool": attr.label(
+            doc = """Self-contained executable replacing the default bytecode
+compiler script, e.g. a prebuilt binary. Takes `SRC PYCACHE DFILE` triples
+(source input, PEP 3147 output, logical traceback path), one per action today,
+plus `--expect-version VERSION` (the target runtime's Python version, to
+verify or ignore), all passed through one `@ARGFILE`; pyc_compile.py is the
+reference implementation. Runs once per action; only the reference script is
+additionally driven as a Bazel persistent worker.
+Built for and runs on the exec platform, but emitted bytecode must exactly
+match this runtime's format — the `--expect-version` contract. Must not
+resolve a Python toolchain: this toolchain's own resolution would cycle
+through it.""",
+            executable = True,
+            cfg = "exec",
         ),
         "_bootstrap_template": attr.label(
             allow_single_file = True,

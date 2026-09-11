@@ -30,6 +30,7 @@ Sharing model:
   - Ungrouped pip packages: squashed by the rule into one per-rule tar.
 """
 
+load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load(
     "//py/private:compression.bzl",
     "DEFAULT_ALGORITHM",
@@ -45,6 +46,8 @@ load(
 load("//py/private:providers.bzl", "PyWheelsInfo")
 load("//py/private:py_info.bzl", "PyInfo")
 load("//py/private:py_info_interop.bzl", "has_py_info")
+load("//py/private:pyc.bzl", "PYC_MODES", "PYC_MODE_ATTRS", "PycInfo", "PycModeInfo")
+load("//py/private:transitions.bzl", "PYC_FLAG")
 load("//py/private/py_venv:types.bzl", "VirtualenvInfo")
 load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN", "interpreter_files_and_version")
 
@@ -890,13 +893,14 @@ def _platform_cfg_impl(settings, attr):
     result = {
         "//command_line_option:platforms": [attr.platform] if attr.platform else settings["//command_line_option:platforms"],
         "@aspect_rules_py//py:layer_tier": str(attr.layer_tier) if attr.layer_tier else settings["@aspect_rules_py//py:layer_tier"],
+        PYC_FLAG: attr.pyc if attr.pyc else settings[PYC_FLAG],
     }
     return result
 
 _platform_cfg = transition(
     implementation = _platform_cfg_impl,
-    inputs = ["//command_line_option:platforms", "@aspect_rules_py//py:layer_tier"],
-    outputs = ["//command_line_option:platforms", "@aspect_rules_py//py:layer_tier"],
+    inputs = ["//command_line_option:platforms", "@aspect_rules_py//py:layer_tier", PYC_FLAG],
+    outputs = ["//command_line_option:platforms", "@aspect_rules_py//py:layer_tier", PYC_FLAG],
 )
 
 def _skip_path(f):
@@ -1074,12 +1078,47 @@ def _declare_group_tar(ctx, rule_codecs, plan, bsdtar, bsdtar_files, out_basenam
     )
     return tar_out
 
+def _fp_files_for_pyc(files, mode, pyc_by_source_path, retained_source_short_paths):
+    """Rewrite a first-party group's files for the image's bytecode mode.
+
+    Matched by runfiles path: group files and the launcher's PycInfo are
+    analyzed in different configurations. Unmapped or data-retained .py ship as-is.
+    """
+    if mode == "source" or not pyc_by_source_path:
+        return files
+    out = []
+    for f in files.to_list():
+        entries = pyc_by_source_path.get(f.short_path) if f.extension == "py" else None
+        if entries == None:
+            out.append(f)
+        elif mode == "pyc":
+            out.append(f)
+
+            out.extend([entry.pycache for entry in entries])
+        else:
+            if f.short_path in retained_source_short_paths:
+                out.append(f)
+            out.extend([entry.pyc for entry in entries])
+    return depset(out)
+
 def _py_image_layer_impl(ctx):
     binaries = ctx.attr.binaries
     if not binaries:
         fail("py_image_layer requires at least one binary")
     single_binary = len(binaries) == 1
     infos = [binary[_LayerInfo] for binary in binaries]
+
+    effective_pyc = ctx.attr._pyc_flag[BuildSettingInfo].value
+    for binary in binaries:
+        binary_mode = binary[PycModeInfo].mode if PycModeInfo in binary else "source"
+        if binary_mode != effective_pyc:
+            fail("{}: binary {} has pyc={} but the image requires pyc={}; drop the binary's explicit pyc attribute or align it with the image".format(
+                ctx.label,
+                binary.label,
+                binary_mode,
+                effective_pyc,
+            ))
+
     bsdtar, bsdtar_files = _tar_toolchain(ctx)
 
     # Normalized labels can collide across lock universes, and one wheel target
@@ -1189,17 +1228,66 @@ def _py_image_layer_impl(ctx):
     interpreter_map = lambda f, d: _interpreter_file_to_mtree(f, d, owner, group)
 
     rule_group_names = {gname: True for gname in ctx.attr.groups.values()}
-    rule_group_files = []
-    rule_groups = []
+    rule_group_specs = []
     for dep, group_name in ctx.attr.groups.items():
         dep_label = normalize_label(str(dep.label))
         if dep_label in pip_labels:
             continue
         files = dep[DefaultInfo].files
-        rule_group_files.append(files)
-        rule_groups.append((group_name, files))
+        rule_group_specs.append((group_name, files))
 
-    source_files = depset(transitive = [info.source_files for info in infos])
+    fp_layer_entries = []
+    for info in infos:
+        fp_layer_entries.extend(info.first_party_layers.to_list())
+    pyc_by_source_path = {}
+    pyc_files = []
+    pyc_only_sources = []
+    retained_source_paths = {}
+    retained_source_short_paths = {}
+    if effective_pyc == "pyc_only":
+        for binary in binaries:
+            for f in binary[DefaultInfo].default_runfiles.files.to_list():
+                retained_source_paths[f.path] = True
+                retained_source_short_paths[f.short_path] = True
+    if effective_pyc != "source":
+        # Configured artifacts for one source share a runfiles path.
+        pyc_by_dest = {}
+        for binary in binaries:
+            if PycInfo not in binary:
+                continue
+            pyc_info = binary[PycInfo]
+            pyc_files.append(pyc_info.pycache_files if effective_pyc == "pyc" else pyc_info.legacy_files)
+            for entry in pyc_info.entries.to_list():
+                dest = entry.source.short_path
+                prev = pyc_by_dest.get(dest)
+                if prev != None:
+                    if prev.pycache == entry.pycache:
+                        continue
+                    if effective_pyc == "pyc_only" and prev.pycache.basename != entry.pycache.basename:
+                        fail("{}: binaries compile conflicting bytecode for {} (different Python runtimes or configurations); align the binaries' python_version or use pyc = \"source\"".format(
+                            ctx.label,
+                            dest,
+                        ))
+                else:
+                    pyc_by_dest[dest] = entry
+                pyc_by_source_path.setdefault(entry.source.short_path, []).append(entry)
+                if effective_pyc == "pyc_only" and entry.source.path not in retained_source_paths:
+                    pyc_only_sources.append(entry.source)
+    fp_entries = [
+        struct(
+            label = entry.label,
+            group = entry.group,
+            files = _fp_files_for_pyc(entry.files, effective_pyc, pyc_by_source_path, retained_source_short_paths),
+        )
+        for entry in fp_layer_entries
+    ]
+    rule_groups = [
+        (group_name, _fp_files_for_pyc(files, effective_pyc, pyc_by_source_path, retained_source_short_paths))
+        for group_name, files in rule_group_specs
+    ]
+    rule_group_files = [files for _, files in rule_groups]
+
+    source_files = depset(transitive = [info.source_files for info in infos] + pyc_files)
     if repo_mapping != None:
         source_files = depset(direct = [repo_mapping], transitive = [source_files])
     rule_group_map = lambda f, d: (
@@ -1209,14 +1297,13 @@ def _py_image_layer_impl(ctx):
     first_party_reference_files = []
     fp_by_group = {}
     seen_fp_labels = {}
-    for info in infos:
-        for entry in info.first_party_layers.to_list():
-            first_party_reference_files.append(entry.files)
-            if single_binary:
-                if entry.label in seen_fp_labels:
-                    continue
-                seen_fp_labels[entry.label] = True
-            fp_by_group.setdefault(entry.group, []).append(entry.files)
+    for entry in fp_entries:
+        first_party_reference_files.append(entry.files)
+        if single_binary:
+            if entry.label in seen_fp_labels:
+                continue
+            seen_fp_labels[entry.label] = True
+        fp_by_group.setdefault(entry.group, []).append(entry.files)
 
     # Interpreter tars are declared at the configured toolchain, so identical
     # runtimes action-share while distinct interpreter artifacts are retained.
@@ -1348,6 +1435,11 @@ def _py_image_layer_impl(ctx):
     # snapshot here to avoid double-bookkeeping during construction.
     dep_tars = list(all_tars)
 
+    source_skip_files = depset(
+        direct = pyc_only_sources,
+        transitive = source_exclusion_files,
+    ) if pyc_only_sources or source_exclusion_files else None
+
     source_tar = _declare_group_tar(
         ctx,
         rule_codecs,
@@ -1360,7 +1452,7 @@ def _py_image_layer_impl(ctx):
         source_map,
         "Creating source layer for %s" % ctx.label,
         symlink_mappings,
-        skip_files = depset(transitive = source_exclusion_files) if source_exclusion_files else None,
+        skip_files = source_skip_files,
     )
     all_tars.append(source_tar)
 
@@ -1393,11 +1485,13 @@ def _py_image_layer_impl(ctx):
         validation_args.add("--mtree")
         validation_arguments.append(mtree_args)
 
-        validation_skip_args = _path_set_args(ctx, source_exclusion_files)
-        validation_flag_args = ctx.actions.args()
-        validation_flag_args.add("--skip")
-        validation_arguments.extend([validation_flag_args, validation_skip_args])
-        validation_inputs.extend([source_files] + source_exclusion_files)
+        validation_inputs.append(source_files)
+        if source_skip_files:
+            validation_skip_args = _path_set_args(ctx, [source_skip_files])
+            validation_flag_args = ctx.actions.args()
+            validation_flag_args.add("--skip")
+            validation_arguments.extend([validation_flag_args, validation_skip_args])
+            validation_inputs.append(source_skip_files)
 
     ctx.actions.run(
         executable = ctx.executable._validator,
@@ -1442,6 +1536,11 @@ _py_image_layer = rule(
         "warn_layer_count": attr.int(default = 90),
         "platform": attr.label(default = None, providers = [platform_common.PlatformInfo]),
         "layer_tier": attr.label(default = None, providers = [PyLayerTierInfo]),
+        "pyc": attr.string(
+            default = "",
+            values = [""] + PYC_MODES,
+            doc = "First-party bytecode mode for the image; empty inherits the `//py:pyc` flag. Read by a transition, so not configurable.",
+        ),
         "_layer_tier": attr.label(
             default = "//py:layer_tier",
             providers = [PyLayerTierInfo],
@@ -1465,7 +1564,7 @@ _py_image_layer = rule(
             cfg = "exec",
             executable = True,
         ),
-    },
+    } | PYC_MODE_ATTRS,
     cfg = _platform_cfg,
     toolchains = [_TAR_TOOLCHAIN],
 )
@@ -1483,6 +1582,7 @@ def py_image_layer(
         warn_layer_count = 90,
         platform = None,
         layer_tier = None,
+        pyc = "",
         launcher_dir = "",
         binaries = None,
         **kwargs):
@@ -1537,6 +1637,12 @@ def py_image_layer(
         layer_tier: Optional py_layer_tier target pinned for this rule. Sets the
             `@aspect_rules_py//py:layer_tier` label_flag via the rule transition,
             overriding any command-line value for this rule's subgraph.
+        pyc: First-party bytecode mode for the image: "source", "pyc", or
+            "pyc_only". Sets the `@aspect_rules_py//py:pyc` flag via the rule
+            transition, so a `select()` is not accepted; empty (the default)
+            inherits the flag's value. Binaries with an unset `pyc` attribute
+            follow it automatically; a binary whose explicit `pyc` attribute
+            disagrees fails analysis.
         launcher_dir: Absolute image directory for the binary launchers. Defaults
             to /app/bin with multiple binaries. Set RUNFILES_DIR=/app.runfiles in
             the image.
@@ -1575,6 +1681,7 @@ def py_image_layer(
         warn_layer_count = warn_layer_count,
         platform = platform,
         layer_tier = layer_tier,
+        pyc = pyc,
         tags = tags,
         **kwargs
     )

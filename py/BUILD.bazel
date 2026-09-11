@@ -1,4 +1,6 @@
 load("@bazel_lib//:bzl_library.bzl", "bzl_library")
+load("@bazel_skylib//rules:common_settings.bzl", "string_flag")
+load("//py/private:pyc.bzl", "PYC_MODES")
 load("//py/private/interpreter:launcher.bzl", "py_interpreter_launcher")
 
 # Consumed by //docs:py_api (stardoc). exports_files gives the implicit .bzl file
@@ -68,6 +70,13 @@ alias(
 label_flag(
     name = "layer_tier",
     build_setting_default = "//py/private:default_layer_tier",
+    visibility = ["//visibility:public"],
+)
+
+string_flag(
+    name = "pyc",
+    build_setting_default = "source",
+    values = PYC_MODES,
     visibility = ["//visibility:public"],
 )
 
