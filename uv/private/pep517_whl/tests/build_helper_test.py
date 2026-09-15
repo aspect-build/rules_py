@@ -432,11 +432,15 @@ class TargetFlagsTest(unittest.TestCase):
 
 
 
-def _run_wrapper(wrapper: str, args: list[str]) -> list[str]:
+def _run_wrapper(wrapper: str, args: list[str], env: dict[str, str] | None = None) -> list[str]:
     import subprocess
 
     result = subprocess.run(
-        [wrapper] + args, capture_output=True, text=True, check=True
+        [wrapper] + args,
+        capture_output=True,
+        text=True,
+        check=True,
+        env={**os.environ, **env} if env else None,
     )
     return result.stdout.split()
 
@@ -895,6 +899,85 @@ class RustcWrapperTest(unittest.TestCase):
         wrapper = build_helper._write_rustc_wrapper(tmp, self._fake_rustc(tmp), "/tc/sysroot", None)
         argv = _run_wrapper(wrapper, ["--crate-name", "ext"])
         self.assertIn("codegen-units=1", argv)
+
+    _TARGET = "aarch64-unknown-linux-gnu"
+    _CRATE = ["--crate-name", "ext", "--crate-type", "cdylib", "--cfg", 'feature="fast"', "--cfg", "abi3"]
+    _PKG = {"CARGO_PKG_NAME": "ext", "CARGO_PKG_VERSION": "1.2.3"}
+
+    def _metadata(self, argv: list[str]) -> str:
+        values = [argv[i + 1] for i, a in enumerate(argv) if a == "-C" and argv[i + 1].startswith("metadata=")]
+        self.assertEqual(1, len(values), argv)
+        return values[0][len("metadata="):]
+
+    def test_target_crate_symbol_hash_is_host_independent(self) -> None:
+        # Same toolchain, same crate, built from two sandboxes with different
+        # cargo hashes: the mangled-symbol hash must agree.
+        digests = []
+        for cargo_hash in ("deadbeefcafef00d", "0123456789abcdef"):
+            tmp = tempfile.mkdtemp()
+            wrapper = build_helper._write_rustc_wrapper(tmp, self._fake_rustc(tmp), "/tc/sysroot", self._TARGET)
+            argv = _run_wrapper(
+                wrapper,
+                self._CRATE + ["-C", "metadata=" + cargo_hash, "-C", "extra-filename=-" + cargo_hash, "--target", self._TARGET],
+                env=self._PKG,
+            )
+            digests.append(self._metadata(argv))
+            self.assertIn("extra-filename=-" + cargo_hash, argv, "cargo's artifact names are left alone")
+        self.assertEqual(digests[0], digests[1])
+        self.assertRegex(digests[0], r"^[0-9a-f]{16}$")
+
+    def test_symbol_hash_separates_crate_identities(self) -> None:
+        tmp = tempfile.mkdtemp()
+        wrapper = build_helper._write_rustc_wrapper(tmp, self._fake_rustc(tmp), "/tc/sysroot", self._TARGET)
+        base = self._CRATE + ["-C", "metadata=aaaa", "--target", self._TARGET]
+        same = self._metadata(_run_wrapper(wrapper, base, env=self._PKG))
+        other_version = self._metadata(_run_wrapper(wrapper, base, env={**self._PKG, "CARGO_PKG_VERSION": "2.0.0"}))
+        other_features = self._metadata(_run_wrapper(wrapper, base + ["--cfg", 'feature="extra"'], env=self._PKG))
+        reordered = self._metadata(_run_wrapper(wrapper, ["--cfg", "abi3", "--cfg", 'feature="fast"', "--crate-type", "cdylib", "--crate-name", "ext", "-C", "metadata=bbbb", "--target", self._TARGET], env=self._PKG))
+        self.assertNotEqual(same, other_version, "two versions of one package must not share symbol hashes")
+        self.assertNotEqual(same, other_features)
+        self.assertEqual(same, reordered, "argument order is cargo's business, not identity")
+
+    def test_symbol_hash_tracks_the_toolchain(self) -> None:
+        tmp_a, tmp_b = tempfile.mkdtemp(), tempfile.mkdtemp()
+        rustc_b = self._fake_rustc(tmp_b)
+        with open(rustc_b, "w") as f:
+            f.write('#!/bin/sh\nif [ "$1" = --version ]; then echo "rustc 1.91.0 (other)"; exit 0; fi\nprintf \'%s\\n\' "$@"\n')
+        args = self._CRATE + ["-C", "metadata=aaaa", "--target", self._TARGET]
+        a = self._metadata(_run_wrapper(build_helper._write_rustc_wrapper(tmp_a, self._fake_rustc(tmp_a), "/s", self._TARGET), args, env=self._PKG))
+        b = self._metadata(_run_wrapper(build_helper._write_rustc_wrapper(tmp_b, rustc_b, "/s", self._TARGET), args, env=self._PKG))
+        self.assertNotEqual(a, b, "a toolchain upgrade must change the hashes")
+
+    def test_profile_separates_the_two_native_compilations_of_one_crate(self) -> None:
+        # A native build compiles a crate once for a proc-macro (build-override
+        # profile) and once as a normal dependency when the profiles differ;
+        # the two must not share a stable crate id. Paths in codegen options
+        # are per sandbox and must not take part.
+        tmp = tempfile.mkdtemp()
+        wrapper = build_helper._write_rustc_wrapper(tmp, self._fake_rustc(tmp), "/tc/sysroot", None)
+        base = ["--crate-name", "proc_macro2", "--crate-type", "lib", "-C", "metadata=aaaa"]
+        env = {"CARGO_PKG_NAME": "proc-macro2", "CARGO_PKG_VERSION": "1.0.90"}
+        normal = self._metadata(_run_wrapper(wrapper, base + ["-C", "opt-level=3", "-C", "linker=" + tmp + "/cc"], env=env))
+        override = self._metadata(_run_wrapper(wrapper, base + ["-C", "opt-level=0", "-C", "linker=" + tmp + "/cc"], env=env))
+        other_linker = self._metadata(_run_wrapper(wrapper, base + ["-C", "opt-level=3", "-C", "linker=/elsewhere/cc"], env=env))
+        joined = self._metadata(_run_wrapper(wrapper, base + ["-Copt-level=3", "--codegen", "linker=/x"], env=env))
+        self.assertNotEqual(normal, override)
+        self.assertEqual(normal, other_linker)
+        self.assertEqual(normal, joined, "both spellings of a codegen option are one identity")
+
+    def test_exec_platform_crates_keep_cargo_metadata(self) -> None:
+        tmp = tempfile.mkdtemp()
+        wrapper = build_helper._write_rustc_wrapper(tmp, self._fake_rustc(tmp), "/tc/sysroot", self._TARGET)
+        argv = _run_wrapper(wrapper, ["--crate-name", "build_script_build", "-C", "metadata=cafe"], env=self._PKG)
+        self.assertEqual("cafe", self._metadata(argv))
+
+    def test_joined_metadata_spelling(self) -> None:
+        tmp = tempfile.mkdtemp()
+        wrapper = build_helper._write_rustc_wrapper(tmp, self._fake_rustc(tmp), "/tc/sysroot", None)
+        argv = _run_wrapper(wrapper, ["--crate-name", "ext", "-Cmetadata=cafe"], env=self._PKG)
+        joined = [a for a in argv if a.startswith("-Cmetadata=")]
+        self.assertEqual(1, len(joined))
+        self.assertNotEqual("-Cmetadata=cafe", joined[0])
 
 
 class DisableMaturinSbomTest(unittest.TestCase):
