@@ -458,22 +458,51 @@ sdist's `Cargo.lock` pins on crates.io are fetched with their checksums while
 the repository is generated and vendored into it; cargo then builds offline,
 so the build needs no network and works under remote execution. A lock that
 pins crates outside crates.io (git or path sources) is rejected. An sdist
-without a `Cargo.lock` builds with network access and a warning; give it one
-with `uv.override_package(cargo_lock = "//:pkg.Cargo.lock")`, generated once
-with `cargo generate-lockfile` on the extracted sdist, and it is vendored and
-placed next to the sdist's `Cargo.toml` before the build.
-maturin is told not to download a Rust toolchain of its own
-(`MATURIN_NO_INSTALL_RUST=1`): a Rust sdist with no toolchain wired fails
-instead of fetching rustc inside the build.
+without a `Cargo.lock` builds with network access and a warning naming the
+`:cargo_lock` target of its generated repository. `bazel run` that target
+and it resolves the crates with the project's own Rust toolchain and writes
+the lock into the workspace:
+
+```
+bazel run @sdist_build__my_project__tiktoken__0_13_0//:cargo_lock -- third_party/tiktoken.Cargo.lock
+```
+
+The repository is `sdist_build__<project>__<package>__<version>`, with the
+project's `pyproject.toml` name; the warning prints it in canonical form,
+so either add it to `use_repo` or spell it with `@@` as printed. The argument
+is the workspace-relative output, `<name>-<version>.Cargo.lock` at the root
+when omitted. Declare the file with
+`uv.override_package(cargo_lock = "//third_party:tiktoken.Cargo.lock")` and
+it is vendored and placed next to the sdist's `Cargo.toml` before the build;
+once declared, the target regenerates that file in place. maturin is told
+not to download a Rust toolchain of its own (`MATURIN_NO_INSTALL_RUST=1`): a
+Rust sdist with no toolchain wired fails instead of fetching rustc inside the
+build.
 
 The rustc cargo runs is a wrapper that also makes the extension independent
 of where the action ran: sandbox and execroot paths are remapped out of the
-binaries (`--remap-path-prefix`) and target crates compile as one codegen
-unit, and maturin's SBOM, which records sandbox paths, is turned off unless
-the sdist configures it; the wheel's bytes then match across hosts and
-downstream actions hit the cache. Crates that compile C or C++ through cc-rs (`ring`, `zstd-sys`) find
-the wired C toolchain under `CC_<triple>`, `CXX_<triple>`, `AR_<triple>` and
-`RANLIB_<triple>` instead of whatever is on the PATH.
+binaries (`--remap-path-prefix`), target crates compile as one codegen unit,
+and the `-C metadata=` hash cargo mangles into every symbol, which mixes in
+the host's `rustc -vV` output and the paths of host-compiled build scripts,
+is replaced for target crates by one derived from the toolchain's release
+string and the crate's own identity (package name and version, crate name,
+types, cfgs, target and the codegen options its profile sets). maturin's
+SBOM, which records sandbox paths, is turned
+off unless the sdist configures it. The wheel's bytes then match across hosts
+and downstream actions hit the cache. Crates that compile C or C++ through
+cc-rs (`ring`, `zstd-sys`) find the wired C toolchain under `CC_<triple>`,
+`CXX_<triple>`, `AR_<triple>` and `RANLIB_<triple>` instead of whatever is on
+the PATH.
+
+PyO3 needs no configuration file from rules_py: in a cross build maturin
+writes its own `PYO3_CONFIG_FILE` from the `--interpreter` it is handed, and
+setuptools-rust builds derive pointer width and ABI from
+`PYO3_CROSS_PYTHON_VERSION` and the target triple, which the helper sets. A
+PyO3 release older than the Python it is built for refuses to compile and
+names `PYO3_USE_STABLE_ABI_FORWARD_COMPATIBILITY=1` as the way to build
+against the stable ABI anyway; pass it through
+`uv.override_package(env = {...})` for that package rather than globally,
+since it changes the wheel's ABI tag.
 
 ### Backend config settings
 

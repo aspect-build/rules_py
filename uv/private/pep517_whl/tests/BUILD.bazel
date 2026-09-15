@@ -4,6 +4,7 @@ load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 load("@tar.bzl//tar:mtree.bzl", "mtree_mutate", "mtree_spec")
 load("@tar.bzl//tar:tar.bzl", "tar_rule")
 load("//py:defs.bzl", "py_binary", "py_test")
+load("//uv/private/pep517_whl:cargo_lock.bzl", "cargo_lock_generator")
 load("//uv/private/pep517_whl:frontend.bzl", "pep517_frontend")
 load("//uv/private/pep517_whl:pep517_native_whl.bzl", "pep517_native_whl")
 load("//uv/private/pep517_whl:pep517_whl.bzl", "pep517_whl")
@@ -24,6 +25,7 @@ load(
 load(
     ":pep517_whl_test.bzl",
     "absolutize_flag_test",
+    "cargo_lock_generator_test",
     "config_settings_args_test",
     "cross_decision_test",
     "execroot_collision_toolchain",
@@ -381,6 +383,35 @@ rust_host_sysroot(
 rust_host_sysroot_test(
     name = "rust_host_sysroot_test",
     target_under_test = ":__rust_host_sysroot",
+)
+
+# The `:cargo_lock` target sdist_build generates next to a Rust sdist's whl:
+# a `bazel run` script over the same toolchain's cargo and rustc.
+cargo_lock_generator(
+    name = "__cargo_lock",
+    rust_toolchain = ":__fake_rust_toolchain",
+    sdist = ":__stub_sdist",
+    tags = ["manual"],
+)
+
+cargo_lock_generator_test(
+    name = "cargo_lock_generator_test",
+    expected_output = "__stub_sdist.Cargo.lock",
+    target_under_test = ":__cargo_lock",
+)
+
+cargo_lock_generator(
+    name = "__cargo_lock_declared",
+    output = "third_party/pkg.Cargo.lock",
+    rust_toolchain = ":__fake_rust_toolchain",
+    sdist = ":__stub_sdist",
+    tags = ["manual"],
+)
+
+cargo_lock_generator_test(
+    name = "cargo_lock_generator_declared_output_test",
+    expected_output = "third_party/pkg.Cargo.lock",
+    target_under_test = ":__cargo_lock_declared",
 )
 
 # The shape sdist_build generates for a Rust sdist: the toolchain plus its
