@@ -382,22 +382,22 @@ useful when a pre-build patch removes stale entry-point metadata.
 ### Build-time toolchains
 
 A native sdist build may need tools beyond the C++ toolchain: a JDK for JNI
-extensions, Ant, cargo and rustc for Rust extensions. Declare them once with
-`uv.package_toolchains()` and their well-known make-variables reach the build
-environment on their own:
+extensions, Ant, cargo and rustc for Rust extensions. Tools one package needs
+go on that package's override and their well-known make-variables reach the
+build environment on their own:
 
 ```starlark
-uv.package_toolchains(
+uv.override_package(
+    name = "jpype1",
     lock = "//:uv.lock",
     toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
 )
 ```
 
-`toolchains` is forwarded to every sdist built from source in scope. The scope
-is the module when neither `lock` nor `name` is given, one project with
-`lock`, one package everywhere with `name`, or one package in one project with
-both; each attribute resolves from the most specific declaration that sets it.
-`uv.override_package(toolchains = ...)` still works for a single package.
+Toolchain files become inputs of that package's build action and of no
+other, which is what keeps a JDK out of every unrelated sdist build. Rust is
+the exception with its own declaration below: rules_py detects which sdists
+build Rust, so one module-wide declaration is precise.
 
 `$(JAVA)` and `$(JAVABASE)` arrive as `JAVA` and `JAVA_HOME`; `$(ANT_HOME)` and
 `$(ANT_BIN_DIR)` likewise; `$(CARGO)`, `$(RUSTC)`, `$(RUST_SYSROOT)` and
@@ -408,12 +408,12 @@ wins over the derived value.
 
 Rust sdists (maturin, setuptools-rust) build with the Rust toolchain your
 module registers. Fetching rustc and cargo is the Rust rulesets' job, and
-rules_py depends on neither of them, so point it at the toolchain once and
-every Rust sdist of every `uv.project()` in the module is wired to it. Either
-ruleset works:
+rules_py depends on neither of them, so point `uv.rust_toolchain()` at the
+toolchain once and every Rust sdist of every `uv.project()` in the module is
+wired to it. Either ruleset works:
 
 - [rules_rust](https://github.com/bazelbuild/rules_rust):
-  `rust_toolchain = "@rules_rust//rust/toolchain:current_rust_toolchain"`
+  `toolchain = "@rules_rust//rust/toolchain:current_rust_toolchain"`
 - [rules_rs](https://github.com/hermeticbuild/rules_rs): its toolchains are
   rules_rust `rust_toolchain` instances declared in the patched `rules_rust`
   repository it fetches, so expose that repository and point at its
@@ -424,22 +424,22 @@ ruleset works:
   use_repo(rules_rust_rs, rules_rust_rs = "rules_rust")
   ```
 
-  then `rust_toolchain = "@rules_rust_rs//rust/toolchain:current_rust_toolchain"`.
+  then `toolchain = "@rules_rust_rs//rust/toolchain:current_rust_toolchain"`.
 
 ```starlark
-uv.package_toolchains(
-    rust_toolchain = "@rules_rust//rust/toolchain:current_rust_toolchain",
+uv.rust_toolchain(
+    toolchain = "@rules_rust//rust/toolchain:current_rust_toolchain",
 )
 ```
 
-Scope a declaration with `lock` to apply it to one project only, or with
-`name` to one package; the most specific declaration wins. That is how a
-workspace builds one project on rules_rust and another on rules_rs:
+Scope a declaration with `lock` to apply it to one project only; it wins over
+the module-wide one for that project. That is how a workspace builds one
+project on rules_rust and another on rules_rs:
 
 ```starlark
-uv.package_toolchains(
+uv.rust_toolchain(
     lock = "//other:uv.lock",
-    rust_toolchain = "@rules_rust_rs//rust/toolchain:current_rust_toolchain",
+    toolchain = "@rules_rust_rs//rust/toolchain:current_rust_toolchain",
 )
 ```
 
@@ -450,7 +450,7 @@ build cargo also *compiles* code for the exec platform and runs it there
 (`build.rs` scripts, proc-macro crates); that layer supplies the exec
 platform's standard library next to the target's, the way rustup keeps
 several targets in one install. No `uv.override_package` entry is needed for
-Rust packages, and a Rust sdist in a module with no `uv.package_toolchains()`
+Rust packages, and a Rust sdist in a module with no `uv.rust_toolchain()`
 covering its project fails while the repository is generated, naming the
 declaration to add; only declared Rust builds are demanding, an sdist that
 merely ships `.rs` files (zstandard's optional extension) builds as before. The crates the

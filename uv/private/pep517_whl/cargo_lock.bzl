@@ -145,7 +145,7 @@ path, relative to the workspace root.""",
         "rust_toolchain": attr.label(
             mandatory = True,
             providers = [platform_common.ToolchainInfo],
-            doc = "A ruleset `rust_toolchain` exposing `cargo` and `rustc`; the project's `uv.package_toolchains(rust_toolchain = ...)`.",
+            doc = "A ruleset `rust_toolchain` exposing `cargo` and `rustc`; the project's `uv.rust_toolchain()`.",
         ),
         "output": attr.string(
             default = "",

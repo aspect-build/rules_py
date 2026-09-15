@@ -285,7 +285,7 @@ def _missing_rust_toolchain(repo_name, rust_toolchain, inspection, toolchains):
     else:
         reason = "setuptools-rust is among its declared build requirements"
     return ("sdist_build for '{}': this sdist builds Rust ({}) but the project declares no Rust toolchain. " +
-            "Declare `uv.package_toolchains(rust_toolchain = \"@rules_rust//rust/toolchain:current_rust_toolchain\")`, " +
+            "Declare `uv.rust_toolchain(toolchain = \"@rules_rust//rust/toolchain:current_rust_toolchain\")`, " +
             "or wire one by hand with `uv.override_package(toolchains = [...])`.").format(repo_name, reason)
 
 def _lock_output(cargo_lock):
@@ -310,7 +310,7 @@ def _rust_wiring(rust_toolchain, inspection, toolchains, src = "", lock_output =
     that `bazel run` uses to write the sdist's Cargo.lock into the workspace.
 
     Args:
-        rust_toolchain: The `uv.package_toolchains(rust_toolchain = ...)` that applies to the project, rendered as a label string, or "".
+        rust_toolchain: The `uv.rust_toolchain()` that applies to the project, rendered as a label string, or "".
         inspection: The configure tool's JSON, or None.
         toolchains: Extra toolchain labels from `uv.override_package`.
         src: The sdist label string, for the `:cargo_lock` target.

@@ -1,6 +1,6 @@
 """tiktoken: setuptools-rust sdist build.
 
-The module-wide `uv.package_toolchains()` (see //pycross-rust) is all the Rust
+The module-wide `uv.rust_toolchain()` (see //pycross-rust) is all the Rust
 wiring: sdist_build detects setuptools-rust in the build requirements and
 emits the toolchain plus the exec-platform sysroot into the generated
 pep517_native_whl.
