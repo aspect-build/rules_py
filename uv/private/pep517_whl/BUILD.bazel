@@ -56,3 +56,8 @@ bzl_library(
     name = "rust_layer",
     srcs = ["rust_layer.bzl"],
 )
+
+bzl_library(
+    name = "cargo_lock",
+    srcs = ["cargo_lock.bzl"],
+)

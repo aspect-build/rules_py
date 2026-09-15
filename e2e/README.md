@@ -53,10 +53,13 @@ bundled `.so`), and each case exports a wheel bundle that CI installs and runs
 on NATIVE amd64 and arm64 runners — no emulation in the verdict. The suites are isolated from
 `e2e/cases` because their hubs need package-specific configuration
 (`default_build_dependencies`, pre-build patches, a larger `resource_set`)
-that would otherwise leak onto unrelated packages sharing the hub. On a macOS
-host, `test.sh` additionally cross-builds `pycross-geohash` for macOS amd64
-(a manual target: the platform transition always resolves to os:macos, so
-`target_compatible_with` cannot tell hosts apart).
+that would otherwise leak onto unrelated packages sharing the hub. Like
+`cases`, its `test.sh` aggregates the per-case `<case>/test.sh` scripts that
+cannot be an `sh_test`: `pycross-geohash` cross-builds for macOS amd64 on a
+macOS host only (a manual target: the platform transition always resolves to
+os:macos, so `target_compatible_with` cannot tell hosts apart), and
+`pycross-tiktoken` runs the `:cargo_lock` generator of its sdist repository,
+which needs `bazel run` and the crates.io index the action sandbox denies.
 
 Each isolated workspace points back at repo-root rules_py with
 `local_path_override(path = "../..")`.
