@@ -1,7 +1,7 @@
 """rpds-py: maturin/PyO3 sdist build (hub dir underscores what PyPI
 hyphenates, hence override name != hub name).
 
-`uv.project(rust_toolchain = ...)` is all the Rust wiring: sdist_build detects
+The module-wide `uv.rust_toolchain()` in //pycross-rust is all the Rust wiring: sdist_build detects
 the maturin backend and emits the toolchain plus the exec-platform sysroot
 (the std that build scripts and proc-macros need) into the generated
 pep517_native_whl.
@@ -17,7 +17,6 @@ uv.project(
     hub_name = "pypi_pycross_rpds_py",
     lock = "//pycross-rpds_py:uv.lock",
     pyproject = "//pycross-rpds_py:pyproject.toml",
-    rust_toolchain = "@rules_rust//rust/toolchain:current_rust_toolchain",
 )
 use_repo(
     uv,

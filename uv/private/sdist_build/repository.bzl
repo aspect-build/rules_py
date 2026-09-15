@@ -210,6 +210,7 @@ def _declares_rust_build(inspection):
     return "setuptools-rust" in [_normalize_requirement(r) for r in inspection.get("build_requires", [])]
 
 _RUST_LAYER_LOAD = "\nload(\"@aspect_rules_py//uv/private/pep517_whl:rust_layer.bzl\", \"rust_host_sysroot\")"
+_CARGO_LOCK_LOAD = "\nload(\"@aspect_rules_py//uv/private/pep517_whl:cargo_lock.bzl\", \"cargo_lock_generator\")"
 
 _CRATES_IO_SOURCE = "registry+https://github.com/rust-lang/crates.io-index"
 
@@ -284,39 +285,63 @@ def _missing_rust_toolchain(repo_name, rust_toolchain, inspection, toolchains):
     else:
         reason = "setuptools-rust is among its declared build requirements"
     return ("sdist_build for '{}': this sdist builds Rust ({}) but the project declares no Rust toolchain. " +
-            "Set `uv.project(rust_toolchain = \"@rules_rust//rust/toolchain:current_rust_toolchain\")`, " +
+            "Declare `uv.rust_toolchain(toolchain = \"@rules_rust//rust/toolchain:current_rust_toolchain\")`, " +
             "or wire one by hand with `uv.override_package(toolchains = [...])`.").format(repo_name, reason)
 
-def _rust_wiring(rust_toolchain, inspection, toolchains):
-    """The generated BUILD's Rust wiring for a project-level `rust_toolchain`.
+def _lock_output(cargo_lock):
+    """Workspace-relative path of a `uv.override_package(cargo_lock = ...)` label, or "".
+
+    The generator regenerates a declared lock in place; a lock in another
+    repository cannot be written to, so it falls back to the default name.
+    """
+    if cargo_lock == None or getattr(cargo_lock, "repo_name", cargo_lock.workspace_name):
+        return ""
+    return cargo_lock.package + "/" + cargo_lock.name if cargo_lock.package else cargo_lock.name
+
+def _rust_wiring(rust_toolchain, inspection, toolchains, src = "", lock_output = ""):
+    """The generated BUILD's Rust wiring for the project's `rust_toolchain`.
 
     The configure tool already detected the build backend and its declared
     requirements, so a Rust-based build (maturin, or setuptools with
     setuptools-rust) gets the project's Rust toolchain plus an exec-configured
     rust_host_sysroot layer without the user spelling either out per package.
     pep517_native_whl derives CARGO/RUSTC/RULES_PY_RUST_HOST_SYSROOT from
-    their make-variables.
+    their make-variables. The same toolchain drives a `:cargo_lock` target
+    that `bazel run` uses to write the sdist's Cargo.lock into the workspace.
 
     Args:
-        rust_toolchain: `uv.project(rust_toolchain = ...)` rendered as a label string, or "".
+        rust_toolchain: The `uv.rust_toolchain()` that applies to the project, rendered as a label string, or "".
         inspection: The configure tool's JSON, or None.
         toolchains: Extra toolchain labels from `uv.override_package`.
+        src: The sdist label string, for the `:cargo_lock` target.
+        lock_output: Workspace-relative path the `:cargo_lock` target writes by default, or "" for its own default.
 
     Returns:
-        struct(load_stmt, target, toolchains): the `load()` line and the
-        `rust_host_sysroot(...)` target to splice into the BUILD (both "" when
-        not wired), and the final `toolchains` list.
+        struct(load_stmt, target, toolchains): the `load()` lines and the
+        `rust_host_sysroot(...)` and `cargo_lock_generator(...)` targets to
+        splice into the BUILD (both "" when not wired), and the final
+        `toolchains` list.
     """
     if not (rust_toolchain and _is_rust_build(inspection)):
         return struct(load_stmt = "", target = "", toolchains = list(toolchains))
     target = """
 rust_host_sysroot(
     name = "rust_host_sysroot",
-    actual = {},
+    actual = {toolchain},
 )
-""".format(repr(rust_toolchain))
+
+cargo_lock_generator(
+    name = "cargo_lock",{output}
+    rust_toolchain = {toolchain},
+    sdist = {src},
+)
+""".format(
+        toolchain = repr(rust_toolchain),
+        src = repr(src),
+        output = "\n    output = {},".format(repr(lock_output)) if lock_output else "",
+    )
     return struct(
-        load_stmt = _RUST_LAYER_LOAD,
+        load_stmt = _RUST_LAYER_LOAD + _CARGO_LOCK_LOAD,
         target = target,
         toolchains = [rust_toolchain, ":rust_host_sysroot"] + [t for t in toolchains if t != rust_toolchain],
     )
@@ -467,7 +492,13 @@ def _sdist_build_impl(repository_ctx):
         missing = _missing_rust_toolchain(repository_ctx.name, rust_toolchain, inspection, toolchains)
         if missing:
             fail(missing)
-        rust = _rust_wiring(str(rust_toolchain) if rust_toolchain else "", inspection, toolchains)
+        rust = _rust_wiring(
+            str(rust_toolchain) if rust_toolchain else "",
+            inspection,
+            toolchains,
+            src = str(repository_ctx.attr.src),
+            lock_output = _lock_output(repository_ctx.attr.cargo_lock),
+        )
         rust_layer_load = rust.load_stmt
         rust_layer_target = rust.target
         toolchains = rust.toolchains
@@ -481,7 +512,7 @@ def _sdist_build_impl(repository_ctx):
                     vendored_crates_attr += _cargo_lock_attr(str(repository_ctx.attr.cargo_lock))
             elif crates == None:
                 # buildifier: disable=print
-                print("WARNING: {} builds Rust but its sdist ships no Cargo.lock; cargo will fetch crates during the build. Declare the lock to make the build hermetic.".format(repository_ctx.name))
+                print("WARNING: {name} builds Rust but its sdist ships no Cargo.lock; cargo will fetch crates during the build. Generate one with `bazel run @@{name}//:cargo_lock` and declare it with `uv.override_package(cargo_lock = ...)` to make the build hermetic.".format(name = repository_ctx.name))
         if toolchains:
             toolchain_attrs = """
     toolchains = [
@@ -633,6 +664,7 @@ sdist_build_test_util = struct(
     config_settings_attr = _config_settings_attr,
     env_attr = _env_attr,
     is_rust_build = _is_rust_build,
+    lock_output = _lock_output,
     missing_rust_toolchain = _missing_rust_toolchain,
     normalize_requirement = _normalize_requirement,
     rust_wiring = _rust_wiring,

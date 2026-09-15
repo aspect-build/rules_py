@@ -112,9 +112,39 @@ def _rust_wiring_test_impl(ctx):
         on.toolchains,
         "toolchain and layer first, override extras after, the toolchain not repeated",
     )
+    asserts.true(env, "cargo_lock.bzl" in on.load_stmt and "cargo_lock_generator" in on.load_stmt, "load() for the lock generator")
+
+    with_src = wiring(_TOOLCHAIN, rust_inspection, [], src = "@@sdist__pkg//file")
+    asserts.true(
+        env,
+        'cargo_lock_generator(\n    name = "cargo_lock",\n    rust_toolchain = "{}",\n    sdist = "@@sdist__pkg//file",\n)'.format(_TOOLCHAIN) in with_src.target,
+        "a `bazel run` lock generator over the same toolchain and sdist; got: " + with_src.target,
+    )
+    declared = wiring(_TOOLCHAIN, rust_inspection, [], src = "@@sdist__pkg//file", lock_output = "third_party/pkg.Cargo.lock")
+    asserts.true(
+        env,
+        '    name = "cargo_lock",\n    output = "third_party/pkg.Cargo.lock",\n' in declared.target,
+        "a declared lock is regenerated in place; got: " + declared.target,
+    )
     return unittest.end(env)
 
 rust_wiring_test = unittest.make(_rust_wiring_test_impl)
+
+# Label() is a loading-phase constructor; the fixtures live at module level.
+_NESTED_LOCK = Label("@@//third_party:pkg.Cargo.lock")
+_ROOT_LOCK = Label("@@//:pkg.Cargo.lock")
+_FOREIGN_LOCK = Label("@@other_repo//x:Cargo.lock")
+
+def _lock_output_test_impl(ctx):
+    env = unittest.begin(ctx)
+    lock_output = sdist_build_test_util.lock_output
+    asserts.equals(env, "", lock_output(None), "no declared lock: the generator picks its default name")
+    asserts.equals(env, "third_party/pkg.Cargo.lock", lock_output(_NESTED_LOCK))
+    asserts.equals(env, "pkg.Cargo.lock", lock_output(_ROOT_LOCK), "root-package labels have no directory")
+    asserts.equals(env, "", lock_output(_FOREIGN_LOCK), "another repository cannot be written to")
+    return unittest.end(env)
+
+lock_output_test = unittest.make(_lock_output_test_impl)
 
 def _crate_vendoring_test_impl(ctx):
     env = unittest.begin(ctx)
@@ -156,7 +186,7 @@ def _missing_rust_toolchain_test_impl(ctx):
     )
 
     msg = missing("sdist_build__x__pkg__1_0", "", maturin, [])
-    asserts.true(env, msg != None and "its build backend is maturin" in msg and "uv.project(rust_toolchain" in msg, "got: {}".format(msg))
+    asserts.true(env, msg != None and "its build backend is maturin" in msg and "uv.rust_toolchain(toolchain" in msg, "got: {}".format(msg))
     msg = missing("r", "", st_rust, [])
     asserts.true(env, msg != None and "setuptools-rust is among its declared build requirements" in msg, "got: {}".format(msg))
     return unittest.end(env)

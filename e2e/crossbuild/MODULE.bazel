@@ -59,8 +59,10 @@ register_toolchains(
 # host cross-building the linux cases locally (exec=darwin → target=linux).
 register_toolchains("@llvm//toolchain:all")
 
-# Shared by the rust suites (pycross-bcrypt, pycross-rpds_py, pycross-rust,
-# pycross-tiktoken) through uv.project(rust_toolchain = ...).
+# Cross rust toolchain for the Rust cases: the extra triples give cargo a
+# target std for each linux CPU; the exec platform's std comes from the
+# ambient toolchain (see rules_py's rust_layer.bzl). uv.rust_toolchain() in
+# //pycross-rust wires it module-wide.
 rust = use_extension("@rules_rust//rust:extensions.bzl", "rust")
 rust.toolchain(
     edition = "2021",

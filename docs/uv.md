@@ -314,12 +314,13 @@ Under cross mode the build action:
    fails the action if the backend leaked the exec platform into the tag.
 
 Cargo-based backends need a Rust toolchain that runs on the exec platform.
-Declare it once per project with
-`uv.project(rust_toolchain = "@rules_rust//rust/toolchain:current_rust_toolchain")`;
+Declare it once per module (or per project with `lock`) with
+`uv.rust_toolchain(toolchain = "@rules_rust//rust/toolchain:current_rust_toolchain")`;
 sdist repos whose build backend is maturin, or whose build requirements
 include setuptools-rust, then receive `CARGO`, `RUSTC` and the exec-platform
-sysroot automatically. No per-package `uv.override_package` `env` or
-`toolchains` entries are needed for Rust.
+sysroot automatically, and cargo builds offline against the crates vendored
+from the sdist's `Cargo.lock`. No per-package `uv.override_package` `env` or
+`toolchains` entries are needed for Rust; see "Build-time toolchains" below.
 
 Other build-time toolchains are still layered per package through
 `uv.override_package(toolchains = [...])`. Toolchains exporting the JDK
@@ -461,32 +462,38 @@ useful when a pre-build patch removes stale entry-point metadata.
 ### Build-time toolchains
 
 A native sdist build may need tools beyond the C++ toolchain: a JDK for JNI
-extensions, cargo and rustc for Rust extensions, Ant. List them on the
-package's override and their well-known make-variables reach the build
-environment on their own:
+extensions, Ant, cargo and rustc for Rust extensions. Tools one package needs
+go on that package's override and their well-known make-variables reach the
+build environment on their own:
 
 ```starlark
 uv.override_package(
-    lock = "//:uv.lock",
     name = "jpype1",
+    lock = "//:uv.lock",
     toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
 )
 ```
 
-`$(JAVA)` and `$(JAVABASE)` arrive as `JAVA` and `JAVA_HOME`; `$(CARGO)`,
-`$(RUSTC)`, `$(RUST_SYSROOT)` and `$(RUST_HOST_SYSROOT)` as the variables the
-Rust build path reads; `$(ANT_HOME)` and `$(ANT_BIN_DIR)` likewise. Any other make-variable a
-toolchain exports still needs an explicit `env` entry (`"FOO": "$(FOO)"`),
-and an explicit entry always wins over the derived value.
+Toolchain files become inputs of that package's build action and of no
+other, which is what keeps a JDK out of every unrelated sdist build. Rust is
+the exception with its own declaration below: rules_py detects which sdists
+build Rust, so one module-wide declaration is precise.
+
+`$(JAVA)` and `$(JAVABASE)` arrive as `JAVA` and `JAVA_HOME`; `$(ANT_HOME)` and
+`$(ANT_BIN_DIR)` likewise; `$(CARGO)`, `$(RUSTC)`, `$(RUST_SYSROOT)` and
+`$(RUST_HOST_SYSROOT)` as the variables the Rust build path reads, for
+toolchains wired by hand. Any other make-variable a toolchain exports still
+needs an explicit `env` entry (`"FOO": "$(FOO)"`), and an explicit entry always
+wins over the derived value.
 
 Rust sdists (maturin, setuptools-rust) build with the Rust toolchain your
-project registers. Fetching rustc and cargo is the Rust rulesets' job, and
-rules_py depends on neither of them, so point it at the toolchain once per
-project and every Rust sdist in that project is wired to it. Either ruleset
-works:
+module registers. Fetching rustc and cargo is the Rust rulesets' job, and
+rules_py depends on neither of them, so point `uv.rust_toolchain()` at the
+toolchain once and every Rust sdist of every `uv.project()` in the module is
+wired to it. Either ruleset works:
 
 - [rules_rust](https://github.com/bazelbuild/rules_rust):
-  `rust_toolchain = "@rules_rust//rust/toolchain:current_rust_toolchain"`
+  `toolchain = "@rules_rust//rust/toolchain:current_rust_toolchain"`
 - [rules_rs](https://github.com/hermeticbuild/rules_rs): its toolchains are
   rules_rust `rust_toolchain` instances declared in the patched `rules_rust`
   repository it fetches, so expose that repository and point at its
@@ -497,36 +504,85 @@ works:
   use_repo(rules_rust_rs, rules_rust_rs = "rules_rust")
   ```
 
-  then `rust_toolchain = "@rules_rust_rs//rust/toolchain:current_rust_toolchain"`.
+  then `toolchain = "@rules_rust_rs//rust/toolchain:current_rust_toolchain"`.
 
 ```starlark
-uv.project(
-    hub_name = "pypi",
-    lock = "//:uv.lock",
-    pyproject = "//:pyproject.toml",
-    rust_toolchain = "@rules_rust//rust/toolchain:current_rust_toolchain",
+uv.rust_toolchain(
+    toolchain = "@rules_rust//rust/toolchain:current_rust_toolchain",
 )
 ```
 
-Every sdist in that project whose build backend is maturin, or whose build
-requirements include setuptools-rust, then gets the toolchain and an
+Scope a declaration with `lock` to apply it to one project only; it wins over
+the module-wide one for that project. That is how a workspace builds one
+project on rules_rust and another on rules_rs:
+
+```starlark
+uv.rust_toolchain(
+    lock = "//other:uv.lock",
+    toolchain = "@rules_rust_rs//rust/toolchain:current_rust_toolchain",
+)
+```
+
+Every sdist whose build backend is maturin, or whose build requirements
+include setuptools-rust, then gets the toolchain and an
 exec-configured `rust_host_sysroot` layer wired into its build. In a cross
 build cargo also *compiles* code for the exec platform and runs it there
 (`build.rs` scripts, proc-macro crates); that layer supplies the exec
 platform's standard library next to the target's, the way rustup keeps
 several targets in one install. No `uv.override_package` entry is needed for
-Rust packages, and a Rust sdist in a project that declares no
-`rust_toolchain` fails while the repository is generated, naming the
-attribute to set; only declared Rust builds are demanding, an sdist that
+Rust packages, and a Rust sdist in a module with no `uv.rust_toolchain()`
+covering its project fails while the repository is generated, naming the
+declaration to add; only declared Rust builds are demanding, an sdist that
 merely ships `.rs` files (zstandard's optional extension) builds as before. The crates the
 sdist's `Cargo.lock` pins on crates.io are fetched with their checksums while
 the repository is generated and vendored into it; cargo then builds offline,
 so the build needs no network and works under remote execution. A lock that
 pins crates outside crates.io (git or path sources) is rejected. An sdist
-without a `Cargo.lock` builds with network access and a warning; give it one
-with `uv.override_package(cargo_lock = "//:pkg.Cargo.lock")`, generated once
-with `cargo generate-lockfile` on the extracted sdist, and it is vendored and
-placed next to the sdist's `Cargo.toml` before the build.
+without a `Cargo.lock` builds with network access and a warning naming the
+`:cargo_lock` target of its generated repository. `bazel run` that target
+and it resolves the crates with the project's own Rust toolchain and writes
+the lock into the workspace:
+
+```
+bazel run @sdist_build__my_project__tiktoken__0_13_0//:cargo_lock -- third_party/tiktoken.Cargo.lock
+```
+
+The repository is `sdist_build__<project>__<package>__<version>`, with the
+project's `pyproject.toml` name; the warning prints it in canonical form,
+so either add it to `use_repo` or spell it with `@@` as printed. The argument
+is the workspace-relative output, `<name>-<version>.Cargo.lock` at the root
+when omitted. Declare the file with
+`uv.override_package(cargo_lock = "//third_party:tiktoken.Cargo.lock")` and
+it is vendored and placed next to the sdist's `Cargo.toml` before the build;
+once declared, the target regenerates that file in place. maturin is told
+not to download a Rust toolchain of its own (`MATURIN_NO_INSTALL_RUST=1`): a
+Rust sdist with no toolchain wired fails instead of fetching rustc inside the
+build.
+
+The rustc cargo runs is a wrapper that also makes the extension independent
+of where the action ran: sandbox and execroot paths are remapped out of the
+binaries (`--remap-path-prefix`), target crates compile as one codegen unit,
+and the `-C metadata=` hash cargo mangles into every symbol, which mixes in
+the host's `rustc -vV` output and the paths of host-compiled build scripts,
+is replaced for target crates by one derived from the toolchain's release
+string and the crate's own identity (package name and version, crate name,
+types, cfgs, target and the codegen options its profile sets). maturin's
+SBOM, which records sandbox paths, is turned
+off unless the sdist configures it. The wheel's bytes then match across hosts
+and downstream actions hit the cache. Crates that compile C or C++ through
+cc-rs (`ring`, `zstd-sys`) find the wired C toolchain under `CC_<triple>`,
+`CXX_<triple>`, `AR_<triple>` and `RANLIB_<triple>` instead of whatever is on
+the PATH.
+
+PyO3 needs no configuration file from rules_py: in a cross build maturin
+writes its own `PYO3_CONFIG_FILE` from the `--interpreter` it is handed, and
+setuptools-rust builds derive pointer width and ABI from
+`PYO3_CROSS_PYTHON_VERSION` and the target triple, which the helper sets. A
+PyO3 release older than the Python it is built for refuses to compile and
+names `PYO3_USE_STABLE_ABI_FORWARD_COMPATIBILITY=1` as the way to build
+against the stable ABI anyway; pass it through
+`uv.override_package(env = {...})` for that package rather than globally,
+since it changes the wheel's ABI tag.
 
 ### Backend config settings
 
