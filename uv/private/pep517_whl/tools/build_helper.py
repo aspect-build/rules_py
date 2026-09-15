@@ -919,17 +919,29 @@ _RUST_TARGET_OS = {
     ("darwin", "libsystem"): "apple-darwin",
 }
 
-# Beyond the explicit sysroot, the wrapper makes the compiled artifacts
-# independent of where the action ran: rustc bakes source paths into debug
-# info and panic messages, and the sandbox root and execroot differ per host
-# and per action, so they are remapped away. A single codegen unit keeps
-# LLVM's module ids, which leak into symbol names, stable across hosts; it
-# is applied to target crates only (build scripts and proc-macros never
-# reach the wheel), or to everything in a native build where cargo passes
-# no --target.
+# The rustc cargo runs. Sandbox and execroot paths differ per host and per
+# action, so they are remapped away. A single codegen unit keeps LLVM's
+# module ids, which leak into symbol names, stable across hosts; it is
+# applied to target crates only (build scripts and proc-macros never reach
+# the wheel), or to everything in a native build where cargo passes no
+# --target. Cargo's `-C metadata=` hash, which every mangled symbol carries
+# and rustc uses as the crate's stable id, mixes in `rustc -vV` (host triple
+# included) and the paths of host-compiled build scripts; target crates get
+# one derived from host-independent identity instead: the toolchain's
+# release string, the package cargo names in the environment it hands rustc,
+# the crate name, its types, its cfgs, the target and the codegen options
+# that define its profile. Two versions of one package hash apart, and so do
+# the two compilations of one crate a native build makes when the
+# `build-override` profile differs from the normal one (cargo shares them
+# only when the profiles agree). Options carrying paths (`linker`,
+# `link-arg`) are left out: those are per sandbox. `-C extra-filename` stays
+# cargo's so its own artifact names never collide.
 _RUSTC_WRAPPER = """#!/usr/bin/env python3
+import hashlib
 import os
 import sys
+
+PROFILE_OPTIONS = {profile_options!r}
 
 args = sys.argv[1:]
 final = [{rustc!r}, "--sysroot", {sysroot!r}]
@@ -938,12 +950,74 @@ for prefix in {remap_prefixes!r}:
 target = {target_triple!r}
 if target is None or target in args:
     final += ["-C", "codegen-units=1"]
+    identity = [
+        {toolchain!r},
+        os.environ.get("CARGO_PKG_NAME", ""),
+        os.environ.get("CARGO_PKG_VERSION", ""),
+        target or "",
+    ]
+    crate_types = []
+    cfgs = []
+    codegen = []
+    for i, arg in enumerate(args):
+        if arg == "--crate-name" and i + 1 < len(args):
+            identity.append(args[i + 1])
+        elif arg == "--crate-type" and i + 1 < len(args):
+            crate_types.append(args[i + 1])
+        elif arg == "--cfg" and i + 1 < len(args):
+            cfgs.append(args[i + 1])
+        else:
+            option = None
+            if arg in ("-C", "--codegen") and i + 1 < len(args):
+                option = args[i + 1]
+            elif arg.startswith("-C") and "=" in arg:
+                option = arg[2:]
+            if option is not None and option.split("=", 1)[0] in PROFILE_OPTIONS:
+                codegen.append(option)
+    identity += sorted(crate_types) + sorted(cfgs) + sorted(codegen)
+    metadata = "metadata=" + hashlib.sha256("\\0".join(identity).encode()).hexdigest()[:16]
+    for i, arg in enumerate(args):
+        if arg.startswith("metadata=") and i > 0 and args[i - 1] in ("-C", "--codegen"):
+            args[i] = metadata
+        elif arg.startswith("-Cmetadata="):
+            args[i] = "-C" + metadata
 os.execv(final[0], final + args)
 """
 
+# Codegen options cargo derives from the profile: the identity of a
+# compilation of one crate beyond its name, version, cfgs and target.
+_RUSTC_PROFILE_OPTIONS = (
+    "opt-level",
+    "debuginfo",
+    "debug-assertions",
+    "overflow-checks",
+    "panic",
+    "lto",
+    "embed-bitcode",
+    "strip",
+    "target-cpu",
+    "target-feature",
+    "relocation-model",
+    "symbol-mangling-version",
+)
+
+
+def _rustc_identity(rustc: str) -> str:
+    """The toolchain's release string (`rustc 1.90.0 (hash date)`): the same on every host.
+
+    Falls back to the binary's name, loudly: symbol hashes then no longer
+    track toolchain upgrades, which is harmless within a build but worth
+    knowing about.
+    """
+    try:
+        return check_output([rustc, "--version"], text=True, stderr=STDOUT).strip()
+    except (OSError, CalledProcessError) as exc:
+        print("Warning: {} --version failed ({}); symbol hashes will not track the toolchain release.".format(rustc, exc), file=sys.stderr)
+        return path.basename(rustc)
+
 
 def _write_rustc_wrapper(tmpdir: str, rustc: str, sysroot: str, target_triple: str | None) -> str:
-    """The rustc cargo runs: explicit sysroot, reproducible paths and codegen (see _RUSTC_WRAPPER)."""
+    """The rustc cargo runs: explicit sysroot, reproducible paths, codegen and symbol hashes (see _RUSTC_WRAPPER)."""
     return _write_generated_file(
         path.join(tmpdir, ".aspect_rules_py_rustc", "rustc"),
         _RUSTC_WRAPPER.format(
@@ -951,6 +1025,8 @@ def _write_rustc_wrapper(tmpdir: str, rustc: str, sysroot: str, target_triple: s
             sysroot=sysroot,
             remap_prefixes=[path.abspath(tmpdir), os.getcwd()],
             target_triple=target_triple,
+            toolchain=_rustc_identity(rustc),
+            profile_options=_RUSTC_PROFILE_OPTIONS,
         ),
         executable=True,
     )
