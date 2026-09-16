@@ -6,8 +6,9 @@ load("//uv/private:normalize_name.bzl", "normalize_name")
 load("//uv/private:normalize_version.bzl", "normalize_version")
 load("//uv/private:parse_whl_name.bzl", "parse_whl_name")
 load("//uv/private:sha1.bzl", "sha1")
+load("//uv/private/constraints/abi:defs.bzl", "filter_abi_tags")
 load("//uv/private/constraints/platform:defs.bzl", "supported_platform")
-load("//uv/private/constraints/python:defs.bzl", "supported_python")
+load("//uv/private/constraints/python:defs.bzl", "filter_python_tags")
 load(":git_utils.bzl", "parse_git_url", "try_git_to_http_archive")
 
 def normalize_deps(lock_id, lock_data):
@@ -150,11 +151,12 @@ def collect_configurations(lock):
 
     for wheel_name in wheel_files.keys():
         parsed_wheel = parse_whl_name(wheel_name)
-        for python_tag in parsed_wheel.python_tags:
-            # Ignore configurations for unsupported interpreters
-            if not supported_python(python_tag):
-                continue
 
+        # Ignore configurations for unsupported interpreters and abis
+        whl_python_tags = filter_python_tags(wheel_name, parsed_wheel.python_tags)
+        whl_abi_tags = filter_abi_tags(wheel_name, parsed_wheel.abi_tags)
+
+        for python_tag in whl_python_tags:
             python_tags[python_tag] = 1
 
             for platform_tag in parsed_wheel.platform_tags:
@@ -164,7 +166,7 @@ def collect_configurations(lock):
 
                 platform_tags[platform_tag] = 1
 
-                for abi_tag in parsed_wheel.abi_tags:
+                for abi_tag in whl_abi_tags:
                     abi_tags[abi_tag] = 1
 
                     # Note that we are NOT filtering out

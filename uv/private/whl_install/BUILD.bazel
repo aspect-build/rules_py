@@ -23,7 +23,9 @@ bzl_library(
     srcs = ["repository.bzl"],
     deps = [
         "//uv/private:parse_whl_name",
+        "//uv/private/constraints/abi:defs",
         "//uv/private/constraints/platform:defs",
+        "//uv/private/constraints/python:defs",
     ],
 )
 

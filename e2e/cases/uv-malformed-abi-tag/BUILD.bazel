@@ -1,0 +1,21 @@
+# Regression test: a wheel entry with malformed python/abi tags (cp311_2,
+# e.g. from a renamed wheel in a private registry) must be skipped instead of
+# generating select conditions on nonexistent constraint targets, which breaks
+# analysis of the whole package on every platform.
+
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
+genquery(
+    name = "iniconfig_targets",
+    expression = "deps(@pypi-malformed-abi//iniconfig)",
+    scope = ["@pypi-malformed-abi//iniconfig"],
+)
+
+sh_test(
+    name = "test",
+    srcs = ["test_malformed_abi_tag.sh"],
+    data = [
+        "uv.lock",
+        ":iniconfig_targets",
+    ],
+)

@@ -6,16 +6,23 @@ config_setting_group that combines a Python version check with interpreter
 feature flag checks. The feature flags are backed by bool_flags defined in
 //py/private/interpreter:BUILD.bazel and are set by the interpreter toolchain
 provisioning system.
+
+The set of generated targets is derived from the same data as the
+supported_abi() allowlist in defs.bzl; see the note there.
 """
 
 load("@bazel_skylib//lib:selects.bzl", "selects")
 load("//uv/private/constraints:defs.bzl", "INTERPRETERS", "MAJORS", "MINORS")
+load(":defs.bzl", "ABI_FEATURES", "ABI_FEATURE_SUFFIXES")
 
-# Canonical locations of the interpreter feature flags.
-_PYDEBUG_FLAG = "//py/private/interpreter:pydebug"
-_PYMALLOC_FLAG = "//py/private/interpreter:pymalloc"
-_FREETHREADING_FLAG = "//py/private/interpreter:freethreaded"
-_WIDE_UNICODE_FLAG = "//py/private/interpreter:wide_unicode"
+# Canonical locations of the interpreter feature flags, keyed by the
+# config_setting name prefix used in ABI_FEATURES.
+_FEATURE_FLAGS = {
+    "pydebug": "//py/private/interpreter:pydebug",
+    "pymalloc": "//py/private/interpreter:pymalloc",
+    "freethreading": "//py/private/interpreter:freethreaded",
+    "wide_unicode": "//py/private/interpreter:wide_unicode",
+}
 
 # buildifier: disable=unnamed-macro
 # buildifier: disable=function-docstring
@@ -37,49 +44,17 @@ def generate(
 
     # Interpreter feature flag config_settings. Each pair (enabled/disabled)
     # checks the corresponding bool_flag from //py/private/interpreter.
-    native.config_setting(
-        name = "pydebug_enabled",
-        flag_values = {_PYDEBUG_FLAG: "true"},
-        visibility = visibility,
-    )
-    native.config_setting(
-        name = "pydebug_disabled",
-        flag_values = {_PYDEBUG_FLAG: "false"},
-        visibility = visibility,
-    )
-
-    native.config_setting(
-        name = "pymalloc_enabled",
-        flag_values = {_PYMALLOC_FLAG: "true"},
-        visibility = visibility,
-    )
-    native.config_setting(
-        name = "pymalloc_disabled",
-        flag_values = {_PYMALLOC_FLAG: "false"},
-        visibility = visibility,
-    )
-
-    native.config_setting(
-        name = "freethreading_enabled",
-        flag_values = {_FREETHREADING_FLAG: "true"},
-        visibility = visibility,
-    )
-    native.config_setting(
-        name = "freethreading_disabled",
-        flag_values = {_FREETHREADING_FLAG: "false"},
-        visibility = visibility,
-    )
-
-    native.config_setting(
-        name = "wide_unicode_enabled",
-        flag_values = {_WIDE_UNICODE_FLAG: "true"},
-        visibility = visibility,
-    )
-    native.config_setting(
-        name = "wide_unicode_disabled",
-        flag_values = {_WIDE_UNICODE_FLAG: "false"},
-        visibility = visibility,
-    )
+    for feature_name, flag in _FEATURE_FLAGS.items():
+        native.config_setting(
+            name = "{}_enabled".format(feature_name),
+            flag_values = {flag: "true"},
+            visibility = visibility,
+        )
+        native.config_setting(
+            name = "{}_disabled".format(feature_name),
+            flag_values = {flag: "false"},
+            visibility = visibility,
+        )
 
     native.alias(
         name = "abi3",
@@ -98,28 +73,14 @@ def generate(
                     visibility = visibility,
                 )
 
-                for d in [False, True]:
-                    for m in [False, True]:
-                        for t in [False, True]:
-                            for u in [False, True]:
-                                selects.config_setting_group(
-                                    name = "{0}{1}{2}{3}{4}{5}{6}".format(
-                                        interpreter,
-                                        major,
-                                        minor,
-                                        "d" if d else "",
-                                        "m" if m else "",
-                                        "t" if t else "",
-                                        "u" if u else "",
-                                    ),
-                                    match_all = (
-                                        [
-                                            ":is_{}{}{}".format(interpreter, major, minor),
-                                        ] +
-                                        ([":pydebug_enabled"] if d else [":pydebug_disabled"]) +
-                                        ([":pymalloc_enabled"] if m else [":pymalloc_disabled"]) +
-                                        ([":freethreading_enabled"] if t else [":freethreading_disabled"]) +
-                                        ([":wide_unicode_enabled"] if u else [":wide_unicode_disabled"])
-                                    ),
-                                    visibility = visibility,
-                                )
+                for suffix in ABI_FEATURE_SUFFIXES:
+                    selects.config_setting_group(
+                        name = "{}{}{}{}".format(interpreter, major, minor, suffix),
+                        match_all = [
+                            ":is_{}{}{}".format(interpreter, major, minor),
+                        ] + [
+                            ":{}_{}".format(feature_name, "enabled" if letter in suffix else "disabled")
+                            for letter, feature_name in ABI_FEATURES.items()
+                        ],
+                        visibility = visibility,
+                    )
