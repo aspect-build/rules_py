@@ -544,3 +544,8 @@ python_toolchains = repository_rule(
         "toolchains": attr.string_list(),
     },
 )
+
+# Exposed for unit tests only.
+repository_testlib = struct(
+    feature_filegroups = _feature_filegroups,
+)
