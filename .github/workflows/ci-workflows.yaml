@@ -19,7 +19,7 @@ jobs:
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v6
-            - uses: aspect-build/setup-aspect@c22a8f64fb38f82f59ce809cd7eb9f8ae096da44 # v2026.23.2
+            - uses: aspect-build/setup-aspect@2306377a61c45954ab2df7c7311698b109364352 # v2026.26.9
               with:
                 aspect-api-token: ${{ secrets.ASPECT_API_TOKEN }}
             - name: Buildifier
@@ -28,7 +28,7 @@ jobs:
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v6
-            - uses: aspect-build/setup-aspect@c22a8f64fb38f82f59ce809cd7eb9f8ae096da44 # v2026.23.2
+            - uses: aspect-build/setup-aspect@2306377a61c45954ab2df7c7311698b109364352 # v2026.26.9
               with:
                 aspect-api-token: ${{ secrets.ASPECT_API_TOKEN }}
             - name: Gazelle
@@ -37,7 +37,7 @@ jobs:
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v6
-            - uses: aspect-build/setup-aspect@c22a8f64fb38f82f59ce809cd7eb9f8ae096da44 # v2026.23.2
+            - uses: aspect-build/setup-aspect@2306377a61c45954ab2df7c7311698b109364352 # v2026.26.9
               with:
                 aspect-api-token: ${{ secrets.ASPECT_API_TOKEN }}
             - name: Ruff annotations
@@ -68,7 +68,12 @@ jobs:
                 bazel run @uv -- run --locked --group dev -- ty check --python-version 3.11 --error-on-warning --output-format github "${runtime311[@]}"
     test:
         name: test (${{ matrix.workspace.path }}, ${{ matrix.bazel.id }})
-        runs-on: ${{ matrix.workspace.runner }}
+        # Workspaces that ask for the 32-core runner get the Aspect Workflows
+        # `aspect-large` pool instead. Fork PRs get no repo secrets and must not run
+        # on self-hosted runners, so they keep GitHub's 32-core runner.
+        runs-on: ${{ (matrix.workspace.runner == 'ubuntu-22.04-32core' && github.event.pull_request.head.repo.fork != true) && fromJSON('["self-hosted","aspect-workflows","aspect-large"]') || matrix.workspace.runner }}
+        # Self-hosted runners have no cheap default ceiling; GitHub's is 6h.
+        timeout-minutes: 90
         strategy:
             fail-fast: false
             matrix:
@@ -103,7 +108,7 @@ jobs:
             USE_BAZEL_VERSION: ${{ matrix.bazel.version }}
         steps:
             - uses: actions/checkout@v6
-            - uses: aspect-build/setup-aspect@c22a8f64fb38f82f59ce809cd7eb9f8ae096da44 # v2026.23.2
+            - uses: aspect-build/setup-aspect@2306377a61c45954ab2df7c7311698b109364352 # v2026.26.9
               with:
                 aspect-api-token: ${{ secrets.ASPECT_API_TOKEN }}
             # Run `test //...`, then the workspace's test.sh if it has one
@@ -195,7 +200,7 @@ jobs:
         runs-on: ubuntu-22.04-32core
         steps:
             - uses: actions/checkout@v6
-            - uses: aspect-build/setup-aspect@c22a8f64fb38f82f59ce809cd7eb9f8ae096da44 # v2026.23.2
+            - uses: aspect-build/setup-aspect@2306377a61c45954ab2df7c7311698b109364352 # v2026.26.9
               with:
                 aspect-api-token: ${{ secrets.ASPECT_API_TOKEN }}
             - name: Cross-build arm64 wheels
@@ -254,7 +259,7 @@ jobs:
         runs-on: ubuntu-24.04-arm
         steps:
             - uses: actions/checkout@v6
-            - uses: aspect-build/setup-aspect@c22a8f64fb38f82f59ce809cd7eb9f8ae096da44 # v2026.23.2
+            - uses: aspect-build/setup-aspect@2306377a61c45954ab2df7c7311698b109364352 # v2026.26.9
               with:
                 aspect-api-token: ${{ secrets.ASPECT_API_TOKEN }}
             - name: Cross-build amd64 wheels
