@@ -14,32 +14,36 @@ concurrency:
     group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
     cancel-in-progress: true
 
+# Whether the secret exists, never its value — see .aspect/config.axl.
+env:
+    ASPECT_HAS_API_TOKEN: ${{ secrets.ASPECT_OSS_API_TOKEN != '' }}
+
 jobs:
     buildifier:
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v6
-            - uses: aspect-build/setup-aspect@c22a8f64fb38f82f59ce809cd7eb9f8ae096da44 # v2026.23.2
+            - uses: ./.github/actions/aspect-cloud
               with:
-                aspect-api-token: ${{ secrets.ASPECT_API_TOKEN }}
+                aspect-api-token: ${{ secrets.ASPECT_OSS_API_TOKEN }}
             - name: Buildifier
               run: aspect buildifier --task-key=buildifier
     gazelle:
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v6
-            - uses: aspect-build/setup-aspect@c22a8f64fb38f82f59ce809cd7eb9f8ae096da44 # v2026.23.2
+            - uses: ./.github/actions/aspect-cloud
               with:
-                aspect-api-token: ${{ secrets.ASPECT_API_TOKEN }}
+                aspect-api-token: ${{ secrets.ASPECT_OSS_API_TOKEN }}
             - name: Gazelle
               run: aspect gazelle --task-key=gazelle
     typecheck:
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v6
-            - uses: aspect-build/setup-aspect@c22a8f64fb38f82f59ce809cd7eb9f8ae096da44 # v2026.23.2
+            - uses: ./.github/actions/aspect-cloud
               with:
-                aspect-api-token: ${{ secrets.ASPECT_API_TOKEN }}
+                aspect-api-token: ${{ secrets.ASPECT_OSS_API_TOKEN }}
             - name: Ruff annotations
               run: bazel run @uv -- run --locked --group dev -- ruff check .
             - name: Typecheck maintained Python
@@ -101,9 +105,9 @@ jobs:
             USE_BAZEL_VERSION: ${{ matrix.bazel.version }}
         steps:
             - uses: actions/checkout@v6
-            - uses: aspect-build/setup-aspect@c22a8f64fb38f82f59ce809cd7eb9f8ae096da44 # v2026.23.2
+            - uses: ./.github/actions/aspect-cloud
               with:
-                aspect-api-token: ${{ secrets.ASPECT_API_TOKEN }}
+                aspect-api-token: ${{ secrets.ASPECT_OSS_API_TOKEN }}
             # Run `test //...`, then the workspace's test.sh if it has one
             - name: Test
               working-directory: ${{ matrix.workspace.path }}

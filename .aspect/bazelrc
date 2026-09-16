@@ -1,0 +1,43 @@
+# Follows the shape `aspect setup bazelrc` generates (aspect-build/aspect-cli#1442),
+# so vanilla `bazel` calls reach Aspect's services with the same tuning the
+# Aspect CLI injects. Flags sit in the group named for what they presume; nothing
+# is enabled here, so the file is inert until a `--config=aspect-*` names it.
+# `bazel build --announce_rc` shows which group set what.
+
+# Tuning that presumes no endpoint.
+common:aspect-common --heap_dump_on_oom
+common:aspect-common --experimental_repository_cache_hardlinks
+
+# The tuning any remote cache justifies.
+common:aspect-cache --remote_upload_local_results
+common:aspect-cache --remote_accept_cached
+common:aspect-cache --remote_timeout=3600
+common:aspect-cache --remote_retries=360
+common:aspect-cache --grpc_keepalive_timeout=30s
+
+# BES enrichment and the build-diagnostics upload the Aspect backend reads.
+common:aspect-bes --grpc_keepalive_timeout=30s
+common:aspect-bes --generate_json_trace_profile
+common:aspect-bes --noslim_profile
+common:aspect-bes --experimental_profile_include_target_label
+common:aspect-bes --experimental_profile_include_primary_output
+common:aspect-bes --experimental_profile_include_target_configuration
+common:aspect-bes --legacy_important_outputs
+common:aspect-bes --remote_build_event_upload=all
+
+# The compact execution log, uploaded with the build diagnostics for per-action
+# data in the Web UI. Deliberately not chained by aspect-cloud: the path is
+# %workspace%-relative and Bazel will not create the parent directory, so naming
+# it from the e2e/* and examples/* workspaces — which have no .aspect/generated —
+# would fail the build. Only the root workspace names it, via .aspect/config.axl.
+common:aspect-exec-log --execution_log_compact_file=%workspace%/.aspect/generated/exec.log.zstd
+
+# Aspect Cloud: remote cache + BES; auth via ASPECT_API_TOKEN or `aspect auth login`.
+common:aspect-cloud --config=aspect-common
+common:aspect-cloud --config=aspect-cache
+common:aspect-cloud --config=aspect-bes
+common:aspect-cloud --remote_cache=grpcs://cache.aspect.build
+common:aspect-cloud --bes_backend=grpcs://bes.aspect.build
+common:aspect-cloud --bes_results_url=https://app.aspect.build/i/
+common:aspect-cloud --credential_helper=cache.aspect.build=aspect
+common:aspect-cloud --credential_helper=bes.aspect.build=aspect
