@@ -137,6 +137,20 @@ Built-in rules for creating optimized container images:
 bazel_dep(name = "aspect_rules_py", version = "1.11.2")
 ```
 
+### Requirements
+
+The minimum supported Python version is **3.10**. The launcher, test runners, and build
+tools that run under your configured interpreter use 3.10 syntax, and CI only exercises
+3.10 and newer. Older interpreters can still be fetched via `interpreters.configure()`,
+but `py_binary` and `py_test` targets will fail at startup on them.
+
+Some `uv` features need newer versions:
+
+| Feature                                                                                                                 | Python |
+| ----------------------------------------------------------------------------------------------------------------------- | ------ |
+| Free-threaded interpreters (`freethreaded = True`), [first shipped in CPython 3.13](https://peps.python.org/pep-0703/) | 3.13+  |
+| `pyproject.toml` parsing in sdist native-dependency detection (needs stdlib `tomllib`)                                  | 3.11+  |
+
 ### Quick Start
 
 Load rules from `aspect_rules_py` in your `BUILD` files:

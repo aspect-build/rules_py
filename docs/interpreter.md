@@ -14,8 +14,10 @@ are discovered automatically from PBS release artifacts and cached in your
 it — no repinning, no manifest regeneration.
 
 **No editorial decisions.** We don't decide which Python versions you can use.
-Any version published in a PBS release is available. Need Python 3.8? Add an
-older release date that includes it.
+Any version published in a PBS release is available. Need a version that newer
+releases dropped? Add an older release date that includes it. Note that the
+rules themselves require Python 3.10 or newer at runtime (see
+[Requirements](../README.md#requirements)).
 
 **Windows and cross-platform support.** 9 platforms are registered out of the
 box, including Windows (x86_64, aarch64, i686), Linux (glibc and musl), and
@@ -65,7 +67,7 @@ interpreters.configure(
 )
 
 interpreters.toolchain(python_version = "3.12")
-interpreters.toolchain(python_version = "3.8")  # Resolved from 20241002
+interpreters.toolchain(python_version = "3.10")  # Resolved from 20241002 once newer releases drop it
 
 use_repo(interpreters, "python_interpreters")
 register_toolchains("@python_interpreters//:all")
