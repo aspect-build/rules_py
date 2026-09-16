@@ -1,0 +1,30 @@
+# Regression test: PEP 508 markers gating transitive deps of the sdist
+# build_tool venv must be evaluated against the python version selected for
+# the target, even though the build_tool is analyzed in the exec
+# configuration.
+#
+# The chain mirrors the numcodecs/setuptools-scm field failure: docopt is
+# built from its sdist; setuptools-scm sits in the build_tool venv and its
+# setuptools entry point import chain (setuptools_scm -> vcs-versioning)
+# needs typing-extensions under `python_full_version < '3.11'`. The docopt
+# sdist is pre-build-patched (see MODULE.bazel override) to perform that
+# import unconditionally, standing in for the entry points setuptools loads
+# from every installed dist during `python -m build`.
+#
+# Under --incompatible_exclude_starlark_flags_from_exec_config (default in
+# Bazel 10) the Starlark python version flags used to be reset to their
+# defaults by the exec transition: the marker env decided 3.11, dropped
+# typing-extensions/tomli to :empty, and the build failed with
+# ModuleNotFoundError. Fixed by scope = "universal" on
+# @aspect_rules_py//py/private/interpreter:python_version.
+
+load("@aspect_rules_py//py/unstable:defs.bzl", "py_venv_test")
+
+py_venv_test(
+    name = "test",
+    srcs = ["__test__.py"],
+    main = "__test__.py",
+    python_version = "3.10",
+    venv = "uv-exec-marker-build-dep",
+    deps = ["@pypi-exec-marker//docopt"],
+)
