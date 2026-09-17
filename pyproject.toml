@@ -30,7 +30,7 @@ dev-dependencies = [
 ]
 
 [tool.ruff]
-target-version = "py39"
+target-version = "py310"
 extend-exclude = [
    # Intentionally unparsable .py-as-data fixture.
    "py/tests/py-venv-multi-exec/broken_data.py",
