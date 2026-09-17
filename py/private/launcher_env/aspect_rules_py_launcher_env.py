@@ -10,6 +10,7 @@ import hashlib
 import os
 import stat
 import sys
+import uuid
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -152,9 +153,27 @@ def start_coverage() -> "Coverage | None":
         manifest_entries = mf.read().splitlines()
     _absfile_mapping = {coverage.files.abs_file(mfe): mfe for mfe in manifest_entries}
 
-    # Include patterns must be absolute: coveragepy matches relative patterns
-    # against the CWD, so a test with `chdir` set would match nothing.
-    cov = coverage.Coverage(include=list(_absfile_mapping.keys()))
+    # Each process gets its own rcfile and data file: shards or `chdir` tests
+    # running concurrently out of one directory would otherwise race on the
+    # default `.coverage` database.
+    unique_id = uuid.uuid4()
+    scratch_dir = os.environ.get("TEST_TMPDIR") or os.getcwd()
+    rcfile = os.path.join(scratch_dir, ".coveragerc_{}".format(unique_id))
+    data_file = os.path.join(scratch_dir, "coverage.{}.db".format(unique_id))
+    with open(rcfile, "w") as rc:
+        rc.write("[run]\ndata_file = {}\n".format(data_file))
+        # The sys.monitoring core (PEP 669) is markedly cheaper than the C
+        # tracer, but it only exists on 3.12+ and coveragepy exposes the core
+        # choice solely through configuration.
+        if sys.version_info >= (3, 12):
+            rc.write("core = sysmon\n")
+        # Include patterns must be absolute: coveragepy matches relative patterns
+        # against the CWD, so a test with `chdir` set would match nothing.
+        if _absfile_mapping:
+            rc.write("include =\n")
+            rc.writelines("    {}\n".format(path) for path in _absfile_mapping)
+
+    cov = coverage.Coverage(config_file=rcfile)
     cov.start()
     return cov
 
@@ -173,8 +192,8 @@ def write_lcov(cov: "Coverage") -> None:
     unfixed = output_file + ".tmp"
     try:
         cov.lcov_report(outfile=unfixed)
-    except coverage.exceptions.NoDataError as e:
-        # An empty report must not fail an otherwise passing test.
+    except (coverage.exceptions.NoDataError, coverage.exceptions.NoSource) as e:
+        # An empty or unresolvable report must not fail an otherwise passing test.
         print("WARNING: no python coverage data collected:", e, file=sys.stderr)
         open(output_file, "w").close()
         return
