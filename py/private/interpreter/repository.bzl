@@ -86,7 +86,7 @@ config_setting(
         lines.append("""\
 filegroup(
     name = "_feature_{feature}",
-    srcs = glob({patterns}, allow_empty = True),
+    srcs = glob({patterns}, exclude = ["**/__pycache__/*.pyc*"], allow_empty = True),
 )
 """.format(feature = feature_name, patterns = repr(patterns)))
 
@@ -543,4 +543,9 @@ python_toolchains = repository_rule(
     attrs = {
         "toolchains": attr.string_list(),
     },
+)
+
+# Exposed for unit tests only.
+repository_testlib = struct(
+    feature_filegroups = _feature_filegroups,
 )
