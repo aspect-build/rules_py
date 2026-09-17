@@ -130,8 +130,12 @@ repo_dir="$(dirname "$build_file")"
 planted="$(mktemp)"
 cleanup_planted() {
     # Files first, then the __pycache__ directories this test created.
-    grep '^F ' "$planted" | cut -c3- | xargs -r rm -f --
-    grep '^D ' "$planted" | cut -c3- | xargs -r rmdir --ignore-fail-on-non-empty -- 2>/dev/null
+    grep '^F ' "$planted" | cut -c3- | while read -r file; do
+        rm -f -- "$file"
+    done
+    grep '^D ' "$planted" | cut -c3- | while read -r dir; do
+        rmdir -- "$dir" 2>/dev/null || :
+    done
     rm -f "$failure_log" "$planted"
 }
 trap cleanup_planted EXIT
