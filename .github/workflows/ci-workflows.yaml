@@ -119,6 +119,19 @@ jobs:
                 if [ -f test.sh ]; then
                     bash test.sh
                 fi
+            # Self-hosted runners keep the Bazel server alive between jobs, and both
+            # bazel legs share one output base. A client of another Bazel version
+            # kills that server with `shutdown`, on which Bazel's lockfile module
+            # also runs: a 9.x server left by the bazel-9 leg rewrites
+            # MODULE.bazel.lock (lockFileVersion 28) after actions/checkout has
+            # restored the committed file, and the bazel-8 leg then fails
+            # --lockfile_mode=error. Shutting down here keeps that write inside the
+            # job that owns the server, ahead of the next checkout.
+            - name: Shut down the Bazel server
+              if: always() && runner.environment == 'self-hosted'
+              working-directory: ${{ matrix.workspace.path }}
+              timeout-minutes: 5
+              run: bazel shutdown
     # Cross-build validation: build wheels for the opposite architecture on
     # each Linux runner, then install and run the case's standalone test on a
     # native runner of the target architecture. No OCI containers — just pip
