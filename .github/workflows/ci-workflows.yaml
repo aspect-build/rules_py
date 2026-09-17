@@ -14,6 +14,26 @@ concurrency:
     group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
     cancel-in-progress: true
 
+# Points the Aspect CLI at the committed .aspect/config.json, which is what tells
+# it cache.aspect.build and bes.aspect.build belong to Aspect Cloud. The CI login
+# records a credential but no endpoints, and a workspace config.json is read only
+# when this variable names its workspace. Pinned to the checkout root because the
+# test matrix builds from e2e/* and examples/*; it selects only the deployment
+# list, never which .aspect/config.axl a task loads.
+#
+# Both flags below are empty on a fork PR, which gets no org secrets: the
+# setup-aspect login never runs there, so either one would reach Aspect Cloud
+# with no credential.
+env:
+    ASPECT_WORKSPACE: ${{ github.workspace }}
+    REMOTE_FLAG: ${{ secrets.ASPECT_OSS_API_TOKEN != '' && '--remote' || '' }}
+    # The vanilla-`bazel` half of the same wiring: --config=aspect-cloud comes
+    # from the committed .aspect/bazelrc, and the status command attributes the
+    # invocation in the Web UI (the rc carries constants; this is per-invocation
+    # data). Replace the script with `aspect setup workspace-data` once
+    # aspect-build/aspect-cli#1465 ships.
+    BAZEL_ASPECT_FLAGS: ${{ secrets.ASPECT_OSS_API_TOKEN != '' && format('--config=aspect-cloud --workspace_status_command={0}/.github/workflows/workspace_status.sh', github.workspace) || '' }}
+
 jobs:
     buildifier:
         runs-on: ubuntu-latest
@@ -21,27 +41,27 @@ jobs:
             - uses: actions/checkout@v6
             - uses: aspect-build/setup-aspect@2306377a61c45954ab2df7c7311698b109364352 # v2026.26.9
               with:
-                aspect-api-token: ${{ secrets.ASPECT_API_TOKEN }}
+                aspect-api-token: ${{ secrets.ASPECT_OSS_API_TOKEN }}
             - name: Buildifier
-              run: aspect buildifier --task-key=buildifier
+              run: aspect buildifier $REMOTE_FLAG --task:name=buildifier
     gazelle:
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v6
             - uses: aspect-build/setup-aspect@2306377a61c45954ab2df7c7311698b109364352 # v2026.26.9
               with:
-                aspect-api-token: ${{ secrets.ASPECT_API_TOKEN }}
+                aspect-api-token: ${{ secrets.ASPECT_OSS_API_TOKEN }}
             - name: Gazelle
-              run: aspect gazelle --task-key=gazelle
+              run: aspect gazelle $REMOTE_FLAG --task:name=gazelle
     typecheck:
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v6
             - uses: aspect-build/setup-aspect@2306377a61c45954ab2df7c7311698b109364352 # v2026.26.9
               with:
-                aspect-api-token: ${{ secrets.ASPECT_API_TOKEN }}
+                aspect-api-token: ${{ secrets.ASPECT_OSS_API_TOKEN }}
             - name: Ruff annotations
-              run: bazel run @uv -- run --locked --group dev -- ruff check .
+              run: bazel run $BAZEL_ASPECT_FLAGS @uv -- run --locked --group dev -- ruff check .
             - name: Typecheck maintained Python
               run: |
                 runtime310=(
@@ -62,10 +82,10 @@ jobs:
                 runtime311=(
                   uv/private/sdist_configure/detect_native.py
                 )
-                bazel run @uv -- run --locked --group dev -- pyright --pythonversion 3.10 --warnings "${runtime310[@]}"
-                bazel run @uv -- run --locked --group dev -- pyright --pythonversion 3.11 --warnings "${runtime311[@]}"
-                bazel run @uv -- run --locked --group dev -- ty check --python-version 3.10 --error-on-warning --output-format github "${runtime310[@]}"
-                bazel run @uv -- run --locked --group dev -- ty check --python-version 3.11 --error-on-warning --output-format github "${runtime311[@]}"
+                bazel run $BAZEL_ASPECT_FLAGS @uv -- run --locked --group dev -- pyright --pythonversion 3.10 --warnings "${runtime310[@]}"
+                bazel run $BAZEL_ASPECT_FLAGS @uv -- run --locked --group dev -- pyright --pythonversion 3.11 --warnings "${runtime311[@]}"
+                bazel run $BAZEL_ASPECT_FLAGS @uv -- run --locked --group dev -- ty check --python-version 3.10 --error-on-warning --output-format github "${runtime310[@]}"
+                bazel run $BAZEL_ASPECT_FLAGS @uv -- run --locked --group dev -- ty check --python-version 3.11 --error-on-warning --output-format github "${runtime311[@]}"
     test:
         name: test (${{ matrix.workspace.path }}, ${{ matrix.bazel.id }})
         # Workspaces that ask for the 32-core runner get the Aspect Workflows
@@ -106,16 +126,22 @@ jobs:
                 - { id: "bazel-9", version: "9.x", flags: "--bazel-flag=--test_tag_filters=-skip-on-bazel9 --bazel-flag=--lockfile_mode=update" }
         env:
             USE_BAZEL_VERSION: ${{ matrix.bazel.version }}
+            # `runs-on` above, read back: --remote only where this entry lands on
+            # a GitHub-hosted runner. On a self-hosted Aspect Workflows runner the
+            # ASPECT_WORKFLOWS_* environment already names the deployment every
+            # task builds against, and the CLI fails the task rather than route
+            # the build off it.
+            REMOTE_FLAG: ${{ (secrets.ASPECT_OSS_API_TOKEN != '' && (matrix.workspace.runner != 'ubuntu-22.04-32core' || github.event.pull_request.head.repo.fork == true)) && '--remote' || '' }}
         steps:
             - uses: actions/checkout@v6
             - uses: aspect-build/setup-aspect@2306377a61c45954ab2df7c7311698b109364352 # v2026.26.9
               with:
-                aspect-api-token: ${{ secrets.ASPECT_API_TOKEN }}
+                aspect-api-token: ${{ secrets.ASPECT_OSS_API_TOKEN }}
             # Run `test //...`, then the workspace's test.sh if it has one
             - name: Test
               working-directory: ${{ matrix.workspace.path }}
               run: |
-                aspect test --task-key=test-${{ matrix.workspace.slug }}-${{ matrix.bazel.id }} ${{ matrix.bazel.flags }} -- //...
+                aspect test $REMOTE_FLAG --task:name=test-${{ matrix.workspace.slug }}-${{ matrix.bazel.id }} ${{ matrix.bazel.flags }} -- //...
                 if [ -f test.sh ]; then
                     bash test.sh
                 fi
@@ -150,6 +176,11 @@ jobs:
                   bazelisk-cache: true
                   disk-cache: macos-crossbuild-wheels
                   repository-cache: true
+            # `aspect` must be on PATH here as the credential helper the
+            # aspect-cloud rc section names, not as a task runner.
+            - uses: aspect-build/setup-aspect@2306377a61c45954ab2df7c7311698b109364352 # v2026.26.9
+              with:
+                aspect-api-token: ${{ secrets.ASPECT_OSS_API_TOKEN }}
             - name: Cross-build linux wheels from macOS
               working-directory: e2e/crossbuild
               shell: bash
@@ -160,7 +191,7 @@ jobs:
                 # toplevel: --config=ci's build-without-the-bytes must still materialize
                 # the tarballs this job exists to upload (a warm disk cache otherwise
                 # leaves them undownloaded).
-                bazel build --config=ci --remote_download_outputs=toplevel ${targets}
+                bazel build $BAZEL_ASPECT_FLAGS --config=ci --remote_download_outputs=toplevel ${targets}
                 for target in ${targets}; do
                     pkg="${target#//}"
                     pkg="${pkg%:*}"
@@ -215,7 +246,7 @@ jobs:
             - uses: actions/checkout@v6
             - uses: aspect-build/setup-aspect@2306377a61c45954ab2df7c7311698b109364352 # v2026.26.9
               with:
-                aspect-api-token: ${{ secrets.ASPECT_API_TOKEN }}
+                aspect-api-token: ${{ secrets.ASPECT_OSS_API_TOKEN }}
             - name: Cross-build arm64 wheels
               working-directory: e2e/crossbuild
               run: |
@@ -225,7 +256,7 @@ jobs:
                 # toplevel: --config=ci's build-without-the-bytes must still materialize
                 # the tarballs this job exists to upload (a warm disk cache otherwise
                 # leaves them undownloaded).
-                bazel build --config=ci --remote_download_outputs=toplevel ${targets}
+                bazel build $BAZEL_ASPECT_FLAGS --config=ci --remote_download_outputs=toplevel ${targets}
                 for target in ${targets}; do
                     pkg="${target#//}"
                     pkg="${pkg%:*}"
@@ -274,7 +305,7 @@ jobs:
             - uses: actions/checkout@v6
             - uses: aspect-build/setup-aspect@2306377a61c45954ab2df7c7311698b109364352 # v2026.26.9
               with:
-                aspect-api-token: ${{ secrets.ASPECT_API_TOKEN }}
+                aspect-api-token: ${{ secrets.ASPECT_OSS_API_TOKEN }}
             - name: Cross-build amd64 wheels
               working-directory: e2e/crossbuild
               run: |
@@ -284,7 +315,7 @@ jobs:
                 # toplevel: --config=ci's build-without-the-bytes must still materialize
                 # the tarballs this job exists to upload (a warm disk cache otherwise
                 # leaves them undownloaded).
-                bazel build --config=ci --remote_download_outputs=toplevel ${targets}
+                bazel build $BAZEL_ASPECT_FLAGS --config=ci --remote_download_outputs=toplevel ${targets}
                 for target in ${targets}; do
                     pkg="${target#//}"
                     pkg="${pkg%:*}"

@@ -1,3 +1,11 @@
+# Aspect's rc for vanilla `bazel`. Generated at the repository root by
+# `aspect setup bazelrc`; regenerate there, not here. %workspace% is this
+# workspace, so `../..` reaches the root it sits under — and re-expands to this
+# workspace inside the imported file, which is why .aspect/generated/ is
+# committed here too: --config=aspect-cloud writes the execution log there and
+# Bazel will not create the directory.
+try-import %workspace%/../../.aspect/bazelrc
+
 # Match Bazel 9's default. Without this, PySdistNativeBuild actions on
 # Bazel 8 run without a default PATH, and clang's compiled-in default
 # linker (`ld`, not bundled with the hermetic LLVM toolchain) can't be

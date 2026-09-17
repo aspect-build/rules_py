@@ -25,8 +25,11 @@ out_log="$(mktemp)"
 trap 'rm -f "$out_log"' EXIT
 
 # `bazel run` writes program output to stdout; keep bazel's own chatter on
-# stderr out of the captured value by selecting the last line.
-if ! "$BAZEL" run "$TARGET" >"$out_log" 2>&1; then
+# stderr out of the captured value by selecting the last line. --color=no
+# because the line is matched exactly: an Aspect Workflows runner's generated
+# rc enables --color=yes for every vanilla `bazel` call, which would prefix the
+# program's output with an ANSI reset.
+if ! "$BAZEL" run --color=no "$TARGET" >"$out_log" 2>&1; then
     cat "$out_log" >&2
     if grep -qi "execve failed" "$out_log"; then
         fail "bazel run regressed: launcher could not execve the venv python (issue #1116)"
