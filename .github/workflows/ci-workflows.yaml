@@ -101,9 +101,9 @@ jobs:
                 - { path: "examples/protobuf", slug: "examples-protobuf", runner: "ubuntu-22.04-32core" }
                 bazel:
                 # An empty version falls back to the workspace's .bazelversion, which validates
-                # the committed MODULE.bazel.lock; alternate versions may regenerate it instead.
+                # the committed MODULE.bazel.lock; alternate versions ignore it rather than rewrite it.
                 - { id: "bazel-8", version: "", flags: "--bazel-flag=--test_tag_filters=-skip-on-bazel8 --bazel-flag=--lockfile_mode=error" }
-                - { id: "bazel-9", version: "9.x", flags: "--bazel-flag=--test_tag_filters=-skip-on-bazel9 --bazel-flag=--lockfile_mode=update" }
+                - { id: "bazel-9", version: "9.x", flags: "--bazel-flag=--test_tag_filters=-skip-on-bazel9 --bazel-flag=--lockfile_mode=off" }
         env:
             USE_BAZEL_VERSION: ${{ matrix.bazel.version }}
         steps:
