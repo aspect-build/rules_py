@@ -1,13 +1,15 @@
 #!/usr/bin/env bash
 
-# Stopgap for `aspect setup workspace-data` (aspect-build/aspect-cli#1465).
-#
-# Emits the build metadata `aspect <task>` sends as `--build_metadata`, in the
-# `KEY value` form Bazel's --workspace_status_command expects, so a vanilla
-# `bazel` invocation is attributed in the Aspect Web UI instead of arriving
-# anonymous. Once #1465 ships, delete this file and pass the CLI directly:
+# TODO: delete this file in favour of `aspect setup workspace-data`, once
+# https://github.com/aspect-build/aspect-cli/pull/1465 ships. The workflow then
+# passes the CLI directly and this script has no reason to exist:
 #
 #   --workspace_status_command="aspect setup workspace-data"
+#
+# Until then it is the stopgap: it emits the build metadata `aspect <task>`
+# sends as `--build_metadata`, in the `KEY value` form Bazel's
+# --workspace_status_command expects, so a vanilla `bazel` invocation is
+# attributed in the Aspect Web UI instead of arriving anonymous.
 #
 # Two constraints shape what follows. Bazel fails the build outright when the
 # status command exits non-zero, so every lookup here is best-effort and the
