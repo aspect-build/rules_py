@@ -1,0 +1,2 @@
+# test.sh writes into a fetched repo; keep it out of the user-wide contents cache.
+common --repo_contents_cache=
