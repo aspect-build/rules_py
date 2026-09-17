@@ -1,0 +1,34 @@
+# conda-pack replacement: archive a py_venv, untar it on a host with no Python,
+# `source bin/activate`, run. Every path the venv writes (`bin/python`,
+# `pyvenv.cfg` `home =`, site-packages entries) is runfiles-relative, so the
+# runfiles tree relocates as long as the archiver keeps symlinks as symlinks.
+#
+# py_image_layer is the archiver: its layers are plain tars of the runfiles
+# tree rooted at /app.runfiles. tar.bzl 0.10.1 `mutate(preserve_symlinks = True)`
+# does not work here: its awk only treats readlink results containing `../` as
+# links, so `bin/python3 -> python` stays `type=file` and bsdtar fails on the
+# dangling chain.
+
+load("@aspect_rules_py//py:defs.bzl", "py_image_layer", "py_venv")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
+py_venv(
+    name = "env",
+    dep_group = "venv_pack",
+    python_version = "3.11",
+    deps = ["@pypi_venv_pack//cowsay"],
+)
+
+py_image_layer(
+    name = "env_layers",
+    binary = ":env",
+)
+
+# Extracts the layers under $TEST_TMPDIR, scrubs every Bazel/runfiles variable
+# with `env -i`, then activates, runs and deactivates the venv.
+sh_test(
+    name = "relocate_test",
+    srcs = ["relocate_test.sh"],
+    args = ["$(rootpaths :env_layers)"],
+    data = [":env_layers"],
+)
