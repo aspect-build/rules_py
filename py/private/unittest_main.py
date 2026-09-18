@@ -37,7 +37,20 @@ launcher_env.set_test_tmpdir()
 cov = launcher_env.start_coverage()
 
 
-def _import_test_modules(test_files: list[str]) -> list[ModuleType]:
+def _runfiles_root(driver_path: str) -> str:
+    """The runfiles root, located from this driver's own runfiles path.
+
+    Sources are baked as runfiles-relative paths; resolving them against the
+    caller's working directory would let an unrelated `.py` there shadow the
+    packaged test.
+    """
+    here = os.path.abspath(__file__)
+    if driver_path and here.endswith(driver_path):
+        return here[:-len(driver_path)]
+    return os.getcwd()
+
+
+def _import_test_modules(test_files: list[str], root: str) -> list[ModuleType]:
     """Import each declared source file exactly once, under a module name
     derived from its full path.
 
@@ -48,12 +61,13 @@ def _import_test_modules(test_files: list[str]) -> list[ModuleType]:
     path-derived module name keeps identities unique.
     """
     modules: list[ModuleType] = []
-    for path in test_files:
-        if not path.endswith(".py"):
+    for short_path in test_files:
+        if not short_path.endswith(".py"):
             continue
+        path = os.path.normpath(os.path.join(root, short_path))
         # Strip the leading ../ of external-repo runfiles paths so the derived
         # module name carries no leading dots; the original path still loads it.
-        rel = path
+        rel = short_path
         while rel.startswith("../"):
             rel = rel[len("../"):]
         mod_name = rel[:-len(".py")].replace("/", ".")
@@ -274,8 +288,9 @@ def main() -> int:
     # written — the rule keys on the bare assignment text, so editing this
     # comment is safe but editing the code is not.
     test_files: list[str] = []
+    driver_path: str = ""
 
-    modules = _import_test_modules(test_files)
+    modules = _import_test_modules(test_files, _runfiles_root(driver_path))
 
     # Native unittest -k: patterns OR together and `*` is fnmatch; a pattern
     # with no wildcard is wrapped to a substring match, exactly as unittest's

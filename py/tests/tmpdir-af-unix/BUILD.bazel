@@ -30,3 +30,12 @@ py_test(
     main = "raw_af_unix_test.py",
     deps = [":af_unix_probe"],
 )
+
+# The driver resolves its test files from runfiles, so a same-named source in
+# the caller's working directory cannot shadow them.
+py_test(
+    name = "unittest_cwd_independence_test",
+    srcs = ["unittest_cwd_independence_test.py"],
+    data = [":unittest_af_unix_test"],
+    env = {"UNITTEST_BIN": "$(rootpath :unittest_af_unix_test)"},
+)
