@@ -60,6 +60,11 @@ macOS host only (a manual target: the platform transition always resolves to
 os:macos, so `target_compatible_with` cannot tell hosts apart), and
 `pycross-tiktoken` runs the `:cargo_lock` generator of its sdist repository,
 which needs `bazel run` and the crates.io index the action sandbox denies.
+The `BUILD.bazel` every `sdist_build__*` repository generates is snapshotted
+under `crossbuild/snapshots/` (`bazel run //:sdist_build_snapshots` to
+update), so the toolchains, Rust sysroot layer, vendored crates and build deps
+each sdist receives are a reviewable diff, and a toolchain reaching a package
+that does not need it shows up as one.
 
 Each isolated workspace points back at repo-root rules_py with
 `local_path_override(path = "../..")`.
