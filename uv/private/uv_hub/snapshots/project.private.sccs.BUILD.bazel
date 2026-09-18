@@ -403,7 +403,7 @@ py_library(
 alias(
     name = "_maybe__build__1_3_0__colorama",
     actual = select({
-        "//private/markers:marker_2": "//:colorama",
+        "//private/markers:marker_3": "//:colorama",
         "//conditions:default": ":empty",
     }),
     visibility = ["//:__subpackages__"],
@@ -502,7 +502,7 @@ py_library(
 alias(
     name = "_maybe__click__8_1_7__colorama",
     actual = select({
-        "//private/markers:marker_3": "//:colorama",
+        "//private/markers:marker_4": "//:colorama",
         "//conditions:default": ":empty",
     }),
     visibility = ["//:__subpackages__"],
@@ -603,7 +603,7 @@ py_library(
 alias(
     name = "_maybe__django__4_2_15__tzdata",
     actual = select({
-        "//private/markers:marker_3": "//:tzdata",
+        "//private/markers:marker_4": "//:tzdata",
         "//conditions:default": ":empty",
     }),
     visibility = ["//:__subpackages__"],
@@ -632,17 +632,28 @@ py_library(
 # deps:
 # {
 #     "typing_extensions": {
-#         "": 1,
-#         "python_full_version < '3.11'": 1,
+#         "(python_full_version < '3.11') and (python_full_version < '3.12')": 1,
+#         "python_full_version < '3.12'": 1,
 #     },
 # }
+
+
+alias(
+    name = "_maybe__exceptiongroup__1_3_1__typing_extensions",
+    actual = select({
+        "//private/markers:marker_5": "//:typing_extensions",
+        "//private/markers:marker_2": "//:typing_extensions",
+        "//conditions:default": ":empty",
+    }),
+    visibility = ["//:__subpackages__"],
+)
 
 
 py_library(
     name = "exceptiongroup__1_3_1",
     deps = [
         "@whl_install__aspect_rules_py__exceptiongroup__1_3_1//:install",
-        "//:typing_extensions",
+        ":_maybe__exceptiongroup__1_3_1__typing_extensions",
     ],
     visibility = ["//:__subpackages__"],
 )
@@ -793,17 +804,28 @@ py_library(
 # deps:
 # {
 #     "zipp": {
-#         "": 1,
-#         "python_full_version < '3.10.2'": 1,
+#         "(python_full_version < '3.10.2') and (python_full_version < '3.12')": 1,
+#         "python_full_version < '3.12'": 1,
 #     },
 # }
+
+
+alias(
+    name = "_maybe__importlib_metadata__8_7_1__zipp",
+    actual = select({
+        "//private/markers:marker_6": "//:zipp",
+        "//private/markers:marker_2": "//:zipp",
+        "//conditions:default": ":empty",
+    }),
+    visibility = ["//:__subpackages__"],
+)
 
 
 py_library(
     name = "importlib_metadata__8_7_1",
     deps = [
         "@whl_install__aspect_rules_py__importlib_metadata__8_7_1//:install",
-        "//:zipp",
+        ":_maybe__importlib_metadata__8_7_1__zipp",
     ],
     visibility = ["//:__subpackages__"],
 )
@@ -1131,6 +1153,9 @@ py_library(
 #     "requests_oauthlib": {
 #         "": 1,
 #     },
+#     "setuptools": {
+#         "python_full_version >= '3.12'": 1,
+#     },
 #     "six": {
 #         "": 1,
 #     },
@@ -1147,6 +1172,16 @@ py_library(
 #         "": 1,
 #     },
 # }
+
+
+alias(
+    name = "_maybe__neptune__1_10_2__setuptools",
+    actual = select({
+        "//private/markers:marker_7": "//:setuptools",
+        "//conditions:default": ":empty",
+    }),
+    visibility = ["//:__subpackages__"],
+)
 
 
 py_library(
@@ -1166,6 +1201,7 @@ py_library(
         "//:pyjwt",
         "//:requests",
         "//:requests_oauthlib",
+        ":_maybe__neptune__1_10_2__setuptools",
         "//:six",
         "//:swagger_spec_validator",
         "//:typing_extensions",
@@ -1426,7 +1462,7 @@ py_library(
 alias(
     name = "_maybe__pytest__8_1_1__colorama",
     actual = select({
-        "//private/markers:marker_3": "//:colorama",
+        "//private/markers:marker_4": "//:colorama",
         "//conditions:default": ":empty",
     }),
     visibility = ["//:__subpackages__"],
@@ -1673,10 +1709,10 @@ py_library(
 )
 
 
-# scc: rpds_py__0_18_0
+# scc: rpds_py__0_19_1
 # members:
 # {
-#     "@whl_install__aspect_rules_py__rpds_py__0_18_0//:install": {
+#     "@whl_install__aspect_rules_py__rpds_py__0_19_1//:install": {
 #         "": 1,
 #     },
 # }
@@ -1685,9 +1721,9 @@ py_library(
 
 
 py_library(
-    name = "rpds_py__0_18_0",
+    name = "rpds_py__0_19_1",
     deps = [
-        "@whl_install__aspect_rules_py__rpds_py__0_18_0//:install",
+        "@whl_install__aspect_rules_py__rpds_py__0_19_1//:install",
     ],
     visibility = ["//:__subpackages__"],
 )

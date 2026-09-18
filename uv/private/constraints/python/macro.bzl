@@ -23,8 +23,8 @@ def generate(
                 visibility = visibility,
             )
 
-    # The settings check only the interpreter version, so every non-generic
-    # tag (cp312, ...) evaluates identically to its py equivalent.
+    # Generic Python tags are lower bounds, while implementation-specific
+    # minor tags only match that interpreter minor.
     for interpreter in INTERPRETERS:
         if interpreter == "py":
             continue
@@ -36,8 +36,13 @@ def generate(
             )
 
             for minor in MINORS:
-                native.alias(
+                version_flag = ":_py{}{}_flag".format(major, minor)
+                version_flags = {version_flag: "yes"}
+                if minor + 1 in MINORS:
+                    next_version_flag = ":_py{}{}_flag".format(major, minor + 1)
+                    version_flags[next_version_flag] = "no"
+                native.config_setting(
                     name = "{}{}{}".format(interpreter, major, minor),
-                    actual = ":py{}{}".format(major, minor),
+                    flag_values = version_flags,
                     visibility = visibility,
                 )

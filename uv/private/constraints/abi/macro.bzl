@@ -62,6 +62,13 @@ def generate(
         for major in MAJORS:
             for minor in MINORS:
                 version_flag = "//uv/private/constraints/python:_py{}{}_flag".format(major, minor)
+
+                # Python-tag flags are lower bounds; a CPython ABI requires
+                # the matching minor rather than every later interpreter.
+                version_flags = {version_flag: "yes"}
+                if minor + 1 in MINORS:
+                    next_version_flag = "//uv/private/constraints/python:_py%s%s_flag" % (major, minor + 1)
+                    version_flags[next_version_flag] = "no"
                 for d in [False, True]:
                     for m in [False, True]:
                         for t in [False, True]:
@@ -76,8 +83,7 @@ def generate(
                                         "t" if t else "",
                                         "u" if u else "",
                                     ),
-                                    flag_values = {
-                                        version_flag: "yes",
+                                    flag_values = version_flags | {
                                         _PYDEBUG_FLAG: "true" if d else "false",
                                         _PYMALLOC_FLAG: "true" if m else "false",
                                         _FREETHREADING_FLAG: "true" if t else "false",
