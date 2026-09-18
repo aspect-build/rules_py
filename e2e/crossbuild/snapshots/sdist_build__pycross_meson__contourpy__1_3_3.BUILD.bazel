@@ -1,0 +1,30 @@
+
+load("@aspect_rules_py//uv/private/pep517_whl:pep517_native_whl.bzl", "pep517_native_whl")
+load("@aspect_rules_py//uv/private/pep517_whl:frontend.bzl", "pep517_frontend")
+load("@aspect_rules_py//py:defs.bzl", "py_binary")
+
+py_binary(
+    name = "build_tool",
+    main = "@aspect_rules_py//uv/private/pep517_whl/tools:build_helper.py",
+    srcs = ["@aspect_rules_py//uv/private/pep517_whl/tools:build_helper.py"],
+    deps = ["@@aspect_rules_py++uv+project__pycross_meson//:build", "@@aspect_rules_py++uv+project__pycross_meson//:meson", "@@aspect_rules_py++uv+project__pycross_meson//:meson_python", "@@aspect_rules_py++uv+project__pycross_meson//:ninja", "@@aspect_rules_py++uv+project__pycross_meson//:pybind11", "@project__pycross_meson//private/build_deps:meson", "@project__pycross_meson//private/build_deps:meson_python", "@project__pycross_meson//private/build_deps:pybind11"],
+    include_console_scripts = True,
+)
+
+pep517_frontend(
+    name = "frontend",
+    actual = ":build_tool",
+)
+
+pep517_native_whl(
+    name = "whl",
+    src = "@@aspect_rules_py++uv+sdist__contourpy__083e12155b210502//file:file",
+    tool = ":frontend",
+    version = "1.3.3",
+    visibility = ["//visibility:public"],
+)
+
+exports_files(
+    ["BUILD.bazel"],
+    visibility = ["//visibility:public"],
+)
