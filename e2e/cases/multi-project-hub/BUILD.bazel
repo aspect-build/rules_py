@@ -2,7 +2,7 @@
 # e2e snapshots. Three sub-projects (alpha, beta, gamma) all depend on
 # cowsay, exercising the N>1 select-arm and dep_group config_setting
 # emission that the single-project @pypi_single snapshot cannot cover.
-load("@aspect_rules_py//py:defs.bzl", "py_test")
+load("@aspect_rules_py//py:defs.bzl", "py_library", "py_test")
 
 # Alpha defines `[dependency-groups]` (`dev` + hyphenated `unit-tests`)
 # instead of an implicit project-name group, so the snapshot covers both
@@ -49,4 +49,20 @@ py_test(
     deps = [
         "@pypi_multi//cowsay",
     ],
+)
+
+# `dep_group` on a py_library scopes the group to that library's deps; the
+# consuming test sets no group and stays in the caller's configuration.
+py_library(
+    name = "cowsay_beta",
+    dep_group = "beta",
+    deps = ["@pypi_multi//cowsay"],
+)
+
+py_test(
+    name = "beta_scoped",
+    srcs = ["__test__.py"],
+    main = "__test__.py",
+    python_version = "3.11",
+    deps = [":cowsay_beta"],
 )
