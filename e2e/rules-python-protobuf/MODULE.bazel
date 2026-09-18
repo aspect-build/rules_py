@@ -13,6 +13,7 @@
 # own python_interpreters extension.
 
 bazel_dep(name = "aspect_rules_py")
+bazel_dep(name = "bazel_skylib", version = "1.4.2")
 bazel_dep(name = "rules_proto_grpc_python", version = "5.8.0")
 
 # Declared directly so the `@protobuf//bazel:proto_library.bzl` load in

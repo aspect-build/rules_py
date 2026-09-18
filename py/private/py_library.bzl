@@ -10,8 +10,17 @@ load("@rules_cc//cc/common:cc_info.bzl", "CcInfo")
 load("//py/private:providers.bzl", "PyWheelsInfo")
 load("//py/private:pth.bzl", "make_imports_depset")
 load("//py/private:py_info.bzl", "PyInfo")
-load("//py/private:py_info_interop.bzl", "RulesPythonPyInfo", "get_py_info", "has_py_info")
+load("//py/private:py_info_interop.bzl", "RulesPythonPyInfo", "get_py_info", "get_transitive_pyi_files", "has_py_info")
 load("//py/private:transitions.bzl", "reset_python_flags_transition")
+
+def _is_type_stub(file):
+    return file.extension == "pyi"
+
+def _type_stubs(files):
+    return [file for file in files if _is_type_stub(file)]
+
+def _runtime_sources(files):
+    return [file for file in files if not _is_type_stub(file)]
 
 def _make_instrumented_files_info(ctx):
     return coverage_common.instrumented_files_info(
@@ -26,11 +35,25 @@ def _make_srcs_depset(ctx, extra_depsets = []):
     # `transitive_sources`. See py_info_interop.bzl.
     return depset(
         order = "postorder",
-        direct = ctx.files.srcs,
+        direct = _runtime_sources(ctx.files.srcs),
         transitive = [
             get_py_info(target).transitive_sources
             for target in ctx.attr.deps
             if has_py_info(target)
+        ] + extra_depsets,
+    )
+
+def _make_pyi_depset(ctx, extra_depsets = []):
+    # Stubs are partitioned out of `transitive_sources` to match rules_python's
+    # PyInfo shape, where `.pyi` files never count as runtime sources. Venvs
+    # and launchers put both depsets in runfiles, so a type checker pointed at
+    # the venv sees stubs next to the modules they annotate.
+    return depset(
+        order = "postorder",
+        direct = _type_stubs(ctx.files.srcs),
+        transitive = [
+            get_transitive_pyi_files(target)
+            for target in ctx.attr.deps
         ] + extra_depsets,
     )
 
@@ -46,13 +69,18 @@ def _make_virtual_depset(ctx):
     )
 
 def _make_resolved_virtual_depset(target):
-    transitive = [target[DefaultInfo].files]
+    # A resolution target's default outputs stand in for its sources (a wheel
+    # install tree has no PyInfo of its own). Stubs among them belong to the
+    # pyi depset collected alongside, not to the runtime sources.
+    direct = _runtime_sources(target[DefaultInfo].files.to_list())
+    transitive = []
     info = get_py_info(target)
     if info:
         transitive.append(info.transitive_sources)
 
     return depset(
         order = "postorder",
+        direct = direct,
         transitive = transitive,
     )
 
@@ -77,6 +105,7 @@ def _resolve_virtuals(ctx):
     # Check for duplicate virtual dependency names. Those that map to the same resolution target would have been merged by the depset for us.
     seen = {}
     v_srcs = []
+    v_pyi_files = []
     v_runfiles = []
     v_imports = []
 
@@ -88,6 +117,7 @@ def _resolve_virtuals(ctx):
         seen.update([[resolution.virtual, i]])
 
         v_srcs.append(_make_resolved_virtual_depset(resolution.target))
+        v_pyi_files.append(get_transitive_pyi_files(resolution.target))
         v_runfiles.append(resolution.target[DefaultInfo].default_runfiles.files)
 
         info = get_py_info(resolution.target)
@@ -100,6 +130,7 @@ def _resolve_virtuals(ctx):
 
     return struct(
         srcs = v_srcs,
+        pyi_files = v_pyi_files,
         runfiles = v_runfiles,
         imports = v_imports,
     )
@@ -153,6 +184,7 @@ def _make_merged_runfiles(ctx, extra_depsets = [], extra_runfiles = [], extra_ru
 
 def _py_library_impl(ctx):
     transitive_srcs = _make_srcs_depset(ctx)
+    transitive_pyi_files = _make_pyi_depset(ctx)
     imports = _make_imports_depset(ctx)
     virtuals = _make_virtual_depset(ctx)
     resolutions = _make_virtual_resolutions_depset(ctx)
@@ -168,6 +200,7 @@ def _py_library_impl(ctx):
         PyInfo(
             imports = imports,
             transitive_sources = transitive_srcs,
+            transitive_pyi_files = transitive_pyi_files,
             virtual_dependencies = virtuals,
             virtual_resolutions = resolutions,
         ),
@@ -180,18 +213,24 @@ def _py_library_impl(ctx):
     if getattr(ctx.attr, "_emit_rules_python_providers", None) and ctx.attr._emit_rules_python_providers[BuildSettingInfo].value:
         # Compatibility shim for trees mid-migration: keeps not-yet-converted
         # @rules_python py_* targets able to depend on this library.
-        # Only the two fields rules_py models are populated; virtual deps are
+        # Only the fields rules_py models are populated; virtual deps are
         # unrepresentable, so a @rules_python consumer never sees them.
         providers.append(RulesPythonPyInfo(
             imports = imports,
             transitive_sources = transitive_srcs,
+            direct_pyi_files = depset(_type_stubs(ctx.files.srcs)),
+            transitive_pyi_files = transitive_pyi_files,
         ))
 
     return providers
 
 _attrs = dict({
     "srcs": attr.label_list(
-        doc = "Python source files.",
+        doc = """Python source files.
+
+        `.pyi` type stubs listed here are carried as `PyInfo.transitive_pyi_files`
+        rather than as runtime sources; both reach the runfiles of venvs and
+        launchers that include this library.""",
         allow_files = True,
     ),
     "deps": attr.label_list(
@@ -239,6 +278,7 @@ py_library_utils = struct(
     implementation = _py_library_impl,
     make_imports_depset = _make_imports_depset,
     make_merged_runfiles = _make_merged_runfiles,
+    make_pyi_depset = _make_pyi_depset,
     make_srcs_depset = _make_srcs_depset,
     make_wheels_depset = _make_wheels_depset,
     py_library_providers = _providers,

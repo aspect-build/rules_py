@@ -91,6 +91,10 @@ def _assemble_venv_target(ctx, executable, console_scripts):
         ctx,
         extra_depsets = virtual_resolution.srcs,
     )
+    pyi_depset = _py_library.make_pyi_depset(
+        ctx,
+        extra_depsets = virtual_resolution.pyi_files,
+    )
     runtime_files = depset(
         direct = assembled.declared_outputs,
         transitive = [
@@ -110,6 +114,7 @@ def _assemble_venv_target(ctx, executable, console_scripts):
         bin_python = assembled.bin_python,
         imports = imports_depset,
         runtime_runfiles = runfiles,
+        transitive_pyi_files = pyi_depset,
         transitive_sources = srcs_depset,
         runtime_files = runtime_files,
         console_scripts = depset(assembled.console_scripts),
@@ -119,7 +124,9 @@ def _venv_providers(ctx, venv, venv_only, executable = None, include_sources = F
     """Providers emitted by both the executable and lib variants."""
     runfiles = venv.runtime_runfiles.merge(ctx.runfiles(files = venv_only))
     if include_sources:
-        runfiles = runfiles.merge(ctx.runfiles(transitive_files = venv.transitive_sources))
+        runfiles = runfiles.merge(ctx.runfiles(transitive_files = depset(
+            transitive = [venv.transitive_sources, venv.transitive_pyi_files],
+        )))
     return [
         DefaultInfo(
             files = depset([executable]) if executable != None else None,

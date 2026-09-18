@@ -1,6 +1,8 @@
-load("@aspect_rules_py//py:defs.bzl", "py_test")
+load("@aspect_rules_py//py:defs.bzl", "py_library", "py_test")
 load("@protobuf//bazel:proto_library.bzl", "proto_library")
+load("@protobuf//bazel:py_proto_library.bzl", "py_proto_library")
 load("@rules_proto_grpc_python//:defs.bzl", "python_proto_library")
+load(":type_stubs_test.bzl", "generated_stubs_test")
 
 # A plain proto_library — the language-agnostic descriptor. Living at the
 # module root keeps the generated module a clean top-level `greeting_pb2`.
@@ -27,4 +29,30 @@ py_test(
     srcs = ["test.py"],
     main = "test.py",
     deps = [":greeting_py_proto"],
+)
+
+# protobuf's own py_proto_library runs protoc with `--pyi_out`, so the
+# generated bindings come with a `greeting_pb2.pyi` carried only in
+# rules_python's `PyInfo.transitive_pyi_files`.
+py_proto_library(
+    name = "greeting_py_proto_native",
+    deps = [":greeting_proto"],
+)
+
+py_library(
+    name = "greeting_stubs_wrapper",
+    deps = [":greeting_py_proto_native"],
+)
+
+generated_stubs_test(
+    name = "generated_stubs_test",
+    target_under_test = ":greeting_stubs_wrapper",
+)
+
+py_test(
+    name = "stubs_test",
+    size = "small",
+    srcs = ["stubs_test.py"],
+    main = "stubs_test.py",
+    deps = [":greeting_py_proto_native"],
 )
