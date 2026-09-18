@@ -64,10 +64,10 @@ def _is_rust_build_test_impl(ctx):
         is_rust({"build_backend": "setuptools.build_meta", "build_requires": ["setuptools", "wheel"]}),
         "plain setuptools is not Rust",
     )
-    asserts.true(
+    asserts.false(
         env,
         is_rust({"build_backend": "setuptools.build_meta", "build_requires": ["setuptools"], "inferred_build_requires": ["setuptools-rust"]}),
-        "setuptools-rust inferred from .rs files counts too: it is injected into the build venv",
+        "setuptools-rust inferred from .rs files is a guess (zstandard's optional extension): no toolchain wiring",
     )
     asserts.false(env, is_rust({"build_backend": "mesonpy"}), "meson-python is not Rust")
     asserts.false(
@@ -77,8 +77,13 @@ def _is_rust_build_test_impl(ctx):
     )
     asserts.true(
         env,
+        is_rust({"build_backend": None, "build_requires": ["setuptools_rust"]}),
+        "a bare setup.py declaring setuptools-rust in setup_requires is a Rust build",
+    )
+    asserts.false(
+        env,
         is_rust({"build_backend": None, "inferred_build_requires": ["setuptools-rust"]}),
-        "a bare setup.py with .rs sources is setuptools-rust",
+        "a bare setup.py with .rs sources and no declaration is not",
     )
     asserts.equals(env, "setuptools-rust", sdist_build_test_util.normalize_requirement("Setuptools_Rust>=1.7"))
     return unittest.end(env)
@@ -182,7 +187,7 @@ def _missing_rust_toolchain_test_impl(ctx):
         env,
         None,
         missing("r", "", {"build_backend": "setuptools.build_meta", "build_requires": ["setuptools", "cffi"], "inferred_build_requires": ["setuptools-rust"]}, []),
-        "inferred setuptools-rust is a guess (zstandard's optional rust-ext): never grounds to demand a toolchain",
+        "inferred setuptools-rust is a guess (zstandard's optional rust-ext): neither wired nor demanded",
     )
 
     msg = missing("sdist_build__x__pkg__1_0", "", maturin, [])
