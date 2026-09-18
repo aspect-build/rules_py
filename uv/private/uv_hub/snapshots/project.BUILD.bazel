@@ -2547,7 +2547,7 @@ alias(
 # rpds_py
 # {
 #     "aspect_rules_py": {
-#         "rpds_py__0_18_0": {
+#         "rpds_py__0_19_1": {
 #             "": 1,
 #         },
 #     },
@@ -2557,7 +2557,7 @@ alias(
 alias(
     name = "_package_rpds_py_aspect_rules_py",
     actual = select({
-        "//conditions:default": "//private/sccs:rpds_py__0_18_0",
+        "//conditions:default": "//private/sccs:rpds_py__0_19_1",
     }),
     visibility = ["//visibility:private"],
 )
@@ -2566,7 +2566,7 @@ alias(
 alias(
     name = "_package_rpds_py_aspect_rules_py_whl",
     actual = select({
-        "//conditions:default": "@whl_install__aspect_rules_py__rpds_py__0_18_0//:whl",
+        "//conditions:default": "@whl_install__aspect_rules_py__rpds_py__0_19_1//:whl",
     }),
     visibility = ["//visibility:private"],
 )
@@ -2641,6 +2641,7 @@ alias(
 #     "aspect_rules_py": {
 #         "setuptools__80_9_0": {
 #             "": 1,
+#             "python_full_version >= '3.12'": 1,
 #         },
 #     },
 # }
@@ -3058,6 +3059,7 @@ alias(
 #         "typing_extensions__4_12_2": {
 #             "": 1,
 #             "python_full_version < '3.11'": 1,
+#             "python_full_version < '3.12'": 1,
 #         },
 #     },
 # }
@@ -3380,7 +3382,7 @@ alias(
 # {
 #     "aspect_rules_py": {
 #         "zipp__3_23_0": {
-#             "": 1,
+#             "python_full_version < '3.12'": 1,
 #         },
 #     },
 # }
@@ -3389,7 +3391,8 @@ alias(
 alias(
     name = "_package_zipp_aspect_rules_py",
     actual = select({
-        "//conditions:default": "//private/sccs:zipp__3_23_0",
+        "//private/markers:marker_2": "//private/sccs:zipp__3_23_0",
+        "//conditions:default": "//private/sccs:empty",
     }),
     visibility = ["//visibility:private"],
 )
@@ -3398,7 +3401,8 @@ alias(
 alias(
     name = "_package_zipp_aspect_rules_py_whl",
     actual = select({
-        "//conditions:default": "@whl_install__aspect_rules_py__zipp__3_23_0//:whl",
+        "//private/markers:marker_2": "@whl_install__aspect_rules_py__zipp__3_23_0//:whl",
+        "//conditions:default": ":empty_whl",
     }),
     visibility = ["//visibility:private"],
 )
@@ -3479,7 +3483,7 @@ filegroup(
         "@whl_install__aspect_rules_py__requests_oauthlib__2_0_0//:whl",
         "@whl_install__aspect_rules_py__rfc3339_validator__0_1_4//:whl",
         "@whl_install__aspect_rules_py__rfc3986_validator__0_1_1//:whl",
-        "@whl_install__aspect_rules_py__rpds_py__0_18_0//:whl",
+        "@whl_install__aspect_rules_py__rpds_py__0_19_1//:whl",
         "@whl_install__aspect_rules_py__s3transfer__0_10_1//:whl",
         "@whl_install__aspect_rules_py__setuptools__80_9_0//:whl",
         "@whl_install__aspect_rules_py__simplejson__3_19_2//:whl",
