@@ -174,39 +174,22 @@ def _normalize_requirement(requirement):
     return name.lower().replace("_", "-").replace(".", "-")
 
 def _is_rust_build(inspection):
-    """maturin backend, or setuptools with setuptools-rust among its build requirements.
+    """maturin backend, or a setuptools backend with setuptools-rust among its declared build requirements.
 
-    Declared requirements come with their PEP 508 spelling; inferred ones
-    (the configure tool adds setuptools-rust for sdists that ship .rs files
-    without declaring it) come normalized. Both are injected into the build
-    venv, so both need the Rust toolchain.
+    Declared means pyproject `[build-system].requires`, setup.cfg or setup.py
+    `setup_requires`. The configure tool also *infers* setuptools-rust from
+    stray `.rs` files, and that guess only injects the package into the build
+    venv: zstandard ships an optional Rust extension it never builds by
+    default, and numpy vendors meson's test suite, `.rs` files included.
+    Neither is a Rust build, so neither gets the toolchain.
     """
     if not inspection:
         return False
     backend = inspection.get("build_backend")
     if backend == "maturin":
         return True
-
-    # setuptools-rust only ever rides on a setuptools backend (or none, for a
-    # bare setup.py). Other backends may ship stray .rs files that make the
-    # configure tool infer setuptools-rust (numpy vendors meson's test suite),
-    # and are not Rust builds.
     if backend not in (None, "setuptools.build_meta", "setuptools.build_meta:__legacy__"):
         return False
-    requirements = list(inspection.get("build_requires", [])) + list(inspection.get("inferred_build_requires", []))
-    return "setuptools-rust" in [_normalize_requirement(r) for r in requirements]
-
-def _declares_rust_build(inspection):
-    """maturin backend, or setuptools-rust among the sdist's *declared* build requirements.
-
-    The inferred requirement (stray .rs files) is a guess: zstandard ships an
-    optional Rust extension it never builds by default. A guess wires the
-    toolchain when the project has one, but is never grounds to demand one.
-    """
-    if not _is_rust_build(inspection):
-        return False
-    if inspection.get("build_backend") == "maturin":
-        return True
     return "setuptools-rust" in [_normalize_requirement(r) for r in inspection.get("build_requires", [])]
 
 _RUST_LAYER_LOAD = "\nload(\"@aspect_rules_py//uv/private/pep517_whl:rust_layer.bzl\", \"rust_host_sysroot\")"
@@ -272,13 +255,11 @@ def _missing_rust_toolchain(repo_name, rust_toolchain, inspection, toolchains):
     """The error for a Rust sdist in a project that declares no Rust toolchain, or None.
 
     Without one, cargo or maturin fail deep inside the build action with no
-    hint of the cause. Only declared Rust builds are demanding: an inferred
-    setuptools-rust (see _declares_rust_build) builds unwired, as it always
-    did, and fails only if the backend really needs rustc. Explicit `uv.override_package(toolchains = [...])`
+    hint of the cause. Explicit `uv.override_package(toolchains = [...])`
     entries are trusted: they are the escape hatch for wiring a toolchain by
     hand, and the rule cannot tell a Rust toolchain from any other.
     """
-    if rust_toolchain or toolchains or not _declares_rust_build(inspection):
+    if rust_toolchain or toolchains or not _is_rust_build(inspection):
         return None
     if inspection.get("build_backend") == "maturin":
         reason = "its build backend is maturin"
