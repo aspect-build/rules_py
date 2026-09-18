@@ -414,10 +414,8 @@ wired to it. Either ruleset works:
 
 - [rules_rust](https://github.com/bazelbuild/rules_rust):
   `toolchain = "@rules_rust//rust/toolchain:current_rust_toolchain"`
-- [rules_rs](https://github.com/hermeticbuild/rules_rs): its toolchains are
-  rules_rust `rust_toolchain` instances declared in the patched `rules_rust`
-  repository it fetches, so expose that repository and point at its
-  `current_rust_toolchain`:
+- [rules_rs](https://github.com/hermeticbuild/rules_rs): expose the `rules_rust`
+  repository it fetches and point at its `current_rust_toolchain`:
 
   ```starlark
   rules_rust_rs = use_extension("@rules_rs//rs:rules_rust.bzl", "rules_rust")
