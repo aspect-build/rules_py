@@ -621,7 +621,14 @@ def _merge_aspect_impl(target, ctx):
     for group_name in sorted(bucket):
         install_dirs = bucket[group_name]
         codec = _codec_for(plan, group_name)
-        tar_out = ctx.actions.declare_file("_merged_pip_layer_{}{}".format(group_name, codec.ext))
+
+        # Each binary can have a different wheel closure, including binaries
+        # in the same package that use the same tier and group name.
+        tar_out = ctx.actions.declare_file("_merged_pip_layer_%s/%s%s" % (
+            target.label.name,
+            group_name,
+            codec.ext,
+        ))
         _run_tar_action(
             ctx,
             bsdtar,
