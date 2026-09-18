@@ -532,8 +532,9 @@ platform's standard library next to the target's, the way rustup keeps
 several targets in one install. No `uv.override_package` entry is needed for
 Rust packages, and a Rust sdist in a module with no `uv.rust_toolchain()`
 covering its project fails while the repository is generated, naming the
-declaration to add; only declared Rust builds are demanding, an sdist that
-merely ships `.rs` files (zstandard's optional extension) builds as before. The crates the
+declaration to add. Only declared Rust builds count: an sdist that merely
+ships `.rs` files (zstandard's optional extension) gets no Rust wiring and
+builds as before. The crates the
 sdist's `Cargo.lock` pins on crates.io are fetched with their checksums while
 the repository is generated and vendored into it; cargo then builds offline,
 so the build needs no network and works under remote execution. A lock that

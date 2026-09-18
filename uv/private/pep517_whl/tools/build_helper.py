@@ -1206,12 +1206,12 @@ def _needs_cargo_cross_env(build_env: dict[str, str]) -> bool:
 
     The decision is made once, at repository-generation time: sdist_build
     wires the project's Rust toolchain into the build only for maturin
-    backends and setuptools-rust requirements (declared or inferred), and
+    backends and declared setuptools-rust requirements, and
     pep517_native_whl turns its make-variables into CARGO/RUSTC. Their
     presence is therefore the signal; the helper does not re-derive it from
-    pyproject.toml, which would miss inferred setuptools-rust builds. A Rust
-    toolchain listed on a package that never invokes cargo costs an unused
-    environment, nothing more.
+    pyproject.toml, which would miss setup.py-declared builds. A Rust
+    toolchain wired by hand on a package that never invokes cargo costs an
+    unused environment, nothing more.
     """
     return bool(build_env.get("CARGO"))
 

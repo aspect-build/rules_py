@@ -1,5 +1,7 @@
 # Only //tools needs a workspace-level linux platform (exec toolchain
 # resolution test); each case declares its own flag-carrying platforms.
+load("@bazel_lib//lib:write_source_files.bzl", "write_source_files")
+
 package(default_visibility = ["//tools:__pkg__"])
 
 platform(
@@ -13,4 +15,35 @@ platform(
         "--@aspect_rules_py//uv/private/constraints/platform:platform_version=2.39",
         "--stripopt=--strip-all",
     ],
+)
+
+# The BUILD file sdist_build generates for every source build in this
+# workspace, pinned so the wiring each sdist receives is a reviewable diff:
+# which toolchains reach its action, whether a Rust sysroot layer, vendored
+# crates or a cargo_lock target are emitted, and which build deps it gets.
+# Toolchains must appear only where the sdist's backend needs them.
+#
+# To update after an intentional change: bazel run //:sdist_build_snapshots
+write_source_files(
+    name = "sdist_build_snapshots",
+    files = {
+        "snapshots/sdist_build__pycross_bcrypt__bcrypt__5_0_0.BUILD.bazel": "@sdist_build__pycross_bcrypt__bcrypt__5_0_0//:BUILD.bazel",
+        "snapshots/sdist_build__pycross_cmake__awkward_cpp__55.BUILD.bazel": "@sdist_build__pycross_cmake__awkward_cpp__55//:BUILD.bazel",
+        "snapshots/sdist_build__pycross_geohash__python_geohash__0_8_5.BUILD.bazel": "@sdist_build__pycross_geohash__python_geohash__0_8_5//:BUILD.bazel",
+        "snapshots/sdist_build__pycross_jdk__jpype1__1_7_1.BUILD.bazel": "@sdist_build__pycross_jdk__jpype1__1_7_1//:BUILD.bazel",
+        "snapshots/sdist_build__pycross_meson__contourpy__1_3_3.BUILD.bazel": "@sdist_build__pycross_meson__contourpy__1_3_3//:BUILD.bazel",
+        "snapshots/sdist_build__pycross_msgpack__msgpack__1_2_1.BUILD.bazel": "@sdist_build__pycross_msgpack__msgpack__1_2_1//:BUILD.bazel",
+        "snapshots/sdist_build__pycross_numpy__numpy__2_5_1.BUILD.bazel": "@sdist_build__pycross_numpy__numpy__2_5_1//:BUILD.bazel",
+        "snapshots/sdist_build__pycross_psutil__psutil__7_2_2.BUILD.bazel": "@sdist_build__pycross_psutil__psutil__7_2_2//:BUILD.bazel",
+        "snapshots/sdist_build__pycross_pure_python__filelock__3_17_0.BUILD.bazel": "@sdist_build__pycross_pure_python__filelock__3_17_0//:BUILD.bazel",
+        "snapshots/sdist_build__pycross_pure_python__pyproject_metadata__0_8_1.BUILD.bazel": "@sdist_build__pycross_pure_python__pyproject_metadata__0_8_1//:BUILD.bazel",
+        "snapshots/sdist_build__pycross_pure_python__tomli__2_2_1.BUILD.bazel": "@sdist_build__pycross_pure_python__tomli__2_2_1//:BUILD.bazel",
+        "snapshots/sdist_build__pycross_rpds_py__rpds_py__2026_6_3.BUILD.bazel": "@sdist_build__pycross_rpds_py__rpds_py__2026_6_3//:BUILD.bazel",
+        "snapshots/sdist_build__pycross_rust__pydantic_core__2_47_0.BUILD.bazel": "@sdist_build__pycross_rust__pydantic_core__2_47_0//:BUILD.bazel",
+        "snapshots/sdist_build__pycross_rust_rs__pydantic_core__2_47_0.BUILD.bazel": "@sdist_build__pycross_rust_rs__pydantic_core__2_47_0//:BUILD.bazel",
+        "snapshots/sdist_build__pycross_setuptools__pyyaml__6_0_1.BUILD.bazel": "@sdist_build__pycross_setuptools__pyyaml__6_0_1//:BUILD.bazel",
+        "snapshots/sdist_build__pycross_setuptools__setproctitle__1_3_7.BUILD.bazel": "@sdist_build__pycross_setuptools__setproctitle__1_3_7//:BUILD.bazel",
+        "snapshots/sdist_build__pycross_setuptools__zstandard__0_22_0.BUILD.bazel": "@sdist_build__pycross_setuptools__zstandard__0_22_0//:BUILD.bazel",
+        "snapshots/sdist_build__pycross_tiktoken__tiktoken__0_13_0.BUILD.bazel": "@sdist_build__pycross_tiktoken__tiktoken__0_13_0//:BUILD.bazel",
+    },
 )
