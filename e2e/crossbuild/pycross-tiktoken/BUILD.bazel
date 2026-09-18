@@ -1,29 +1,27 @@
-# maturin (Cargo/PyO3) cross case: pydantic-core built from its sdist for
-# the host at runtime, and cross-compiled for both linux CPUs with the
-# cargo cross env (CARGO_BUILD_TARGET triple keyed by target libc, linker
-# override, merged rust sysroot).
+# tiktoken ships official prebuilt wheels for linux/amd64 and linux/arm64, but
+# [tool.uv] no-binary-package forces it to build from sdist here. A second
+# setuptools-rust package alongside //pycross-bcrypt, exercising OpenAI's BPE
+# tokenizer core on the same build-backend path.
 
 load("@aspect_rules_py//py:defs.bzl", "py_test")
 load("//tools:collect_wheels.bzl", "collect_wheels")
 load("//tools:wheel_export.bzl", "pycross_wheel_export")
 
+exports_files(["Cargo.lock"])
+
 _PY = "3.12"
 
-_DEP_GROUP = "pycross_rust"
+_DEP_GROUP = "pycross_tiktoken"
 
 py_test(
-    name = "test_pydantic_core",
-    srcs = ["test_pydantic_core.py"],
+    name = "test_tiktoken",
+    srcs = ["test_tiktoken.py"],
     dep_group = _DEP_GROUP,
-    main = "test_pydantic_core.py",
+    main = "test_tiktoken.py",
     python_version = _PY,
-    deps = ["@pypi_pycross_rust//pydantic_core"],
+    deps = ["@pypi_pycross_tiktoken//tiktoken"],
 )
 
-# The wheel targets under `collect_wheels` are reached through a platform
-# transition rather than a py_venv, so nothing sets the dep_group flag for
-# them — the platform carries it alongside the libc/version flags the wheel
-# resolver needs.
 _PLATFORM_FLAGS = [
     "--@aspect_rules_py//uv/private/constraints/platform:platform_libc=glibc",
     "--@aspect_rules_py//uv/private/constraints/platform:platform_version=2.39",
@@ -50,7 +48,7 @@ platform(
 )
 
 collect_wheels(
-    name = "rust_wheels",
+    name = "tiktoken_wheels",
     expected_tags = [
         "linux_x86_64",
         "linux_aarch64",
@@ -59,15 +57,17 @@ collect_wheels(
         ":amd64_linux",
         ":arm64_linux",
     ],
-    wheels = ["@sdist_build__pycross_rust__pydantic_core__2_47_0//:whl"],
+    wheels = [
+        "@sdist_build__pycross_tiktoken__tiktoken__0_13_0//:whl",
+    ],
 )
 
 # Execution verification: the cross-built wheel is installed and the case's
 # standalone test is run on a native runner of the target architecture.
 pycross_wheel_export(
-    name = "pydantic_core",
+    name = "tiktoken",
     amd64_platform = ":amd64_linux",
     arm64_platform = ":arm64_linux",
-    main = "test_pydantic_core.py",
-    wheel = "@sdist_build__pycross_rust__pydantic_core__2_47_0//:whl",
+    main = "test_tiktoken.py",
+    wheel = "@sdist_build__pycross_tiktoken__tiktoken__0_13_0//:whl",
 )

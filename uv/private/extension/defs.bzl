@@ -203,6 +203,49 @@ def _parse_hubs(module_ctx):
 
     return hub_specs
 
+def parse_rust_toolchains(tags, project_locks, module_name):
+    """Index a module's `uv.rust_toolchain()` tags by scope.
+
+    Args:
+        tags: The module's `rust_toolchain` tags (anything with `lock` and
+            `toolchain` fields).
+        project_locks: Lock labels of the module's own `uv.project()` tags.
+        module_name: For error messages.
+
+    Returns:
+        struct(default, by_lock, error): `default` is the module-wide tag or
+        None; `by_lock` maps a lock label to its tag; `error` is the message
+        to fail with, or None. Two tags with the same scope and an unknown
+        lock are errors.
+    """
+    default = None
+    by_lock = {}
+    for tag in tags:
+        if tag.lock != None and tag.lock not in project_locks:
+            err = "uv.rust_toolchain() refers to lock '{}', but module '{}' has no uv.project() for that lock.".format(tag.lock, module_name)
+        elif tag.lock != None:
+            err = "uv.rust_toolchain() in module '{}': lock '{}' is declared twice.".format(module_name, tag.lock) if tag.lock in by_lock else None
+            by_lock[tag.lock] = tag
+        else:
+            err = "uv.rust_toolchain() in module '{}': more than one module-wide declaration; scope all but one with `lock`.".format(module_name) if default != None else None
+            default = tag
+        if err:
+            return struct(default = None, by_lock = {}, error = err)
+    return struct(default = default, by_lock = by_lock, error = None)
+
+def resolve_rust_toolchain(rust_toolchains, lock):
+    """The Rust toolchain for one project's sdists: its lock's declaration, else the module's, else None.
+
+    Args:
+        rust_toolchains: As returned by parse_rust_toolchains.
+        lock: The project's lock label.
+
+    Returns:
+        The toolchain label, or None.
+    """
+    tag = rust_toolchains.by_lock.get(lock) or rust_toolchains.default
+    return tag.toolchain if tag != None else None
+
 def _parse_projects(module_ctx, hub_specs):
     """Resolve every `uv.project()` declaration into repository-rule inputs.
 
@@ -275,15 +318,20 @@ def _parse_projects(module_ctx, hub_specs):
                 override.toolchains or
                 override.env or
                 override.config_settings or
+                override.cargo_lock or
                 override.monitor_memory or
                 override.resource_set != "default"
             )
             if has_target and has_modifications:
                 fail("uv.override_package() for '{}': `target` is mutually exclusive with modification attributes. Use `target` for full replacement OR build, patch, and data attributes for modifications, not both.".format(override.name))
             if not has_target and not has_modifications:
-                fail("uv.override_package() for '{}': must specify either `target` for full replacement or at least one modification attribute (console_scripts, pre_build_patches, post_install_patches, exclude_glob, extra_deps, extra_data, toolchains, env, monitor_memory, resource_set).".format(override.name))
+                fail("uv.override_package() for '{}': must specify either `target` for full replacement or at least one modification attribute (console_scripts, pre_build_patches, post_install_patches, exclude_glob, extra_deps, extra_data, toolchains, env, config_settings, cargo_lock, monitor_memory, resource_set).".format(override.name))
 
         unscoped_matches = {i: 0 for i, override in enumerate(mod.tags.override_package) if override.lock == None}
+
+        rust_toolchains = parse_rust_toolchains(mod.tags.rust_toolchain, project_locks, mod.name)
+        if rust_toolchains.error:
+            fail(rust_toolchains.error)
 
         for project in mod.tags.project:
             project_data = toml.decode_file(module_ctx, project.pyproject)
@@ -534,6 +582,7 @@ def _parse_projects(module_ctx, hub_specs):
                         monitor_memory = pkg_override.monitor_memory,
                         pre_build_patches = pkg_override.pre_build_patches,
                         pre_build_patch_strip = pkg_override.pre_build_patch_strip,
+                        cargo_lock = pkg_override.cargo_lock,
                         supported = [],
                         toolchains = pkg_override.toolchains,
                     )
@@ -584,12 +633,14 @@ def _parse_projects(module_ctx, hub_specs):
                     extra_toolchains = []
                     extra_env = {}
                     config_settings = {}
+                    cargo_lock = None
                     monitor_memory = False
                     resource_set = "default"
                     if pkg_override:
                         extra_toolchains = [str(t) for t in pkg_override.toolchains]
                         extra_env = pkg_override.env
                         config_settings = pkg_override.config_settings
+                        cargo_lock = pkg_override.cargo_lock
                         monitor_memory = pkg_override.monitor_memory
                         resource_set = pkg_override.resource_set
 
@@ -605,8 +656,10 @@ def _parse_projects(module_ctx, hub_specs):
                         extra_toolchains = extra_toolchains,
                         extra_env = extra_env,
                         config_settings = config_settings,
+                        cargo_lock = cargo_lock,
                         monitor_memory = monitor_memory,
                         resource_set = resource_set,
+                        rust_toolchain = resolve_rust_toolchain(rust_toolchains, project.lock),
                     )
 
                     has_sbuild = True
@@ -885,6 +938,10 @@ def _uv_impl(module_ctx):
             sbuild_kwargs["extra_env"] = sbuild_cfg.extra_env
         if sbuild_cfg.config_settings:
             sbuild_kwargs["config_settings"] = sbuild_cfg.config_settings
+        if sbuild_cfg.cargo_lock:
+            sbuild_kwargs["cargo_lock"] = sbuild_cfg.cargo_lock
+        if sbuild_cfg.rust_toolchain:
+            sbuild_kwargs["rust_toolchain"] = sbuild_cfg.rust_toolchain
         if sbuild_cfg.monitor_memory:
             sbuild_kwargs["monitor_memory"] = True
         if sbuild_cfg.resource_set != "default":
@@ -1017,11 +1074,15 @@ _override_package_tag = tag_class(
         ),
         "toolchains": attr.label_list(
             default = [],
-            doc = "Extra toolchain targets forwarded to the generated pep517_native_whl(...) call's `toolchains` list. Each target's TemplateVariableInfo make-variables become available for $(VAR) expansion in `env`; the well-known ones (CARGO, RUSTC, RUST_HOST_SYSROOT, JAVA, JAVABASE, ANT_HOME, ANT_BIN_DIR) reach the build environment automatically.",
+            doc = "Extra toolchain targets forwarded to the generated pep517_native_whl(...) call's `toolchains` list. Each target's TemplateVariableInfo make-variables become available for $(VAR) expansion in `env`; the well-known ones (CARGO, RUSTC, RUST_SYSROOT, RUST_HOST_SYSROOT, JAVA, JAVABASE, ANT_HOME, ANT_BIN_DIR) reach the build environment automatically.",
         ),
         "env": attr.string_dict(
             default = {},
             doc = "Extra environment variables merged into the build action's `env` dict. Values may reference $(VAR) make-variables sourced from extra `toolchains` listed above. Prefix an execroot-relative path with `$(EXECROOT)/` so it remains valid after the backend changes into the unpacked source tree. Omit CC/CXX/AR/LD/STRIP to use the configured C++ action tools.",
+        ),
+        "cargo_lock": attr.label(
+            allow_single_file = True,
+            doc = "Cargo.lock for a Rust sdist that ships none. Its crates.io entries are vendored while the repository is generated and the file is placed next to the sdist's Cargo.toml before the build, so cargo builds offline. Requires a `uv.rust_toolchain()` covering the project.",
         ),
         "config_settings": attr.string_list_dict(
             default = {},
@@ -1066,6 +1127,31 @@ project locks declared by the same module. Specifying `target` requires `lock`
 and is mutually exclusive with all other modification attributes.""",
 )
 
+_rust_toolchain_tag = tag_class(
+    attrs = {
+        "toolchain": attr.label(
+            mandatory = True,
+            doc = "A rules_rust `current_rust_toolchain`-style target: any target exposing rules_rust's " +
+                  "toolchain providers, from rules_rust or rules_rs. Every sdist in scope whose build backend " +
+                  "is maturin or setuptools-rust gets it, plus rules_py's exec-configured sysroot layer, wired " +
+                  "into its build automatically; other sdists ignore it.",
+        ),
+        "lock": attr.label(
+            mandatory = False,
+            doc = "Scope the declaration to the `uv.project()` pinned by this `uv.lock`. Without it the " +
+                  "declaration applies to every project of the module; a lock-scoped one wins for its project.",
+        ),
+    },
+    doc = """The Rust toolchain for the sdists a module's `uv.project()` declarations build from source.
+
+The toolchain is detected into place: the extension wires it only into builds
+whose backend is maturin or setuptools-rust, so one module-wide declaration is
+enough and reaches nothing else. Scope is the module (no `lock`) or one
+project (`lock`); two declarations with the same scope fail. Toolchains a
+single package needs beyond Rust (a JDK, Ant) go on
+`uv.override_package(toolchains = ...)`.""",
+)
+
 uv = module_extension(
     implementation = _uv_impl,
     tag_classes = {
@@ -1073,5 +1159,6 @@ uv = module_extension(
         "project": _project_tag,
         "annotate_packages": _annotations_tag,
         "override_package": _override_package_tag,
+        "rust_toolchain": _rust_toolchain_tag,
     },
 )

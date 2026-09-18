@@ -69,7 +69,7 @@ pycross_wheel_export(
 )
 
 # macOS arm64 -> macOS amd64 cross target, exercised only from a real macOS
-# host by //:test.sh. Manual rather than target_compatible_with: the
+# host by pycross-geohash/test.sh. Manual rather than target_compatible_with: the
 # transition always resolves to os:macos, so the constraint cannot tell a
 # Linux host apart from a macOS one. No libc flags: the target is not Linux.
 platform(
