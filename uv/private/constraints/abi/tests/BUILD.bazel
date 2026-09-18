@@ -1,4 +1,5 @@
 load("//py:defs.bzl", "py_library", "py_test")
+load(":abi_test.bzl", "abi_test_suite")
 
 # Empty marker modules: the freethreaded transition applies on the venv, so
 # only venv-side attrs like deps see the transitioned config. Selecting these
@@ -60,3 +61,5 @@ py_test(
     python_version = "3.13",
     deps = _DEPS,
 )
+
+abi_test_suite(name = "abi_tests")
