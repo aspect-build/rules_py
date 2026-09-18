@@ -9,13 +9,16 @@ Mostly exists to allow debugging.
 from __future__ import annotations
 
 from argparse import ArgumentParser
+import glob
 import importlib
+import json
 import os
 import platform as _platform
 import re
 import shlex
 import shutil
 import sys
+import sysconfig
 import textwrap
 from os import chmod, defpath, listdir, makedirs, path, pathsep
 from subprocess import CalledProcessError, check_call, check_output, STDOUT, run
@@ -38,11 +41,30 @@ _SETUPTOOLS_BACKENDS = (
 # to locate sibling tools and resources. Clang does so under -no-canonical-prefixes:
 # https://github.com/llvm/llvm-project/blob/llvmorg-22.1.4/clang/tools/driver/driver.cpp#L63-L78
 _DEBUG_FLAG = "-fdebug-default-version=4"
+
+# Forces the static libstdc++ archive into C++ links regardless of driver
+# name. Plain `-static-libstdc++` is a no-op under gcc_toolchain, whose
+# tool_path is "gcc" (not "g++"): that flag only modifies the implicit
+# libstdc++ link the "g++" argv[0] spec adds. Without this, C++ extensions
+# build and even import when another loaded .so happens to provide the
+# symbols, then fail at dlopen with cxxabi vtables unresolved. GNU-ld-only
+# syntax: skipped on Darwin (clang++ links libc++ implicitly) and for
+# -nostdlib++ toolchains, which carry their runtime as static archives.
+_STATIC_LIBSTDCXX_FLAGS = ("-Wl,-Bstatic", "-lstdc++", "-Wl,-Bdynamic")
+
+# Compiles, preprocessing and compiler-introspection probes must not receive
+# link-only flags; meson runs "-E -v -", "-print-*" and "--version" through
+# the wrappers.
+_NON_LINK_ARGS = ("-c", "-E", "-S", "-fsyntax-only", "--version", "-dumpmachine", "-dumpversion", "-###")
+
 _COMPILER_WRAPPER = """#!/usr/bin/env python3
 import os
 import sys
 
 filtered_args = [arg for arg in sys.argv[1:] if arg != "{debug_flag}"]
+is_link = not any(a in {non_link_args!r} or a.startswith("-print-") for a in filtered_args)
+if {is_cxx!r} and is_link and not {is_darwin!r}:
+    filtered_args = filtered_args + {static_libstdcxx_flags!r}
 sysroot = {sysroot!r}
 if sysroot and "-isysroot" not in filtered_args:
     filtered_args = ["-isysroot", sysroot] + filtered_args
@@ -115,6 +137,7 @@ def _make_compiler_wrapper(
     name: str,
     compiler_path: str,
     sysroot: str | None = None,
+    is_cxx: bool = False,
 ) -> str:
     wrapper = path.join(tmpdir, ".aspect_rules_py_compilers", name)
     makedirs(path.dirname(wrapper), exist_ok=True)
@@ -123,6 +146,10 @@ def _make_compiler_wrapper(
             debug_flag=_DEBUG_FLAG,
             compiler_path=compiler_path,
             sysroot=sysroot,
+            is_cxx=is_cxx,
+            is_darwin=_platform.system() == "Darwin",
+            non_link_args=list(_NON_LINK_ARGS),
+            static_libstdcxx_flags=list(_STATIC_LIBSTDCXX_FLAGS),
         ))
     chmod(wrapper, 0o755)
     return wrapper
@@ -189,7 +216,7 @@ def _override_tool(env: dict[str, str], key: str, wrapper: str) -> None:
 
 def _absolutize_tool_paths(env: dict[str, str]) -> None:
     """Resolve toolchain paths before the backend changes cwd."""
-    for key in ("JAVA_HOME", "JAVA", "CARGO", "RUSTC", "RULES_PY_RUST_HOST_SYSROOT", "ANT_HOME", "RULES_PY_ANT_BIN_DIR"):
+    for key in ("JAVA_HOME", "JAVA", "CARGO", "RUSTC", "RULES_PY_RUST_SYSROOT", "RULES_PY_RUST_HOST_SYSROOT", "ANT_HOME", "RULES_PY_ANT_BIN_DIR"):
         value = env.get(key)
         if value:
             env[key] = _absolutize_path(value)
@@ -321,6 +348,8 @@ debug_flag = {debug_flag!r}
 is_darwin = {is_darwin!r}
 static_runtime_archives = {static_runtime_archives!r}
 exe_link_flags = {exe_link_flags!r}
+is_cxx = {is_cxx!r}
+static_libstdcxx_flags = {static_libstdcxx_flags!r}
 
 # Not a link if compiling/preprocessing (-c/-E/-S/-fsyntax-only) or if this
 # is a compiler-introspection probe ("-print-*", "--version"): appending
@@ -382,6 +411,10 @@ elif is_link and exe_link_flags:
         # the C++/unwind runtime; shared links already got the archives
         # above, so don't list them twice.
         filtered.extend(static_runtime_archives)
+elif is_cxx and is_link:
+    # GNU toolchain driven as "gcc" (gcc_toolchain): no implicit libstdc++,
+    # see _STATIC_LIBSTDCXX_FLAGS.
+    filtered.extend(static_libstdcxx_flags)
 
 real = {compiler_path!r}
 os.execv(real, [real] + wrapper_flags + filtered)
@@ -396,6 +429,7 @@ def _make_cross_compiler_wrapper(
     is_darwin: bool = False,
     static_runtime_archives: list[str] | None = None,
     exe_link_flags: list[str] | None = None,
+    is_cxx: bool = False,
 ) -> str:
     wrapper = path.join(tmpdir, ".aspect_rules_py_compilers", name)
 
@@ -421,6 +455,8 @@ def _make_cross_compiler_wrapper(
             is_darwin=is_darwin,
             static_runtime_archives=list(static_runtime_archives or []),
             exe_link_flags=list(exe_link_flags or []),
+            is_cxx=is_cxx,
+            static_libstdcxx_flags=list(_STATIC_LIBSTDCXX_FLAGS),
         ),
         executable=True,
     )
@@ -575,6 +611,71 @@ def _generate_cross_site(
     return site_dir
 
 
+_PYTHON_PC_TEMPLATE = """\
+# Generated by rules_py's build helper for the {which} interpreter.
+prefix={prefix}
+exec_prefix=${{prefix}}
+libdir=${{exec_prefix}}/lib
+includedir={includedir}
+
+Name: Python
+Description: Build a C extension for Python
+Requires:
+Version: {version}
+Libs:
+Cflags: -I${{includedir}}
+"""
+
+
+def _write_python_pc_files(pc_dir: str, version: str, includedir: str, which: str) -> None:
+    """python3.pc / python-X.Y.pc describing one interpreter's headers."""
+    makedirs(pc_dir, exist_ok=True)
+    content = _PYTHON_PC_TEMPLATE.format(
+        which=which,
+        prefix=path.dirname(path.dirname(includedir)),
+        includedir=includedir,
+        version=version,
+    )
+    for name in ("python3.pc", "python-{}.pc".format(version)):
+        with open(path.join(pc_dir, name), "w") as f:
+            f.write(content)
+
+
+def _python_pkgconfig_env(
+    env: dict[str, str],
+    tmpdir: str,
+    target_include: str = "",
+    base_prefix: str = sys.base_prefix,
+) -> None:
+    """Point pkg-config's `python3` at the interpreter the wheel is built for.
+
+    Backends resolve `python3` through pkg-config when one is on PATH (meson's
+    Cython sanity check does, unconditionally). With the system search path
+    that is the runner's own Python, whose headers neither match the hermetic
+    interpreter nor exist inside a hermetic toolchain's sysroot. PKG_CONFIG_LIBDIR
+    replaces the system directories outright; an explicit PKG_CONFIG_LIBDIR or
+    PKG_CONFIG_PATH from the package's env keeps the caller in control.
+    """
+    if env.get("PKG_CONFIG_LIBDIR"):
+        return
+    if target_include:
+        # Cross: describe the target interpreter from its include directory
+        # (.../include/python3.12 or python3.13t). Extension modules take no
+        # -lpython, so the .pc carries headers only.
+        include = _absolutize_path(target_include)
+        version = path.basename(include)[len("python"):].rstrip("t")
+        pc_dir = path.join(tmpdir, ".pkgconfig")
+        _write_python_pc_files(pc_dir, version, include, "target")
+    else:
+        pc_dir = path.join(base_prefix, "lib", "pkgconfig")
+        if not path.exists(path.join(pc_dir, "python3.pc")):
+            include = sysconfig.get_paths()["include"]
+            version = "{}.{}".format(*sys.version_info[:2])
+            pc_dir = path.join(tmpdir, ".pkgconfig")
+            _write_python_pc_files(pc_dir, version, include, "build")
+    env["PKG_CONFIG_LIBDIR"] = pc_dir
+
+
 def _compiler_env(
     tmpdir: str,
     execroot_marker: str | None = None,
@@ -634,6 +735,7 @@ def _compiler_env(
 
     sysroot = _darwin_sysroot()
 
+    target_include = ""
     if cross:
         # Toolchain flag strings (from cc_layer.bzl) contain execroot-relative
         # sysroots; absolutize while still in the execroot, before the backend
@@ -651,7 +753,8 @@ def _compiler_env(
         # first.
         target_include = env.pop("RULES_PY_TARGET_INCLUDE", "")
         if target_include:
-            include_flag = "-I" + _absolutize_path(target_include)
+            target_include = _absolutize_path(target_include)
+            include_flag = "-I" + target_include
             for key in ("CFLAGS", "CXXFLAGS"):
                 env[key] = (include_flag + " " + env.get(key, "")).strip()
 
@@ -682,10 +785,10 @@ def _compiler_env(
         static_runtime.sort(key=lambda p: runtime_rank.get(path.basename(p), 3))
 
         cc = _make_cross_compiler_wrapper(tmpdir, "cc", cc_path, wrapper_flags, is_darwin=is_darwin_target, static_runtime_archives=static_runtime, exe_link_flags=exe_link_flags)
-        cxx = _make_cross_compiler_wrapper(tmpdir, "c++", cxx_path, wrapper_flags, is_darwin=is_darwin_target, static_runtime_archives=static_runtime, exe_link_flags=exe_link_flags)
+        cxx = _make_cross_compiler_wrapper(tmpdir, "c++", cxx_path, wrapper_flags, is_darwin=is_darwin_target, static_runtime_archives=static_runtime, exe_link_flags=exe_link_flags, is_cxx=True)
     else:
         cc = _make_compiler_wrapper(tmpdir, "cc", cc_path, sysroot)
-        cxx = _make_compiler_wrapper(tmpdir, "c++", cxx_path, sysroot)
+        cxx = _make_compiler_wrapper(tmpdir, "c++", cxx_path, sysroot, is_cxx=True)
 
     env.setdefault("CC", cc)
     env.setdefault("CXX", cxx)
@@ -719,6 +822,8 @@ def _compiler_env(
         if target_os and target_cpu:
             site_dir = _generate_cross_site(tmpdir, target_os, target_cpu, deployment_target)
             env["PYTHONPATH"] = site_dir + pathsep + env.get("PYTHONPATH", "")
+
+    _python_pkgconfig_env(env, tmpdir, target_include)
 
     # MPI builds (e.g. mpi4py) consult $MPICC before searching PATH, so a
     # plain C compiler here would shadow the real mpicc. Only set it when
@@ -884,11 +989,7 @@ def _generate_cmake_toolchain_file(
     contain spaces, which unquoted set() would parse as list separators.
     """
     ar = build_env.get("AR", "ar")
-    ranlib = _write_generated_file(
-        path.join(tmpdir, "cmake_ranlib"),
-        '#!/bin/sh\nexec "{}" s "$@"\n'.format(ar),
-        executable=True,
-    )
+    ranlib = _ranlib_wrapper(tmpdir, ar)
     return _write_generated_file(
         path.join(tmpdir, "cross_toolchain.cmake"),
         textwrap.dedent("""\
@@ -921,15 +1022,145 @@ _RUST_TARGET_OS = {
     ("darwin", "libsystem"): "apple-darwin",
 }
 
+# The rustc cargo runs. Sandbox and execroot paths differ per host and per
+# action, so they are remapped away. A single codegen unit keeps LLVM's
+# module ids, which leak into symbol names, stable across hosts; it is
+# applied to target crates only (build scripts and proc-macros never reach
+# the wheel), or to everything in a native build where cargo passes no
+# --target. Cargo's `-C metadata=` hash, which every mangled symbol carries
+# and rustc uses as the crate's stable id, mixes in `rustc -vV` (host triple
+# included) and the paths of host-compiled build scripts; target crates get
+# one derived from host-independent identity instead: the toolchain's
+# release string, the package cargo names in the environment it hands rustc,
+# the crate name, its types, its cfgs, the target and the codegen options
+# that define its profile. Two versions of one package hash apart, and so do
+# the two compilations of one crate a native build makes when the
+# `build-override` profile differs from the normal one (cargo shares them
+# only when the profiles agree). Options carrying paths (`linker`,
+# `link-arg`) are left out: those are per sandbox. `-C extra-filename` stays
+# cargo's so its own artifact names never collide.
 _RUSTC_WRAPPER = """#!/usr/bin/env python3
+import hashlib
 import os
 import sys
 
-os.execv({rustc!r}, [{rustc!r}, "--sysroot", {sysroot!r}] + sys.argv[1:])
+PROFILE_OPTIONS = {profile_options!r}
+
+args = sys.argv[1:]
+final = [{rustc!r}, "--sysroot", {sysroot!r}]
+for prefix in {remap_prefixes!r}:
+    final += ["--remap-path-prefix", prefix + "/=", "--remap-path-prefix", prefix + "="]
+target = {target_triple!r}
+if target is None or target in args:
+    final += ["-C", "codegen-units=1"]
+    identity = [
+        {toolchain!r},
+        os.environ.get("CARGO_PKG_NAME", ""),
+        os.environ.get("CARGO_PKG_VERSION", ""),
+        target or "",
+    ]
+    crate_types = []
+    cfgs = []
+    codegen = []
+    for i, arg in enumerate(args):
+        if arg == "--crate-name" and i + 1 < len(args):
+            identity.append(args[i + 1])
+        elif arg == "--crate-type" and i + 1 < len(args):
+            crate_types.append(args[i + 1])
+        elif arg == "--cfg" and i + 1 < len(args):
+            cfgs.append(args[i + 1])
+        else:
+            option = None
+            if arg in ("-C", "--codegen") and i + 1 < len(args):
+                option = args[i + 1]
+            elif arg.startswith("-C") and "=" in arg:
+                option = arg[2:]
+            if option is not None and option.split("=", 1)[0] in PROFILE_OPTIONS:
+                codegen.append(option)
+    identity += sorted(crate_types) + sorted(cfgs) + sorted(codegen)
+    metadata = "metadata=" + hashlib.sha256("\\0".join(identity).encode()).hexdigest()[:16]
+    for i, arg in enumerate(args):
+        if arg.startswith("metadata=") and i > 0 and args[i - 1] in ("-C", "--codegen"):
+            args[i] = metadata
+        elif arg.startswith("-Cmetadata="):
+            args[i] = "-C" + metadata
+os.execv(final[0], final + args)
 """
 
+# Codegen options cargo derives from the profile: the identity of a
+# compilation of one crate beyond its name, version, cfgs and target.
+_RUSTC_PROFILE_OPTIONS = (
+    "opt-level",
+    "debuginfo",
+    "debug-assertions",
+    "overflow-checks",
+    "panic",
+    "lto",
+    "embed-bitcode",
+    "strip",
+    "target-cpu",
+    "target-feature",
+    "relocation-model",
+    "symbol-mangling-version",
+)
 
-def _merge_rust_sysroot(tmpdir: str, target_rustc: str, host_sysroot: str) -> str:
+
+def _rustc_identity(rustc: str) -> str:
+    """The toolchain's release string (`rustc 1.90.0 (hash date)`): the same on every host.
+
+    Falls back to the binary's name, loudly: symbol hashes then no longer
+    track toolchain upgrades, which is harmless within a build but worth
+    knowing about.
+    """
+    try:
+        return check_output([rustc, "--version"], text=True, stderr=STDOUT).strip()
+    except (OSError, CalledProcessError) as exc:
+        print("Warning: {} --version failed ({}); symbol hashes will not track the toolchain release.".format(rustc, exc), file=sys.stderr)
+        return path.basename(rustc)
+
+
+def _write_rustc_wrapper(tmpdir: str, rustc: str, sysroot: str, target_triple: str | None) -> str:
+    """The rustc cargo runs: explicit sysroot, reproducible paths, codegen and symbol hashes (see _RUSTC_WRAPPER)."""
+    return _write_generated_file(
+        path.join(tmpdir, ".aspect_rules_py_rustc", "rustc"),
+        _RUSTC_WRAPPER.format(
+            rustc=rustc,
+            sysroot=sysroot,
+            remap_prefixes=[path.abspath(tmpdir), os.getcwd()],
+            target_triple=target_triple,
+            toolchain=_rustc_identity(rustc),
+            profile_options=_RUSTC_PROFILE_OPTIONS,
+        ),
+        executable=True,
+    )
+
+
+def _ranlib_wrapper(tmpdir: str, ar: str) -> str:
+    """`ar s` is ranlib: a ranlib for toolchains that ship none as a separate tool."""
+    return _write_generated_file(
+        path.join(tmpdir, ".aspect_rules_py_compilers", "ranlib"),
+        '#!/bin/sh\nexec "{}" s "$@"\n'.format(ar),
+        executable=True,
+    )
+
+
+def _cc_rs_env(build_env: dict[str, str], tmpdir: str, triple: str) -> None:
+    """Point cc-rs at the wired C toolchain for crates that compile C or C++.
+
+    cc-rs (ring, zstd-sys, ...) looks up CC_<triple>, CXX_<triple>, AR_<triple>
+    and RANLIB_<triple>, in the dashed and the underscored spelling, before
+    falling back to whatever `cc` is on PATH. The generic CC/CXX/AR only
+    steer host compiles.
+    """
+    ar = build_env.get("AR", "")
+    tools = {"CC": build_env.get("CC", ""), "CXX": build_env.get("CXX", ""), "AR": ar, "RANLIB": _ranlib_wrapper(tmpdir, ar) if ar else ""}
+    for spelling in (triple, triple.replace("-", "_")):
+        for tool, value in tools.items():
+            if value:
+                build_env["{}_{}".format(tool, spelling)] = value
+
+
+def _merge_rust_sysroot(tmpdir: str, target_rustc: str, host_sysroot: str, target_sysroot: str | None = None) -> str:
     """Symlink-merge the target toolchain's sysroot with the host's rust-std.
 
     A cross rust_toolchain's sysroot has no exec-platform rust-std, but
@@ -938,8 +1169,12 @@ def _merge_rust_sysroot(tmpdir: str, target_rustc: str, host_sysroot: str) -> st
     by side in one install; recreate that by merging the two Bazel-fetched
     single-target sysroots. The host's rustlib entries win: exec-platform
     code must resolve against exec-platform std.
+
+    The target sysroot is the toolchain's generated one when known: rulesets
+    such as rules_rs fetch rustc and rust-std into separate repositories, so
+    the directory above rustc holds no std at all.
     """
-    target_sysroot = path.dirname(path.dirname(target_rustc))
+    target_sysroot = target_sysroot or path.dirname(path.dirname(target_rustc))
     merged = path.join(tmpdir, ".rust_sysroot")
     if path.exists(merged):
         return merged
@@ -966,6 +1201,21 @@ def _merge_rust_sysroot(tmpdir: str, target_rustc: str, host_sysroot: str) -> st
     return merged
 
 
+def _needs_cargo_cross_env(build_env: dict[str, str]) -> bool:
+    """Whether this cross build compiles Rust.
+
+    The decision is made once, at repository-generation time: sdist_build
+    wires the project's Rust toolchain into the build only for maturin
+    backends and declared setuptools-rust requirements, and
+    pep517_native_whl turns its make-variables into CARGO/RUSTC. Their
+    presence is therefore the signal; the helper does not re-derive it from
+    pyproject.toml, which would miss setup.py-declared builds. A Rust
+    toolchain wired by hand on a package that never invokes cargo costs an
+    unused environment, nothing more.
+    """
+    return bool(build_env.get("CARGO"))
+
+
 def _configure_cargo_cross_env(build_env: dict[str, str], tmpdir: str, target_os: str, target_cpu: str, target_libc: str) -> None:
     """Cross env vars for maturin (Cargo-driven PyO3 builds).
 
@@ -981,6 +1231,7 @@ def _configure_cargo_cross_env(build_env: dict[str, str], tmpdir: str, target_os
     build_env["CARGO_BUILD_TARGET"] = triple
     linker_var = "CARGO_TARGET_{}_LINKER".format(triple.upper().replace("-", "_"))
     build_env[linker_var] = build_env["CC"]
+    _cc_rs_env(build_env, tmpdir, triple)
 
     # pyo3-ffi refuses to cross-compile without an explicit target Python
     # version. Unused (harmless) for non-PyO3 crates.
@@ -988,12 +1239,8 @@ def _configure_cargo_cross_env(build_env: dict[str, str], tmpdir: str, target_os
 
     host_sysroot = build_env.get("RULES_PY_RUST_HOST_SYSROOT")
     if host_sysroot:
-        merged_sysroot = _merge_rust_sysroot(tmpdir, build_env["RUSTC"], host_sysroot)
-        build_env["RUSTC"] = _write_generated_file(
-            path.join(tmpdir, ".aspect_rules_py_rustc", "rustc"),
-            _RUSTC_WRAPPER.format(rustc=build_env["RUSTC"], sysroot=merged_sysroot),
-            executable=True,
-        )
+        merged_sysroot = _merge_rust_sysroot(tmpdir, build_env["RUSTC"], host_sysroot, build_env.get("RULES_PY_RUST_SYSROOT"))
+        build_env["RUSTC"] = _write_rustc_wrapper(tmpdir, build_env["RUSTC"], merged_sysroot, triple)
 
     # In cross mode maturin name-parses its -i interpreter argument for a
     # "pythonX.Y"-shaped basename instead of executing it; our venv's
@@ -1006,6 +1253,92 @@ def _configure_cargo_cross_env(build_env: dict[str, str], tmpdir: str, target_os
     build_env["MATURIN_PEP517_ARGS"] = (interpreter_arg + " " + existing).strip()
 
 
+_MATURIN_SBOM_OFF = "\n[tool.maturin.sbom]\nrust = false\nauditwheel = false\n"
+
+
+def _disable_maturin_sbom(worktree: str) -> bool:
+    """Turn off maturin's CycloneDX SBOM unless the sdist configures it itself.
+
+    The SBOM records every crate as `path+file:///<sandbox>/...`: the sandbox
+    id differs per action, so two builds of one sdist never produce the same
+    wheel while it is on. maturin 1.15 offers no flag or variable for it, only
+    the `[tool.maturin.sbom]` table, so it is appended to the extracted
+    pyproject.toml. Returns whether the file was changed.
+    """
+    pyproject = path.join(worktree, "pyproject.toml")
+    if not path.exists(pyproject):
+        return False
+    with open(pyproject, encoding="utf-8") as f:
+        content = f.read()
+    if "[tool.maturin.sbom]" in content:
+        return False
+    with open(pyproject, "a", encoding="utf-8") as f:
+        f.write(_MATURIN_SBOM_OFF)
+    return True
+
+
+def _inject_cargo_lock(worktree: str, lock_path: str) -> str | None:
+    """Copy a user-supplied Cargo.lock next to the source tree's top-level Cargo.toml.
+
+    Returns the destination, or None when the tree has no Cargo.toml (the lock
+    is then meaningless and cargo would ignore it anyway).
+    """
+    if not lock_path:
+        return None
+    # Shallowest manifest wins: setuptools-rust crates live in subdirectories
+    # (bcrypt: src/_bcrypt/Cargo.toml), maturin ones at the top.
+    manifests = sorted(glob.glob(path.join(worktree, "**", "Cargo.toml"), recursive=True), key=lambda m: (m.count(os.sep), m))
+    if not manifests:
+        return None
+    dest = path.join(path.dirname(manifests[0]), "Cargo.lock")
+    shutil.copyfile(lock_path, dest)
+    return dest
+
+
+def _forbid_backend_toolchain_downloads(build_env: dict[str, str]) -> None:
+    """Backends must use the toolchain they were given, or fail.
+
+    maturin 1.8+ downloads a Rust toolchain (puccinialin) when it finds no
+    cargo: a Rust sdist without a wired toolchain, or one the inference left
+    unwired, would then fetch rustc from the network inside the action and
+    build with it. Set for every build; it is inert for other backends.
+    """
+    build_env.setdefault("MATURIN_NO_INSTALL_RUST", "1")
+
+
+def _configure_cargo_offline(build_env: dict[str, str], vendor_dir: str) -> None:
+    """Point cargo at the vendored crates and forbid the network.
+
+    CARGO_HOME is the sandbox-local one _compiler_env created for the wired
+    toolchain; without a toolchain there is no cargo to configure.
+    """
+    cargo_home = build_env.get("CARGO_HOME")
+    if not (vendor_dir and cargo_home):
+        return
+    makedirs(cargo_home, exist_ok=True)
+    with open(path.join(cargo_home, "config.toml"), "a") as f:
+        f.write(
+            '[source.crates-io]\nreplace-with = "vendored-sources"\n\n'
+            '[source.vendored-sources]\ndirectory = {}\n'.format(json.dumps(_absolutize_path(vendor_dir)))
+        )
+    build_env["CARGO_NET_OFFLINE"] = "true"
+
+
+def _configure_cargo_native_env(build_env: dict[str, str], tmpdir: str) -> None:
+    """Point rustc at the toolchain's sysroot for a native build.
+
+    Bare rustc infers its sysroot from its own location, which only works
+    when rust-std was unpacked next to it. rules_rust's toolchain always
+    publishes the sysroot it assembled (RUST_SYSROOT), so pass that
+    explicitly; the exec-configured layer's sysroot is the same toolchain in
+    native mode and serves as the fallback.
+    """
+    sysroot = build_env.get("RULES_PY_RUST_SYSROOT") or build_env.get("RULES_PY_RUST_HOST_SYSROOT")
+    if not (build_env.get("CARGO") and sysroot):
+        return
+    build_env["RUSTC"] = _write_rustc_wrapper(tmpdir, build_env["RUSTC"], sysroot, None)
+
+
 def _build_backend(pyproject_data: dict[str, object] | None) -> str | None:
     """The [build-system].build-backend value, or None when undeclared."""
     build_system = (pyproject_data or {}).get("build-system", {})
@@ -1013,6 +1346,32 @@ def _build_backend(pyproject_data: dict[str, object] | None) -> str | None:
         return None
     backend = build_system.get("build-backend")
     return backend if isinstance(backend, str) else None
+
+
+def _meson_build_dir_args(backend: str | None, config_settings: list[str], worktree: str) -> list[str]:
+    """Pin meson-python's build dir inside the worktree.
+
+    mesonpy otherwise builds in a TemporaryDirectory it removes on failure,
+    taking meson-log.txt (the only record of sanity-check and probe failures)
+    with it. A user-supplied build-dir wins.
+    """
+    if backend != "mesonpy" or any(s.startswith("build-dir=") for s in config_settings):
+        return []
+    return ["-C", "build-dir=" + path.join(worktree, ".mesonpy-build")]
+
+
+def _dump_meson_log(worktree: str, tail: int = 120) -> None:
+    """meson keeps compiler sanity-check and probe failures only in meson-log.txt,
+    which the sandbox discards with the worktree; surface its tail on failure."""
+    logs = sorted(glob.glob(path.join(worktree, ".mesonpy-*", "meson-logs", "meson-log.txt")))
+    for log in logs:
+        try:
+            with open(log, encoding="utf-8", errors="replace") as f:
+                lines = f.readlines()
+        except OSError:
+            continue
+        print("--- {} (last {} lines) ---".format(path.relpath(log, worktree), min(tail, len(lines))), file=sys.stderr)
+        sys.stderr.writelines(lines[-tail:])
 
 
 def _legacy_metadata_conflicts_with_pyproject(worktree: str) -> bool:
@@ -1122,6 +1481,8 @@ PARSER = ArgumentParser()
 PARSER.add_argument("srcarchive")
 PARSER.add_argument("output", help="Path the single built wheel is written to")
 PARSER.add_argument("--monitor-memory", action="store_true")
+PARSER.add_argument("--cargo-vendor-dir", default="", help="Cargo vendor directory; cargo runs offline against it")
+PARSER.add_argument("--cargo-lock", default="", help="Cargo.lock to place next to the source tree's Cargo.toml")
 PARSER.add_argument(
     "--config-setting",
     action="append",
@@ -1192,6 +1553,12 @@ def main() -> None:
         target_cpu=opts.target_cpu,
     )
 
+    _forbid_backend_toolchain_downloads(build_env)
+    _configure_cargo_offline(build_env, opts.cargo_vendor_dir)
+    _inject_cargo_lock(t, opts.cargo_lock)
+    if _build_backend(_load_pyproject_data(t)) == "maturin":
+        _disable_maturin_sbom(t)
+
     if _legacy_metadata_conflicts_with_pyproject(t):
         print(
             "Warning: falling back to setup.py because pyproject.toml omits dynamic dependency metadata "
@@ -1239,20 +1606,25 @@ def main() -> None:
         for setting in opts.config_settings:
             cmd += ["-C", setting]
 
+        pyproject_data = _load_pyproject_data(t)
+        backend = _build_backend(pyproject_data)
+        cmd += _meson_build_dir_args(backend, opts.config_settings, t)
+
         # meson-python only synthesizes its own cross file for macOS
         # ARCHFLAGS/cibuildwheel shapes; everything else configures as a
         # native build and fails meson's compiler sanity checks. Hand it
         # ours (see _generate_meson_cross_file).
         if opts.cross:
-            backend = _build_backend(_load_pyproject_data(t))
             if backend == "mesonpy":
                 cross_file = _generate_meson_cross_file(tmp_root, build_env, opts.target_os, opts.target_cpu)
                 cmd += ["-C", "setup-args=--cross-file=" + cross_file]
             elif backend == "scikit_build_core.build":
                 toolchain = _generate_cmake_toolchain_file(tmp_root, build_env, opts.target_os, opts.target_cpu)
                 cmd += ["-C", "cmake.toolchain-file=" + toolchain]
-            elif backend == "maturin" and build_env.get("CARGO"):
+            if _needs_cargo_cross_env(build_env):
                 _configure_cargo_cross_env(build_env, tmp_root, opts.target_os, opts.target_cpu, opts.target_libc)
+        else:
+            _configure_cargo_native_env(build_env, tmp_root)
     else:
         print("Error: Unable to detect build command! Neither pyproject.toml nor setup.py found!", file=sys.stderr)
         raise SystemExit(1)
@@ -1280,6 +1652,7 @@ def main() -> None:
                 sys.stderr.write(output)
                 if not output.endswith("\n"):
                     sys.stderr.write("\n")
+            _dump_meson_log(t)
             print("Error: Build failed!\nSee {} for the sandbox".format(t), file=sys.stderr)
             exit(1)
 

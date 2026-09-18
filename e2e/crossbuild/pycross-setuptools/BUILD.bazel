@@ -11,7 +11,7 @@ exports_files(["require_extension.patch"])
 
 _PY = "3.12"
 
-_SETPROCTITLE_WHL = "@sdist_build__pycross_setuptools__setproctitle__1_3_2//:whl"
+_SETPROCTITLE_WHL = "@sdist_build__pycross_setuptools__setproctitle__1_3_7//:whl"
 
 _DEP_GROUP = "pycross_setuptools"
 

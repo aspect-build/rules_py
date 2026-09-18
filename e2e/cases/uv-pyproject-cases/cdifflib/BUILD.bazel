@@ -1,6 +1,6 @@
 load("@aspect_rules_py//py:defs.bzl", "py_test")
 
-# Regression: cdifflib 1.2.9 exercises pep517_whl/build_helper.py
+# Regression: cdifflib 1.2.9 exercises pep517_whl/tools/build_helper.py
 # via the parent's `[tool.uv].no-binary-package` setting.
 #
 # Sdist shape (load-bearing — pinned at 1.2.9): pyproject.toml with
@@ -22,7 +22,7 @@ load("@aspect_rules_py//py:defs.bzl", "py_test")
 #         ruff
 #
 # Fix in tree: `--skip-dependency-check` on the `python -m build`
-# invocation in pep517_whl/build_helper.py. The validation step is
+# invocation in pep517_whl/tools/build_helper.py. The validation step is
 # redundant once we've committed to managing the build venv
 # ourselves, and skipping it sidesteps packages that pile unrelated
 # dev tooling into `[build-system].requires`.

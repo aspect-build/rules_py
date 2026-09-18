@@ -1,0 +1,32 @@
+
+load("@aspect_rules_py//uv/private/pep517_whl:pep517_native_whl.bzl", "pep517_native_whl")
+load("@aspect_rules_py//uv/private/pep517_whl:frontend.bzl", "pep517_frontend")
+load("@aspect_rules_py//py:defs.bzl", "py_binary")
+
+py_binary(
+    name = "build_tool",
+    main = "@aspect_rules_py//uv/private/pep517_whl/tools:build_helper.py",
+    srcs = ["@aspect_rules_py//uv/private/pep517_whl/tools:build_helper.py"],
+    deps = ["@@aspect_rules_py++uv+project__pycross_setuptools//:build", "@@aspect_rules_py++uv+project__pycross_setuptools//:setuptools", "@@aspect_rules_py++uv+project__pycross_setuptools//:wheel"],
+    include_console_scripts = True,
+)
+
+pep517_frontend(
+    name = "frontend",
+    actual = ":build_tool",
+)
+
+pep517_native_whl(
+    name = "whl",
+    src = "@@aspect_rules_py++uv+sdist__setproctitle__bc2bc917691c1537//file:file",
+    tool = ":frontend",
+    version = "1.3.7",
+    pre_build_patches = ["@@//pycross-setuptools:require_extension.patch"],
+    pre_build_patch_strip = 1,
+    visibility = ["//visibility:public"],
+)
+
+exports_files(
+    ["BUILD.bazel"],
+    visibility = ["//visibility:public"],
+)
