@@ -1,0 +1,49 @@
+load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_library", "py_test")
+
+# Two libraries and two launchers, each owning its sources: under .bazelrc's
+# flags that is one PyCompile per target (four) rather than one per file (six).
+
+py_library(
+    name = "meta",
+    srcs = ["version.py"],
+    imports = ["."],
+)
+
+py_library(
+    name = "app",
+    srcs = [
+        "formatting.py",
+        "greeting.py",
+        "styling.py",
+    ],
+    imports = ["."],
+    deps = [":meta"],
+)
+
+py_binary(
+    name = "cli",
+    srcs = ["cli.py"],
+    deps = [":app"],
+)
+
+py_test(
+    name = "app_test",
+    srcs = ["app_test.py"],
+    main = "app_test.py",
+    deps = [":app"],
+)
+
+# A hundred generated sources: enough for `pyc_shards=-1` to pick two shards.
+[
+    genrule(
+        name = "gen_{}".format(i),
+        outs = ["many/mod_{}.py".format(i)],
+        cmd = "echo 'VALUE = {}' > $@".format(i),
+    )
+    for i in range(100)
+]
+
+py_library(
+    name = "many",
+    srcs = ["many/mod_{}.py".format(i) for i in range(100)],
+)

@@ -1,5 +1,5 @@
 load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_library", "py_venv")
-load(":tests.bzl", "probe", "reset_data_edges_test_suite", "root", "terminal", "versioned_terminal")
+load(":tests.bzl", "probe", "pyc_fanout_root", "reset_data_edges_test_suite", "root", "terminal", "versioned_terminal")
 
 package(default_testonly = True)
 
@@ -167,6 +167,51 @@ root(
         ":bin_a",
         ":bin_b",
         ":shared",
+    ],
+)
+
+probe(name = "pyc_binary_data_probe")
+
+probe(name = "pyc_data_probe")
+
+py_library(
+    name = "pyc_shared",
+    srcs = ["main.py"],
+    tags = ["manual"],
+)
+
+py_library(
+    name = "pyc_data_library",
+    srcs = ["main.py"],
+    data = [":pyc_data_probe"],
+    tags = ["manual"],
+)
+
+py_venv(
+    name = "canonical_venv",
+    srcs = ["main.py"],
+    tags = ["manual"],
+    deps = [":pyc_shared"],
+)
+
+py_binary(
+    name = "pyc_bin",
+    srcs = ["main.py"],
+    data = [":pyc_binary_data_probe"],
+    main = "main.py",
+    tags = ["manual"],
+    deps = [":pyc_shared"],
+)
+
+# Analyze the same consumers under source and pyc_only. Binaries retain both
+# modes while venvs, their dependencies, and runtime data canonicalize.
+pyc_fanout_root(
+    name = "pyc_reset_root",
+    tags = ["manual"],
+    deps = [
+        ":canonical_venv",
+        ":pyc_bin",
+        ":pyc_data_library",
     ],
 )
 

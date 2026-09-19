@@ -1,0 +1,10 @@
+# The whole point of this workspace: launchers ship sourceless bytecode, and
+# each target compiles all its sources in one PyCompile action instead of one
+# per file. Sharding is safe here because no .py is listed in two targets'
+# srcs. test.sh asserts the graph at other shard counts.
+build --@aspect_rules_py//py:pyc=pyc_only
+build --@aspect_rules_py//py:pyc_shards=1
+
+# Build without the bytes
+common:ci --remote_download_outputs=minimal
+common:ci --nobuild_runfile_links

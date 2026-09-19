@@ -146,3 +146,22 @@ if [[ "${USE_BAZEL_VERSION:-}" != 9* ]]; then
     fi
     echo "PASS: nested launcher prefixes share the same runfiles layout"
 fi
+
+echo "== images inherit the global pyc flag through their binaries =="
+if ! "$BAZEL" build --@aspect_rules_py//py:pyc=pyc_only \
+    //oci/py_venv_image_layer:pyc_only_amd64_layers \
+    //oci/py_venv_image_layer:my_app_layers >"$output_log" 2>&1; then
+    cat "$output_log" >&2
+    fail "expected flag-inherited bytecode images to build"
+fi
+echo "PASS: global pyc flag flows into images"
+
+echo "== sourceless images build unchanged under coverage =="
+# The layer test asserts the bytecode is present and the source absent, so a
+# coverage build that changed the image fails it rather than the build.
+if ! "$BAZEL" test --collect_code_coverage \
+    //oci/py_venv_image_layer:my_app_pyc_only_amd64_layers_test >"$output_log" 2>&1; then
+    cat "$output_log" >&2
+    fail "expected the pyc_only image test to pass under coverage"
+fi
+echo "PASS: coverage does not alter image contents"

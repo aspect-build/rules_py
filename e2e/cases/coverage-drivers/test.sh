@@ -39,9 +39,9 @@ check_coverage() {
         exit 1
     }
 
-    # At least one line hit (DA:<line>,<count>=1) — foo.py's functions ran.
-    grep -qE '^DA:[0-9]+,[1-9]' "${datfile}" || {
-        echo "FAIL: no covered lines (DA:<line>,>=1) in ${datfile}" >&2
+    # At least one line hit inside foo.py's own record — its functions ran.
+    awk '/^SF:.*foo\.py$/ { in_foo = 1; next } /^end_of_record$/ { in_foo = 0 } in_foo && /^DA:[0-9]+,[1-9]/ { hit = 1 } END { exit hit ? 0 : 1 }' "${datfile}" || {
+        echo "FAIL: no covered lines (DA:<line>,>=1) in foo.py's record in ${datfile}" >&2
         cat "${datfile}" >&2
         exit 1
     }
@@ -61,5 +61,6 @@ check_coverage //coverage-drivers:coverage_pytest_test bazel-testlogs/coverage-d
 check_coverage //coverage-drivers:coverage_pytest_codegen_test bazel-testlogs/coverage-drivers/coverage_pytest_codegen_test/coverage.dat
 check_coverage //coverage-drivers:coverage_pytest_chdir_test bazel-testlogs/coverage-drivers/coverage_pytest_chdir_test/coverage.dat
 check_coverage //coverage-drivers:coverage_unittest_test bazel-testlogs/coverage-drivers/coverage_unittest_test/coverage.dat
+check_coverage //coverage-drivers:coverage_pyc_only_test bazel-testlogs/coverage-drivers/coverage_pyc_only_test/coverage.dat
 
 echo "All coverage driver checks passed."

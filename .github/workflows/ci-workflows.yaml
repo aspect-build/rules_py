@@ -108,6 +108,7 @@ jobs:
                 - { path: "e2e/rules-python-interop", slug: "e2e-rules-python-interop", runner: "ubuntu-latest" }
                 - { path: "e2e/rules-python-provider-compat", slug: "e2e-rules-python-provider-compat", runner: "ubuntu-latest" }
                 - { path: "e2e/rules-python-protobuf", slug: "e2e-rules-python-protobuf", runner: "ubuntu-22.04-32core" }
+                - { path: "e2e/pyc-batch", slug: "e2e-pyc-batch", runner: "ubuntu-latest" }
                 - { path: "examples/debugger", slug: "examples-debugger", runner: "ubuntu-latest" }
                 - { path: "examples/dev_deps", slug: "examples-dev_deps", runner: "ubuntu-latest" }
                 - { path: "examples/django", slug: "examples-django", runner: "ubuntu-latest" }
