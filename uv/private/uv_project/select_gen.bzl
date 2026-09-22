@@ -52,7 +52,7 @@ exports_files(
 """)
     repository_ctx.file("private/markers/BUILD.bazel", "\n".join(content))
 
-def conditional_dep(content, dep, markers, cond_id, marker_fn, no_match):
+def conditional_dep(content, dep, markers, cond_id, marker_fn, no_match, testonly = False):
     """Return `dep` when unconditional, else append a select() alias to `content` and return its label."""
     if "" in markers:
         return dep
@@ -60,11 +60,15 @@ def conditional_dep(content, dep, markers, cond_id, marker_fn, no_match):
     cases["//conditions:default"] = no_match
     content.append("""
 alias(
-    name = "{name}",
+    name = "{name}",{testonly}
     actual = select({arms}),
     visibility = ["//:__subpackages__"],
 )
-""".format(name = cond_id, arms = indent(pprint(cases), " " * 4).lstrip()))
+""".format(
+        name = cond_id,
+        arms = indent(pprint(cases), " " * 4).lstrip(),
+        testonly = "\n    testonly = True," if testonly else "",
+    ))
     return ":" + cond_id
 
 def build_package_select_arms(scc_cfgs, scc_graph, package, marker_fn):
