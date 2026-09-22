@@ -47,6 +47,12 @@ env_attr_test = unittest.make(_env_attr_test_impl)
 
 _TOOLCHAIN = "@rules_rust//rust/toolchain:current_rust_toolchain"
 
+# Label() is a loading-phase constructor; the fixture lives at module level.
+# The canonical spelling mirrors what the extension hands the repo rule.
+_TOOLCHAIN_LABEL = Label("@@rules_rust+//rust/toolchain:current_rust_toolchain")
+_TOOLCHAIN_CANONICAL = str(_TOOLCHAIN_LABEL)
+_TOOLCHAIN_TYPE = "@@rules_rust+//rust:toolchain_type"
+
 def _is_rust_build_test_impl(ctx):
     env = unittest.begin(ctx)
     is_rust = sdist_build_test_util.is_rust_build
@@ -95,37 +101,46 @@ def _rust_wiring_test_impl(ctx):
     wiring = sdist_build_test_util.rust_wiring
     rust_inspection = {"build_backend": "maturin"}
 
-    off = wiring("", rust_inspection, ["//x:jdk"])
+    off = wiring(None, rust_inspection, ["//x:jdk"])
     asserts.equals(env, "", off.load_stmt, "no project rust_toolchain: nothing is wired")
     asserts.equals(env, "", off.target)
     asserts.equals(env, ["//x:jdk"], off.toolchains, "override toolchains pass through untouched")
+    asserts.equals(env, None, off.rule_name, "no project rust_toolchain: the plain rule applies")
+    asserts.equals(env, "", off.rust_bzl, "no project rust_toolchain: no generated .bzl")
 
-    not_rust = wiring(_TOOLCHAIN, {"build_backend": "mesonpy"}, [])
+    not_rust = wiring(_TOOLCHAIN_LABEL, {"build_backend": "mesonpy"}, [])
     asserts.equals(env, "", not_rust.load_stmt, "a non-Rust backend ignores the project rust_toolchain")
     asserts.equals(env, [], not_rust.toolchains)
+    asserts.equals(env, None, not_rust.rule_name, "a non-Rust backend: the plain rule applies")
 
-    on = wiring(_TOOLCHAIN, rust_inspection, ["//x:jdk", _TOOLCHAIN])
+    on = wiring(_TOOLCHAIN_LABEL, rust_inspection, ["//x:jdk", _TOOLCHAIN_CANONICAL])
     asserts.true(env, "rust_layer.bzl" in on.load_stmt and "rust_host_sysroot" in on.load_stmt, "load() for the layer rule")
     asserts.true(
         env,
-        'rust_host_sysroot(\n    name = "rust_host_sysroot",\n    actual = "{}",\n)'.format(_TOOLCHAIN) in on.target,
+        'rust_host_sysroot(\n    name = "rust_host_sysroot",\n    actual = "{}",\n)'.format(_TOOLCHAIN_CANONICAL) in on.target,
         "an exec-configured sysroot layer over the project toolchain; got: " + on.target,
     )
     asserts.equals(
         env,
-        [_TOOLCHAIN, ":rust_host_sysroot", "//x:jdk"],
+        [_TOOLCHAIN_CANONICAL, ":rust_host_sysroot", "//x:jdk"],
         on.toolchains,
         "toolchain and layer first, override extras after, the toolchain not repeated",
     )
     asserts.true(env, "cargo_lock.bzl" in on.load_stmt and "cargo_lock_generator" in on.load_stmt, "load() for the lock generator")
-
-    with_src = wiring(_TOOLCHAIN, rust_inspection, [], src = "@@sdist__pkg//file")
+    asserts.equals(env, "pep517_rust_native_whl", on.rule_name, "rust builds instantiate the exec-group rule")
     asserts.true(
         env,
-        'cargo_lock_generator(\n    name = "cargo_lock",\n    rust_toolchain = "{}",\n    sdist = "@@sdist__pkg//file",\n)'.format(_TOOLCHAIN) in with_src.target,
+        'make_rust_native_whl_rule(Label("{}"))'.format(_TOOLCHAIN_TYPE) in on.rust_bzl,
+        "the generated .bzl pins the project's rust toolchain type; got: " + on.rust_bzl,
+    )
+
+    with_src = wiring(_TOOLCHAIN_LABEL, rust_inspection, [], src = "@@sdist__pkg//file")
+    asserts.true(
+        env,
+        'cargo_lock_generator(\n    name = "cargo_lock",\n    rust_toolchain = "{}",\n    sdist = "@@sdist__pkg//file",\n)'.format(_TOOLCHAIN_CANONICAL) in with_src.target,
         "a `bazel run` lock generator over the same toolchain and sdist; got: " + with_src.target,
     )
-    declared = wiring(_TOOLCHAIN, rust_inspection, [], src = "@@sdist__pkg//file", lock_output = "third_party/pkg.Cargo.lock")
+    declared = wiring(_TOOLCHAIN_LABEL, rust_inspection, [], src = "@@sdist__pkg//file", lock_output = "third_party/pkg.Cargo.lock")
     asserts.true(
         env,
         '    name = "cargo_lock",\n    output = "third_party/pkg.Cargo.lock",\n' in declared.target,

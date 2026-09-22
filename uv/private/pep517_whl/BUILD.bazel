@@ -61,3 +61,13 @@ bzl_library(
     name = "rust_layer",
     srcs = ["rust_layer.bzl"],
 )
+
+bzl_library(
+    name = "rust_native_whl",
+    srcs = ["rust_native_whl.bzl"],
+    deps = [
+        ":common",
+        ":pep517_native_whl",
+        "//py/private/toolchain:types",
+    ],
+)
