@@ -38,3 +38,10 @@ common:aspect-cloud --bes_backend=grpcs://bes.aspect.build
 common:aspect-cloud --bes_results_url=https://app.aspect.build/i/
 common:aspect-cloud --credential_helper=cache.aspect.build=aspect
 common:aspect-cloud --credential_helper=bes.aspect.build=aspect
+# Attributes a vanilla `bazel` invocation in the Web UI. Bazel reruns it every
+# invocation, so this is the per-build commit/branch/PR data the constants above
+# cannot carry. Needs `aspect` on PATH, as the credential helpers above already do;
+# unlike them it runs on every build, so a missing `aspect` fails the build outright.
+# Hand-added: `aspect setup bazelrc` does not emit this line, so re-add it after
+# rerunning that command.
+common:aspect-cloud --workspace_status_command="aspect setup workspace-data"
