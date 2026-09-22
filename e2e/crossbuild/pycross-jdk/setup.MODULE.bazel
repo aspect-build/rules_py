@@ -1,5 +1,7 @@
 """jpype1: setuptools sdist whose build shells out to Ant/javac to produce a
-JAR before compiling the _jpype C++ extension.
+JAR before compiling the _jpype C++ extension. The JDK and Ant are
+package-specific build inputs, so they ride on `uv.override_package(toolchains)`
+and reach no other sdist's action inputs.
 """
 
 bazel_dep(name = "rules_java", version = "8.14.0")
