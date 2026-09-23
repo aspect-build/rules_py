@@ -273,6 +273,7 @@ _LayerInfo = provider(
     doc = "Private: aggregated source files + pip package layers produced by _layer_aspect.",
     fields = {
         "source_files": "depset[File] — default source layer candidates, collected from venv providers, binary outputs, and opaque runtime deps; bytes owned by other layers are dropped by the source tar's skip set.",
+        "python_sources": "depset[File] — first-party Python `srcs` of library and venv targets, kept apart from the other source layer candidates.",
         "pip_packages": "depset[struct] — fully transitive pip packages with per-package layers.",
         "first_party_layers": "depset[struct(label, files, group)] — first-party PyInfo targets matched by py_layer_tier.groups.",
         "interpreter_layer": "struct(tar, group, interpreter_files) | None — prebuilt interpreter layer tar + its group name + the files used to build it, declared at the toolchain target's namespace so the tar action-shares across every py_image_layer using that toolchain config. tar=None at the toolchain node when no interpreter group is configured.",
@@ -454,6 +455,7 @@ def _layer_aspect_impl(target, ctx):
             interp_layer = struct(tar = interp_tar, group = interp_group, interpreter_files = interp_depset)
         return [_LayerInfo(
             source_files = depset(),
+            python_sources = depset(),
             pip_packages = depset(),
             first_party_layers = depset(),
             interpreter_layer = interp_layer,
@@ -461,6 +463,7 @@ def _layer_aspect_impl(target, ctx):
 
     dep_infos = _collect_from_deps(ctx, _LayerInfo)
     transitive_source = [info.source_files for info in dep_infos]
+    transitive_python = [info.python_sources for info in dep_infos]
     transitive_pkgs = [info.pip_packages for info in dep_infos]
     transitive_fp = [info.first_party_layers for info in dep_infos]
     transitive_interp = [info.interpreter_layer for info in dep_infos if info.interpreter_layer != None]
@@ -477,6 +480,7 @@ def _layer_aspect_impl(target, ctx):
 
         return [_LayerInfo(
             source_files = depset(transitive = transitive_source),
+            python_sources = depset(transitive = transitive_python),
             pip_packages = depset(
                 direct = [struct(
                     artifact_key = wheel.install_tree,
@@ -492,6 +496,7 @@ def _layer_aspect_impl(target, ctx):
         )]
 
     own_source = []
+    own_python = []
     own_fp = []
     interpreter_layer = None
     kind = ctx.rule.kind
@@ -513,6 +518,7 @@ def _layer_aspect_impl(target, ctx):
         interp = transitive_interp[0] if transitive_interp else None
         return [_LayerInfo(
             source_files = depset(transitive = transitive_source),
+            python_sources = depset(transitive = transitive_python),
             pip_packages = depset(transitive = transitive_pkgs),
             first_party_layers = depset(transitive = transitive_fp),
             interpreter_layer = interp,
@@ -531,13 +537,14 @@ def _layer_aspect_impl(target, ctx):
                 group = fp_group,
             ))
         else:
-            own_source.append(own_depset)
+            own_python.append(target[DefaultInfo].files)
+            own_source.extend(_opaque_dep_files(ctx.rule.attr, ("data", "deps")))
 
     if VirtualenvInfo in target:
         # Own srcs and opaque dep closures, not transitive_sources or runfiles:
         # wheel install trees must stay out of the source layer's inputs.
         own_source.append(target[VirtualenvInfo].runtime_files)
-        own_source.append(depset(ctx.rule.files.srcs))
+        own_python.append(depset(ctx.rule.files.srcs))
         own_source.extend(_opaque_dep_files(ctx.rule.attr, ("data", "deps")))
         if PY_TOOLCHAIN in ctx.rule.toolchains:
             py_tc = ctx.rule.toolchains[PY_TOOLCHAIN]
@@ -564,6 +571,7 @@ def _layer_aspect_impl(target, ctx):
 
     return [_LayerInfo(
         source_files = depset(transitive = transitive_source + own_source),
+        python_sources = depset(transitive = transitive_python + own_python),
         pip_packages = depset(transitive = transitive_pkgs),
         first_party_layers = depset(direct = own_fp, transitive = transitive_fp),
         interpreter_layer = interpreter_layer,
@@ -913,7 +921,7 @@ def _path_set_args(ctx, files_depsets):
         args.add_all(files, map_each = _skip_path, expand_directories = False)
     return args
 
-def _declare_symlink_mapping(ctx, mappings):
+def _declare_symlink_mapping(ctx, mappings, inputs):
     """Expand every mapping set's mtree rows into one shared file.
 
     Bazel writes `rows` to a param file, expanding tree artifacts as it does
@@ -937,7 +945,7 @@ def _declare_symlink_mapping(ctx, mappings):
 
     ctx.actions.run(
         executable = ctx.executable._awk,
-        inputs = depset(transitive = [files for files, _ in mappings]),
+        inputs = depset(transitive = inputs),
         outputs = [mapping_out],
         arguments = [copy_program, rows],
         env = {"LC_ALL": "C"},
@@ -1189,34 +1197,34 @@ def _py_image_layer_impl(ctx):
     interpreter_map = lambda f, d: _interpreter_file_to_mtree(f, d, owner, group)
 
     rule_group_names = {gname: True for gname in ctx.attr.groups.values()}
-    rule_group_files = []
     rule_groups = []
     for dep, group_name in ctx.attr.groups.items():
         dep_label = normalize_label(str(dep.label))
         if dep_label in pip_labels:
             continue
-        files = dep[DefaultInfo].files
-        rule_group_files.append(files)
-        rule_groups.append((group_name, files))
+        rule_groups.append((group_name, dep[DefaultInfo].files))
+    rule_group_files = [files for _, files in rule_groups]
 
-    source_files = depset(transitive = [info.source_files for info in infos])
-    if repo_mapping != None:
-        source_files = depset(direct = [repo_mapping], transitive = [source_files])
-    rule_group_map = lambda f, d: (
-        source_map(f, d) if f.short_path in executable_dsts else _user_file_to_mtree(f, d, owner, group)
-    )
-
-    first_party_reference_files = []
-    fp_by_group = {}
+    # Entries of one group are packaged as a union, so build the union once.
+    fp_group_files = {}
     seen_fp_labels = {}
     for info in infos:
         for entry in info.first_party_layers.to_list():
-            first_party_reference_files.append(entry.files)
             if single_binary:
                 if entry.label in seen_fp_labels:
                     continue
                 seen_fp_labels[entry.label] = True
-            fp_by_group.setdefault(entry.group, []).append(entry.files)
+            fp_group_files.setdefault(entry.group, []).append(entry.files)
+    fp_by_group = {group: [depset(transitive = files)] for group, files in fp_group_files.items()}
+    first_party_reference_files = [files[0] for files in fp_by_group.values()]
+
+    layer_sources = [info.source_files for info in infos] + [info.python_sources for info in infos]
+    if repo_mapping != None:
+        layer_sources.append(depset([repo_mapping]))
+    source_files = depset(transitive = layer_sources)
+    rule_group_map = lambda f, d: (
+        source_map(f, d) if f.short_path in executable_dsts else _user_file_to_mtree(f, d, owner, group)
+    )
 
     # Interpreter tars are declared at the configured toolchain, so identical
     # runtimes action-share while distinct interpreter artifacts are retained.
@@ -1241,7 +1249,11 @@ def _py_image_layer_impl(ctx):
     # links without copying the target bytes into that tar.
     symlink_mappings = None
     if rule_group_files or first_party_reference_files:
-        symlink_mappings = _declare_symlink_mapping(ctx, [(source_files, source_map)] + owned_sets)
+        symlink_mappings = _declare_symlink_mapping(
+            ctx,
+            [(source_files, source_map)] + owned_sets,
+            inputs = [source_files] + source_exclusion_files,
+        )
 
     for group_name, files in rule_groups:
         tar_out = _declare_group_tar(
@@ -1348,6 +1360,8 @@ def _py_image_layer_impl(ctx):
     # snapshot here to avoid double-bookkeeping during construction.
     dep_tars = list(all_tars)
 
+    source_skip_files = depset(transitive = source_exclusion_files) if source_exclusion_files else None
+
     source_tar = _declare_group_tar(
         ctx,
         rule_codecs,
@@ -1360,7 +1374,7 @@ def _py_image_layer_impl(ctx):
         source_map,
         "Creating source layer for %s" % ctx.label,
         symlink_mappings,
-        skip_files = depset(transitive = source_exclusion_files) if source_exclusion_files else None,
+        skip_files = source_skip_files,
     )
     all_tars.append(source_tar)
 
@@ -1393,11 +1407,13 @@ def _py_image_layer_impl(ctx):
         validation_args.add("--mtree")
         validation_arguments.append(mtree_args)
 
-        validation_skip_args = _path_set_args(ctx, source_exclusion_files)
-        validation_flag_args = ctx.actions.args()
-        validation_flag_args.add("--skip")
-        validation_arguments.extend([validation_flag_args, validation_skip_args])
-        validation_inputs.extend([source_files] + source_exclusion_files)
+        validation_inputs.append(source_files)
+        if source_skip_files:
+            validation_skip_args = _path_set_args(ctx, [source_skip_files])
+            validation_flag_args = ctx.actions.args()
+            validation_flag_args.add("--skip")
+            validation_arguments.extend([validation_flag_args, validation_skip_args])
+            validation_inputs.append(source_skip_files)
 
     ctx.actions.run(
         executable = ctx.executable._validator,
