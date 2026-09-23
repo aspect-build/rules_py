@@ -119,6 +119,58 @@ extract_requirement_marker_pairs_preferred_overrides_multi_version_test = unitte
     _extract_requirement_marker_pairs_preferred_overrides_multi_version_test_impl,
 )
 
+def _extract_requirement_marker_pairs_preferred_satisfying_wildcard_test_impl(ctx):
+    env = unittest.begin(ctx)
+    preferred = {"foo": ("proj", "foo", "1.2", "__base__")}
+    result = extract_requirement_marker_pairs(
+        "//:pyproject.toml",
+        "proj",
+        "foo==1.*",
+        {},
+        {"foo": {"1.2": 1, "1.9": 1}},
+        preferred,
+    )
+    asserts.equals(env, [(("proj", "foo", "1.2", "__base__"), "")], result)
+    return unittest.end(env)
+
+extract_requirement_marker_pairs_preferred_satisfying_wildcard_test = unittest.make(
+    _extract_requirement_marker_pairs_preferred_satisfying_wildcard_test_impl,
+)
+
+def _extract_requirement_marker_pairs_unsatisfied_preferred_matches_lock_test_impl(ctx):
+    env = unittest.begin(ctx)
+    preferred = {"foo": ("proj", "foo", "2.0", "__base__")}
+    result = extract_requirement_marker_pairs(
+        "//:pyproject.toml",
+        "proj",
+        'foo<2; sys_platform != "darwin"',
+        {"foo": ("proj", "foo", "2.0", "__base__")},
+        {"foo": {"1.5": 1, "2.0": 1}},
+        preferred,
+    )
+    asserts.equals(env, [(("proj", "foo", "1.5", "__base__"), 'sys_platform != "darwin"')], result)
+    return unittest.end(env)
+
+extract_requirement_marker_pairs_unsatisfied_preferred_matches_lock_test = unittest.make(
+    _extract_requirement_marker_pairs_unsatisfied_preferred_matches_lock_test_impl,
+)
+
+def _extract_requirement_marker_pairs_unsatisfied_single_version_falls_back_test_impl(ctx):
+    env = unittest.begin(ctx)
+    result = extract_requirement_marker_pairs(
+        "//:pyproject.toml",
+        "proj",
+        "foo>=2",
+        {"foo": ("proj", "foo", "1.9", "__base__")},
+        {"foo": {"1.9": 1}},
+    )
+    asserts.equals(env, [(("proj", "foo", "1.9", "__base__"), "")], result)
+    return unittest.end(env)
+
+extract_requirement_marker_pairs_unsatisfied_single_version_falls_back_test = unittest.make(
+    _extract_requirement_marker_pairs_unsatisfied_single_version_falls_back_test_impl,
+)
+
 def _collect_activated_extras_transitive_remap_test_impl(ctx):
     env = unittest.begin(ctx)
     project_data = {
@@ -363,6 +415,9 @@ def projectfile_test_suite():
         extract_requirement_marker_pairs_with_extras_test,
         extract_requirement_marker_pairs_preferred_overrides_version_map_test,
         extract_requirement_marker_pairs_preferred_overrides_multi_version_test,
+        extract_requirement_marker_pairs_preferred_satisfying_wildcard_test,
+        extract_requirement_marker_pairs_unsatisfied_preferred_matches_lock_test,
+        extract_requirement_marker_pairs_unsatisfied_single_version_falls_back_test,
         collect_activated_extras_transitive_remap_test,
         collect_activated_extras_platform_split_transitive_markers_test,
         collect_activated_extras_conditional_cycle_test,

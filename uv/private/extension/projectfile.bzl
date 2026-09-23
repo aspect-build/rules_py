@@ -3,7 +3,7 @@ Machinery specific to interacting with a pyproject.toml
 """
 
 load("//uv/private:normalize_name.bzl", "normalize_name")
-load("//uv/private/versions:versions.bzl", "find_matching_version")
+load("//uv/private/versions:versions.bzl", "find_matching_version", "version_satisfies")
 load(":dep_groups.bzl", "resolve_dependency_group_specs")
 
 def extract_requirement_marker_pairs(projectfile, lock_id, req_string, version_map, package_versions = {}, preferred_versions = {}, fail_if_missing = True):
@@ -85,33 +85,27 @@ def extract_requirement_marker_pairs(projectfile, lock_id, req_string, version_m
             remainder = remainder[close_idx + 1:]
 
     # 4. Look up version
-    # An exact requirement overrides the group preference, which can only
-    # hold one version per package.
+    # A group preference or default version is used only when it satisfies
+    # the specifier; disjoint-marker requirements on one package need distinct
+    # lockfile versions. Otherwise match against all lockfile versions, then
+    # fall back to the unchecked preference.
     specifier = remainder.strip()
+    known = [preferred_versions.get(pkg_name), version_map.get(pkg_name)]
     v = None
-    if specifier.startswith("=="):
-        pkg_vers = package_versions.get(pkg_name, {})
-        candidates = {
-            ver: (lock_id, pkg_name, ver, "__base__")
-            for ver in pkg_vers.keys()
-        }
-        v = find_matching_version(specifier, candidates)
+    for candidate in known:
+        if candidate != None and (not specifier or version_satisfies(candidate[2], specifier)):
+            v = candidate
+            break
     if v == None:
-        v = preferred_versions.get(pkg_name)
-    if v == None:
-        v = version_map.get(pkg_name)
-    if v == None:
-        # For multi-version packages (e.g. conflicts), match the version
-        # specifier against all known versions of this package in the lockfile.
-        specifier = remainder.strip()
         pkg_vers = package_versions.get(pkg_name, {})
         if pkg_vers:
-            match_spec = specifier if specifier else ">=0"
             candidates = {
                 ver: (lock_id, pkg_name, ver, "__base__")
                 for ver in pkg_vers.keys()
             }
-            v = find_matching_version(match_spec, candidates)
+            v = find_matching_version(specifier if specifier else ">=0", candidates)
+    if v == None:
+        v = known[0] or known[1]
     if v == None:
         if not fail_if_missing:
             return []
