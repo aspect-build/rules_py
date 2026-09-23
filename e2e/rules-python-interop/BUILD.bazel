@@ -13,6 +13,7 @@ load(":report_toolchain_version.bzl", "report_exec_version", "report_version")
 FORWARDED_PRECOMPILE = [
     ("disabled", "disabled", "inherit"),
     ("keep_source", "enabled", "keep_source"),
+    ("omit_source", "enabled", "omit_source"),
 ]
 
 # Both rulesets provision interpreters here, split by version so neither
@@ -269,6 +270,19 @@ rules_py_test(
     )
     for name, _, _ in FORWARDED_PRECOMPILE
 ]
+
+# rules_python moves a precompiled source out of PyInfo.transitive_sources
+# under precompile_source_retention = omit_source; rules_py still ships it.
+rules_python_library(
+    name = "precompiled_lib",
+    srcs = ["precompiled_lib.py"],
+)
+
+rules_py_test(
+    name = "rules_python_dep_test",
+    srcs = ["rules_python_dep_test.py"],
+    deps = [":precompiled_lib"],
+)
 
 # rules_python's console-script machinery reads the pip hub's dist-info to
 # generate a py_binary; unpinned, that binary lands on a rules_py-provisioned

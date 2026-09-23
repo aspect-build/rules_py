@@ -82,3 +82,9 @@ echo "PASS: rules_py Python version selected the 3.13 launcher"
     //reset-data-edges:passthrough_terminals_test \
     //reset-data-edges:reset_data_edges_test \
     //reset-data-edges:shared_binaries_test
+
+# Exercise rules_python's source-retention modes.
+retention=@rules_python//python/config_settings:precompile_source_retention
+for mode in keep_source omit_source; do
+    "$BAZEL" test --lockfile_mode=off "--${retention}=${mode}" -- //:rules_python_dep_test
+done
