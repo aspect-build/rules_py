@@ -49,5 +49,28 @@ if ! env -u RUNFILES_DIR RUNFILES_MANIFEST_FILE="$manifest" "$probe"; then
     status=1
 fi
 
+unittest="$(rlocation _main/venv-manifest-runfiles-1378/manifest_unittest)"
+[ -x "$unittest" ] || { echo "FAIL: unittest binary not found via rlocation" >&2; exit 1; }
+# A decoy at the test's runfiles-relative path in the working directory must
+# never be what the driver loads.
+decoy_cwd="${TEST_TMPDIR}/decoy"
+mkdir -p "${decoy_cwd}/venv-manifest-runfiles-1378"
+echo "raise AssertionError('decoy source loaded from the working directory')" \
+    >"${decoy_cwd}/venv-manifest-runfiles-1378/manifest_unittest_test.py"
+
+echo "== manifest only: unittest driver =="
+if ! (cd "$decoy_cwd" && env -u RUNFILES_DIR RUNFILES_MANIFEST_FILE="$manifest" "$unittest"); then
+    echo "FAIL: the unittest driver did not find its test files under manifest-only runfiles" >&2
+    status=1
+fi
+
+if [ -n "$runfiles_dir" ]; then
+    echo "== directory only: unittest driver =="
+    if ! (cd "$decoy_cwd" && env -u RUNFILES_MANIFEST_FILE RUNFILES_DIR="$runfiles_dir" "$unittest"); then
+        echo "FAIL: the unittest driver did not find its test files under directory runfiles" >&2
+        status=1
+    fi
+fi
+
 [ "$status" -eq 0 ] && echo "PASS: imports resolve from either runfiles source"
 exit "$status"

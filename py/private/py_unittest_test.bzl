@@ -24,7 +24,7 @@ def _unittest_main_impl(ctx):
         # the substitution.
         substitutions = {
             "test_files: list[str] = []": "test_files: list[str] = " + repr(sorted(test_files)),
-            'driver_path: str = ""': "driver_path: str = " + repr(ctx.outputs.out.short_path),
+            'workspace_name: str = ""': "workspace_name: str = " + repr(ctx.workspace_name),
         },
     )
 

@@ -37,20 +37,31 @@ launcher_env.set_test_tmpdir()
 cov = launcher_env.start_coverage()
 
 
-def _runfiles_root(driver_path: str) -> str:
-    """The runfiles root, located from this driver's own runfiles path.
+def _runfile(workspace_name: str, short_path: str) -> str:
+    """Resolve a baked runfiles-relative path through the launcher's runfiles.
 
-    Sources are baked as runfiles-relative paths; resolving them against the
-    caller's working directory would let an unrelated `.py` there shadow the
-    packaged test.
+    Sources are never resolved against the working directory, where an
+    unrelated `.py` could shadow the packaged test.
     """
-    here = os.path.abspath(__file__)
-    if driver_path and here.endswith(driver_path):
-        return here[:-len(driver_path)]
-    return os.getcwd()
+    if short_path.startswith("../"):
+        rpath = short_path[len("../") :]
+    else:
+        rpath = workspace_name + "/" + short_path
+    manifest = os.environ.get("RUNFILES_MANIFEST_FILE")
+    if manifest:
+        with open(manifest, encoding="utf-8") as f:
+            for line in f:
+                entry, _, target = line.rstrip("\n").partition(" ")
+                if entry == rpath:
+                    return target
+        raise ImportError("test file %r is not in the runfiles manifest" % rpath)
+    runfiles_dir = os.environ.get("RUNFILES_DIR")
+    if not runfiles_dir:
+        raise ImportError("RUNFILES_DIR or RUNFILES_MANIFEST_FILE is required to locate test files")
+    return os.path.join(runfiles_dir, rpath)
 
 
-def _import_test_modules(test_files: list[str], root: str) -> list[ModuleType]:
+def _import_test_modules(workspace_name: str, test_files: list[str]) -> list[ModuleType]:
     """Import each declared source file exactly once, under a module name
     derived from its full path.
 
@@ -64,7 +75,7 @@ def _import_test_modules(test_files: list[str], root: str) -> list[ModuleType]:
     for short_path in test_files:
         if not short_path.endswith(".py"):
             continue
-        path = os.path.normpath(os.path.join(root, short_path))
+        path = _runfile(workspace_name, short_path)
         # Strip the leading ../ of external-repo runfiles paths so the derived
         # module name carries no leading dots; the original path still loads it.
         rel = short_path
@@ -288,9 +299,9 @@ def main() -> int:
     # written — the rule keys on the bare assignment text, so editing this
     # comment is safe but editing the code is not.
     test_files: list[str] = []
-    driver_path: str = ""
+    workspace_name: str = ""
 
-    modules = _import_test_modules(test_files, _runfiles_root(driver_path))
+    modules = _import_test_modules(workspace_name, test_files)
 
     # Native unittest -k: patterns OR together and `*` is fnmatch; a pattern
     # with no wildcard is wrapped to a substring match, exactly as unittest's
