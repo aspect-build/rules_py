@@ -85,8 +85,8 @@ def extract_requirement_marker_pairs(projectfile, lock_id, req_string, version_m
             remainder = remainder[close_idx + 1:]
 
     # 4. Look up version
-    # An exact requirement is authoritative. A dependency group's preferred
-    # version cannot represent multiple versions selected by disjoint markers.
+    # An exact requirement overrides the group preference, which can only
+    # hold one version per package.
     specifier = remainder.strip()
     v = None
     if specifier.startswith("=="):
@@ -220,10 +220,8 @@ def collect_activated_extras(projectfile, lock_id, project_data, lock_data, defa
         ]),
     })
 
-    # Minimal conjunction clauses under which each dependency is reachable,
-    # per configuration. Keeping an antichain of clauses makes propagation
-    # cycle-safe: revisiting a node through a cycle can only add restrictions,
-    # so that path is subsumed by the path which first entered the cycle.
+    # {configuration: {dep: {clause: 1}}}, each an antichain of minimal
+    # conjunction clauses under which dep is reachable.
     reachable_clauses = {}
 
     all_group_preferences = {}
@@ -263,10 +261,8 @@ def collect_activated_extras(projectfile, lock_id, project_data, lock_data, defa
         ]
         group_prefs = all_group_preferences.get(group_name, {})
 
-        # Every useful clause has a simple-path witness: following a cycle can
-        # only add restrictions, so the clause at the cycle entry subsumes it.
-        # Processing one graph edge per round therefore reaches a fixed point
-        # after at most one round per node, plus one to drain terminal nodes.
+        # Every minimal clause has a simple-path witness, so one round per
+        # node plus one to drain reaches the fixed point.
         for _ in range(len(graph) + 1):
             if not worklist:
                 break
