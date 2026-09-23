@@ -183,16 +183,12 @@ def _add_minimal_clause(clauses, candidate):
     """Adds candidate unless an existing, less restrictive clause subsumes it."""
     for existing in clauses:
         if all([marker in candidate for marker in existing]):
-            return None
+            return False
 
-    removed = []
-    for existing in clauses:
-        if all([marker in existing for marker in candidate]):
-            removed.append(existing)
-    for existing in removed:
+    for existing in [existing for existing in clauses if all([marker in existing for marker in candidate])]:
         clauses.pop(existing)
     clauses[candidate] = 1
-    return removed
+    return True
 
 def collect_activated_extras(projectfile, lock_id, project_data, lock_data, default_versions, graph, package_versions = {}):
     """Collects the set of transitively activated extras for each configuration.
@@ -223,9 +219,6 @@ def collect_activated_extras(projectfile, lock_id, project_data, lock_data, defa
             project_data["project"]["name"],
         ]),
     })
-
-    # Builds up {package: {configuration: {extra: {marker: 1}}}}
-    activated_extras = {}
 
     # Minimal conjunction clauses under which each dependency is reachable,
     # per configuration. Keeping an antichain of clauses makes propagation
@@ -259,15 +252,8 @@ def collect_activated_extras(projectfile, lock_id, project_data, lock_data, defa
             for dep, marker in extract_requirement_marker_pairs(projectfile, lock_id, spec, default_versions, package_versions, group_preferences):
                 # Note that this is the base case for the reach set walk below
                 # We do this here so it's easy to handle marker expressions
-                base = (dep[0], dep[1], dep[2], "__base__")
-                dep_markers = activated_extras.setdefault(base, {}).setdefault(group_name, {}).setdefault(dep, {})
                 clauses = reachable_clauses.setdefault(group_name, {}).setdefault(dep, {})
-                clause = _marker_clause(marker)
-                removed = _add_minimal_clause(clauses, clause)
-                if removed != None:
-                    for old_clause in removed:
-                        dep_markers.pop(_clause_marker(old_clause))
-                    dep_markers[_clause_marker(clause)] = 1
+                _add_minimal_clause(clauses, _marker_clause(marker))
 
     for group_name, group_clauses in reachable_clauses.items():
         worklist = [
@@ -297,26 +283,27 @@ def collect_activated_extras(projectfile, lock_id, project_data, lock_data, defa
                     if pref and pref[2] != next_dep[2]:
                         target_dep = (next_dep[0], next_dep[1], pref[2], next_dep[3])
 
-                    base = (target_dep[0], target_dep[1], target_dep[2], "__base__")
-                    target_markers = activated_extras.setdefault(base, {}).setdefault(group_name, {}).setdefault(target_dep, {})
                     target_clauses = group_clauses.setdefault(target_dep, {})
 
                     for edge_marker in edge_markers:
                         clause = _combine_marker_clause(parent_clause, edge_marker)
-                        if clause in target_clauses:
-                            continue
-                        removed = _add_minimal_clause(target_clauses, clause)
-                        if removed == None:
-                            continue
-                        for old_clause in removed:
-                            target_markers.pop(_clause_marker(old_clause))
-                        target_markers[_clause_marker(clause)] = 1
-                        next_worklist.append((target_dep, clause))
+                        if _add_minimal_clause(target_clauses, clause):
+                            next_worklist.append((target_dep, clause))
 
             worklist = next_worklist
 
         if worklist:
             fail("Marker propagation did not converge for dependency group {} in {}".format(repr(group_name), projectfile))
+
+    # Builds up {package: {configuration: {extra: {marker: 1}}}}
+    activated_extras = {}
+    for group_name, group_clauses in reachable_clauses.items():
+        for dep, clauses in group_clauses.items():
+            base = (dep[0], dep[1], dep[2], "__base__")
+            activated_extras.setdefault(base, {}).setdefault(group_name, {})[dep] = {
+                _clause_marker(clause): 1
+                for clause in clauses
+            }
 
     return {it: 1 for it in dep_groups.keys()}, activated_extras
 

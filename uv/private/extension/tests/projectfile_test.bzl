@@ -306,6 +306,54 @@ collect_activated_extras_conditional_cycle_test = unittest.make(
     _collect_activated_extras_conditional_cycle_test_impl,
 )
 
+def _collect_activated_extras_clause_rendering_collision_test_impl(ctx):
+    env = unittest.begin(ctx)
+    a = 'python_version < "3.13"'
+    b = 'sys_platform == "linux"'
+    rendered = "({}) and ({})".format(a, b)
+    project_data = {
+        "project": {"name": "test_project"},
+        "dependency-groups": {
+            "default": [
+                "split-parent==1.0; {}".format(a),
+                "paren-parent==1.0",
+                "plain-parent==1.0",
+            ],
+        },
+    }
+    split_parent = ("lock", "split_parent", "1.0", "__base__")
+    paren_parent = ("lock", "paren_parent", "1.0", "__base__")
+    plain_parent = ("lock", "plain_parent", "1.0", "__base__")
+    leaf = ("lock", "leaf", "1.0", "__base__")
+    graph = {
+        split_parent: {leaf: {b: 1}},
+        paren_parent: {leaf: {rendered: 1}},
+        plain_parent: {leaf: {"": 1}},
+        leaf: {},
+    }
+
+    _cfg_names, activated_extras = collect_activated_extras(
+        "//:pyproject.toml",
+        "lock",
+        project_data,
+        {},
+        {},
+        graph,
+        {
+            "split_parent": {"1.0": 1},
+            "paren_parent": {"1.0": 1},
+            "plain_parent": {"1.0": 1},
+            "leaf": {"1.0": 1},
+        },
+    )
+
+    asserts.equals(env, {"": 1}, activated_extras[leaf]["default"][leaf])
+    return unittest.end(env)
+
+collect_activated_extras_clause_rendering_collision_test = unittest.make(
+    _collect_activated_extras_clause_rendering_collision_test_impl,
+)
+
 def projectfile_test_suite():
     unittest.suite(
         "extract_requirement_marker_pairs_tests",
@@ -318,4 +366,5 @@ def projectfile_test_suite():
         collect_activated_extras_transitive_remap_test,
         collect_activated_extras_platform_split_transitive_markers_test,
         collect_activated_extras_conditional_cycle_test,
+        collect_activated_extras_clause_rendering_collision_test,
     )
