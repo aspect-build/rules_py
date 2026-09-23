@@ -3,7 +3,7 @@ Machinery specific to interacting with a pyproject.toml
 """
 
 load("//uv/private:normalize_name.bzl", "normalize_name")
-load("//uv/private/versions:versions.bzl", "find_matching_version")
+load("//uv/private/versions:versions.bzl", "find_matching_version", "version_satisfies")
 load(":dep_groups.bzl", "resolve_dependency_group_specs")
 
 def extract_requirement_marker_pairs(projectfile, lock_id, req_string, version_map, package_versions = {}, preferred_versions = {}, fail_if_missing = True):
@@ -85,21 +85,27 @@ def extract_requirement_marker_pairs(projectfile, lock_id, req_string, version_m
             remainder = remainder[close_idx + 1:]
 
     # 4. Look up version
-    v = preferred_versions.get(pkg_name)
+    # A group preference or default version is used only when it satisfies
+    # the specifier; disjoint-marker requirements on one package need distinct
+    # lockfile versions. Otherwise match against all lockfile versions, then
+    # fall back to the unchecked preference.
+    specifier = remainder.strip()
+    known = [preferred_versions.get(pkg_name), version_map.get(pkg_name)]
+    v = None
+    for candidate in known:
+        if candidate != None and (not specifier or version_satisfies(candidate[2], specifier)):
+            v = candidate
+            break
     if v == None:
-        v = version_map.get(pkg_name)
-    if v == None:
-        # For multi-version packages (e.g. conflicts), match the version
-        # specifier against all known versions of this package in the lockfile.
-        specifier = remainder.strip()
         pkg_vers = package_versions.get(pkg_name, {})
         if pkg_vers:
-            match_spec = specifier if specifier else ">=0"
             candidates = {
                 ver: (lock_id, pkg_name, ver, "__base__")
                 for ver in pkg_vers.keys()
             }
-            v = find_matching_version(match_spec, candidates)
+            v = find_matching_version(specifier if specifier else ">=0", candidates)
+    if v == None:
+        v = known[0] or known[1]
     if v == None:
         if not fail_if_missing:
             return []
@@ -149,6 +155,35 @@ def _extract_lockfile_group_versions(lock_id, lock_data):
                     result.setdefault(group_name, {})[pkg_name] = (lock_id, pkg_name, dep["version"], "__base__")
     return result
 
+def _marker_clause(marker):
+    """Returns a canonical conjunction clause for a marker expression."""
+    return () if marker == "" else (marker,)
+
+def _combine_marker_clause(clause, marker):
+    """Conjoins a clause with an edge marker without duplicating atoms."""
+    if marker == "" or marker in clause:
+        return clause
+    return tuple(sorted(clause + (marker,)))
+
+def _clause_marker(clause):
+    """Renders a canonical conjunction clause as a marker expression."""
+    if not clause:
+        return ""
+    if len(clause) == 1:
+        return clause[0]
+    return " and ".join(["({})".format(marker) for marker in clause])
+
+def _add_minimal_clause(clauses, candidate):
+    """Adds candidate unless an existing, less restrictive clause subsumes it."""
+    for existing in clauses:
+        if all([marker in candidate for marker in existing]):
+            return False
+
+    for existing in [existing for existing in clauses if all([marker in existing for marker in candidate])]:
+        clauses.pop(existing)
+    clauses[candidate] = 1
+    return True
+
 def collect_activated_extras(projectfile, lock_id, project_data, lock_data, default_versions, graph, package_versions = {}):
     """Collects the set of transitively activated extras for each configuration.
 
@@ -179,11 +214,9 @@ def collect_activated_extras(projectfile, lock_id, project_data, lock_data, defa
         ]),
     })
 
-    # Normalize dep groups to our dependency triples (graph keys)
-    normalized_dep_groups = {}
-
-    # Builds up {package: {configuration: {extra: {marker: 1}}}}
-    activated_extras = {}
+    # {configuration: {dep: {clause: 1}}}, each an antichain of minimal
+    # conjunction clauses under which dep is reachable.
+    reachable_clauses = {}
 
     all_group_preferences = {}
 
@@ -194,48 +227,73 @@ def collect_activated_extras(projectfile, lock_id, project_data, lock_data, defa
 
         group_preferences = dict(lockfile_group_versions.get(group_name, {}))
 
+        direct_versions = {}
         for spec in resolved_specs:
             for dep, _marker in extract_requirement_marker_pairs(projectfile, lock_id, spec, default_versions, package_versions, group_preferences):
-                group_preferences[dep[1]] = (dep[0], dep[1], dep[2], "__base__")
+                direct_versions.setdefault(dep[1], {})[(dep[0], dep[1], dep[2], "__base__")] = 1
+
+        for package, versions in direct_versions.items():
+            if len(versions) == 1:
+                group_preferences[package] = list(versions.keys())[0]
+            elif package in group_preferences:
+                group_preferences.pop(package)
 
         all_group_preferences[group_name] = group_preferences
 
         for spec in resolved_specs:
             for dep, marker in extract_requirement_marker_pairs(projectfile, lock_id, spec, default_versions, package_versions, group_preferences):
-                normalized_dep_groups.setdefault(group_name, []).append(dep)
-
                 # Note that this is the base case for the reach set walk below
                 # We do this here so it's easy to handle marker expressions
-                base = (dep[0], dep[1], dep[2], "__base__")
-                activated_extras.setdefault(base, {}).setdefault(group_name, {}).setdefault(dep, {}).update({marker: 1})
+                clauses = reachable_clauses.setdefault(group_name, {}).setdefault(dep, {})
+                _add_minimal_clause(clauses, _marker_clause(marker))
 
-    for group_name, deps in normalized_dep_groups.items():
-        worklist = list(deps)
+    for group_name, group_clauses in reachable_clauses.items():
+        worklist = [
+            (dep, clause)
+            for dep, clauses in group_clauses.items()
+            for clause in clauses
+        ]
         group_prefs = all_group_preferences.get(group_name, {})
-        visited = {}
-        idx = 0
-        for _ in range(1000000):
-            if idx == len(worklist):
+
+        # Every minimal clause has a simple-path witness, so one round per
+        # node plus one to drain reaches the fixed point.
+        for _ in range(len(graph) + 1):
+            if not worklist:
                 break
 
-            it = worklist[idx]
-            visited[it] = 1
+            next_worklist = []
+            for parent_dep, parent_clause in worklist:
+                if parent_clause not in group_clauses[parent_dep]:
+                    continue
 
-            for next_dep, markers in graph.get(it, {}).items():
-                pkg_name = next_dep[1]
-                pref = group_prefs.get(pkg_name)
-                target_dep = next_dep
-                if pref and pref[2] != next_dep[2]:
-                    target_dep = (next_dep[0], next_dep[1], pref[2], next_dep[3])
+                for next_dep, edge_markers in graph.get(parent_dep, {}).items():
+                    pkg_name = next_dep[1]
+                    pref = group_prefs.get(pkg_name)
+                    target_dep = next_dep
+                    if pref and pref[2] != next_dep[2]:
+                        target_dep = (next_dep[0], next_dep[1], pref[2], next_dep[3])
 
-                base = (target_dep[0], target_dep[1], target_dep[2], "__base__")
+                    target_clauses = group_clauses.setdefault(target_dep, {})
 
-                activated_extras.setdefault(base, {}).setdefault(group_name, {}).setdefault(target_dep, {}).update(markers)
-                if target_dep not in visited:
-                    visited[target_dep] = 1
-                    worklist.append(target_dep)
+                    for edge_marker in edge_markers:
+                        clause = _combine_marker_clause(parent_clause, edge_marker)
+                        if _add_minimal_clause(target_clauses, clause):
+                            next_worklist.append((target_dep, clause))
 
-            idx += 1
+            worklist = next_worklist
+
+        if worklist:
+            fail("Marker propagation did not converge for dependency group {} in {}".format(repr(group_name), projectfile))
+
+    # Builds up {package: {configuration: {extra: {marker: 1}}}}
+    activated_extras = {}
+    for group_name, group_clauses in reachable_clauses.items():
+        for dep, clauses in group_clauses.items():
+            base = (dep[0], dep[1], dep[2], "__base__")
+            activated_extras.setdefault(base, {}).setdefault(group_name, {})[dep] = {
+                _clause_marker(clause): 1
+                for clause in clauses
+            }
 
     return {it: 1 for it in dep_groups.keys()}, activated_extras
 
