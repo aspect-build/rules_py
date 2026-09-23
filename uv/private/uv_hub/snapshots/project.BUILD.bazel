@@ -611,8 +611,6 @@ alias(
 #     "aspect_rules_py": {
 #         "colorama__0_4_6": {
 #             "": 1,
-#             "os_name == 'nt'": 1,
-#             "sys_platform == 'win32'": 1,
 #         },
 #     },
 # }
@@ -2641,7 +2639,6 @@ alias(
 #     "aspect_rules_py": {
 #         "setuptools__80_9_0": {
 #             "": 1,
-#             "python_full_version >= '3.12'": 1,
 #         },
 #     },
 # }
@@ -3058,8 +3055,6 @@ alias(
 #     "aspect_rules_py": {
 #         "typing_extensions__4_12_2": {
 #             "": 1,
-#             "python_full_version < '3.11'": 1,
-#             "python_full_version < '3.12'": 1,
 #         },
 #     },
 # }
@@ -3106,7 +3101,6 @@ alias(
 #     "aspect_rules_py": {
 #         "tzdata__2024_1": {
 #             "": 1,
-#             "sys_platform == 'win32'": 1,
 #         },
 #     },
 # }
@@ -3382,7 +3376,7 @@ alias(
 # {
 #     "aspect_rules_py": {
 #         "zipp__3_23_0": {
-#             "python_full_version < '3.12'": 1,
+#             "(python_full_version < '3.10.2') and (python_full_version < '3.12')": 1,
 #         },
 #     },
 # }

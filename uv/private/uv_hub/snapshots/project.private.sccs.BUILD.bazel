@@ -642,7 +642,7 @@ alias(
     name = "_maybe__exceptiongroup__1_3_1__typing_extensions",
     actual = select({
         "//private/markers:marker_5": "//:typing_extensions",
-        "//private/markers:marker_2": "//:typing_extensions",
+        "//private/markers:marker_6": "//:typing_extensions",
         "//conditions:default": ":empty",
     }),
     visibility = ["//:__subpackages__"],
@@ -813,8 +813,8 @@ py_library(
 alias(
     name = "_maybe__importlib_metadata__8_7_1__zipp",
     actual = select({
-        "//private/markers:marker_6": "//:zipp",
         "//private/markers:marker_2": "//:zipp",
+        "//private/markers:marker_6": "//:zipp",
         "//conditions:default": ":empty",
     }),
     visibility = ["//:__subpackages__"],
