@@ -1,12 +1,12 @@
 """Tests for permissive wheel-collision precedence."""
 
-load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
 load("@bazel_skylib//rules:build_test.bzl", "build_test")
 load("//py:defs.bzl", "py_binary", "py_library", "py_test")
 load("//py/private:providers.bzl", "PyWheelsInfo", "make_wheel_record")
 load("//py/private:py_info.bzl", "PyInfo")
 load("//py/private/py_venv:defs.bzl", "py_venv")
 load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN")
+load("//py/tests:analysis_failure_test.bzl", "analysis_failure_test")
 
 def _mixed_wheel_impl(ctx):
     py_runtime = ctx.toolchains[PY_TOOLCHAIN].py3_runtime
@@ -223,19 +223,6 @@ _wheel = rule(
     toolchains = [PY_TOOLCHAIN],
 )
 
-def _collision_error_test_impl(ctx):
-    env = analysistest.begin(ctx)
-    asserts.expect_failure(env, ctx.attr.expected_error)
-    return analysistest.end(env)
-
-_collision_error_test = analysistest.make(
-    _collision_error_test_impl,
-    attrs = {
-        "expected_error": attr.string(mandatory = True),
-    },
-    expect_failure = True,
-)
-
 def collision_order_test_suite():
     _wheel(
         name = "_collision_first",
@@ -289,7 +276,7 @@ def collision_order_test_suite():
             ":_collision_second",
         ],
     )
-    _collision_error_test(
+    analysis_failure_test(
         name = "collision_error_test",
         expected_error = "namespace entry `collision_namespace/shared.py`",
         target_under_test = ":_collision_error_binary",
@@ -312,7 +299,7 @@ def collision_order_test_suite():
             ":_metadata_collision_second",
         ],
     )
-    _collision_error_test(
+    analysis_failure_test(
         name = "metadata_collision_error_test",
         expected_error = "distribution metadata entry `collision_first-1.0.dist-info` selects",
         target_under_test = ":_metadata_collision_error_binary",
@@ -606,7 +593,7 @@ def collision_order_test_suite():
             ":_script_collision_second",
         ],
     )
-    _collision_error_test(
+    analysis_failure_test(
         name = "script_collision_opt_in_error_test",
         expected_error = "console script `collision-order`",
         target_under_test = ":_script_collision_opt_in_binary",
@@ -621,7 +608,7 @@ def collision_order_test_suite():
             ":_script_collision_second",
         ],
     )
-    _collision_error_test(
+    analysis_failure_test(
         name = "script_collision_error_test",
         expected_error = "console script `collision-order`",
         target_under_test = ":_script_collision_venv",
