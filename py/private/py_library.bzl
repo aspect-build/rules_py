@@ -11,7 +11,7 @@ load("//py/private:providers.bzl", "PyWheelsInfo")
 load("//py/private:pth.bzl", "make_imports_depset")
 load("//py/private:py_info.bzl", "PyInfo")
 load("//py/private:py_info_interop.bzl", "RulesPythonPyInfo", "get_py_info", "has_py_info")
-load("//py/private:transitions.bzl", "reset_python_flags_transition")
+load("//py/private:transitions.bzl", "dep_group_transition", "reset_python_flags_transition")
 
 def _make_instrumented_files_info(ctx):
     return coverage_common.instrumented_files_info(
@@ -189,12 +189,8 @@ def _py_library_impl(ctx):
 
     return providers
 
-_attrs = dict({
-    "srcs": attr.label_list(
-        doc = "Python source files.",
-        allow_files = True,
-    ),
-    "deps": attr.label_list(
+def _deps_attr(**kwargs):
+    return attr.label_list(
         doc = "Targets that produce Python code, commonly `py_library` rules.",
         # This attribute — shared by py_library, py_binary and py_test — is the
         # public surface that supports rules_python interop: a dep may carry
@@ -203,7 +199,15 @@ _attrs = dict({
         # rules_py emits @rules_python providers only under the
         # migration-only //py:emit_rules_python_providers flag.
         providers = [[PyInfo], [RulesPythonPyInfo], [CcInfo]],
+        **kwargs
+    )
+
+_attrs = dict({
+    "srcs": attr.label_list(
+        doc = "Python source files.",
+        allow_files = True,
     ),
+    "deps": _deps_attr(),
     "data": attr.label_list(
         doc = """Runtime dependencies of the program.
 
@@ -247,9 +251,25 @@ py_library_utils = struct(
 
 py_library = rule(
     implementation = py_library_utils.implementation,
-    attrs = dict({
-        "virtual_deps": attr.string_list(allow_empty = True, default = []),
-        "_emit_rules_python_providers": attr.label(default = "//py/private:emit_rules_python_providers"),
-    }, **py_library_utils.attrs),
+    attrs = dict(
+        py_library_utils.attrs,
+        deps = _deps_attr(cfg = dep_group_transition),
+        dep_group = attr.string(
+            default = "",
+            doc = """Resolve `deps` within the named dependency group of the uv hub.
+
+Only the `deps` edge changes configuration: this library, its `srcs` and `data`,
+and every consumer stay in the caller's configuration. Listing hub packages in a
+library with `dep_group` set keeps shared native dependencies out of per-group
+configurations, unlike `dep_group` on `py_binary` / `py_test`, which transitions
+the whole subtree. Empty inherits the caller's group.
+""",
+        ),
+        virtual_deps = attr.string_list(allow_empty = True, default = []),
+        _allowlist_function_transition = attr.label(
+            default = "@bazel_tools//tools/allowlists/function_transition_allowlist",
+        ),
+        _emit_rules_python_providers = attr.label(default = "//py/private:emit_rules_python_providers"),
+    ),
     provides = py_library_utils.py_library_providers,
 )
