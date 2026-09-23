@@ -7,7 +7,13 @@ load("@rules_python//python/entry_points:py_console_script_binary.bzl", "py_cons
 load("@rules_python//python/zipapp:py_zipapp_binary.bzl", "py_zipapp_binary")
 load("@rules_shell//shell:sh_test.bzl", "sh_test")
 load(":exec_tools_facts.bzl", "exec_tools_facts", "with_python_version")
+load(":forward_py_info.bzl", "forward_py_info")
 load(":report_toolchain_version.bzl", "report_exec_version", "report_version")
+
+FORWARDED_PRECOMPILE = [
+    ("disabled", "disabled", "inherit"),
+    ("keep_source", "enabled", "keep_source"),
+]
 
 # Both rulesets provision interpreters here, split by version so neither
 # shadows the other (see MODULE.bazel): 3.11 is rules_python's, everything else
@@ -219,6 +225,50 @@ rules_py_test(
     srcs = ["rules_python_import_path_test.py"],
     deps = [":import_path_lib"],
 )
+
+# Srcs-less forwarders of rules_python PyInfo (the py_proto_library shape),
+# under each of rules_python's precompilation settings. `mid_forward` exposes
+# the leaf source as well, so the consumer sees it twice.
+[
+    rules_python_library(
+        name = "forwarded_{}_{}".format(name, module),
+        srcs = ["forwarded/{}/{}.py".format(name, module)],
+        imports = ["forwarded/{}".format(name)],
+        precompile = precompile,
+        precompile_source_retention = retention,
+        deps = [":forwarded_{}_leaf".format(name)] if module == "mid" else [],
+    )
+    for name, precompile, retention in FORWARDED_PRECOMPILE
+    for module in [
+        "leaf",
+        "mid",
+    ]
+]
+
+[
+    forward_py_info(
+        name = "forwarded_{}_{}_forward".format(name, module),
+        actual = ":forwarded_{}_{}".format(name, module),
+    )
+    for name, _, _ in FORWARDED_PRECOMPILE
+    for module in [
+        "leaf",
+        "mid",
+    ]
+]
+
+[
+    rules_py_test(
+        name = "forwarded_{}_test".format(name),
+        srcs = ["forwarded_sources_test.py"],
+        main = "forwarded_sources_test.py",
+        deps = [
+            ":forwarded_{}_leaf_forward".format(name),
+            ":forwarded_{}_mid_forward".format(name),
+        ],
+    )
+    for name, _, _ in FORWARDED_PRECOMPILE
+]
 
 # rules_python's console-script machinery reads the pip hub's dist-info to
 # generate a py_binary; unpinned, that binary lands on a rules_py-provisioned
