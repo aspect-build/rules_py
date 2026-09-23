@@ -169,14 +169,3 @@ def _oci_compressor_impl(ctx):
     return analysistest.end(env)
 
 oci_compressor_test = analysistest.make(_oci_compressor_impl)
-
-def _expected_failure_impl(ctx):
-    env = analysistest.begin(ctx)
-    asserts.expect_failure(env, ctx.attr.expected_error)
-    return analysistest.end(env)
-
-expected_failure_test = analysistest.make(
-    _expected_failure_impl,
-    attrs = {"expected_error": attr.string(mandatory = True)},
-    expect_failure = True,
-)

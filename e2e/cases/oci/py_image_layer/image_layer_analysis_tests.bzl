@@ -1,21 +1,11 @@
 """Analysis and validation fixtures for multi-launcher image layers."""
 
 load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_image_layer", "py_layer_tier", "py_library")
+load("@aspect_rules_py//py/tests:analysis_failure_test.bzl", "analysis_failure_test")
 load("@bazel_features//:features.bzl", "bazel_features")
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
 
 _PY_TOOLCHAIN = "@bazel_tools//tools/python:toolchain_type"
-
-def _expected_failure_impl(ctx):
-    env = analysistest.begin(ctx)
-    asserts.expect_failure(env, ctx.attr.expected_error)
-    return analysistest.end(env)
-
-_expected_failure_test = analysistest.make(
-    _expected_failure_impl,
-    attrs = {"expected_error": attr.string(mandatory = True)},
-    expect_failure = True,
-)
 
 def _opaque_runtime_impl(ctx):
     output = ctx.actions.declare_file(ctx.label.name + ".txt")
@@ -90,7 +80,7 @@ _relative_symlink = rule(
 def _image_layer_failure(name, expected_error, **kwargs):
     target = "_{}_layers".format(name)
     py_image_layer(name = target, **kwargs)
-    _expected_failure_test(
+    analysis_failure_test(
         name = name + "_test",
         expected_error = expected_error,
         target_under_test = ":" + target,
@@ -203,7 +193,7 @@ def image_layer_analysis_test_suite():
         testonly = True,
         tags = ["manual"],
     )
-    _expected_failure_test(
+    analysis_failure_test(
         name = "testonly_tier_test",
         expected_error = "py_layer_tier targets cannot be testonly",
         target_under_test = ":_testonly_tier",
@@ -663,7 +653,7 @@ printf '%s\\n' "$$scalar" > "$@"
         owner = "nobody",
         tags = ["manual"],
     )
-    _expected_failure_test(
+    analysis_failure_test(
         name = "named_owner_test",
         expected_error = "py_layer_tier.owner must be a numeric id, got \"nobody\"",
         target_under_test = ":_named_owner_tier",
