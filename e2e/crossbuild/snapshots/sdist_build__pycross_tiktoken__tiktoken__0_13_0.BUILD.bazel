@@ -26,8 +26,11 @@ rust_host_sysroot(
 cargo_lock_generator(
     name = "cargo_lock",
     output = "pycross-tiktoken/Cargo.lock",
+    manifest = "tiktoken-0.13.0/Cargo.toml",
     rust_toolchain = "@@rules_rust+//rust/toolchain:current_rust_toolchain",
     sdist = "@@aspect_rules_py++uv+sdist__tiktoken__c9435714c3a84c23//file:file",
+    pre_build_patches = ["@@//pycross-tiktoken/patches:cargo-deps.patch"],
+    pre_build_patch_strip = 1,
 )
 
 filegroup(
@@ -40,6 +43,8 @@ pep517_rust_native_whl(
     src = "@@aspect_rules_py++uv+sdist__tiktoken__c9435714c3a84c23//file:file",
     tool = ":frontend",
     version = "0.13.0",
+    pre_build_patches = ["@@//pycross-tiktoken/patches:cargo-deps.patch"],
+    pre_build_patch_strip = 1,
     toolchains = [
         "@@rules_rust+//rust/toolchain:current_rust_toolchain",
         ":rust_host_sysroot",

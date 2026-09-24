@@ -1174,20 +1174,64 @@ def _disable_maturin_sbom(worktree: str) -> bool:
     return True
 
 
-def _inject_cargo_lock(worktree: str, lock_path: str) -> str | None:
-    """Copy a user-supplied Cargo.lock next to the source tree's top-level Cargo.toml.
+def _resolve_cargo_manifest(worktree: str, pyproject_data: dict[str, object] | None) -> str:
+    """The Cargo.toml the backend builds, mirroring the configure tool's resolution.
 
-    Returns the destination, or None when the tree has no Cargo.toml (the lock
-    is then meaningless and cargo would ignore it anyway).
+    maturin honors `[tool.maturin] manifest-path`, else keeps the manifest
+    next to pyproject.toml. Injection runs after pre_build_patches, so the
+    manifest may be a file a patch added. setuptools-rust names its manifest
+    in setup.py: with a single manifest that one is it, with several the
+    layout is not representable and the build fails instead of locking the
+    wrong workspace.
+    """
+    manifests = sorted(glob.glob(path.join(worktree, "**", "Cargo.toml"), recursive=True), key=lambda m: (m.count(os.sep), m))
+    if not manifests:
+        print("Error: the sdist builds Rust but ships no Cargo.toml; nothing to lock or build", file=sys.stderr)
+        raise SystemExit(1)
+
+    backend = _build_backend(pyproject_data)
+    tool = (pyproject_data or {}).get("tool", {})
+    maturin = tool.get("maturin", {}) if isinstance(tool, dict) else {}
+    manifest_path = maturin.get("manifest-path") if isinstance(maturin, dict) else None
+    if isinstance(manifest_path, str) and manifest_path:
+        manifest = path.join(worktree, manifest_path)
+        if not path.exists(manifest):
+            print(f"Error: [tool.maturin] manifest-path '{manifest_path}' does not exist in the unpacked sdist", file=sys.stderr)
+            raise SystemExit(1)
+        return manifest
+    if backend == "maturin":
+        sibling = path.join(worktree, "Cargo.toml")
+        if path.exists(sibling):
+            return sibling
+        print("Error: the maturin sdist has no Cargo.toml next to pyproject.toml", file=sys.stderr)
+        raise SystemExit(1)
+    if len(manifests) == 1:
+        return manifests[0]
+    print(
+        "Error: the sdist ships {} Cargo.toml files and the one setuptools-rust builds is named in "
+        "setup.py, which rules_py cannot parse; injecting a Cargo.lock for this layout is not supported".format(len(manifests)),
+        file=sys.stderr,
+    )
+    raise SystemExit(1)
+
+
+def _inject_cargo_lock(worktree: str, lock_path: str, cargo: str | None) -> str | None:
+    """Copy a user-supplied Cargo.lock to the workspace root cargo will build.
+
+    Returns the destination, or None when no lock was declared.
     """
     if not lock_path:
         return None
-    # Shallowest manifest wins: setuptools-rust crates live in subdirectories
-    # (bcrypt: src/_bcrypt/Cargo.toml), maturin ones at the top.
-    manifests = sorted(glob.glob(path.join(worktree, "**", "Cargo.toml"), recursive=True), key=lambda m: (m.count(os.sep), m))
-    if not manifests:
-        return None
-    dest = path.join(path.dirname(manifests[0]), "Cargo.lock")
+    if not cargo:
+        print("Error: a Cargo.lock was declared but the build has no cargo; the Rust toolchain is not wired", file=sys.stderr)
+        raise SystemExit(1)
+    manifest = _resolve_cargo_manifest(worktree, _load_pyproject_data(worktree))
+    # Cargo keeps the lock at the workspace root; ask cargo which root the
+    # manifest belongs to instead of guessing a directory by path depth.
+    workspace = check_output([
+        cargo, "locate-project", "--workspace", "--message-format", "plain", "--manifest-path", manifest,
+    ], text=True).strip()
+    dest = path.join(path.dirname(workspace), "Cargo.lock")
     shutil.copyfile(lock_path, dest)
     return dest
 
@@ -1426,7 +1470,7 @@ def main() -> None:
 
     _forbid_backend_toolchain_downloads(build_env)
     _configure_cargo_offline(build_env, opts.cargo_vendor_dir)
-    _inject_cargo_lock(t, opts.cargo_lock)
+    _inject_cargo_lock(t, opts.cargo_lock, build_env.get("CARGO"))
     if _build_backend(_load_pyproject_data(t)) == "maturin":
         _disable_maturin_sbom(t)
 

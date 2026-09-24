@@ -134,11 +134,25 @@ def _rust_wiring_test_impl(ctx):
         "the generated .bzl pins the project's rust toolchain type; got: " + on.rust_bzl,
     )
 
-    with_src = wiring(_TOOLCHAIN_LABEL, rust_inspection, [], src = "@@sdist__pkg//file")
+    with_src = wiring(_TOOLCHAIN_LABEL, {"build_backend": "maturin", "cargo_manifest": "pkg-1.0/Cargo.toml"}, [], src = "@@sdist__pkg//file")
     asserts.true(
         env,
-        'cargo_lock_generator(\n    name = "cargo_lock",\n    rust_toolchain = "{}",\n    sdist = "@@sdist__pkg//file",\n)'.format(_TOOLCHAIN_CANONICAL) in with_src.target,
-        "a `bazel run` lock generator over the same toolchain and sdist; got: " + with_src.target,
+        'cargo_lock_generator(\n    name = "cargo_lock",\n    manifest = "pkg-1.0/Cargo.toml",\n    rust_toolchain = "{}",\n    sdist = "@@sdist__pkg//file",\n)'.format(_TOOLCHAIN_CANONICAL) in with_src.target,
+        "a `bazel run` lock generator over the backend-resolved manifest; got: " + with_src.target,
+    )
+
+    with_patches = wiring(
+        _TOOLCHAIN_LABEL,
+        {"build_backend": "maturin", "cargo_manifest": "pkg-1.0/Cargo.toml"},
+        [],
+        src = "@@sdist__pkg//file",
+        pre_build_patches = ["//third_party:dep.patch"],
+        pre_build_patch_strip = 2,
+    )
+    asserts.true(
+        env,
+        'pre_build_patches = ["//third_party:dep.patch"],\n    pre_build_patch_strip = 2,' in with_patches.target,
+        "the generator locks the patched sources, the same ones the wheel build sees; got: " + with_patches.target,
     )
     declared = wiring(_TOOLCHAIN_LABEL, rust_inspection, [], src = "@@sdist__pkg//file", lock_output = "third_party/pkg.Cargo.lock")
     asserts.true(

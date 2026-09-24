@@ -31,6 +31,7 @@ def _write_context_file(repository_ctx, available_deps):
         # leaves these vendored crates stale while the wheel action receives
         # the new lock.
         repository_ctx.watch(repository_ctx.attr.cargo_lock)
+
         # A user-supplied lock replaces whatever the sdist ships (usually nothing).
         context["cargo_lock"] = str(repository_ctx.path(repository_ctx.attr.cargo_lock))
 
@@ -305,7 +306,7 @@ def _lock_output(cargo_lock):
         return ""
     return cargo_lock.package + "/" + cargo_lock.name if cargo_lock.package else cargo_lock.name
 
-def _rust_wiring(rust_toolchain, inspection, toolchains, src = "", lock_output = ""):
+def _rust_wiring(rust_toolchain, inspection, toolchains, src = "", lock_output = "", pre_build_patches = [], pre_build_patch_strip = 1):
     """The generated BUILD's Rust wiring for the project's `rust_toolchain`.
 
     The configure tool already detected the build backend and its declared
@@ -349,13 +350,19 @@ rust_host_sysroot(
 
 cargo_lock_generator(
     name = "cargo_lock",{output}
+    manifest = {manifest},
     rust_toolchain = {toolchain},
-    sdist = {src},
+    sdist = {src},{patches}
 )
 """.format(
         toolchain = repr(str(rust_toolchain)),
         src = repr(src),
         output = "\n    output = {},".format(repr(lock_output)) if lock_output else "",
+        manifest = repr(inspection.get("cargo_manifest") or "") if inspection else "",
+        patches = "\n    pre_build_patches = {},\n    pre_build_patch_strip = {},".format(
+            repr([str(it) for it in pre_build_patches]),
+            pre_build_patch_strip,
+        ) if pre_build_patches else "",
     )
     return struct(
         load_stmt = _RUST_LAYER_LOAD + _CARGO_LOCK_LOAD,
@@ -520,6 +527,8 @@ def _sdist_build_impl(repository_ctx):
             toolchains,
             src = str(repository_ctx.attr.src),
             lock_output = _lock_output(repository_ctx.attr.cargo_lock),
+            pre_build_patches = repository_ctx.attr.pre_build_patches,
+            pre_build_patch_strip = repository_ctx.attr.pre_build_patch_strip,
         )
         rust_layer_load = rust.load_stmt
         rust_layer_target = rust.target
