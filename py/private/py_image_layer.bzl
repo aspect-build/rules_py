@@ -893,17 +893,19 @@ def _parse_exec_requirements(entries):
         reqs[k] = v
     return reqs
 
+# Images package runtime artifacts: coverage instrumentation of the wrapped
+# binaries is dropped so `bazel coverage` builds the same layers as `bazel build`.
 def _platform_cfg_impl(settings, attr):
-    result = {
+    return {
         "//command_line_option:platforms": [attr.platform] if attr.platform else settings["//command_line_option:platforms"],
+        "//command_line_option:collect_code_coverage": False,
         "@aspect_rules_py//py:layer_tier": str(attr.layer_tier) if attr.layer_tier else settings["@aspect_rules_py//py:layer_tier"],
     }
-    return result
 
 _platform_cfg = transition(
     implementation = _platform_cfg_impl,
     inputs = ["//command_line_option:platforms", "@aspect_rules_py//py:layer_tier"],
-    outputs = ["//command_line_option:platforms", "@aspect_rules_py//py:layer_tier"],
+    outputs = ["//command_line_option:platforms", "//command_line_option:collect_code_coverage", "@aspect_rules_py//py:layer_tier"],
 )
 
 def _skip_path(f):
