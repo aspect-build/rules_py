@@ -25,6 +25,12 @@ def _write_context_file(repository_ctx, available_deps):
         "available_deps": available_deps,
     }
     if repository_ctx.attr.cargo_lock:
+        # path(label) stopped watching the file in Bazel 9, and the configure
+        # tool reads it through the context JSON, which Bazel cannot see.
+        # Without this watch, `:cargo_lock` regenerating the file in place
+        # leaves these vendored crates stale while the wheel action receives
+        # the new lock.
+        repository_ctx.watch(repository_ctx.attr.cargo_lock)
         # A user-supplied lock replaces whatever the sdist ships (usually nothing).
         context["cargo_lock"] = str(repository_ctx.path(repository_ctx.attr.cargo_lock))
 
