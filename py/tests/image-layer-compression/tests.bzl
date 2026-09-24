@@ -169,3 +169,12 @@ def _oci_compressor_impl(ctx):
     return analysistest.end(env)
 
 oci_compressor_test = analysistest.make(_oci_compressor_impl)
+
+def _merged_pip_targets_test_impl(ctx):
+    env = analysistest.begin(ctx)
+    files = analysistest.target_under_test(env)[DefaultInfo].files.to_list()
+    merged_tars = [f for f in files if "_merged_pip_layer_" in f.short_path and f.extension == "xz"]
+    asserts.equals(env, 2, len(merged_tars), "Each binary needs its own merged wheel archive")
+    return analysistest.end(env)
+
+merged_pip_targets_test = analysistest.make(_merged_pip_targets_test_impl)

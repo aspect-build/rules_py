@@ -9,6 +9,7 @@ load("@rules_shell//shell:sh_test.bzl", "sh_test")
 load(":exec_tools_facts.bzl", "exec_tools_facts", "with_python_version")
 load(":forward_py_info.bzl", "forward_py_info")
 load(":report_toolchain_version.bzl", "report_exec_version", "report_version")
+load(":type_stubs_test.bzl", "foreign_stubs_test")
 
 FORWARDED_PRECOMPILE = [
     ("disabled", "disabled", "inherit"),
@@ -270,6 +271,25 @@ rules_py_test(
     )
     for name, _, _ in FORWARDED_PRECOMPILE
 ]
+
+# rules_python keeps `pyi_srcs` out of runfiles and in PyInfo only; rules_py
+# picks them up from the foreign provider into its own PyInfo.
+rules_python_library(
+    name = "stubbed_lib",
+    srcs = ["stubbed/stubbed.py"],
+    imports = ["stubbed"],
+    pyi_srcs = ["stubbed/stubbed.pyi"],
+)
+
+py_library(
+    name = "stubbed_wrapper",
+    deps = [":stubbed_lib"],
+)
+
+foreign_stubs_test(
+    name = "foreign_stubs_test",
+    target_under_test = ":stubbed_wrapper",
+)
 
 # rules_python moves a precompiled source out of PyInfo.transitive_sources
 # under precompile_source_retention = omit_source; rules_py still ships it.

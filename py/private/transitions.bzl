@@ -64,7 +64,16 @@ def _python_transition_base(settings, attr, validate):
         # rules_python's flag.
         freethreaded = settings[_FREETHREADED_FLAG] or settings[_RPY_FREETHREADED_FLAG] == "yes"
 
-    version = attr.python_version or settings[_PYTHON_VERSION_FLAG] or settings[_RPY_VERSION_FLAG]
+    if attr.python_version:
+        ours = str(attr.python_version)
+        rpy = ours
+    else:
+        # No pin: our flag stays as inherited; resolving rules_python's default
+        # into it would fork the whole closure. rules_python's flag still
+        # follows ours so toolchains and hubs gated on it see the same version.
+        ours = settings[_PYTHON_VERSION_FLAG]
+        rpy = ours or settings[_RPY_VERSION_FLAG]
+    version = ours or rpy
 
     if validate and freethreaded and version and not _freethreaded_available(version):
         fail("{}: free-threaded mode requires Python 3.13+, but the selected python_version is \"{}\"; set freethreaded = False or raise python_version".format(
@@ -74,13 +83,13 @@ def _python_transition_base(settings, attr, validate):
 
     acc = {
         _FREETHREADED_FLAG: freethreaded,
-        _PYTHON_VERSION_FLAG: version,
+        _PYTHON_VERSION_FLAG: ours,
         # Only `py_venv` carries the attr; other rules inherit the group.
         _DEP_GROUP_FLAG: getattr(attr, "dep_group", "") or settings[_DEP_GROUP_FLAG],
 
         # Keep rules_python names alive
         _RPY_FREETHREADED_FLAG: "yes" if freethreaded else "no",
-        _RPY_VERSION_FLAG: version,
+        _RPY_VERSION_FLAG: rpy,
     }
     for flag, baseline_flag in _FLAG_BASELINE_PAIRS:
         acc[baseline_flag] = _capture_baseline(settings, flag, baseline_flag, acc[flag])
