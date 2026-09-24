@@ -943,6 +943,18 @@ import sys
 
 PROFILE_OPTIONS = {profile_options!r}
 
+# One vendored source per crate name and version pins the graph of one wheel
+# build, but a fork can patch the manifest of one of them; fold it into the
+# identity so two units never share a symbol hash because of it.
+manifest_hash = ""
+manifest_dir = os.environ.get("CARGO_MANIFEST_DIR")
+if manifest_dir:
+    try:
+        with open(os.path.join(manifest_dir, "Cargo.toml"), "rb") as f:
+            manifest_hash = hashlib.sha256(f.read()).hexdigest()[:16]
+    except OSError:
+        pass
+
 args = sys.argv[1:]
 final = [{rustc!r}, "--sysroot", {sysroot!r}]
 for prefix in {remap_prefixes!r}:
@@ -955,6 +967,7 @@ if target is None or target in args:
         os.environ.get("CARGO_PKG_NAME", ""),
         os.environ.get("CARGO_PKG_VERSION", ""),
         target or "",
+        manifest_hash,
     ]
     crate_types = []
     cfgs = []

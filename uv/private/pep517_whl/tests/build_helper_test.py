@@ -957,6 +957,25 @@ class RustcWrapperTest(unittest.TestCase):
         self.assertNotEqual(same, other_features)
         self.assertEqual(same, reordered, "argument order is cargo's business, not identity")
 
+    def test_symbol_hash_includes_the_crate_manifest(self) -> None:
+        # Two checkouts of the same crate with the same name and version but a
+        # patched manifest are distinct units; cargo's own metadata would not
+        # notice either (it is source-blind).
+        tmp = tempfile.mkdtemp()
+        wrapper = build_helper._write_rustc_wrapper(tmp, self._fake_rustc(tmp), "/tc/sysroot", self._TARGET)
+        fork_a = tempfile.mkdtemp()
+        fork_b = tempfile.mkdtemp()
+        with open(path.join(fork_a, "Cargo.toml"), "w") as f:
+            f.write("[package]\nname = \"ext\"\nversion = \"1.2.3\"\n")
+        with open(path.join(fork_b, "Cargo.toml"), "w") as f:
+            f.write("[package]\nname = \"ext\"\nversion = \"1.2.3\"\n[dependencies]\ncfg-if = \"1.0.0\"\n")
+        args = self._CRATE + ["-C", "metadata=aaaa", "--target", self._TARGET]
+        a = self._metadata(_run_wrapper(wrapper, args, env={**self._PKG, "CARGO_MANIFEST_DIR": fork_a}))
+        b = self._metadata(_run_wrapper(wrapper, args, env={**self._PKG, "CARGO_MANIFEST_DIR": fork_b}))
+        again = self._metadata(_run_wrapper(wrapper, args, env={**self._PKG, "CARGO_MANIFEST_DIR": fork_a}))
+        self.assertNotEqual(a, b, "a patched manifest is a different unit")
+        self.assertEqual(a, again)
+
     def test_symbol_hash_tracks_the_toolchain(self) -> None:
         tmp_a, tmp_b = tempfile.mkdtemp(), tempfile.mkdtemp()
         rustc_b = self._fake_rustc(tmp_b)

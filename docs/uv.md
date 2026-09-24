@@ -486,11 +486,12 @@ build.
 The rustc cargo runs is a wrapper that also makes the extension independent
 of where the action ran: sandbox and execroot paths are remapped out of the
 binaries (`--remap-path-prefix`), target crates compile as one codegen unit,
-and the `-C metadata=` hash cargo mangles into every symbol, which mixes in
-the host's `rustc -vV` output and the paths of host-compiled build scripts,
-is replaced for target crates by one derived from the toolchain's release
-string and the crate's own identity (package name and version, crate name,
-types, cfgs, target and the codegen options its profile sets). maturin's
+and the `-C metadata=` hash cargo mangles into every symbol — which mixes in
+the host line of `rustc -vV`, so two executor platforms produce different
+wheels — is replaced for target crates by one derived from the toolchain's
+release string and the crate's own identity (package name and version, crate
+name, manifest content, types, cfgs, target and the codegen options its
+profile sets). maturin's
 SBOM, which records sandbox paths, is turned
 off unless the sdist configures it. The wheel's bytes then match across hosts
 and downstream actions hit the cache. Crates that compile C or C++ through
