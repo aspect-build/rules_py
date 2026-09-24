@@ -271,9 +271,8 @@ rules_py_test(
     for name, _, _ in FORWARDED_PRECOMPILE
 ]
 
-# rules_python keeps `pyi_srcs` out of runfiles and in PyInfo only. Across the
-# ruleset boundary rules_py must pick them up from the foreign provider and
-# lay them down beside the modules in the venv.
+# rules_python keeps `pyi_srcs` out of runfiles and in PyInfo only; rules_py
+# picks them up from the foreign provider into its own PyInfo.
 rules_python_library(
     name = "stubbed_lib",
     srcs = ["stubbed/stubbed.py"],
@@ -289,12 +288,6 @@ py_library(
 foreign_stubs_test(
     name = "foreign_stubs_test",
     target_under_test = ":stubbed_wrapper",
-)
-
-rules_py_test(
-    name = "rules_python_stubs_test",
-    srcs = ["rules_python_stubs_test.py"],
-    deps = [":stubbed_wrapper"],
 )
 
 # rules_python's console-script machinery reads the pip hub's dist-info to

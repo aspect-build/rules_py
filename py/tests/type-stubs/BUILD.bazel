@@ -125,9 +125,9 @@ rules_python_provider_stubs_test(
     target_under_test = ":bin",
 )
 
-# Execution-time check: the stubs land in runfiles beside their modules.
+# Execution-time check: stubs stay out of runfiles.
 py_test(
-    name = "stubs_in_runfiles_test",
+    name = "stubs_not_in_runfiles_test",
     srcs = ["main.py"],
     main = "main.py",
     resolutions = {"stubby": ":stubby_impl"},

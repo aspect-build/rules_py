@@ -45,9 +45,7 @@ def _make_srcs_depset(ctx, extra_depsets = []):
 
 def _make_pyi_depset(ctx, extra_depsets = []):
     # Stubs are partitioned out of `transitive_sources` to match rules_python's
-    # PyInfo shape, where `.pyi` files never count as runtime sources. Venvs
-    # and launchers put both depsets in runfiles, so a type checker pointed at
-    # the venv sees stubs next to the modules they annotate.
+    # PyInfo shape, where `.pyi` files never count as runtime sources.
     return depset(
         order = "postorder",
         direct = _type_stubs(ctx.files.srcs),
@@ -69,20 +67,11 @@ def _make_virtual_depset(ctx):
     )
 
 def _make_resolved_virtual_depset(target):
-    # A resolution target's default outputs stand in for its sources (a wheel
-    # install tree has no PyInfo of its own). Stubs among them belong to the
-    # pyi depset collected alongside, not to the runtime sources.
-    direct = _runtime_sources(target[DefaultInfo].files.to_list())
-    transitive = []
+    # Default outputs stand in for sources only when the target has no PyInfo.
     info = get_py_info(target)
     if info:
-        transitive.append(info.transitive_sources)
-
-    return depset(
-        order = "postorder",
-        direct = direct,
-        transitive = transitive,
-    )
+        return info.transitive_sources
+    return target[DefaultInfo].files
 
 def _make_virtual_resolutions_depset(ctx):
     return depset(
@@ -229,8 +218,7 @@ _attrs = dict({
         doc = """Python source files.
 
         `.pyi` type stubs listed here are carried as `PyInfo.transitive_pyi_files`
-        rather than as runtime sources; both reach the runfiles of venvs and
-        launchers that include this library.""",
+        rather than as runtime sources.""",
         allow_files = True,
     ),
     "deps": attr.label_list(

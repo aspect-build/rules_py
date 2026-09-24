@@ -124,9 +124,7 @@ def _venv_providers(ctx, venv, venv_only, executable = None, include_sources = F
     """Providers emitted by both the executable and lib variants."""
     runfiles = venv.runtime_runfiles.merge(ctx.runfiles(files = venv_only))
     if include_sources:
-        runfiles = runfiles.merge(ctx.runfiles(transitive_files = depset(
-            transitive = [venv.transitive_sources, venv.transitive_pyi_files],
-        )))
+        runfiles = runfiles.merge(ctx.runfiles(transitive_files = venv.transitive_sources))
     return [
         DefaultInfo(
             files = depset([executable]) if executable != None else None,

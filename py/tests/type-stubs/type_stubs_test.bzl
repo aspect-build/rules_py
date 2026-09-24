@@ -3,8 +3,7 @@
 Stubs travel in `PyInfo.transitive_pyi_files`, partitioned away from
 `transitive_sources`, whether they were listed in a rules_py `srcs`, reached
 through a `@rules_python` dependency, or pulled in by a virtual-dependency
-resolution. Venvs and launchers put them in runfiles next to the modules they
-annotate.
+resolution. They never enter runfiles.
 """
 
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
@@ -68,8 +67,7 @@ def _launcher_stubs_test_impl(ctx):
     asserts.equals(env, _ALL_STUBS, _basenames(target[PyInfo].transitive_pyi_files), "the launcher surfaces the venv's stub closure, resolutions included")
     asserts.false(env, _has(_basenames(target[PyInfo].transitive_sources), ".pyi"))
     paths = _runfile_paths(target)
-    for stub in _ALL_STUBS:
-        asserts.true(env, _has(paths, "/" + stub), "launcher runfiles carry " + stub)
+    asserts.false(env, _has(paths, ".pyi"), "launcher runfiles carry no stubs")
     asserts.true(env, _has(paths, "/stubby.py"), "resolved runtime sources still travel")
     return analysistest.end(env)
 
@@ -79,9 +77,7 @@ def _venv_stubs_test_impl(ctx):
     env = analysistest.begin(ctx)
     target = analysistest.target_under_test(env)
     asserts.equals(env, _ALL_STUBS, _basenames(target[VirtualenvInfo].transitive_pyi_files))
-    paths = _runfile_paths(target)
-    for stub in _ALL_STUBS:
-        asserts.true(env, _has(paths, "/" + stub), "public venv runfiles carry " + stub)
+    asserts.false(env, _has(_runfile_paths(target), ".pyi"), "venv runfiles carry no stubs")
     return analysistest.end(env)
 
 venv_stubs_test = analysistest.make(_venv_stubs_test_impl)

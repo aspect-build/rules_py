@@ -62,11 +62,3 @@ generated_stubs_test(
     name = "generated_stubs_test",
     target_under_test = ":native_greeting_stubs_wrapper",
 )
-
-py_test(
-    name = "stubs_test",
-    size = "small",
-    srcs = ["stubs_test.py"],
-    main = "stubs_test.py",
-    deps = [":native_greeting_py_proto"],
-)
