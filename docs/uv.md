@@ -424,15 +424,20 @@ wired to it. Either ruleset works:
 
   then `toolchain = "@rules_rust_rs//rust/toolchain:current_rust_toolchain"`.
 
+Scope a declaration with `lock` to the project's `uv.lock`; every Rust sdist
+of that project builds with it, and no other package is touched:
+
 ```starlark
 uv.rust_toolchain(
+    lock = "//my_project:uv.lock",
     toolchain = "@rules_rust//rust/toolchain:current_rust_toolchain",
 )
 ```
 
-Scope a declaration with `lock` to apply it to one project only; it wins over
-the module-wide one for that project. That is how a workspace builds one
-project on rules_rust and another on rules_rs:
+A declaration without `lock` covers every `uv.project()` of the module that
+no scoped declaration covers — the right shape for a module building
+everything on one toolchain. Mixed workspaces declare one per project; a
+scoped declaration wins over the module-wide one for its project:
 
 ```starlark
 uv.rust_toolchain(
