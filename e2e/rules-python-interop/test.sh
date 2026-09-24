@@ -82,3 +82,9 @@ echo "PASS: rules_py Python version selected the 3.13 launcher"
     //reset-data-edges:passthrough_terminals_test \
     //reset-data-edges:reset_data_edges_test \
     //reset-data-edges:shared_binaries_test
+
+# With no flag set, our version flag is empty and rules_python's holds its
+# default. An unpinned terminal must not resolve that default into our flag.
+"$BAZEL" test --lockfile_mode=off \
+    -- \
+    //reset-data-edges:passthrough_terminals_test
