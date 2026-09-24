@@ -76,6 +76,7 @@ class ConfigureContext(TypedDict, total=False):
 class _OptionalDetectionResult(TypedDict, total=False):
     backend_path: list[str]
     cargo_crates: list[dict[str, str]]
+    cargo_manifest: str
 
 
 class DetectionResult(_OptionalDetectionResult):
@@ -713,7 +714,7 @@ def detect(archive_path: str, context: ConfigureContext) -> DetectionResult:
         else:
             cargo_lock_path = _find_cargo_lock(members, cargo_manifest)
             if cargo_lock_path:
-                content = read_fn(cargo_lock_path)
+                content = read_fn(cargo_lock_path) or ""
                 try:
                     cargo_crates = _parse_cargo_lock(content)
                 except ValueError as e:
