@@ -10,7 +10,7 @@ import os
 import sys
 import tempfile
 import unittest
-from os import makedirs, path
+from os import chmod, makedirs, path
 
 from uv.private.pep517_whl.tools import build_helper
 
@@ -793,39 +793,58 @@ class ConfigureCargoCrossEnvTest(unittest.TestCase):
 
 
 class InjectCargoLockTest(unittest.TestCase):
-    def _tree(self, manifest_rel: str) -> tuple[str, str]:
+    def _tree(self, manifest_rel: str, pyproject: str | None = None) -> tuple[str, str, str]:
         tmp = tempfile.mkdtemp()
         manifest = path.join(tmp, "worktree", manifest_rel)
         makedirs(path.dirname(manifest), exist_ok=True)
         open(manifest, "w").close()
+        if pyproject is not None:
+            with open(path.join(tmp, "worktree", "pyproject.toml"), "w") as f:
+                f.write(pyproject)
+        # A stub cargo answering `locate-project --workspace` with the crate's
+        # own manifest: the test pins where cargo says the workspace root is.
+        cargo = path.join(tmp, "cargo")
+        with open(cargo, "w") as f:
+            f.write(
+                "#!/bin/sh\n"
+                'while [ "$#" -gt 0 ]; do case "$1" in --manifest-path) manifest="$2";; esac; shift; done\n'
+                'echo "$manifest"\n'
+            )
+        chmod(cargo, 0o755)
         lock = path.join(tmp, "user.Cargo.lock")
         with open(lock, "w") as f:
             f.write("version = 4\n")
-        return path.join(tmp, "worktree"), lock
+        return path.join(tmp, "worktree"), lock, cargo
 
     def test_lock_lands_next_to_the_root_manifest(self) -> None:
-        worktree, lock = self._tree("Cargo.toml")
-        dest = build_helper._inject_cargo_lock(worktree, lock)
+        worktree, lock, cargo = self._tree("Cargo.toml")
+        dest = build_helper._inject_cargo_lock(worktree, lock, cargo)
         self.assertEqual(path.join(worktree, "Cargo.lock"), dest)
         with open(dest) as f:
             self.assertEqual("version = 4\n", f.read())
 
     def test_nested_manifest_is_found_at_any_depth(self) -> None:
         # bcrypt keeps its crate under src/_bcrypt/.
-        worktree, lock = self._tree(path.join("src", "_bcrypt", "Cargo.toml"))
-        self.assertEqual(path.join(worktree, "src", "_bcrypt", "Cargo.lock"), build_helper._inject_cargo_lock(worktree, lock))
+        worktree, lock, cargo = self._tree(path.join("src", "_bcrypt", "Cargo.toml"))
+        self.assertEqual(path.join(worktree, "src", "_bcrypt", "Cargo.lock"), build_helper._inject_cargo_lock(worktree, lock, cargo))
 
-    def test_shallowest_manifest_wins(self) -> None:
-        worktree, lock = self._tree("Cargo.toml")
+    def test_maturin_manifest_path_is_honored(self) -> None:
+        worktree, lock, cargo = self._tree(
+            path.join("src", "_bcrypt", "Cargo.toml"),
+            pyproject="[build-system]\nbuild-backend = 'maturin'\n\n[tool.maturin]\nmanifest-path = 'src/_bcrypt/Cargo.toml'\n",
+        )
         deeper = path.join(worktree, "vendor", "dep", "Cargo.toml")
         makedirs(path.dirname(deeper))
         open(deeper, "w").close()
-        self.assertEqual(path.join(worktree, "Cargo.lock"), build_helper._inject_cargo_lock(worktree, lock))
+        self.assertEqual(path.join(worktree, "src", "_bcrypt", "Cargo.lock"), build_helper._inject_cargo_lock(worktree, lock, cargo))
 
-    def test_no_manifest_no_copy(self) -> None:
+    def test_no_manifest_is_a_rejected_inconsistency(self) -> None:
+        # A declared lock over a manifest-less tree cannot be placed; that is
+        # an inconsistent override, not a silent no-op.
         worktree = tempfile.mkdtemp()
-        self.assertIsNone(build_helper._inject_cargo_lock(worktree, "/nonexistent/Cargo.lock"))
-        self.assertIsNone(build_helper._inject_cargo_lock(worktree, ""))
+        with self.assertRaises(SystemExit):
+            build_helper._inject_cargo_lock(worktree, "/nonexistent/Cargo.lock", "/bin/true")
+        self.assertIsNone(build_helper._inject_cargo_lock(worktree, "", None))
 
 
 class ForbidBackendToolchainDownloadsTest(unittest.TestCase):
