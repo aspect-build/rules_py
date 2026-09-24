@@ -1034,6 +1034,65 @@ def test_empty_cargo_lock_is_rejected() -> None:
         assert "the file is empty" in str(e)
 
 
+def test_maturin_manifest_path_is_resolved() -> None:
+    archive = _make_tar_gz({
+        "pkg-1.0/": None,
+        "pkg-1.0/pyproject.toml": "[build-system]\nrequires = []\nbuild-backend = 'maturin'\n\n[tool.maturin]\nmanifest-path = 'rust/Cargo.toml'\n",
+        "pkg-1.0/Cargo.toml": '[package]\nname = "wrong"\nversion = "0.0.0"\n',
+        "pkg-1.0/rust/Cargo.toml": '[package]\nname = "right"\nversion = "0.1.0"\n',
+        "pkg-1.0/src/lib.rs": "",
+    })
+    result = detect(archive, {})
+    assert result["cargo_manifest"] == "pkg-1.0/rust/Cargo.toml"
+
+
+def test_maturin_manifest_path_missing_is_rejected() -> None:
+    archive = _make_tar_gz({
+        "pkg-1.0/": None,
+        "pkg-1.0/pyproject.toml": "[build-system]\nrequires = []\nbuild-backend = 'maturin'\n\n[tool.maturin]\nmanifest-path = 'gone/Cargo.toml'\n",
+        "pkg-1.0/src/lib.rs": "",
+    })
+    try:
+        detect(archive, {})
+        assert False, "a manifest-path outside the sdist must fail detection"
+    except ValueError as e:
+        assert "manifest-path" in str(e)
+
+
+def test_setuptools_rust_with_independent_workspaces_is_rejected() -> None:
+    archive = _make_tar_gz({
+        "pkg-1.0/": None,
+        "pkg-1.0/pyproject.toml": "[build-system]\nrequires = ['setuptools-rust']\nbuild-backend = 'setuptools.build_meta'\n",
+        "pkg-1.0/setup.py": "from setuptools_rust import RustExtension\n",
+        "pkg-1.0/one/Cargo.toml": '[package]\nname = "one"\nversion = "0.1.0"\n',
+        "pkg-1.0/two/Cargo.toml": '[package]\nname = "two"\nversion = "0.1.0"\n',
+        "pkg-1.0/src/lib.rs": "",
+    })
+    try:
+        detect(archive, {})
+        assert False, "multiple Cargo.toml files under setuptools-rust must fail detection"
+    except ValueError as e:
+        assert "Cargo.toml files" in str(e)
+
+
+def test_independent_workspaces_locks_are_rejected() -> None:
+    archive = _make_tar_gz({
+        "pkg-1.0/": None,
+        "pkg-1.0/pyproject.toml": "[build-system]\nrequires = ['setuptools-rust']\nbuild-backend = 'setuptools.build_meta'\n",
+        "pkg-1.0/setup.py": "from setuptools_rust import RustExtension\n",
+        "pkg-1.0/one/Cargo.toml": '[package]\nname = "one"\nversion = "0.1.0"\n',
+        "pkg-1.0/one/Cargo.lock": '[[package]]\nname = "one"\nversion = "0.1.0"\n',
+        "pkg-1.0/two/Cargo.toml": '[package]\nname = "two"\nversion = "0.1.0"\n',
+        "pkg-1.0/two/Cargo.lock": '[[package]]\nname = "two"\nversion = "0.1.0"\n',
+        "pkg-1.0/src/lib.rs": "",
+    })
+    try:
+        detect(archive, {})
+        assert False, "two same-depth Cargo.locks must fail detection"
+    except ValueError as e:
+        assert "independent Cargo workspaces" in str(e)
+
+
 def test_cargo_lock_without_registry_crates_is_valid() -> None:
     # A valid lock pinning no external crates is workspace-only: vendoring
     # nothing is correct, not a discard — distinct from a malformed lock.

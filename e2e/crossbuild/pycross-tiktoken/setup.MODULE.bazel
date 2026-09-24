@@ -22,11 +22,16 @@ uv.project(
 
 # tiktoken's sdist ships no Cargo.lock, so nothing pins its crates; this one
 # (`cargo generate-lockfile` on the extracted sdist) lets sdist_build vendor
-# them and the build run offline like every other case here.
+# them and the build run offline like every other case here. The patch adds
+# cfg-if to the crate's [dependencies]: the wheel build compiles the patched
+# manifest, so the declared lock pins it and the build stays offline — and
+# `:cargo_lock` must resolve the patched sources too, not the pristine sdist.
 uv.override_package(
     name = "tiktoken",
     cargo_lock = "//pycross-tiktoken:Cargo.lock",
     lock = "//pycross-tiktoken:uv.lock",
+    pre_build_patch_strip = 1,
+    pre_build_patches = ["//pycross-tiktoken/patches:cargo-deps.patch"],
 )
 use_repo(
     uv,

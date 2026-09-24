@@ -389,6 +389,7 @@ rust_host_sysroot_test(
 # a `bazel run` script over the same toolchain's cargo and rustc.
 cargo_lock_generator(
     name = "__cargo_lock",
+    manifest = "pkg-1.0/Cargo.toml",
     rust_toolchain = ":__fake_rust_toolchain",
     sdist = ":__stub_sdist",
     tags = ["manual"],
@@ -402,6 +403,7 @@ cargo_lock_generator_test(
 
 cargo_lock_generator(
     name = "__cargo_lock_declared",
+    manifest = "pkg-1.0/Cargo.toml",
     output = "third_party/pkg.Cargo.lock",
     rust_toolchain = ":__fake_rust_toolchain",
     sdist = ":__stub_sdist",
