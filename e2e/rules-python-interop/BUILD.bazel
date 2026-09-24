@@ -14,6 +14,7 @@ load(":type_stubs_test.bzl", "foreign_stubs_test")
 FORWARDED_PRECOMPILE = [
     ("disabled", "disabled", "inherit"),
     ("keep_source", "enabled", "keep_source"),
+    ("omit_source", "enabled", "omit_source"),
 ]
 
 # Both rulesets provision interpreters here, split by version so neither
@@ -288,6 +289,19 @@ py_library(
 foreign_stubs_test(
     name = "foreign_stubs_test",
     target_under_test = ":stubbed_wrapper",
+)
+
+# rules_python moves a precompiled source out of PyInfo.transitive_sources
+# under precompile_source_retention = omit_source; rules_py still ships it.
+rules_python_library(
+    name = "precompiled_lib",
+    srcs = ["precompiled_lib.py"],
+)
+
+rules_py_test(
+    name = "rules_python_dep_test",
+    srcs = ["rules_python_dep_test.py"],
+    deps = [":precompiled_lib"],
 )
 
 # rules_python's console-script machinery reads the pip hub's dist-info to

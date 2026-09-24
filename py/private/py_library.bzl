@@ -10,7 +10,7 @@ load("@rules_cc//cc/common:cc_info.bzl", "CcInfo")
 load("//py/private:providers.bzl", "PyWheelsInfo")
 load("//py/private:pth.bzl", "make_imports_depset")
 load("//py/private:py_info.bzl", "PyInfo")
-load("//py/private:py_info_interop.bzl", "RulesPythonPyInfo", "get_py_info", "get_transitive_pyi_files", "has_py_info")
+load("//py/private:py_info_interop.bzl", "RulesPythonPyInfo", "get_py_info", "get_transitive_pyi_files", "get_transitive_sources", "has_py_info")
 load("//py/private:transitions.bzl", "reset_python_flags_transition")
 
 def _is_type_stub(file):
@@ -37,7 +37,7 @@ def _make_srcs_depset(ctx, extra_depsets = []):
         order = "postorder",
         direct = _runtime_sources(ctx.files.srcs),
         transitive = [
-            get_py_info(target).transitive_sources
+            get_transitive_sources(target)
             for target in ctx.attr.deps
             if has_py_info(target)
         ] + extra_depsets,
@@ -68,9 +68,8 @@ def _make_virtual_depset(ctx):
 
 def _make_resolved_virtual_depset(target):
     # Default outputs stand in for sources only when the target has no PyInfo.
-    info = get_py_info(target)
-    if info:
-        return info.transitive_sources
+    if has_py_info(target):
+        return get_transitive_sources(target)
     return target[DefaultInfo].files
 
 def _make_virtual_resolutions_depset(ctx):
