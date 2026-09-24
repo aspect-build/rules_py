@@ -5,6 +5,7 @@ load(
     ":tests.bzl",
     "codec_table_test",
     "custom_compressor_test",
+    "merged_pip_targets_test",
     "oci_compressor_test",
     "rule_attrs_test",
     "tier_compression_test",
@@ -283,11 +284,43 @@ py_test(
     name = "merged_pip_test",
     srcs = ["assert_compression.py"],
     args = [
-        "--expect=_merged_pip_layer_third_party.tar.xz",
+        "--expect=_merged_pip_layer_pip_app/third_party.tar.xz",
         "$(rootpaths :merged_pip_layers)",
     ],
     data = [":merged_pip_layers"],
     main = "assert_compression.py",
+)
+
+# Different binaries in one package can have different wheel closures.
+py_binary(
+    name = "subset_pip_app",
+    srcs = ["main.py"],
+    main = "main.py",
+    tags = ["manual"],
+    deps = [
+        ":branding",
+        "@pypi//six",
+    ],
+)
+
+py_image_layer(
+    name = "subset_merged_pip_layers",
+    binary = ":subset_pip_app",
+    layer_tier = ":merged_pip_tier",
+)
+
+filegroup(
+    name = "both_merged_pip_layers",
+    srcs = [
+        ":merged_pip_layers",
+        ":subset_merged_pip_layers",
+    ],
+    tags = ["manual"],
+)
+
+merged_pip_targets_test(
+    name = "merged_pip_targets_test",
+    target_under_test = ":both_merged_pip_layers",
 )
 
 # A single-member group gets its own tar, and can use a custom compressor.

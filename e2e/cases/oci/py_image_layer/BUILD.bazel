@@ -798,7 +798,7 @@ py_test(
     name = "merged_layer_sharing_test",
     srcs = ["assert_shared_layers.py"],
     args = [
-        "--shared-suffix=_merged_pip_layer_third_party.tar.zst",
+        "--shared-suffix=_merged_pip_layer_my_app_multi_bin/third_party.tar.zst",
         "--first",
         "$(rootpaths :my_app_multi_layers)",
         "--second",
@@ -815,9 +815,9 @@ py_test(
 # header is zeroed, and unioned closures are order-independent, so reversing
 # `binaries` yields byte-identical tars from independent actions. Also covers
 # the multi-binary merged-union path under zstd compression. The peer keeps
-# the same pip closure as my_app_multi_bin: the merge aspect names its
-# per-binary tar by package only, so same-package binaries with different
-# group closures would produce conflicting actions.
+# the same pip closure as my_app_multi_bin. Each merged archive includes
+# the binary name, so different binaries retain separate merge actions
+# even when their group closures match.
 py_binary(
     name = "det_peer_bin",
     srcs = ["server.py"],
