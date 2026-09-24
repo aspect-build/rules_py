@@ -75,6 +75,7 @@ def _py_unpacked_wheel_impl(ctx):
         ),
         PyInfo(
             imports = imports,
+            transitive_pyi_files = depset(),
             transitive_sources = depset([unpack_directory]),
             virtual_dependencies = depset(),
             virtual_resolutions = depset(),
