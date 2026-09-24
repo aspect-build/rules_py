@@ -1,0 +1,8 @@
+[project]
+name = "namespace-init-collision"
+version = "0.0.0"
+requires-python = ">=3.11"
+dependencies = [
+    "backports.weakref",
+    "backports.shutil-get-terminal-size",
+]
