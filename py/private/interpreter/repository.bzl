@@ -318,6 +318,44 @@ def _platform_setting_name(flag, value):
     name = flag.split(":")[-1] if ":" in flag else flag.split("/")[-1]
     return "{}_is_{}".format(name, value)
 
+_EXEC_TOOLS_TOOLCHAIN_TYPE = "@aspect_rules_py//py/private/toolchain:exec_tools_toolchain_type"
+
+def _exec_toolchain(name, exec_compatible_with, toolchain, toolchain_type, target_settings = None):
+    """A toolchain() selected by exec platform, optionally gated on target settings."""
+    settings = "" if target_settings == None else "    target_settings = {},\n".format(target_settings)
+    return """toolchain(
+    name = "{name}",
+    exec_compatible_with = {exec_compatible_with},
+{settings}    toolchain = "{toolchain}",
+    toolchain_type = "{toolchain_type}",
+)
+""".format(
+        name = name,
+        exec_compatible_with = exec_compatible_with,
+        settings = settings,
+        toolchain = toolchain,
+        toolchain_type = toolchain_type,
+    )
+
+def _note_fallback(fallbacks, info, exec_compatible_with):
+    """Keep the platform's highest provisioned version for the ungated fallback entry."""
+    version_key = tuple([int(part) for part in info["python_version"].split(".")])
+    prior = fallbacks.get(repr(exec_compatible_with))
+    if prior == None or version_key > prior[0]:
+        fallbacks[repr(exec_compatible_with)] = (version_key, info["name"], info["repo"], exec_compatible_with)
+
+def _fallback_toolchains(fallbacks, suffix, target, toolchain_type):
+    """Ungated entries; the `zz_` prefix sorts them after every gated one under lexicographic registration."""
+    return [
+        "\n" + _exec_toolchain(
+            "zz_{}_{}_fallback".format(name, suffix),
+            constraints,
+            "@{}//:{}".format(repo, target),
+            toolchain_type,
+        )
+        for _, name, repo, constraints in fallbacks.values()
+    ]
+
 def _version_setting_name(major_minor):
     """Generate config_setting name for a Python version."""
     return "python_version_is_" + major_minor.replace(".", "_")
@@ -482,46 +520,20 @@ toolchain(
             # an interpreter ABI-matching the target runtime; consumers that
             # only need *a* runnable interpreter are caught by the ungated
             # zz_ fallback.
-            content.append("""toolchain(
-    name = "{name}_exec_tools",
-    exec_compatible_with = {exec_compatible_with},
-    target_settings = ["{version_setting}", "{freethreaded_setting}"],
-    toolchain = "@{repo}//:runtime",
-    toolchain_type = "@aspect_rules_py//py/private/toolchain:exec_tools_toolchain_type",
-)
-""".format(
-                name = info["name"],
-                repo = info["repo"],
-                exec_compatible_with = exec_compatible_with,
-                version_setting = version_setting,
-                freethreaded_setting = freethreaded_setting,
+            content.append(_exec_toolchain(
+                info["name"] + "_exec_tools",
+                exec_compatible_with,
+                "@{}//:runtime".format(info["repo"]),
+                _EXEC_TOOLS_TOOLCHAIN_TYPE,
+                target_settings = [version_setting, freethreaded_setting],
             ))
-
-            # Track the platform's highest provisioned version for the
-            # ungated fallback entry emitted after the loop.
-            version_key = tuple([int(part) for part in info["python_version"].split(".")])
-            prior = exec_tools_fallbacks.get(repr(exec_compatible_with))
-            if prior == None or version_key > prior[0]:
-                exec_tools_fallbacks[repr(exec_compatible_with)] = (version_key, info["name"], info["repo"], exec_compatible_with)
+            _note_fallback(exec_tools_fallbacks, info, exec_compatible_with)
 
     # Ungated exec-tools fallbacks: build actions only need *a* runnable host
     # interpreter, so configurations matching no version-gated entry (e.g. the
     # version flags at defaults not provisioned by this hub) fall back to the
-    # platform's highest provisioned version. Registration is lexicographic by
-    # name, so the `zz_` prefix sorts these after every gated entry.
-    for _, name, repo, constraints in exec_tools_fallbacks.values():
-        content.append("""
-toolchain(
-    name = "zz_{name}_exec_tools_fallback",
-    exec_compatible_with = {exec_compatible_with},
-    toolchain = "@{repo}//:runtime",
-    toolchain_type = "@aspect_rules_py//py/private/toolchain:exec_tools_toolchain_type",
-)
-""".format(
-            name = name,
-            repo = repo,
-            exec_compatible_with = constraints,
-        ))
+    # platform's highest provisioned version.
+    content.extend(_fallback_toolchains(exec_tools_fallbacks, "exec_tools", "runtime", _EXEC_TOOLS_TOOLCHAIN_TYPE))
 
     content.append("""
 exports_files(
