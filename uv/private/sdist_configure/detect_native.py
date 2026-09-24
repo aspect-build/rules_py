@@ -410,13 +410,21 @@ def _parse_cargo_lock(content: str) -> list[dict[str, str]]:
     Packages without a `source` are the workspace's own crates (the root
     package, path dependencies) and are already in the sdist; everything else
     is what cargo would otherwise fetch at build time.
+
+    Raises:
+        ValueError: when the lock cannot be parsed — an empty file, malformed
+            TOML, or no tomllib. Callers must reject it: an unparsed lock
+            would otherwise silently degrade the build into resolving crates
+            online, whatever this lock actually pinned.
     """
+    if not content:
+        raise ValueError("the file is empty")
     if tomllib is None:
-        return []
+        raise ValueError("parsing a Cargo.lock requires Python >= 3.11 (tomllib)")
     try:
         data = tomllib.loads(content)
-    except tomllib.TOMLDecodeError:
-        return []
+    except tomllib.TOMLDecodeError as e:
+        raise ValueError(f"invalid TOML: {e}") from e
     crates = []
     for pkg in data.get("package", []):
         source = pkg.get("source")
@@ -540,13 +548,25 @@ def detect(archive_path: str, context: ConfigureContext) -> DetectionResult:
         context_lock = context.get("cargo_lock")
         if context_lock:
             with open(context_lock, encoding="utf-8") as f:
-                cargo_crates = _parse_cargo_lock(f.read())
+                content = f.read()
+            try:
+                cargo_crates = _parse_cargo_lock(content)
+            except ValueError as e:
+                raise ValueError(
+                    f"the Cargo.lock declared via uv.override_package(cargo_lock = ...) ({context_lock}) is unusable: {e}. "
+                    "Regenerate it with `bazel run <the sdist_build repository>//:cargo_lock` or drop the override."
+                ) from e
         else:
             cargo_lock_path = _find_cargo_lock(members)
             if cargo_lock_path:
                 content = read_fn(cargo_lock_path)
-                if content:
+                try:
                     cargo_crates = _parse_cargo_lock(content)
+                except ValueError as e:
+                    raise ValueError(
+                        f"{cargo_lock_path}, shipped in the sdist, is unusable: {e}. The build would resolve crates online; "
+                        "fix or drop it, or replace it with uv.override_package(cargo_lock = ...)."
+                    ) from e
 
         # Match the root distribution name rather than path depth: setuptools
         # src-layout projects place their own egg-info below src/ or another

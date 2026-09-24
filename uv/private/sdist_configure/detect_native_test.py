@@ -989,3 +989,58 @@ def test_shallowest_cargo_lock_wins() -> None:
     })
     result = detect(archive, {})
     assert [c["name"] for c in result["cargo_crates"]] == ["ahash", "pyo3-fork"]
+
+
+def test_malformed_context_cargo_lock_is_rejected() -> None:
+    archive = _make_tar_gz({
+        "pkg-1.0/": None,
+        "pkg-1.0/Cargo.lock": _CARGO_LOCK,
+        "pkg-1.0/src/lib.rs": "",
+    })
+    provided = os.path.join(tempfile.mkdtemp(), "Cargo.lock")
+    with open(provided, "w") as f:
+        f.write("not toml [")
+    try:
+        detect(archive, {"cargo_lock": provided})
+        assert False, "a malformed declared lock must fail detection"
+    except ValueError as e:
+        assert "declared via uv.override_package" in str(e)
+        assert "invalid TOML" in str(e)
+
+
+def test_malformed_shipped_cargo_lock_is_rejected() -> None:
+    archive = _make_tar_gz({
+        "pkg-1.0/": None,
+        "pkg-1.0/Cargo.lock": "not toml [",
+        "pkg-1.0/src/lib.rs": "",
+    })
+    try:
+        detect(archive, {})
+        assert False, "a malformed shipped lock must fail detection"
+    except ValueError as e:
+        assert "shipped in the sdist" in str(e)
+
+
+def test_empty_cargo_lock_is_rejected() -> None:
+    archive = _make_tar_gz({
+        "pkg-1.0/": None,
+        "pkg-1.0/Cargo.lock": "",
+        "pkg-1.0/src/lib.rs": "",
+    })
+    try:
+        detect(archive, {})
+        assert False, "an empty shipped lock must fail detection"
+    except ValueError as e:
+        assert "the file is empty" in str(e)
+
+
+def test_cargo_lock_without_registry_crates_is_valid() -> None:
+    # A valid lock pinning no external crates is workspace-only: vendoring
+    # nothing is correct, not a discard — distinct from a malformed lock.
+    archive = _make_tar_gz({
+        "pkg-1.0/": None,
+        "pkg-1.0/Cargo.lock": '[[package]]\nname = "pkg"\nversion = "1.0.0"\n',
+        "pkg-1.0/src/lib.rs": "",
+    })
+    result = detect(archive, {})
+    assert result["cargo_crates"] == []
