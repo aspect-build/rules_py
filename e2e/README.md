@@ -20,9 +20,14 @@ Every other subdirectory is a self-contained workspace with its own `MODULE.baze
 resolving against a *different* module graph on purpose, driven by its own `test.sh`
 (nested bazel): `interpreter-runtime-metadata` (a pre-release interpreter),
 `interpreter-toolchain-settings` (a conflicting toolchain declaration),
-`interpreter-input-validation` (an intentionally-invalid config). The latter two are
+`interpreter-input-validation` (an intentionally-invalid config),
+`interpreter-build-config` (invalid `build_config` fixtures in sibling `root-*/`
+modules, asserting module-extension evaluation failures). The latter three are
 config-flag / failure-assertion / nested-module checks that `bazel test //...` can't
-express; `interpreter-runtime-metadata` also has ordinary `//...` tests.
+express; `interpreter-runtime-metadata` and `interpreter-build-config` also have
+ordinary `//...` tests.
+`rules-proto-grpc-python` is an ordinary `bazel test //...` workspace exercising
+protobuf/gRPC codegen against rules_py.
 
 `rules-python-interop` carries both directions of rules_py ↔ rules_python interop in
 one module, split by Python version so neither side's toolchains shadow the other's
@@ -73,3 +78,6 @@ Each job runs `aspect test //...` first, then its `test.sh` (if it has one):
 - `interpreter-toolchain-settings`, `interpreter-input-validation` — `//...` runs a
   dumb `build_test` smoke target, then `test.sh` does the real work (config-flag /
   failure-assertion / nested-module checks that can't be `sh_test`s under `//...`).
+- `interpreter-build-config` — `//...` asserts a valid `build_config` resolves and
+  runs, then `test.sh` asserts the invalid `root-*/` fixtures fail extension
+  evaluation.
