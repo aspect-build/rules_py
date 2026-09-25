@@ -1,7 +1,8 @@
 """Unit tests for helpers in defs.bzl"""
 
 load("@bazel_skylib//lib:unittest.bzl", "asserts", "unittest")
-load("//uv/private/extension:defs.bzl", "dedupe_shared_installs", "map_scc_installs", "parse_declared_console_script", "shared_install_key")
+load("//uv/private:normalize_name.bzl", "normalize_name")
+load("//uv/private/extension:defs.bzl", "dedupe_shared_installs", "map_scc_installs", "parse_declared_console_script", "parse_rust_toolchains", "resolve_rust_toolchain", "shared_install_key")
 load("//uv/private/extension:graph_utils.bzl", "collect_build_deps")
 load("//uv/private/extension:lockfile.bzl", "url_basename")
 
@@ -210,6 +211,46 @@ def _map_scc_installs_conditional_union_test_impl(ctx):
 
 map_scc_installs_conditional_union_test = unittest.make(_map_scc_installs_conditional_union_test_impl)
 
+def _tag(lock = None, toolchain = None):
+    return struct(lock = lock, toolchain = toolchain)
+
+_RULES_RUST = "@rules_rust//rust/toolchain:current_rust_toolchain"
+_RULES_RS = "@rules_rust_rs//rust/toolchain:current_rust_toolchain"
+_LOCKS = {"//a:uv.lock": True, "//b:uv.lock": True}
+
+def _resolve(tags, lock):
+    return resolve_rust_toolchain(parse_rust_toolchains(tags, _LOCKS, "m"), lock)
+
+def _rust_toolchain_scope_test_impl(ctx):
+    env = unittest.begin(ctx)
+    asserts.equals(env, None, _resolve([], "//a:uv.lock"), "no declaration: no toolchain")
+    asserts.equals(env, _RULES_RUST, _resolve([_tag(toolchain = _RULES_RUST)], "//b:uv.lock"), "a lock-less declaration covers every project")
+
+    tags = [_tag(toolchain = _RULES_RUST), _tag(lock = "//b:uv.lock", toolchain = _RULES_RS)]
+    asserts.equals(env, _RULES_RUST, _resolve(tags, "//a:uv.lock"), "unscoped projects keep the module-wide toolchain")
+    asserts.equals(env, _RULES_RS, _resolve(tags, "//b:uv.lock"), "a lock-scoped declaration wins for its project")
+    asserts.equals(env, None, _resolve([_tag(lock = "//b:uv.lock", toolchain = _RULES_RS)], "//a:uv.lock"), "a lock-scoped declaration alone reaches no other project")
+    return unittest.end(env)
+
+rust_toolchain_scope_test = unittest.make(_rust_toolchain_scope_test_impl)
+
+def _rust_toolchain_errors_test_impl(ctx):
+    env = unittest.begin(ctx)
+
+    def error(tags):
+        return parse_rust_toolchains(tags, _LOCKS, "m").error
+
+    err = error([_tag(toolchain = _RULES_RUST), _tag(toolchain = _RULES_RS)])
+    asserts.true(env, err != None and "more than one module-wide" in err, "two module-wide declarations: got {}".format(err))
+    err = error([_tag(lock = "//a:uv.lock", toolchain = _RULES_RUST), _tag(lock = "//a:uv.lock", toolchain = _RULES_RS)])
+    asserts.true(env, err != None and "declared twice" in err, "same lock twice: got {}".format(err))
+    err = error([_tag(lock = "//nope:uv.lock", toolchain = _RULES_RUST)])
+    asserts.true(env, err != None and "has no uv.project() for that lock" in err, "unknown lock: got {}".format(err))
+    asserts.equals(env, None, error([_tag(toolchain = _RULES_RUST), _tag(lock = "//a:uv.lock", toolchain = _RULES_RS)]), "the module and one lock are two scopes")
+    return unittest.end(env)
+
+rust_toolchain_errors_test = unittest.make(_rust_toolchain_errors_test_impl)
+
 def defs_test_suite():
     unittest.suite(
         "url_basename_tests",
@@ -226,6 +267,11 @@ def defs_test_suite():
     unittest.suite(
         "dedupe_shared_installs_tests",
         dedupe_shared_installs_test,
+    )
+    unittest.suite(
+        "rust_toolchain_tests",
+        rust_toolchain_scope_test,
+        rust_toolchain_errors_test,
     )
     unittest.suite(
         "map_scc_installs_tests",

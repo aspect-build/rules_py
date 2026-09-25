@@ -1,0 +1,60 @@
+
+load(":rust_native_whl.bzl", "pep517_rust_native_whl")
+load("@aspect_rules_py//uv/private/pep517_whl:frontend.bzl", "pep517_frontend")
+load("@aspect_rules_py//uv/private/pep517_whl:rust_layer.bzl", "rust_host_sysroot")
+load("@aspect_rules_py//uv/private/pep517_whl:cargo_lock.bzl", "cargo_lock_generator")
+load("@aspect_rules_py//py:defs.bzl", "py_binary")
+
+py_binary(
+    name = "build_tool",
+    main = "@aspect_rules_py//uv/private/pep517_whl/tools:build_helper.py",
+    srcs = ["@aspect_rules_py//uv/private/pep517_whl/tools:build_helper.py"],
+    deps = ["@@aspect_rules_py++uv+project__pycross_tiktoken//:build", "@@aspect_rules_py++uv+project__pycross_tiktoken//:setuptools", "@@aspect_rules_py++uv+project__pycross_tiktoken//:setuptools_rust", "@@aspect_rules_py++uv+project__pycross_tiktoken//:wheel", "@project__pycross_tiktoken//private/build_deps:setuptools", "@project__pycross_tiktoken//private/build_deps:setuptools_rust", "@project__pycross_tiktoken//private/build_deps:wheel"],
+    include_console_scripts = True,
+)
+
+pep517_frontend(
+    name = "frontend",
+    actual = ":build_tool",
+)
+
+rust_host_sysroot(
+    name = "rust_host_sysroot",
+    actual = "@@rules_rust+//rust/toolchain:current_rust_toolchain",
+)
+
+cargo_lock_generator(
+    name = "cargo_lock",
+    output = "pycross-tiktoken/Cargo.lock",
+    manifest = "tiktoken-0.13.0/Cargo.toml",
+    rust_toolchain = "@@rules_rust+//rust/toolchain:current_rust_toolchain",
+    sdist = "@@aspect_rules_py++uv+sdist__tiktoken__c9435714c3a84c23//file:file",
+    pre_build_patches = ["@@//pycross-tiktoken/patches:cargo-deps.patch"],
+    pre_build_patch_strip = 1,
+)
+
+filegroup(
+    name = "vendored_crates",
+    srcs = glob(["vendor/**"]),
+)
+
+pep517_rust_native_whl(
+    name = "whl",
+    src = "@@aspect_rules_py++uv+sdist__tiktoken__c9435714c3a84c23//file:file",
+    tool = ":frontend",
+    version = "0.13.0",
+    pre_build_patches = ["@@//pycross-tiktoken/patches:cargo-deps.patch"],
+    pre_build_patch_strip = 1,
+    toolchains = [
+        "@@rules_rust+//rust/toolchain:current_rust_toolchain",
+        ":rust_host_sysroot",
+    ],
+    vendored_crates = ":vendored_crates",
+    cargo_lock = "@@//pycross-tiktoken:Cargo.lock",
+    visibility = ["//visibility:public"],
+)
+
+exports_files(
+    ["BUILD.bazel"],
+    visibility = ["//visibility:public"],
+)

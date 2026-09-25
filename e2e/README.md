@@ -45,17 +45,26 @@ support rests on a single case: setuptools/distutils C extensions
 (`pycross-geohash`, `pycross-psutil`, `pycross-msgpack`, `pycross-setuptools`),
 meson-python (`pycross-meson`, `pycross-numpy`), scikit-build-core/CMake
 (`pycross-cmake`, `pycross-jdk` — the latter also needing a JDK and a
-hermetically vendored Apache Ant) and maturin/PyO3 (`pycross-rust`).
-Every case builds for linux/amd64 and linux/arm64; in-suite verification is
-structural (`Tag:` metadata, ELF arch of every bundled `.so`), and the
-non-Rust cases export a wheel bundle that CI installs and runs on NATIVE
-amd64 and arm64 runners — no emulation in the verdict. The suites are isolated from
+hermetically vendored Apache Ant), maturin/PyO3 (`pycross-rust` on a
+rules_rust toolchain, `pycross-rust-rs` on a rules_rs one) and setuptools-rust
+(`pycross-tiktoken`). Every case builds for linux/amd64 and linux/arm64;
+in-suite verification is structural (`Tag:` metadata, ELF arch of every
+bundled `.so`), and each case exports a wheel bundle that CI installs and runs
+on NATIVE amd64 and arm64 runners — no emulation in the verdict. The suites are isolated from
 `e2e/cases` because their hubs need package-specific configuration
 (`default_build_dependencies`, pre-build patches, a larger `resource_set`)
-that would otherwise leak onto unrelated packages sharing the hub. On a macOS
-host, `test.sh` additionally cross-builds `pycross-geohash` for macOS amd64
-(a manual target: the platform transition always resolves to os:macos, so
-`target_compatible_with` cannot tell hosts apart).
+that would otherwise leak onto unrelated packages sharing the hub. Like
+`cases`, its `test.sh` aggregates the per-case `<case>/test.sh` scripts that
+cannot be an `sh_test`: `pycross-geohash` cross-builds for macOS amd64 on a
+macOS host only (a manual target: the platform transition always resolves to
+os:macos, so `target_compatible_with` cannot tell hosts apart), and
+`pycross-tiktoken` runs the `:cargo_lock` generator of its sdist repository,
+which needs `bazel run` and the crates.io index the action sandbox denies.
+The `BUILD.bazel` every `sdist_build__*` repository generates is snapshotted
+under `crossbuild/snapshots/` (`bazel run //:sdist_build_snapshots` to
+update), so the toolchains, Rust sysroot layer, vendored crates and build deps
+each sdist receives are a reviewable diff, and a toolchain reaching a package
+that does not need it shows up as one.
 
 Each isolated workspace points back at repo-root rules_py with
 `local_path_override(path = "../..")`.
