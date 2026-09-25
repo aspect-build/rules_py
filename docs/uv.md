@@ -491,9 +491,7 @@ the host line of `rustc -vV`, so two executor platforms produce different
 wheels — is replaced for target crates by one derived from the toolchain's
 release string and the crate's own identity (package name and version, crate
 name, manifest content, types, cfgs, target and the codegen options its
-profile sets). maturin's
-SBOM, which records sandbox paths, is turned
-off unless the sdist configures it. The wheel's bytes then match across hosts
+profile sets). The wheel's bytes then match across hosts
 and downstream actions hit the cache. Crates that compile C or C++ through
 cc-rs (`ring`, `zstd-sys`) find the wired C toolchain under `CC_<triple>`,
 `CXX_<triple>`, `AR_<triple>` and `RANLIB_<triple>` instead of whatever is on
