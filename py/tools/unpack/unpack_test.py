@@ -1370,6 +1370,19 @@ else:
             )
             assert "Invalid console script name" in rejected_entry_point.stderr
 
+        # Bytecode must not depend on the output directory, which differs per
+        # configuration (bazel-out/<cfg>/bin/...).
+        relocatable_wheel = root / "relocatable-1.0-py3-none-any.whl"
+        _write_wheel(relocatable_wheel, "relocatable", {"relocatable/__init__.py": b"VALUE = 1\n"})
+        relocatable_pyc = f"relocatable/__pycache__/__init__.{sys.implementation.cache_tag}.pyc"
+        relocatable_bytes = []
+        for cfg in ("k8-fastbuild", "k8-opt"):
+            relocatable_out = root / cfg / "bin" / "relocatable.install"
+            relocated = _run_unpack(unpack, relocatable_wheel, relocatable_out, Path(sys.executable))
+            assert relocated.returncode == 0, relocated.stdout + relocated.stderr
+            relocatable_bytes.append((_site_packages(relocatable_out) / relocatable_pyc).read_bytes())
+        assert relocatable_bytes[0] == relocatable_bytes[1], "pyc embeds the output directory"
+
 
 if __name__ == "__main__":
     main()
