@@ -1,0 +1,55 @@
+load("@bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
+load("@bazel_skylib//rules:build_test.bzl", "build_test")
+load("//py:defs.bzl", "py_unpacked_wheel")
+load("//py/private/interpreter:runtime.bzl", "py_runtime_toolchain")
+
+package(default_testonly = True)
+
+# Unpacking runs under the exec interpreter, so the target runtime's files must
+# never be action inputs. This runtime's files cannot be built.
+genrule(
+    name = "unbuildable",
+    outs = ["unbuildable"],
+    cmd = "echo 'target runtime files are not unpack inputs' >&2; exit 1",
+    tags = ["manual"],
+)
+
+py_runtime_toolchain(
+    name = "unbuildable_runtime",
+    files = [":unbuildable"],
+    interpreter = ":unbuildable",
+    interpreter_version_info = {
+        "major": "3",
+        "minor": "13",
+        "micro": "0",
+    },
+    tags = ["manual"],
+)
+
+toolchain(
+    name = "unbuildable_toolchain",
+    toolchain = ":unbuildable_runtime",
+    toolchain_type = "@bazel_tools//tools/python:toolchain_type",
+)
+
+platform(
+    name = "unbuildable_target_runtime",
+    flags = ["--extra_toolchains=//py/tests/unpacked-wheel-exec-inputs:unbuildable_toolchain"],
+    parents = ["@platforms//host"],
+)
+
+py_unpacked_wheel(
+    name = "dotted_entry",
+    src = "//py/tests/console-scripts:dotted_entry-1.0-py3-none-any.whl",
+)
+
+platform_transition_filegroup(
+    name = "dotted_entry_with_unbuildable_target_runtime",
+    srcs = [":dotted_entry"],
+    target_platform = ":unbuildable_target_runtime",
+)
+
+build_test(
+    name = "unpack_ignores_target_runtime_test",
+    targets = [":dotted_entry_with_unbuildable_target_runtime"],
+)
