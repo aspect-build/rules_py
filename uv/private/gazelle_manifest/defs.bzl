@@ -1,58 +1,37 @@
 load("@bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
 load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 
+def _wheel_path(file):
+    if file.path.endswith(".whl") or file.path.endswith("/whl"):
+        return file.path
+    return None
+
 def _modules_mapping_impl(ctx):
     out = ctx.actions.declare_file(ctx.label.name + ".yaml")
-
-    whl_file_deps = []
-    for target in ctx.attr.wheels:
-        files_depset = target[DefaultInfo].files
-        whl_file_deps.append(files_depset)
-
-    whl_depset = depset(
-        transitive = whl_file_deps,
-    )
-    whl_files = [
-        it
-        for it in whl_depset.to_list()
-        if it.path.endswith(".whl") or it.path.endswith("/whl")
-    ]
+    whls = depset(transitive = [target[DefaultInfo].files for target in ctx.attr.wheels])
 
     args = ctx.actions.args()
-    args.add_all(whl_files)
-    args_file = ctx.actions.declare_file(ctx.label.name + ".args")
-    ctx.actions.write(
-        output = args_file,
-        content = args,
-        is_executable = False,
-    )
+    args.add("--hub_name", ctx.attr.hub)
+    args.add("--output", out)
+    if ctx.attr.include_stub_packages:
+        args.add("--include_stub_packages")
+
+    whl_paths = ctx.actions.args()
+    whl_paths.use_param_file("--whl_paths_file=%s", use_always = True)
+    whl_paths.set_param_file_format("multiline")
+    whl_paths.add_all(whls, map_each = _wheel_path, expand_directories = False)
 
     ctx.actions.run(
         executable = ctx.executable._generator,
         toolchain = None,
-        arguments = [
-            "--hub_name",
-            ctx.attr.hub,
-            "--whl_paths_file",
-            args_file.path,
-            "--output",
-            out.path,
-        ] + (["--include_stub_packages"] if ctx.attr.include_stub_packages else []),
-        inputs = [
-            args_file,
-        ] + whl_files,
-        outputs = [
-            out,
-        ],
+        arguments = [args, whl_paths],
+        inputs = whls,
+        outputs = [out],
+        mnemonic = "PyGazelleModulesMapping",
+        progress_message = "Generating Gazelle modules mapping %{label}",
     )
 
-    return [
-        DefaultInfo(
-            files = depset([
-                out,
-            ]),
-        ),
-    ]
+    return [DefaultInfo(files = depset([out]))]
 
 _modules_mapping = rule(
     implementation = _modules_mapping_impl,
