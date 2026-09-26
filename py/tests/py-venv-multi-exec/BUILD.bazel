@@ -1,11 +1,47 @@
-load("@rules_python//python:defs.bzl", "py_library")
+load("@bazel_lib//lib:copy_to_directory.bzl", "copy_to_directory")
 load("//py:defs.bzl", "py_library", "py_venv")
 load("//py/private/py_venv:defs.bzl", "py_venv_exec_test")
+load("//py/tests:analysis_failure_test.bzl", "analysis_failure_test")
+load("//py/tests:pyc_testing.bzl", "bytecode_sources_test")
 load(":env_inherit_test.bzl", "contextual_keys_not_inherited_test", "env_inherit_test")
+load(":forward_providers.bzl", "forward_providers")
 load(":freethreaded_flag_test.bzl", "freethreaded_flag_test")
+load(":pyc_layout_test.bzl", "pyc_layout_test")
 load(":runfiles_mapping.bzl", "runfiles_mapping")
 
 package(default_testonly = True)
+
+exports_files(
+    ["pyc_layout_check.py"],
+    visibility = ["//py/tests:__subpackages__"],
+)
+
+# A TreeArtifact in srcs is opaque to bytecode: it ships as source under sourceless.
+copy_to_directory(
+    name = "tree_sources",
+    srcs = ["tree_module.py"],
+    out = "tree_sources_tree",
+    root_paths = ["py/tests/py-venv-multi-exec"],
+)
+
+py_venv(
+    name = "tree_source_venv",
+    srcs = [
+        "entry_tree_source.py",
+        ":tree_sources",
+    ],
+    imports = [
+        ".",
+        "tree_sources_tree",
+    ],
+)
+
+py_venv_exec_test(
+    name = "test_pyc_only_tree_source",
+    main = "entry_tree_source.py",
+    precompile = "sourceless",
+    venv = ":tree_source_venv",
+)
 
 # A single py_venv exec'd through multiple py_venv_exec consumers,
 # each differing in `main`, `env`, `args`, `data`, or other launcher-
@@ -45,6 +81,53 @@ py_venv(
     deps = [
         "@pypi//cowsay",
     ],
+)
+
+py_library(
+    name = "dependency_main_library",
+    srcs = [
+        "entry_a.py",
+        "shared_lib.py",
+    ],
+)
+
+py_venv(
+    name = "dependency_main_venv",
+    imports = ["."],
+    deps = [":dependency_main_library"],
+)
+
+py_venv_exec_test(
+    name = "test_pyc_only_dependency_main",
+    main = "entry_a.py",
+    precompile = "sourceless",
+    venv = ":dependency_main_venv",
+)
+
+py_library(
+    name = "indirect_main_library",
+    deps = [":dependency_main_library"],
+)
+
+py_venv(
+    name = "indirect_main_venv",
+    imports = ["."],
+    deps = [":indirect_main_library"],
+)
+
+py_venv_exec_test(
+    name = "_test_pyc_only_indirect_main",
+    main = "entry_a.py",
+    precompile = "sourceless",
+    tags = ["manual"],
+    venv = ":indirect_main_venv",
+)
+
+# A main is found only in the venv's srcs or a direct dependency's.
+analysis_failure_test(
+    name = "test_pyc_only_indirect_main_failure",
+    expected_error = "List the main in the srcs of the venv or of one of its direct first-party deps.",
+    target_under_test = ":_test_pyc_only_indirect_main",
 )
 
 # A venv may list a source file exported by another package; it ships at its
@@ -112,11 +195,193 @@ py_venv_exec_test(
     venv = ":shared_venv",
 )
 
+py_venv_exec_test(
+    name = "test_pyc_only_transitive_python_data",
+    main = "entry_runtime_data.py",
+    precompile = "sourceless",
+    venv = ":runtime_data_venv",
+)
+
+pyc_layout_test(
+    name = "test_pyc_only_transitive_python_data_runfiles",
+    expect_sourceless = False,
+    mode = "sourceless",
+    module = "runtime_data",
+    protect_source = True,
+    target = ":test_pyc_only_transitive_python_data",
+)
+
+py_venv(
+    name = "sidecar_venv",
+    srcs = [
+        "entry_sidecar.py",
+        "sidecar.txt",
+    ],
+    imports = ["."],
+)
+
+py_venv_exec_test(
+    name = "test_pyc_only_sidecar_srcs",
+    main = "entry_sidecar.py",
+    precompile = "sourceless",
+    venv = ":sidecar_venv",
+)
+
+pyc_layout_test(
+    name = "test_pyc_only_sidecar_srcs_runfiles",
+    expect_suffixes = ["/sidecar.txt"],
+    mode = "sourceless",
+    module = "entry_sidecar",
+    target = ":test_pyc_only_sidecar_srcs",
+)
+
+py_venv_exec_test(
+    name = "test_foreign_source_pyc",
+    main = "entry_foreign.py",
+    precompile = "pycache",
+    venv = ":foreign_source_venv",
+)
+
+pyc_layout_test(
+    name = "test_foreign_source_pyc_runfiles",
+    expect_pyc = False,
+    mode = "pycache",
+    module = "foreign_source",
+    target = ":test_foreign_source_pyc",
+)
+
+py_venv_exec_test(
+    name = "_test_foreign_source_pyc_only",
+    main = "entry_foreign.py",
+    precompile = "sourceless",
+    tags = ["manual"],
+    venv = ":foreign_source_venv",
+)
+
+# Source-retaining pyc tolerates optimization: CPython skips level-0 caches under -O.
+py_venv_exec_test(
+    name = "test_pyc_optimized",
+    interpreter_options = ["-O"],
+    main = "entry_a.py",
+    precompile = "pycache",
+    venv = ":shared_venv",
+)
+
+# A capital O inside another option's argument is not `-O`.
+py_venv_exec_test(
+    name = "test_pyc_warning_option",
+    interpreter_options = ["-Wignore:Overwriting:UserWarning"],
+    main = "entry_a.py",
+    precompile = "pycache",
+    venv = ":shared_venv",
+)
+
+py_venv_exec_test(
+    name = "test_pyc_bundled_optimize",
+    interpreter_options = ["-BO"],
+    main = "entry_a.py",
+    precompile = "pycache",
+    venv = ":shared_venv",
+)
+
+py_venv_exec_test(
+    name = "test_pyc_inherit_optimize",
+    env_inherit = ["PYTHONOPTIMIZE"],
+    main = "entry_a.py",
+    precompile = "pycache",
+    venv = ":shared_venv",
+)
+
+py_venv(
+    name = "pyc_optimize_env_venv",
+    srcs = [
+        "entry_a.py",
+        "shared_lib.py",
+    ],
+    env = {"PYTHONOPTIMIZE": "0"},
+    imports = ["."],
+)
+
+py_venv_exec_test(
+    name = "test_pyc_venv_optimize_env",
+    main = "entry_a.py",
+    precompile = "pycache",
+    venv = ":pyc_optimize_env_venv",
+)
+
+# Sourceless bytecode cannot honour an optimization request.
+py_venv_exec_test(
+    name = "_test_pyc_repeated_optimize",
+    interpreter_options = ["-OO"],
+    main = "entry_a.py",
+    precompile = "sourceless",
+    tags = ["manual"],
+    venv = ":shared_venv",
+)
+
+analysis_failure_test(
+    name = "test_pyc_repeated_optimize_failure",
+    expected_error = "sourceless ships level-0 bytecode",
+    target_under_test = ":_test_pyc_repeated_optimize",
+)
+
+py_venv_exec_test(
+    name = "_test_pyc_only_pythonoptimize",
+    env = {"PYTHONOPTIMIZE": "0"},
+    main = "entry_a.py",
+    precompile = "sourceless",
+    tags = ["manual"],
+    venv = ":shared_venv",
+)
+
+analysis_failure_test(
+    name = "test_pyc_only_pythonoptimize_failure",
+    expected_error = "sourceless does not support PYTHONOPTIMIZE",
+    target_under_test = ":_test_pyc_only_pythonoptimize",
+)
+
+py_venv(
+    name = "_pyc_optimize_inherit_venv",
+    srcs = ["entry_a.py"],
+    env_inherit = ["PYTHONOPTIMIZE"],
+    tags = ["manual"],
+)
+
+py_venv_exec_test(
+    name = "_test_pyc_venv_optimize_inherit",
+    isolated = False,
+    main = "entry_a.py",
+    precompile = "sourceless",
+    tags = ["manual"],
+    venv = ":_pyc_optimize_inherit_venv",
+)
+
+analysis_failure_test(
+    name = "test_pyc_venv_optimize_inherit_failure",
+    expected_error = "sourceless does not support PYTHONOPTIMIZE",
+    target_under_test = ":_test_pyc_venv_optimize_inherit",
+)
+
+analysis_failure_test(
+    name = "test_foreign_source_pyc_only_failure",
+    expected_error = "sourceless could not compile all first-party sources",
+    target_under_test = ":_test_foreign_source_pyc_only",
+)
+
 # Same shared venv, two different `main` entry points. Both reach
 # `shared_lib` via the venv's sys.path.
 py_venv_exec_test(
     name = "test_entry_a",
     main = "entry_a.py",
+    precompile = "pycache",
+    venv = ":shared_venv",
+)
+
+py_venv_exec_test(
+    name = "test_pyc_only_broken_python_data",
+    data = [":broken_python_data"],
+    main = "entry_a.py",
+    precompile = "sourceless",
     venv = ":shared_venv",
 )
 
@@ -126,12 +391,96 @@ py_venv_exec_test(
     venv = ":shared_venv",
 )
 
-# One py_venv label, resolved in two consumer configurations. A materialized
-# venv cannot be shared across interpreter versions, but Bazel configures this
-# label independently for each launcher's `python_version`.
+py_venv_exec_test(
+    name = "test_pyc_source",
+    main = "entry_a.py",
+    venv = ":shared_venv",
+)
+
+py_venv_exec_test(
+    name = "test_pyc_cache",
+    main = "entry_a.py",
+    precompile = "pycache",
+    venv = ":shared_venv",
+)
+
+py_venv_exec_test(
+    name = "test_pyc_only",
+    data = [":entry_a_mapping"],
+    main = "entry_a.py",
+    precompile = "sourceless",
+    venv = ":shared_venv",
+)
+
+pyc_layout_test(
+    name = "test_pyc_source_runfiles",
+    mode = "off",
+    target = ":test_pyc_source",
+)
+
+# The main runs from source: CPython consults no cache for it.
+pyc_layout_test(
+    name = "test_pyc_cache_runfiles",
+    expect_pyc = False,
+    mode = "pycache",
+    target = ":test_pyc_cache",
+)
+
+# Wheel sources are third-party and never get first-party bytecode entries.
+bytecode_sources_test(
+    name = "test_pyc_cache_first_party_entries",
+    expected = ["py/tests/py-venv-multi-exec/" + src for src in [
+        "entry_a.py",
+        "entry_args.py",
+        "entry_b.py",
+        "entry_data.py",
+        "entry_env.py",
+        "entry_no_optimize.py",
+        "entry_wheel.py",
+        "shared_lib.py",
+    ]],
+    target = ":test_pyc_cache",
+)
+
+pyc_layout_test(
+    name = "test_pyc_cache_shared_lib_runfiles",
+    mode = "pycache",
+    module = "shared_lib",
+    target = ":test_pyc_cache",
+)
+
+pyc_layout_test(
+    name = "test_pyc_only_runfiles",
+    check_mappings = True,
+    mode = "sourceless",
+    target = ":test_pyc_only",
+)
+
+py_venv_exec_test(
+    name = "test_pyc_data",
+    data = ["data_alpha.txt"],
+    env = {"DATA_PATH": "$(rootpath :data_alpha.txt)"},
+    main = "entry_data.py",
+    precompile = "pycache",
+    venv = ":shared_venv",
+)
+
+py_venv_exec_test(
+    name = "test_pyc_only_data",
+    data = ["data_beta.txt"],
+    env = {"DATA_PATH": "$(rootpath :data_beta.txt)"},
+    main = "entry_data.py",
+    precompile = "sourceless",
+    venv = ":shared_venv",
+)
+
+# One py_venv label, resolved independently for each launcher's Python version.
 py_venv(
     name = "shared_versioned_venv",
-    srcs = ["entry_versioned.py"],
+    srcs = [
+        "entry_versioned.py",
+        "versioned_lib.py",
+    ],
     imports = ["."],
 )
 
@@ -150,11 +499,89 @@ py_venv_exec_test(
 )
 
 py_venv_exec_test(
+    name = "test_pyc_python_313",
+    main = "entry_versioned.py",
+    precompile = "pycache",
+    python_version = "3.13",
+    venv = ":shared_versioned_venv",
+)
+
+py_venv_exec_test(
     name = "test_python_313_freethreaded",
     freethreaded = "true",
     main = "entry_versioned.py",
     python_version = "3.13",
     venv = ":shared_versioned_venv",
+)
+
+py_venv_exec_test(
+    name = "test_pyc_python_312",
+    main = "entry_versioned.py",
+    precompile = "pycache",
+    python_version = "3.12",
+    venv = ":shared_versioned_venv",
+)
+
+py_venv_exec_test(
+    name = "test_pyc_select",
+    main = "entry_a.py",
+    precompile = select({"//conditions:default": "pycache"}),
+    venv = ":shared_venv",
+)
+
+pyc_layout_test(
+    name = "test_pyc_select_runfiles",
+    mode = "pycache",
+    module = "shared_lib",
+    target = ":test_pyc_select",
+)
+
+py_venv_exec_test(
+    name = "test_pyc_source_python_313",
+    main = "entry_versioned.py",
+    precompile = "off",
+    python_version = "3.13",
+    venv = ":shared_versioned_venv",
+)
+
+py_venv_exec_test(
+    name = "test_pyc_source_python_312",
+    main = "entry_versioned.py",
+    precompile = "off",
+    python_version = "3.12",
+    venv = ":shared_versioned_venv",
+)
+
+py_venv_exec_test(
+    name = "test_pyc_only_python_313",
+    main = "entry_versioned.py",
+    precompile = "sourceless",
+    python_version = "3.13",
+    venv = ":shared_versioned_venv",
+)
+
+py_venv_exec_test(
+    name = "test_pyc_only_python_312",
+    main = "entry_versioned.py",
+    precompile = "sourceless",
+    python_version = "3.12",
+    venv = ":shared_versioned_venv",
+)
+
+pyc_layout_test(
+    name = "test_pyc_python_313_runfiles",
+    mode = "pycache",
+    module = "versioned_lib",
+    pyc_tag = "cpython-313",
+    target = ":test_pyc_python_313",
+)
+
+pyc_layout_test(
+    name = "test_pyc_python_312_runfiles",
+    mode = "pycache",
+    module = "versioned_lib",
+    pyc_tag = "cpython-312",
+    target = ":test_pyc_python_312",
 )
 
 # Regression: the launcher edge must not validate intermediate flag combos.
@@ -459,4 +886,38 @@ py_venv_exec_test(
     name = "test_gen_main",
     main = ":gen_main",
     venv = ":shared_venv",
+)
+
+# A wrapper republishing a library's PyInfo and (empty) PyWheelsInfo carries
+# sources without bytecode; sourceless must not treat it as a wheel.
+forward_providers(
+    name = "forwarded_shared_lib",
+    actual = ":shared_lib_only",
+)
+
+py_library(
+    name = "shared_lib_only",
+    srcs = ["shared_lib.py"],
+    imports = ["."],
+)
+
+py_venv(
+    name = "forwarded_venv",
+    srcs = ["entry_a.py"],
+    imports = ["."],
+    deps = [":forwarded_shared_lib"],
+)
+
+py_venv_exec_test(
+    name = "_test_pyc_only_forwarded_providers",
+    main = "entry_a.py",
+    precompile = "sourceless",
+    tags = ["manual"],
+    venv = ":forwarded_venv",
+)
+
+analysis_failure_test(
+    name = "test_pyc_only_forwarded_providers_failure",
+    expected_error = "sourceless could not compile all first-party sources",
+    target_under_test = ":_test_pyc_only_forwarded_providers",
 )

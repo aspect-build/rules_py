@@ -49,8 +49,10 @@ load(
     _py_venv_exec_test = "py_venv_exec_test",
     _py_venv_link = "py_venv_link",
 )
+load("//py/private/toolchain:pyc_compiler.bzl", _py_pyc_compiler_toolchain = "py_pyc_compiler_toolchain")
 
 current_py_toolchain = _current_py_toolchain
+py_pyc_compiler_toolchain = _py_pyc_compiler_toolchain
 py_wheel = _py_wheel
 py_runtime = _py_runtime
 py_runtime_pair = _py_runtime_pair
@@ -159,6 +161,13 @@ def py_binary(name, srcs = [], main = None, **kwargs):
               explicit
               `py_venv_link(name = "{name}.venv_link", venv = ":{name}.venv")`
               alongside the binary.
+            * `precompile` (string) — first-party bytecode packaging.
+              `"off"` ships only `.py` sources; `"pycache"` additionally
+              ships PEP 3147 `__pycache__` bytecode; `"sourceless"` ships
+              colocated `.pyc` files in place of the sources. Unset (`None`)
+              inherits the global `--@aspect_rules_py//py:precompile` flag; an explicit value pins
+              the mode. `select()` accepted. See "First-party bytecode" in
+              the README.
     """
 
     _py_binary_with_venv(

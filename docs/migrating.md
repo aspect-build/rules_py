@@ -59,6 +59,24 @@ providers. Temporary scaffolding: [virtual deps](/docs/virtual_deps.md) are not
 expressible in those providers (resolve them concretely in `deps`), and the
 flag belongs in `.bazelrc` only until the last rules_python target is gone.
 
+## Bytecode for unconverted targets
+
+rules_py's bytecode modes compile dependencies still built by rules_python rules
+(`py_proto_library`, unconverted `py_library` targets) itself. Packages from a
+rules_python pip hub are never compiled and run from source in every mode;
+a rules_py uv hub installs wheels with bytecode. rules_python compiles every
+target's sources unless that target sets `precompile = "disabled"`, so a
+source listed by both a rules_py target and a rules_python target fails
+analysis with conflicting actions on the natural bytecode paths under the
+bytecode modes (`off` declares no bytecode); disable precompilation on the rules_python target or list the source
+once. A srcs-less wrapper forwarding a rules_python library's `PyInfo`
+reuses whatever that library precompiled without seeing its
+`precompile_optimize_level`, so wrap only level-0 libraries. Under `sourceless`
+a rules_python `py_library` still ships its sources from its own runfiles, so
+rules_py also ships their `__pycache__` bytecode, which CPython reads beside a
+present source; converting the library to rules_py's `py_library` makes it
+sourceless.
+
 ## Remaining notes
 
 Users are encouraged to send a Pull Request to add more documentation as they uncover issues during migrations.

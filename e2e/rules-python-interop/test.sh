@@ -97,3 +97,12 @@ retention=@rules_python//python/config_settings:precompile_source_retention
 for mode in keep_source omit_source; do
     "$BAZEL" test --lockfile_mode=off "--${retention}=${mode}" -- //:rules_python_dep_test
 done
+
+# A source in a rules_py and a precompiling rules_python library conflicts only
+# when bytecode is requested (docs/migrating.md); source builds are unaffected.
+"$BAZEL" build --lockfile_mode=off //:shared_keep_source_test
+shared_log="$(mktemp)"
+! "$BAZEL" build --lockfile_mode=off --@aspect_rules_py//py:precompile=pycache //:shared_keep_source_test >"$shared_log" 2>&1 &&
+    grep -Fq "conflicting actions" "$shared_log" ||
+    { cat "$shared_log" >&2; echo "FAIL: expected a conflicting-actions diagnostic" >&2; exit 1; }
+rm -f "$shared_log"

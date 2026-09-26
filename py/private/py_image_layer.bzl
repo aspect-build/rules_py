@@ -42,9 +42,10 @@ load(
     "make_codec",
     "parse_compression",
 )
-load("//py/private:providers.bzl", "PyWheelsInfo")
+load("//py/private:providers.bzl", "PyWheelsInfo", "PycInfo")
 load("//py/private:py_info.bzl", "PyInfo")
 load("//py/private:py_info_interop.bzl", "has_py_info")
+load("//py/private:pyc.bzl", "PycModeInfo", "bytecode_conflicts")
 load("//py/private/py_venv:types.bzl", "VirtualenvInfo")
 load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN", "interpreter_files_and_version")
 
@@ -273,7 +274,7 @@ _LayerInfo = provider(
     doc = "Private: aggregated source files + pip package layers produced by _layer_aspect.",
     fields = {
         "source_files": "depset[File] — default source layer candidates, collected from venv providers, binary outputs, and opaque runtime deps; bytes owned by other layers are dropped by the source tar's skip set.",
-        "python_sources": "depset[File] — first-party Python `srcs` of library and venv targets, kept apart from the other source layer candidates.",
+        "python_sources": "depset[File] — first-party Python `srcs` of library and venv targets, kept apart so a sourceless image never stages them.",
         "pip_packages": "depset[struct] — fully transitive pip packages with per-package layers.",
         "first_party_layers": "depset[struct(label, files, group)] — first-party PyInfo targets matched by py_layer_tier.groups.",
         "interpreter_layer": "struct(tar, group, interpreter_files) | None — prebuilt interpreter layer tar + its group name + the files used to build it, declared at the toolchain target's namespace so the tar action-shares across every py_image_layer using that toolchain config. tar=None at the toolchain node when no interpreter group is configured.",
@@ -1091,12 +1092,47 @@ def _declare_group_tar(ctx, rule_codecs, plan, bsdtar, bsdtar_files, out_basenam
     )
     return tar_out
 
+def _fp_files_for_pyc(files, mode, pyc_by_source_path):
+    """Swap a first-party group's sources for bytecode; matched by runfiles path across configurations.
+
+    Returns struct(files, staged): every file the group packages, and the
+    subset other actions must stage, which excludes the bytecode they only
+    reference by path.
+    """
+    if mode == "off" or not pyc_by_source_path:
+        return struct(files = files, staged = files)
+    out = []
+    bytecode = []
+    for f in files.to_list():
+        entries = pyc_by_source_path.get(f.short_path) if f.extension == "py" else None
+        if entries == None:
+            out.append(f)
+        elif mode == "pycache":
+            out.append(f)
+            bytecode.extend([entry.pycache for entry in entries])
+        else:
+            bytecode.extend([entry.pyc for entry in entries])
+    return struct(files = depset(out + bytecode), staged = depset(out))
+
 def _py_image_layer_impl(ctx):
     binaries = ctx.attr.binaries
     if not binaries:
         fail("py_image_layer requires at least one binary")
     single_binary = len(binaries) == 1
     infos = [binary[_LayerInfo] for binary in binaries]
+
+    # The image ships whatever bytecode its binaries carry; one mode per image.
+    binary_modes = {}
+    for binary in binaries:
+        mode = binary[PycModeInfo].mode if PycModeInfo in binary else "off"
+        binary_modes.setdefault(mode, []).append(str(binary.label))
+    if len(binary_modes) > 1:
+        fail("{}: binaries mix bytecode modes: {}; give every binary the same precompile mode".format(
+            ctx.label,
+            "; ".join(["{}: {}".format(mode, ", ".join(labels)) for mode, labels in binary_modes.items()]),
+        ))
+    effective_pyc = binary_modes.keys()[0]
+
     bsdtar, bsdtar_files = _tar_toolchain(ctx)
 
     # Normalized labels can collide across lock universes, and one wheel target
@@ -1206,31 +1242,70 @@ def _py_image_layer_impl(ctx):
     interpreter_map = lambda f, d: _interpreter_file_to_mtree(f, d, owner, group)
 
     rule_group_names = {gname: True for gname in ctx.attr.groups.values()}
-    rule_groups = []
+    rule_group_specs = []
     for dep, group_name in ctx.attr.groups.items():
         dep_label = normalize_label(str(dep.label))
         if dep_label in pip_labels:
             continue
-        rule_groups.append((group_name, dep[DefaultInfo].files))
-    rule_group_files = [files for _, files in rule_groups]
+        files = dep[DefaultInfo].files
+        rule_group_specs.append((group_name, files))
 
-    # Entries of one group are packaged as a union, so build the union once.
+    fp_layer_entries = []
+    for info in infos:
+        fp_layer_entries.extend(info.first_party_layers.to_list())
+
+    # Configured copies of one source share a runfiles path; group entries by it.
+    pyc_infos = [binary[PycInfo] for binary in binaries if PycInfo in binary]
+    pyc_by_source_path = {}
+    pyc_files = []
+    if effective_pyc == "sourceless":
+        pyc_files = [info.sourceless_files for info in pyc_infos]
+    elif effective_pyc == "pycache":
+        pyc_files = [info.pycache_files for info in pyc_infos]
+    if effective_pyc != "off":
+        for entry in depset(transitive = [info.entries for info in pyc_infos]).to_list():
+            dest = entry.source.short_path
+            siblings = pyc_by_source_path.setdefault(dest, [])
+            if any([bytecode_conflicts(sibling, entry, effective_pyc) for sibling in siblings]):
+                fail("{}: binaries compile conflicting bytecode for {} (different Python runtimes or configurations); align the binaries' python_version or use precompile = \"off\"".format(
+                    ctx.label,
+                    dest,
+                ))
+            siblings.append(entry)
+
     fp_group_files = {}
     seen_fp_labels = {}
-    for info in infos:
-        for entry in info.first_party_layers.to_list():
-            if single_binary:
-                if entry.label in seen_fp_labels:
-                    continue
-                seen_fp_labels[entry.label] = True
-            fp_group_files.setdefault(entry.group, []).append(entry.files)
-    fp_by_group = {group: [depset(transitive = files)] for group, files in fp_group_files.items()}
-    first_party_reference_files = [files[0] for files in fp_by_group.values()]
+    for entry in fp_layer_entries:
+        if single_binary:
+            if entry.label in seen_fp_labels:
+                continue
+            seen_fp_labels[entry.label] = True
+        fp_group_files.setdefault(entry.group, []).append(entry.files)
+    fp_groups = {
+        group: _fp_files_for_pyc(depset(transitive = files), effective_pyc, pyc_by_source_path)
+        for group, files in fp_group_files.items()
+    }
+    fp_by_group = {group: [layout.files] for group, layout in fp_groups.items()}
+    first_party_reference_files = [layout.files for layout in fp_groups.values()]
+    rule_layouts = [
+        (group_name, _fp_files_for_pyc(files, effective_pyc, pyc_by_source_path))
+        for group_name, files in rule_group_specs
+    ]
+    rule_groups = [(group_name, layout.files) for group_name, layout in rule_layouts]
+    rule_group_files = [files for _, files in rule_groups]
+    mapping_staged = [layout.staged for layout in fp_groups.values()] + [layout.staged for _, layout in rule_layouts]
 
-    layer_sources = [info.source_files for info in infos] + [info.python_sources for info in infos]
+    # sourceless never stages sources it has bytecode for; uncompiled sources still ship.
+    layer_sources = [info.source_files for info in infos]
+    layer_sources.append(_fp_files_for_pyc(
+        depset(transitive = [info.python_sources for info in infos]),
+        effective_pyc,
+        pyc_by_source_path,
+    ).staged)
     if repo_mapping != None:
         layer_sources.append(depset([repo_mapping]))
-    source_files = depset(transitive = layer_sources)
+    staged_files = depset(transitive = layer_sources)
+    source_files = depset(transitive = [staged_files] + pyc_files)
     rule_group_map = lambda f, d: (
         source_map(f, d) if f.short_path in executable_dsts else _user_file_to_mtree(f, d, owner, group)
     )
@@ -1258,10 +1333,11 @@ def _py_image_layer_impl(ctx):
     # links without copying the target bytes into that tar.
     symlink_mappings = None
     if rule_group_files or first_party_reference_files:
+        # Bytecode rows are path-only, so this action need not wait for compiles.
         symlink_mappings = _declare_symlink_mapping(
             ctx,
             [(source_files, source_map)] + owned_sets,
-            inputs = [source_files] + source_exclusion_files,
+            inputs = [staged_files] + mapping_staged + [pkg.files for pkg in all_pkgs] + [layer.interpreter_files for layer in interpreter_layers.values()],
         )
 
     for group_name, files in rule_groups:

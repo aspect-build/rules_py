@@ -1,4 +1,6 @@
-load("@aspect_rules_py//py:defs.bzl", "current_py_toolchain", "py_binary", "py_library", "py_venv", "py_wheel", "whl_filegroup", rules_py_test = "py_test")
+load("@aspect_rules_py//py:defs.bzl", "current_py_toolchain", "py_binary", "py_image_layer", "py_library", "py_pyc_compiler_toolchain", "py_venv", "py_wheel", "whl_filegroup", rules_py_test = "py_test")
+load("@aspect_rules_py//py/tests:analysis_failure_test.bzl", "analysis_failure_test")
+load("@aspect_rules_py//py/tests:pyc_testing.bzl", "bytecode_sources_test", "expect_test", "pyc_config_test")
 load("@bazel_skylib//rules:build_test.bzl", "build_test")
 load("@bazel_skylib//rules:diff_test.bzl", "diff_test")
 load("@rules_python//python:py_library.bzl", rules_python_library = "py_library")
@@ -6,6 +8,7 @@ load("@rules_python//python:py_test.bzl", rules_python_test = "py_test")
 load("@rules_python//python/entry_points:py_console_script_binary.bzl", "py_console_script_binary")
 load("@rules_python//python/zipapp:py_zipapp_binary.bzl", "py_zipapp_binary")
 load("@rules_shell//shell:sh_test.bzl", "sh_test")
+load(":bytecode_reuse_test.bzl", "bytecode_producers", "bytecode_reuse_check")
 load(":exec_tools_facts.bzl", "exec_tools_facts", "with_python_version")
 load(":forward_py_info.bzl", "forward_py_info")
 load(":report_toolchain_version.bzl", "report_exec_version", "report_version")
@@ -21,6 +24,19 @@ FORWARDED_PRECOMPILE = [
 # shadows the other (see MODULE.bazel): 3.11 is rules_python's, everything else
 # including the unpinned default is rules_py's. Each test asserts the resolved
 # binary's repo path.
+
+# No rules_py interpreter provides 3.11, so rules_python's runtime compiles its bytecode.
+py_pyc_compiler_toolchain(
+    name = "rules_python_311_pyc_compiler",
+    runtime = "@python_3_11//:py3_runtime",
+)
+
+toolchain(
+    name = "rules_python_311_pyc_compiler_toolchain",
+    target_settings = ["@rules_python//python/config_settings:is_python_3.11"],
+    toolchain = ":rules_python_311_pyc_compiler",
+    toolchain_type = "@aspect_rules_py//py:pyc_compiler_toolchain_type",
+)
 
 # Default toolchain resolution: no python_version set, so this lands on
 # rules_py's 3.12 even though 3.12 is rules_python's default version.
@@ -122,6 +138,93 @@ rules_py_test(
     deps = ["@pip//six"],
 )
 
+# rules_py never compiles pip hub packages; only the test's own source.
+bytecode_sources_test(
+    name = "pip_deps_bytecode_sources_test",
+    expected = ["pip_deps_test.py"],
+    precompile = "sourceless",
+    target = ":pip_deps_test",
+)
+
+rules_py_test(
+    name = "pip_deps_pyc_only_test",
+    srcs = ["pip_deps_pyc_only_test.py"],
+    main = "pip_deps_pyc_only_test.py",
+    precompile = "sourceless",
+    python_version = "3.11",
+    deps = ["@pip//six"],
+)
+
+# Images of both dependency shapes, in each bytecode mode. rules_py compiles a
+# rules_python library's own sources but never a wheel's, so an image replaces
+# the former with bytecode and ships the latter as it is.
+[
+    [
+        py_binary(
+            name = "image_{}_bin".format(mode),
+            srcs = ["pip_deps_test.py"],
+            main = "pip_deps_test.py",
+            precompile = mode,
+            python_version = "3.11",
+            deps = [
+                ":precompiled_lib",
+                "@pip//six",
+            ],
+        ),
+        py_image_layer(
+            name = "image_{}_layers".format(mode),
+            binary = ":image_{}_bin".format(mode),
+        ),
+        # Snapshot the two dependencies' rows; the interpreter tree would bury the point.
+        genrule(
+            name = "image_{}_listing".format(mode),
+            srcs = [":image_{}_layers".format(mode)],
+            outs = ["image_{}_listing.txt".format(mode)],
+            cmd = """\
+for f in $(SRCS); do
+  TZ="UTC" LC_ALL="C" $(BSDTAR_BIN) -tf $$f
+done | grep -E "pip_311_six|precompiled_lib" | LC_ALL=C sort > $@
+""",
+            toolchains = ["@bsd_tar_toolchains//:resolved_toolchain"],
+        ),
+        diff_test(
+            name = "image_{}_test".format(mode),
+            file1 = "image_{}_listing.txt".format(mode),
+            file2 = "snapshots/image_{}_listing.txt".format(mode),
+        ),
+    ]
+    for mode in [
+        "pycache",
+        "sourceless",
+    ]
+]
+
+# Grouping a dependency moves its rows to another layer but must not change
+# which of them ship, so this reuses the ungrouped sourceless snapshot.
+py_image_layer(
+    name = "image_grouped_layers",
+    binary = ":image_sourceless_bin",
+    groups = {"//:precompiled_lib": "vendored"},
+)
+
+genrule(
+    name = "image_grouped_listing",
+    srcs = [":image_grouped_layers"],
+    outs = ["image_grouped_listing.txt"],
+    cmd = """\
+for f in $(SRCS); do
+  TZ="UTC" LC_ALL="C" $(BSDTAR_BIN) -tf $$f
+done | grep -E "pip_311_six|precompiled_lib" | LC_ALL=C sort > $@
+""",
+    toolchains = ["@bsd_tar_toolchains//:resolved_toolchain"],
+)
+
+diff_test(
+    name = "image_grouped_test",
+    file1 = "image_grouped_listing.txt",
+    file2 = "snapshots/image_sourceless_listing.txt",
+)
+
 # Deps from a rules_py uv hub on the foreign runtime: whl_install's exec-tools
 # requirement must be satisfiable when no hub toolchain matches the target
 # version at all, via the hub's version-agnostic exec-tools fallback.
@@ -217,6 +320,36 @@ rules_py_test(
 )
 
 rules_python_library(
+    name = "precompiled_lib",
+    srcs = ["precompiled_lib.py"],
+)
+
+# rules_python's optimized bytecode lands at the level-0 natural path, so
+# rules_py must refuse to build bytecode modes on top of it.
+rules_python_library(
+    name = "optimized_lib",
+    srcs = ["optimized_lib.py"],
+    precompile = "enabled",
+    precompile_optimize_level = 1,
+)
+
+rules_py_test(
+    name = "rules_python_optimized_dep_test",
+    srcs = ["rules_python_dep_test.py"],
+    env = {"EXPECT_PYC": "pycache"},
+    main = "rules_python_dep_test.py",
+    precompile = "pycache",
+    tags = ["manual"],
+    deps = [":optimized_lib"],
+)
+
+analysis_failure_test(
+    name = "rules_python_optimized_dep_failure_test",
+    expected_error = "precompile_optimize_level = 1",
+    target_under_test = ":rules_python_optimized_dep_test",
+)
+
+rules_python_library(
     name = "import_path_lib",
     srcs = ["rules_python_import/rp_import.py"],
     imports = ["rules_python_import"],
@@ -272,6 +405,23 @@ rules_py_test(
     for name, _, _ in FORWARDED_PRECOMPILE
 ]
 
+# Sharding must not split a source that two srcs-less forwarders both expose
+# into conflicting actions, whichever layout rules_python precompiled.
+[
+    pyc_config_test(
+        name = "forwarded_{}_shards_{}_test".format(name, label),
+        env = {"EXPECT_PYC": "sourceless"},
+        precompile = "sourceless",
+        pyc_shards = shards,
+        target = ":forwarded_{}_test".format(name),
+    )
+    for name, _, _ in FORWARDED_PRECOMPILE
+    for shards, label in [
+        ("1", "one"),
+        ("-1", "auto"),
+    ]
+]
+
 # rules_python keeps `pyi_srcs` out of runfiles and in PyInfo only; rules_py
 # picks them up from the foreign provider into its own PyInfo.
 rules_python_library(
@@ -291,17 +441,161 @@ foreign_stubs_test(
     target_under_test = ":stubbed_wrapper",
 )
 
-# rules_python moves a precompiled source out of PyInfo.transitive_sources
-# under precompile_source_retention = omit_source; rules_py still ships it.
-rules_python_library(
-    name = "precompiled_lib",
-    srcs = ["precompiled_lib.py"],
-)
-
 rules_py_test(
     name = "rules_python_dep_test",
     srcs = ["rules_python_dep_test.py"],
     deps = [":precompiled_lib"],
+)
+
+rules_py_test(
+    name = "rules_python_dep_pyc_test",
+    srcs = ["rules_python_dep_test.py"],
+    env = {"EXPECT_PYC": "pycache"},
+    main = "rules_python_dep_test.py",
+    precompile = "pycache",
+    deps = [":precompiled_lib"],
+)
+
+# rules_python_dep_test under global bytecode flags, across rules_python's
+# precompilation settings.
+[
+    pyc_config_test(
+        name = "rules_python_dep_{}_test".format(name),
+        env = env,
+        precompile = pyc,
+        rules_python_precompile = precompile,
+        rules_python_precompile_source_retention = retention,
+        target = ":rules_python_dep_test",
+    )
+    for name, pyc, precompile, retention, env in [
+        (
+            "sourceless",
+            "sourceless",
+            "",
+            "",
+            {
+                "EXPECT_PYC": "sourceless",
+                "EXPECT_SOURCE_IN_RUNFILES": "1",
+            },
+        ),
+        (
+            "omit_source_pyc",
+            "pycache",
+            "",
+            "omit_source",
+            {"EXPECT_PYC": "pycache"},
+        ),
+        (
+            "omit_source_pyc_only",
+            "sourceless",
+            "",
+            "omit_source",
+            {"EXPECT_PYC": "sourceless"},
+        ),
+        (
+            "disabled_pyc_only",
+            "sourceless",
+            "force_disabled",
+            "",
+            {
+                "EXPECT_PYC": "sourceless",
+                "EXPECT_SOURCE_IN_RUNFILES": "1",
+            },
+        ),
+    ]
+]
+
+# rules_py compiles only the layout rules_python did not precompile.
+[
+    [
+        bytecode_producers(
+            name = "precompiled_lib_{}_producers".format(name),
+            library = ":precompiled_lib",
+            precompile = precompile,
+            precompile_source_retention = retention,
+        ),
+        expect_test(
+            name = "precompiled_lib_{}_producers_test".format(name),
+            actual = ":precompiled_lib_{}_producers".format(name),
+            lines = expected,
+        ),
+    ]
+    for name, precompile, retention, expected in [
+        (
+            "keep_source",
+            "",
+            "keep_source",
+            [
+                "pycache=rules_python",
+                "pyc=rules_py",
+            ],
+        ),
+        (
+            "omit_source",
+            "",
+            "omit_source",
+            [
+                "pycache=rules_py",
+                "pyc=rules_python",
+            ],
+        ),
+        (
+            "disabled",
+            "force_disabled",
+            "",
+            [
+                "pycache=rules_py",
+                "pyc=rules_py",
+            ],
+        ),
+    ]
+]
+
+# rules_py's hub has no 3.11: the cache tag and compiler come from
+# rules_python's own runtime.
+rules_py_test(
+    name = "rules_python_dep_pyc_311_test",
+    srcs = ["rules_python_dep_test.py"],
+    env = {"EXPECT_PYC": "pycache"},
+    main = "rules_python_dep_test.py",
+    precompile = "pycache",
+    python_version = "3.11",
+    deps = [":precompiled_lib"],
+)
+
+rules_py_test(
+    name = "rules_python_dep_pyc_only_311_test",
+    srcs = ["rules_python_dep_test.py"],
+    env = {
+        "EXPECT_PYC": "sourceless",
+        "EXPECT_SOURCE_IN_RUNFILES": "1",
+    },
+    main = "rules_python_dep_test.py",
+    precompile = "sourceless",
+    python_version = "3.11",
+    deps = [":precompiled_lib"],
+)
+
+# The aspect only compiles sources owned by the library's own package, so a
+# source borrowed from another package leaves sourceless incomplete.
+rules_python_library(
+    name = "cross_package_lib",
+    srcs = ["//cross-package:helper.py"],
+)
+
+rules_py_test(
+    name = "cross_package_pyc_only_test",
+    srcs = ["rules_python_dep_test.py"],
+    main = "rules_python_dep_test.py",
+    precompile = "sourceless",
+    tags = ["manual"],
+    deps = [":cross_package_lib"],
+)
+
+analysis_failure_test(
+    name = "cross_package_pyc_only_failure_test",
+    expected_error = "sourceless could not compile all first-party sources: cross-package/helper.py",
+    target_under_test = ":cross_package_pyc_only_test",
 )
 
 # rules_python's console-script machinery reads the pip hub's dist-info to
@@ -335,3 +629,79 @@ build_test(
     name = "zipapp_test",
     targets = [":pycowsay_zipapp"],
 )
+
+# rules_py reuses whichever layout rules_python already precompiled and
+# compiles only the missing one, so no output is declared twice.
+[
+    rules_python_library(
+        name = "reuse_{}_lib".format(name),
+        srcs = ["reuse_{}.py".format(name)],
+        precompile = precompile,
+        precompile_source_retention = retention,
+    )
+    for name, precompile, retention in [
+        ("keep_source", "enabled", "keep_source"),
+        ("omit_source", "enabled", "omit_source"),
+        ("disabled", "disabled", "inherit"),
+    ]
+]
+
+[
+    bytecode_reuse_check(
+        name = "reuse_{}_check".format(name),
+        library = ":reuse_{}_lib".format(name),
+        reused = reused,
+    )
+    for name, reused in [
+        ("keep_source", "pycache"),
+        ("omit_source", "pyc"),
+        ("disabled", "none"),
+    ]
+]
+
+build_test(
+    name = "bytecode_reuse_test",
+    targets = [
+        ":reuse_keep_source_check",
+        ":reuse_omit_source_check",
+        ":reuse_disabled_check",
+    ],
+)
+
+# The same checked-in source listed by a rules_py and a rules_python library.
+# A consumer of both analyzes in every mode while rules_python leaves the
+# source uncompiled; with rules_python precompiling it, both rulesets claim the
+# natural bytecode paths and test.sh asserts the documented analysis conflict.
+[
+    [
+        py_library(
+            name = "shared_{}_rules_py".format(name),
+            srcs = ["shared/{}.py".format(name)],
+            imports = ["shared"],
+            tags = ["manual"] if precompile == "enabled" else [],
+        ),
+        rules_python_library(
+            name = "shared_{}_rules_python".format(name),
+            srcs = ["shared/{}.py".format(name)],
+            imports = ["shared"],
+            precompile = precompile,
+            precompile_source_retention = retention,
+            tags = ["manual"] if precompile == "enabled" else [],
+        ),
+        rules_py_test(
+            name = "shared_{}_test".format(name),
+            srcs = ["shared_source_test.py"],
+            env = {"SHARED_MODULE": name},
+            main = "shared_source_test.py",
+            tags = ["manual"] if precompile == "enabled" else [],
+            deps = [
+                ":shared_{}_rules_py".format(name),
+                ":shared_{}_rules_python".format(name),
+            ],
+        ),
+    ]
+    for name, precompile, retention in [
+        ("disabled", "disabled", "inherit"),
+        ("keep_source", "enabled", "keep_source"),
+    ]
+]

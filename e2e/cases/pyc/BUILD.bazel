@@ -1,0 +1,564 @@
+load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_library", "py_pex_binary", "py_test", "py_venv")
+load("@aspect_rules_py//py/private/py_venv:defs.bzl", "py_venv_exec_test")
+load("@aspect_rules_py//py/tests:analysis_failure_test.bzl", "analysis_failure_test")
+load("@aspect_rules_py//py/tests:pyc_testing.bzl", "compile_action_count", "compile_action_count_test", "dependency_configuration_test", "library_configuration_test", "output_configuration_test", "pyc_config_files", "pyc_config_test", "runfiles_with_suffix_test")
+load("@bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
+load("@bazel_skylib//rules:build_test.bzl", "build_test")
+load("@bazel_skylib//rules:diff_test.bzl", "diff_test")
+
+package(default_testonly = True)
+
+# test.sh keeps only checks needing a build-level error or an execution log.
+
+py_venv(
+    name = "shared_venv",
+    srcs = [
+        "entry_a.py",
+        "shared_lib.py",
+    ],
+    imports = ["."],
+)
+
+py_venv_exec_test(
+    name = "test_pyc_default",
+    main = "entry_a.py",
+    venv = ":shared_venv",
+)
+
+py_venv_exec_test(
+    name = "test_pyc_cache",
+    main = "entry_a.py",
+    precompile = "pycache",
+    venv = ":shared_venv",
+)
+
+py_venv_exec_test(
+    name = "test_pyc_only",
+    main = "entry_a.py",
+    precompile = "sourceless",
+    venv = ":shared_venv",
+)
+
+py_library(
+    name = "batch_conflict_a",
+    srcs = [
+        "entry_a.py",
+        "shared_lib.py",
+    ],
+)
+
+py_library(
+    name = "batch_conflict_b",
+    srcs = [
+        "entry_versioned.py",
+        "shared_lib.py",
+    ],
+)
+
+py_binary(
+    name = "batch_conflict_bin",
+    srcs = ["noop.py"],
+    tags = ["manual"],
+    deps = [
+        ":batch_conflict_a",
+        ":batch_conflict_b",
+    ],
+)
+
+py_venv(
+    name = "shared_versioned_venv",
+    srcs = ["entry_versioned.py"],
+    imports = ["."],
+)
+
+[
+    py_venv_exec_test(
+        name = "{}_python_{}".format(
+            prefix,
+            version.replace(".", ""),
+        ),
+        main = "entry_versioned.py",
+        precompile = mode,
+        python_version = version,
+        venv = ":shared_versioned_venv",
+    )
+    for mode, prefix in {
+        "off": "test_pyc_source",
+        "pycache": "test_pyc",
+        "sourceless": "test_pyc_only",
+    }.items()
+    for version in ("3.12", "3.13")
+]
+
+genrule(
+    name = "gen_main",
+    outs = ["main_generated.py"],
+    cmd = "echo 'print(\"ok\")' > $@",
+)
+
+# A rule target in `srcs` is opaque to bytecode compilation.
+py_binary(
+    name = "main_from_genrule_bin",
+    srcs = [":gen_main"],
+    main = ":gen_main",
+)
+
+# Bytecode compilation requires the generated file's own label in `srcs`.
+py_binary(
+    name = "main_from_genrule_pyc_bin",
+    srcs = ["main_generated.py"],
+    main = ":gen_main",
+    precompile = "sourceless",
+)
+
+platform(
+    name = "linux_amd64",
+    constraint_values = [
+        "@platforms//os:linux",
+        "@platforms//cpu:x86_64",
+    ],
+    # Pin libc so the PBS linux-gnu toolchain matches regardless of host.
+    flags = ["--@aspect_rules_py//uv/private/constraints/platform:platform_libc=glibc"],
+)
+
+platform(
+    name = "linux_arm64",
+    constraint_values = [
+        "@platforms//os:linux",
+        "@platforms//cpu:aarch64",
+    ],
+    flags = ["--@aspect_rules_py//uv/private/constraints/platform:platform_libc=glibc"],
+)
+
+py_binary(
+    name = "noop_bin",
+    srcs = ["noop.py"],
+)
+
+py_binary(
+    name = "inner_bin",
+    srcs = ["noop.py"],
+    deps = [":pex_lib"],
+)
+
+py_test(
+    name = "launcher_dep_test",
+    srcs = ["launcher_dep_test.py"],
+    imports = ["."],
+    main = "launcher_dep_test.py",
+    precompile = "sourceless",
+    deps = [":inner_bin"],
+)
+
+# Runtime data canonicalizes to source mode; an explicit attribute still pins the child.
+py_binary(
+    name = "data_child_bin",
+    srcs = ["noop.py"],
+    precompile = "sourceless",
+    deps = [":pex_lib"],
+)
+
+py_test(
+    name = "data_child_test",
+    srcs = ["data_child_test.py"],
+    data = [":data_child_bin"],
+    main = "data_child_test.py",
+)
+
+# The emitted .venv_link runs rules_py's own link script; bytecode modes never apply to it.
+py_binary(
+    name = "link_bin",
+    srcs = ["noop.py"],
+    expose_venv_link = True,
+)
+
+py_pex_binary(
+    name = "noop_pex",
+    binary = ":noop_bin",
+    python_interpreter_constraints = [],
+)
+
+py_library(
+    name = "pex_lib",
+    srcs = ["pex_lib.py"],
+)
+
+# The dependency's __pycache__ is in the binary's runfiles; the PEX drops it.
+py_binary(
+    name = "pyc_noop_bin",
+    srcs = ["noop.py"],
+    precompile = "pycache",
+    deps = [":pex_lib"],
+)
+
+py_pex_binary(
+    name = "pyc_noop_pex",
+    binary = ":pyc_noop_bin",
+    python_interpreter_constraints = [],
+)
+
+genrule(
+    name = "data_fixture",
+    outs = ["data_fixture.pyc"],
+    cmd = "echo fixture > $@",
+)
+
+# A .pyc listed in data is payload, not compiled bytecode; the PEX ships it.
+py_binary(
+    name = "data_pyc_bin",
+    srcs = ["noop.py"],
+    data = [":data_fixture"],
+)
+
+py_pex_binary(
+    name = "data_pyc_pex",
+    binary = ":data_pyc_bin",
+    python_interpreter_constraints = [],
+)
+
+py_test(
+    name = "pex_no_bytecode_test",
+    srcs = ["pex_no_bytecode_test.py"],
+    data = [
+        ":data_pyc_pex",
+        ":noop_pex",
+        ":pyc_noop_pex",
+    ],
+    main = "pex_no_bytecode_test.py",
+)
+
+py_binary(
+    name = "pyc_only_noop_bin",
+    srcs = ["noop.py"],
+    precompile = "sourceless",
+    tags = ["manual"],
+)
+
+py_pex_binary(
+    name = "pyc_only_noop_pex",
+    binary = ":pyc_only_noop_bin",
+    tags = ["manual"],
+)
+
+[
+    py_test(
+        name = "traceback_{}_test".format(mode),
+        srcs = [
+            "raiser.py",
+            "traceback_test.py",
+        ],
+        env = {"EXPECT_PYC": mode},
+        imports = ["."],
+        main = "traceback_test.py",
+        precompile = mode,
+    )
+    for mode in [
+        "pycache",
+        "sourceless",
+    ]
+]
+
+pyc_config_test(
+    name = "pex_no_bytecode_pyc_flag_test",
+    precompile = "pycache",
+    target = ":pex_no_bytecode_test",
+)
+
+compile_action_count_test(
+    name = "pex_edge_disables_global_bytecode_test",
+    expected = 0,
+    modes = [
+        "pycache",
+        "sourceless",
+    ],
+    targets = [":noop_pex"],
+)
+
+compile_action_count_test(
+    name = "pex_edge_keeps_explicit_bytecode_test",
+    expected = 2,
+    targets = [":pyc_noop_pex"],
+)
+
+analysis_failure_test(
+    name = "pyc_only_pex_rejected_test",
+    expected_error = "sourceless strips the sources a PEX ships",
+    target_under_test = ":pyc_only_noop_pex",
+)
+
+pyc_config_files(
+    name = "link_bin_pyc_only_flag",
+    srcs = [":link_bin.venv_link"],
+    precompile = "sourceless",
+)
+
+build_test(
+    name = "venv_link_ignores_pyc_flag_test",
+    targets = [":link_bin_pyc_only_flag"],
+)
+
+pyc_config_test(
+    name = "test_pyc_default_pyc_flag_test",
+    precompile = "pycache",
+    target = ":test_pyc_default",
+)
+
+runfiles_with_suffix_test(
+    name = "global_flag_ships_bytecode_test",
+    expected = ["pyc/__pycache__/shared_lib.cpython-311.pyc"],
+    precompile = "pycache",
+    suffix = ".pyc",
+    target = ":test_pyc_default",
+)
+
+runfiles_with_suffix_test(
+    name = "explicit_source_pins_under_pyc_flag_test",
+    expected = [],
+    precompile = "pycache",
+    suffix = ".pyc",
+    target = ":test_pyc_source_python_313",
+)
+
+runfiles_with_suffix_test(
+    name = "source_mode_ships_no_bytecode_test",
+    expected = [],
+    precompile = "off",
+    suffix = ".pyc",
+    target = ":test_pyc_default",
+)
+
+compile_action_count_test(
+    name = "source_mode_declares_no_bytecode_test",
+    expected = 0,
+    precompile = "off",
+    targets = [":test_pyc_default"],
+)
+
+compile_action_count_test(
+    name = "rule_target_srcs_are_opaque_test",
+    expected = 0,
+    targets = [":main_from_genrule_bin"],
+)
+
+compile_action_count_test(
+    name = "all_modes_share_venv_bytecode_test",
+    expected = 2,
+    targets = [
+        ":test_pyc_cache",
+        ":test_pyc_default",
+        ":test_pyc_only",
+    ],
+)
+
+compile_action_count_test(
+    name = "one_shard_batches_target_test",
+    expected = 1,
+    pyc_shards = "1",
+    targets = [":test_pyc_cache"],
+)
+
+pyc_config_test(
+    name = "test_pyc_only_one_shard_test",
+    pyc_shards = "1",
+    target = ":test_pyc_only",
+)
+
+compile_action_count_test(
+    name = "bytecode_forks_per_version_312_test",
+    expected = 1,
+    targets = [":test_pyc_python_312"],
+)
+
+compile_action_count_test(
+    name = "bytecode_forks_per_version_313_test",
+    expected = 1,
+    targets = [":test_pyc_python_313"],
+)
+
+compile_action_count_test(
+    name = "bytecode_forks_per_version_matrix_test",
+    expected = 2,
+    targets = [
+        ":test_pyc_only_python_312",
+        ":test_pyc_only_python_313",
+        ":test_pyc_python_312",
+        ":test_pyc_python_313",
+        ":test_pyc_source_python_312",
+        ":test_pyc_source_python_313",
+    ],
+)
+
+platform_transition_filegroup(
+    name = "main_from_genrule_pyc_linux_amd64",
+    srcs = [":main_from_genrule_pyc_bin"],
+    target_platform = ":linux_amd64",
+)
+
+platform_transition_filegroup(
+    name = "main_from_genrule_pyc_linux_arm64",
+    srcs = [":main_from_genrule_pyc_bin"],
+    target_platform = ":linux_arm64",
+)
+
+genrule(
+    name = "main_from_genrule_pyc_linux_amd64_bytecode",
+    srcs = [":main_from_genrule_pyc_linux_amd64"],
+    outs = ["main_from_genrule_pyc_linux_amd64.pyc"],
+    cmd = "for f in $(SRCS); do case $$f in *.pyc) cp $$f $@;; esac; done",
+)
+
+genrule(
+    name = "main_from_genrule_pyc_linux_arm64_bytecode",
+    srcs = [":main_from_genrule_pyc_linux_arm64"],
+    outs = ["main_from_genrule_pyc_linux_arm64.pyc"],
+    cmd = "for f in $(SRCS); do case $$f in *.pyc) cp $$f $@;; esac; done",
+)
+
+diff_test(
+    name = "cross_compiled_bytecode_is_platform_independent_test",
+    file1 = ":main_from_genrule_pyc_linux_amd64_bytecode",
+    file2 = ":main_from_genrule_pyc_linux_arm64_bytecode",
+)
+
+pyc_config_test(
+    name = "data_child_source_flag_test",
+    precompile = "off",
+    target = ":data_child_test",
+)
+
+pyc_config_test(
+    name = "data_child_pyc_flag_test",
+    precompile = "pycache",
+    target = ":data_child_test",
+)
+
+pyc_config_test(
+    name = "data_child_pyc_only_flag_test",
+    precompile = "sourceless",
+    target = ":data_child_test",
+)
+
+# An inactive parent adds no compiles, and the data child keeps one configuration.
+compile_action_count(
+    name = "data_child_compiles",
+    modes = [
+        "pycache",
+        "sourceless",
+    ],
+    targets = [":data_child_test"],
+)
+
+compile_action_count(
+    name = "data_child_all_modes_compiles",
+    modes = [
+        "off",
+        "pycache",
+        "sourceless",
+    ],
+    targets = [":data_child_test"],
+)
+
+diff_test(
+    name = "data_executables_canonicalize_test",
+    file1 = ":data_child_compiles",
+    file2 = ":data_child_all_modes_compiles",
+)
+
+output_configuration_test(
+    name = "launchers_stay_in_requesting_configuration_test",
+    expected = "requesting",
+    target = ":main_from_genrule_bin",
+)
+
+# A library requested directly keeps the requesting configuration and still shares a launcher's bytecode.
+[
+    library_configuration_test(
+        name = "library_{}_configuration_test".format(mode),
+        expected = [
+            "requesting",
+            "shared",
+        ],
+        launcher = ":inner_bin",
+        lib = ":pex_lib",
+        precompile = mode,
+    )
+    for mode in [
+        "pycache",
+        "sourceless",
+    ]
+]
+
+# A non-Python action below a launcher runs in the requesting configuration, so
+# targets outside the Python closure share it; test.sh checks it across invocations.
+genrule(
+    name = "gen_shared_module",
+    outs = ["shared_generated.py"],
+    cmd = "echo 'VALUE = 1' > $@",
+)
+
+py_library(
+    name = "gen_shared_lib",
+    srcs = ["shared_generated.py"],
+)
+
+[
+    py_binary(
+        name = "gen_shared_{}_bin".format(precompile or "unset"),
+        srcs = ["noop.py"],
+        main = "noop.py",
+        precompile = precompile,
+        deps = [":gen_shared_lib"],
+    )
+    for precompile in [
+        None,
+        "pycache",
+        "sourceless",
+    ]
+]
+
+[
+    dependency_configuration_test(
+        name = "gen_shared_{}_under_{}_configuration_test".format(precompile, mode),
+        dep = ":gen_shared_module",
+        expected = "shared",
+        launcher = ":gen_shared_{}_bin".format(precompile),
+        precompile = mode,
+    )
+    for mode in [
+        "pycache",
+        "sourceless",
+    ]
+    for precompile in [
+        "unset",
+        "pycache",
+        "sourceless",
+    ]
+]
+
+# Source-only builds declare no bytecode, so another rule may own a natural
+# bytecode path beside a library's source.
+genrule(
+    name = "genmod_bytecode",
+    outs = ["genmod.pyc"],
+    cmd = "touch $@",
+)
+
+py_library(
+    name = "genmod_lib",
+    srcs = ["genmod.py"],
+    imports = ["."],
+)
+
+py_binary(
+    name = "genmod_bin",
+    srcs = ["genmod_main.py"],
+    deps = [":genmod_lib"],
+)
+
+build_test(
+    name = "source_mode_leaves_bytecode_paths_free_test",
+    targets = [
+        ":genmod_bin",
+        ":genmod_bytecode",
+    ],
+)

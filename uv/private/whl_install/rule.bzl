@@ -1,8 +1,9 @@
 """
 """
 
-load("//py/private:providers.bzl", "PyWheelsInfo", "make_wheel_record")
+load("//py/private:providers.bzl", "PyWheelsInfo", "WHEEL_PYC_INFO", "make_wheel_record")
 load("//py/private:py_info.bzl", "PyInfo")
+load("//py/private:transitions.bzl", "no_bytecode_transition")
 load("//py/private/toolchain:types.bzl", "EXEC_TOOLS_TOOLCHAIN", "PY_TOOLCHAIN")
 
 # SourceBuiltWheelInfo carries console scripts the pep517 builder detected in
@@ -310,6 +311,7 @@ def _whl_install(ctx):
         ),
     ]
 
+    providers.append(WHEEL_PYC_INFO)
     providers.append(PyWheelsInfo(
         # See make_wheel_record / the PyWheelsInfo field docs for each
         # field's semantics. `install_tree` holds the installed file tree
@@ -347,6 +349,7 @@ unpack tool, which uses a subset of UV's machinery. Critically, this allows us
 to bypass some of the platform checks that UV does to enable crossbuilds, and is
 lighter weight since the toolchain's files aren't inputs.
 """,
+    cfg = no_bytecode_transition,
     attrs = {
         "_unpack_script": attr.label(
             default = "//py/tools/unpack:unpack.py",

@@ -9,9 +9,11 @@ attrs to the auto-generated sibling.
 load("@bazel_lib//lib:expand_make_vars.bzl", "expand_locations", "expand_variables")
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load("@hermetic_launcher//launcher:lib.bzl", "launcher")
+load("//py/private:providers.bzl", "PycInfo")
 load("//py/private:py_info.bzl", "PyInfo")
 load("//py/private:py_info_interop.bzl", "RulesPythonPyInfo", "get_transitive_sources", "has_py_info")
 load("//py/private:py_semantics.bzl", _py_semantics = "semantics")
+load("//py/private:pyc.bzl", "PYC_MODES", "PYC_MODE_ATTRS", "PycModeInfo")
 load("//py/private:transitions.bzl", "reset_python_flags_transition", "venv_python_transition")
 load(":types.bzl", "VirtualenvInfo", "venv_root")
 
@@ -28,6 +30,130 @@ def _single_venv(value):
             fail("venv must resolve to exactly one target, got {}".format(len(value)))
         return value[0]
     return value
+
+def _pyc_mode(ctx):
+    mode = ctx.attr.precompile
+    if mode == "":
+        mode = ctx.attr._pyc_flag[BuildSettingInfo].value
+
+    # coverage.py attributes lines to source files, which only sourceless omits.
+    if mode == "sourceless" and ctx.configuration.coverage_enabled:
+        return "pycache"
+    return mode
+
+def _requests_optimization(opt):
+    """Whether a single-dash option bundles `-O`; `-W`/`-X`/`-c`/`-m` take the rest as argument."""
+    if not opt.startswith("-") or opt.startswith("--"):
+        return False
+    for letter in opt[1:].elems():
+        if not letter.isalpha() or letter in "WXcm":
+            return False
+        if letter == "O":
+            return True
+    return False
+
+def _main_entry(entries, main):
+    """The bytecode entry compiled from `main`, or None.
+
+    Matched by runfiles path: the venv's configuration gives generated sources other exec paths.
+    """
+    for entry in entries:
+        if entry.source.short_path == main.short_path:
+            return entry
+    return None
+
+def _without_pycache(info, pycache_files):
+    return PycInfo(
+        complete = info.complete,
+        conflicts = info.conflicts,
+        direct_entries = info.direct_entries,
+        entries = info.entries,
+        missing_sources = info.missing_sources,
+        pycache_files = pycache_files,
+        sourceless_files = info.sourceless_files,
+        transitive_pycache_files = info.transitive_pycache_files,
+    )
+
+def _resolve_pyc(ctx, venv, main, passed_env, inherited_env):
+    mode = _pyc_mode(ctx)
+    vinfo = venv[VirtualenvInfo]
+    if mode == "off":
+        return struct(
+            entrypoint = main,
+            info = venv[PycInfo] if PycInfo in venv else None,
+            mode = mode,
+            venv_files = vinfo.transitive_sources,
+        )
+
+    if PycInfo not in venv:
+        fail("{}: bytecode mode requires a rules_py py_venv, which always carries first-party bytecode mappings".format(ctx.label))
+
+    info = venv[PycInfo]
+    conflicts = info.conflicts.to_list()
+    if conflicts:
+        fail("{}: {} mode cannot use dependency bytecode: {}. Set precompile_optimize_level = 0 on those targets or use precompile = \"off\".".format(ctx.label, mode, "; ".join(conflicts)))
+
+    if mode == "pycache":
+        # CPython never reads a cache for the script it runs, so main's is not shipped.
+        main_entry = _main_entry(info.direct_entries, main)
+        if main_entry != None:
+            info = _without_pycache(info, depset(
+                [entry.pycache for entry in info.direct_entries if entry != main_entry],
+                transitive = [info.transitive_pycache_files],
+            ))
+        return struct(
+            entrypoint = main,
+            info = info,
+            mode = mode,
+            venv_files = depset(transitive = [vinfo.transitive_sources, info.pycache_files]),
+        )
+
+    # Sourceless bytecode is level 0 and loads regardless of the optimization requested.
+    for opt in ctx.attr.interpreter_options:
+        if _requests_optimization(opt):
+            fail("{}: sourceless ships level-0 bytecode without sources; interpreter_options {} is incompatible. Use precompile = \"pycache\" or \"off\" for optimized interpreters.".format(ctx.label, opt))
+    if (
+        "PYTHONOPTIMIZE" in ctx.attr.env or
+        "PYTHONOPTIMIZE" in ctx.attr.env_inherit or
+        "PYTHONOPTIMIZE" in passed_env or
+        "PYTHONOPTIMIZE" in inherited_env
+    ):
+        fail("{}: sourceless does not support PYTHONOPTIMIZE in env or env_inherit, even when set to 0. Remove it or use precompile = \"pycache\" or \"off\".".format(ctx.label))
+
+    if not info.complete:
+        missing = sorted([src.short_path for src in info.missing_sources.to_list()])
+        fail("{}: sourceless could not compile all first-party sources{}".format(
+            ctx.label,
+            ": " + ", ".join(missing) if missing else "",
+        ))
+
+    main_entry = _main_entry(info.direct_entries, main) or _main_entry(vinfo.dep_pyc_entries, main)
+    if main_entry == None:
+        fail(("{}: sourceless requested but no bytecode was produced for main {}. " +
+              "List the main in the srcs of the venv or of one of its direct first-party deps.").format(ctx.label, main))
+
+    venv_files = info.sourceless_files
+    if ctx.attr.retain_srcs:
+        venv_files = depset(
+            ctx.files.srcs + [main] + _package_markers(info, ctx.files.srcs + [main]),
+            transitive = [info.sourceless_files],
+        )
+    return struct(
+        entrypoint = main_entry.pyc,
+        info = info,
+        mode = mode,
+        venv_files = venv_files,
+    )
+
+def _package_markers(info, retained):
+    """The `__init__.py` sources above retained files; pytest names test modules by them."""
+    wanted = {}
+    for f in retained:
+        directory = f.short_path.rpartition("/")[0]
+        for _ in range(f.short_path.count("/")):
+            wanted[directory + "/__init__.py" if directory else "__init__.py"] = True
+            directory = directory.rpartition("/")[0]
+    return [entry.source for entry in info.entries.to_list() if entry.source.short_path in wanted]
 
 def _py_venv_exec_impl(ctx):
     # The launcher itself doesn't need a python toolchain — it just
@@ -62,6 +188,8 @@ def _py_venv_exec_impl(ctx):
         venv_env = venv[RunEnvironmentInfo]
         passed_env = dict(venv_env.environment)
         inherited_env = list(venv_env.inherited_environment)
+
+    pyc = _resolve_pyc(ctx, venv, main, passed_env, inherited_env)
 
     # Owned by the rule. The lib venv variant carries no `env` to guard,
     # so guard here to match the executable variant's check.
@@ -106,7 +234,7 @@ def _py_venv_exec_impl(ctx):
             transformed_args = transformed_args,
         )
     embedded_args, transformed_args = launcher.append_runfile(
-        file = main,
+        file = pyc.entrypoint,
         embedded_args = embedded_args,
         transformed_args = transformed_args,
     )
@@ -118,19 +246,17 @@ def _py_venv_exec_impl(ctx):
     )
 
     # Merge runfiles, supporting `py_venv_exec(main)` not being in the `py_venv` runfiles.
+    # A launcher's runfiles already carry its sources in its own bytecode mode.
     data_sources = [
         get_transitive_sources(target)
         for target in ctx.attr.data
-        if has_py_info(target)
+        if has_py_info(target) and PycModeInfo not in target
     ]
 
-    # First-party import sources attach explicitly; everything else the venv
-    # needs at runtime (venv files, wheels, data) comes from its
-    # runtime_runfiles, so a terminal can substitute the source set without
-    # re-deriving the rest.
+    # rules_python may retain its sources in the venv's runtime runfiles.
     runfiles = ctx.runfiles(
-        files = ctx.files.data + [main],
-        transitive_files = depset(transitive = [vinfo.transitive_sources] + data_sources),
+        files = ctx.files.data + ([] if pyc.mode == "sourceless" else [main]),
+        transitive_files = depset(transitive = [pyc.venv_files] + data_sources),
     ).merge(vinfo.runtime_runfiles).merge_all(
         [target[DefaultInfo].default_runfiles for target in ctx.attr.data],
     )
@@ -146,7 +272,7 @@ def _py_venv_exec_impl(ctx):
 
     providers = [
         DefaultInfo(
-            files = depset([executable_launcher, main]),
+            files = depset([executable_launcher, pyc.entrypoint]),
             executable = executable_launcher,
             runfiles = runfiles,
         ),
@@ -167,7 +293,10 @@ def _py_venv_exec_impl(ctx):
             environment = passed_env,
             inherited_environment = inherited_env,
         ),
+        PycModeInfo(mode = pyc.mode),
     ]
+    if pyc.info != None:
+        providers.append(pyc.info)
 
     if ctx.attr._emit_rules_python_providers[BuildSettingInfo].value:
         providers.append(RulesPythonPyInfo(
@@ -198,7 +327,9 @@ wrapper is one action and one runfile per binary and most binaries never spawn o
         doc = """
 Script to execute with the Python interpreter.
 
-Required. Must be a label pointing to a `.py` source file.
+Required. Must be a label pointing to a `.py` source file. Under `sourceless`
+it must also be in the `srcs` of the venv or of one of its direct first-party deps:
+bytecode is compiled in the venv's configuration, under its Python version.
 """,
     ),
     "venv": attr.label(
@@ -213,13 +344,29 @@ the macro layer in `//py:defs.bzl`.
 
 The binary's launcher exec's the referenced venv's `bin/python`; its
 runfiles inherit the venv's runtime runfiles for wheels and runtime data,
-and add first-party sources from `VirtualenvInfo.transitive_sources` at
+and add first-party sources (or their compiled bytecode, per `precompile`) at
 their usual rlocation paths. The edge transition forwards this launcher's
 `python_version` / `freethreaded` choices to the venv's configuration, so
 several launchers can resolve one venv label under different interpreter
 versions or GIL modes; unset, the inherited configuration passes through
-untouched.
+untouched. The edge also activates bytecode compilation in the venv when this
+launcher's `precompile` mode is `pycache` or `sourceless`; those two modes
+share one configured venv.
 """,
+    ),
+    "precompile": attr.string(
+        default = "",
+        values = [""] + PYC_MODES,
+        doc = """First-party bytecode packaging: `off` ships only `.py`
+sources; `pycache` additionally ships PEP 3147 `__pycache__` bytecode;
+`sourceless` ships colocated `.pyc` files in place of the sources. Empty
+(the default) follows the global `--@aspect_rules_py//py:precompile` flag; an explicit value
+pins the mode regardless of the flag. Configurable: `select()` values
+are accepted.""",
+    ),
+    "retain_srcs": attr.bool(
+        default = False,
+        doc = "Internal: under sourceless, ship this target's own srcs and main, plus the `__init__.py` files above them, as source beside their bytecode, for drivers that collect source files; other dependencies stay sourceless.",
     ),
     "python_version": attr.string(
         default = "",
@@ -278,7 +425,7 @@ that must match the terminal's Python environment in `deps`.
     "_emit_rules_python_providers": attr.label(
         default = "//py/private:emit_rules_python_providers",
     ),
-})
+}) | PYC_MODE_ATTRS
 
 _test_attrs = dict({
     # Magic attribute to make coverage --combined_report flag work.

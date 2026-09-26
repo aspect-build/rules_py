@@ -1,4 +1,5 @@
 load("//py:defs.bzl", "py_library", "py_pytest_test", "py_test", "py_unittest_test")
+load("//py/tests/py-venv-multi-exec:pyc_layout_test.bzl", "pyc_layout_test")
 
 package(default_testonly = True)
 
@@ -18,10 +19,71 @@ py_pytest_test(
     ],
 )
 
+py_pytest_test(
+    name = "pytest_pyc_af_unix_test",
+    srcs = ["pytest_af_unix_test.py"],
+    # Exercise configurable pyc forwarding through the public wrapper.
+    precompile = select({"//conditions:default": "pycache"}),
+    deps = [
+        ":af_unix_probe",
+        "@pypi//pytest",
+    ],
+)
+
+pyc_layout_test(
+    name = "pytest_pyc_runfiles_test",
+    mode = "pycache",
+    module = "pytest_af_unix_test",
+    target = ":pytest_pyc_af_unix_test",
+)
+
+# pytest collects its own srcs as source; dependencies ship sourceless.
+py_pytest_test(
+    name = "pytest_pyc_only_af_unix_test",
+    srcs = [
+        "pytest_af_unix_test.py",
+        "pytest_sourceless_deps_test.py",
+    ],
+    precompile = "sourceless",
+    deps = [
+        ":af_unix_probe",
+        "@pypi//pytest",
+    ],
+)
+
+pyc_layout_test(
+    name = "pytest_pyc_only_runfiles_test",
+    mode = "sourceless",
+    module = "pytest_af_unix_test",
+    protect_source = True,
+    target = ":pytest_pyc_only_af_unix_test",
+)
+
+pyc_layout_test(
+    name = "pytest_pyc_only_dep_runfiles_test",
+    mode = "sourceless",
+    module = "af_unix_probe",
+    target = ":pytest_pyc_only_af_unix_test",
+)
+
 py_unittest_test(
     name = "unittest_af_unix_test",
     srcs = ["unittest_af_unix_test.py"],
     deps = [":af_unix_probe"],
+)
+
+py_unittest_test(
+    name = "unittest_pyc_af_unix_test",
+    srcs = ["unittest_af_unix_test.py"],
+    precompile = "pycache",
+    deps = [":af_unix_probe"],
+)
+
+pyc_layout_test(
+    name = "unittest_pyc_runfiles_test",
+    mode = "pycache",
+    module = "unittest_af_unix_test",
+    target = ":unittest_pyc_af_unix_test",
 )
 
 py_test(
@@ -31,11 +93,18 @@ py_test(
     deps = [":af_unix_probe"],
 )
 
-# The driver resolves its test files from runfiles, so a same-named source in
-# the caller's working directory cannot shadow them.
+py_unittest_test(
+    name = "unittest_pyc_only_af_unix_test",
+    srcs = ["unittest_af_unix_test.py"],
+    precompile = "sourceless",
+    deps = [":af_unix_probe"],
+)
+
+# The driver resolves its packaged tests from runfiles, so a same-named
+# source in the caller's working directory cannot shadow them.
 py_test(
     name = "unittest_cwd_independence_test",
     srcs = ["unittest_cwd_independence_test.py"],
-    data = [":unittest_af_unix_test"],
-    env = {"UNITTEST_BIN": "$(rootpath :unittest_af_unix_test)"},
+    data = [":unittest_pyc_only_af_unix_test"],
+    env = {"UNITTEST_BIN": "$(rootpath :unittest_pyc_only_af_unix_test)"},
 )

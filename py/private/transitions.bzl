@@ -3,6 +3,16 @@
 _DEP_GROUP_FLAG = "@aspect_rules_py//uv/private/constraints/dep_group:dep_group"
 _DEP_GROUP_BASELINE_FLAG = "@aspect_rules_py//uv/private/constraints/dep_group:baseline"
 
+# Terminals read the requested mode; below them only whether it is `off` matters.
+# Edges keep the value whenever it already agrees, so a library requested
+# directly shares the configuration its launchers give it.
+PYC_FLAG = "@aspect_rules_py//py:precompile"
+
+def _bytecode_request(current, mode):
+    if (current != "off") == (mode != "off"):
+        return current
+    return "off" if mode == "off" else "pycache"
+
 # Our own python_version flag, replacing the rules_python one.
 _PYTHON_VERSION_FLAG = "@aspect_rules_py//py/private/interpreter:python_version"
 _PYTHON_VERSION_BASELINE_FLAG = "@aspect_rules_py//py/private/interpreter:baseline_python_version"
@@ -108,12 +118,15 @@ python_transition = transition(
 # transition always applies next, may override either half of a version/GIL
 # combination, and is the sole authority for rejecting the final configuration.
 def _venv_python_transition_impl(settings, attr):
-    return _python_transition_base(settings, attr, validate = False)
+    acc = _python_transition_base(settings, attr, validate = False)
+    acc[PYC_FLAG] = _bytecode_request(settings[PYC_FLAG], getattr(attr, "precompile", "") or settings[PYC_FLAG])
+    return acc
 
+# pycache and sourceless launchers share one configured venv.
 venv_python_transition = transition(
     implementation = _venv_python_transition_impl,
-    inputs = _ALL_FLAGS,
-    outputs = _ALL_FLAGS,
+    inputs = _ALL_FLAGS + [PYC_FLAG],
+    outputs = _ALL_FLAGS + [PYC_FLAG],
 )
 
 # Runtime data is outside the Python environment selected by terminal attrs.
@@ -121,7 +134,7 @@ venv_python_transition = transition(
 # clear the scratch state so data targets share the caller's canonical
 # configuration.
 def _reset_python_flags_transition_impl(settings, _attr):
-    acc = {}
+    acc = {PYC_FLAG: "off"}
     for flag, baseline_flag in _FLAG_BASELINE_PAIRS:
         baseline = settings[baseline_flag]
         if baseline == _BASELINE_UNSET:
@@ -135,6 +148,16 @@ def _reset_python_flags_transition_impl(settings, _attr):
 
 reset_python_flags_transition = transition(
     implementation = _reset_python_flags_transition_impl,
-    inputs = _ALL_FLAGS,
-    outputs = _ALL_FLAGS,
+    inputs = _ALL_FLAGS + [PYC_FLAG],
+    outputs = _ALL_FLAGS + [PYC_FLAG],
+)
+
+def _no_bytecode_transition_impl(_settings, _attr):
+    return {PYC_FLAG: "off"}
+
+# Wheels never compile first-party bytecode; one configuration serves every mode.
+no_bytecode_transition = transition(
+    implementation = _no_bytecode_transition_impl,
+    inputs = [],
+    outputs = [PYC_FLAG],
 )

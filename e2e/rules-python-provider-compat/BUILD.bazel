@@ -1,7 +1,20 @@
-load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_library", rules_py_test = "py_test")
+load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_library", "py_pyc_compiler_toolchain", rules_py_test = "py_test")
+load("@aspect_rules_py//py/tests:pyc_testing.bzl", "pyc_config_test")
 load("@rules_python//python:py_library.bzl", rules_python_library = "py_library")
 load("@rules_python//python:py_test.bzl", rules_python_test = "py_test")
 load(":type_stubs_test.bzl", "merged_stubs_test")
+
+# Only rules_python provides an interpreter here, so its runtime compiles bytecode.
+py_pyc_compiler_toolchain(
+    name = "rules_python_pyc_compiler",
+    runtime = "@python_3_12//:py3_runtime",
+)
+
+toolchain(
+    name = "rules_python_pyc_compiler_toolchain",
+    toolchain = ":rules_python_pyc_compiler",
+    toolchain_type = "@aspect_rules_py//py:pyc_compiler_toolchain_type",
+)
 
 # One converted library, two consumers: the @rules_python test stands in
 # for a package the migration hasn't reached yet, the rules_py test for one it
@@ -32,10 +45,12 @@ merged_stubs_test(
     target_under_test = ":rules_python_wrapper",
 )
 
+# Disabled so the rules_py tests sharing consumer_test.py don't conflict on __pycache__.
 rules_python_test(
     name = "rules_python_consumer_test",
     srcs = ["consumer_test.py"],
     main = "consumer_test.py",
+    precompile = "disabled",
     deps = [":lib"],
 )
 
@@ -87,3 +102,35 @@ rules_python_test(
     main = "binary_consumer_test.py",
     deps = [":tool"],
 )
+
+# py_library advertises rules_python's PyInfo here; the aspect must not add a second PycInfo.
+[
+    rules_py_test(
+        name = "rules_py_consumer_{}_test".format(mode),
+        srcs = ["consumer_test.py"],
+        main = "consumer_test.py",
+        precompile = mode,
+        deps = [":lib"],
+    )
+    for mode in [
+        "pycache",
+        "sourceless",
+    ]
+]
+
+[
+    pyc_config_test(
+        name = "{}_under_{}_test".format(consumer, mode),
+        precompile = mode,
+        target = ":{}_test".format(consumer),
+    )
+    for consumer in [
+        "rules_python_consumer",
+        "rules_python_transitive_consumer",
+        "rules_python_binary_consumer",
+    ]
+    for mode in [
+        "pycache",
+        "sourceless",
+    ]
+]
