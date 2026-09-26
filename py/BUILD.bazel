@@ -51,6 +51,12 @@ alias(
     visibility = ["//visibility:public"],
 )
 
+alias(
+    name = "unpack_toolchain_type",
+    actual = "//py/private/toolchain:unpack_toolchain_type",
+    visibility = ["//visibility:public"],
+)
+
 # Compatibility layer for half-migrated trees: with
 # --@aspect_rules_py//py:emit_rules_python_providers, py_library, py_binary,
 # and py_test also emit the @rules_python providers so not-yet-migrated
@@ -92,6 +98,7 @@ bzl_library(
         "//py/private:py_pytest_main",
         "//py/private:py_pytest_test",
         "//py/private:py_unittest_test",
+        "//py/private:py_unpack_toolchain",
         "//py/private:py_unpacked_wheel",
         "//py/private:py_wheel",
         "//py/private/interpreter:current_py_toolchain",
