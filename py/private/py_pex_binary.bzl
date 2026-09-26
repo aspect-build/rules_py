@@ -305,8 +305,23 @@ def _py_python_pex_impl(ctx):
         progress_message = "Building PEX binary %{label}",
     )
 
+    # VIRTUAL_ENV names the binary's runfiles venv, which the pex does not carry.
+    environment = {}
+    inherited_environment = []
+    if RunEnvironmentInfo in binary:
+        run_env = binary[RunEnvironmentInfo]
+        environment = {k: v for k, v in run_env.environment.items() if k != "VIRTUAL_ENV"}
+        inherited_environment = run_env.inherited_environment
+    environment["BAZEL_TARGET"] = str(ctx.label).lstrip("@")
+    environment["BAZEL_WORKSPACE"] = ctx.workspace_name
+    environment["BAZEL_TARGET_NAME"] = ctx.attr.name
+
     return [
         DefaultInfo(files = depset([output]), executable = output),
+        RunEnvironmentInfo(
+            environment = environment,
+            inherited_environment = inherited_environment,
+        ),
     ]
 
 _attrs = dict({
@@ -343,7 +358,15 @@ the `binary`'s own interpreter, the one the PEX is built for.
 })
 
 py_pex_binary = rule(
-    doc = "Build a pex executable from a py_binary",
+    doc = """\
+Build a pex executable from a py_binary.
+
+`bazel run` on the pex gets the `binary`'s `env` and `env_inherit`, with
+`BAZEL_TARGET`, `BAZEL_TARGET_NAME` and `BAZEL_WORKSPACE` naming the pex.
+`env` paths must use `$(rlocationpath)`: the pex resolves runfiles from its own
+archive, so `$(rootpath)`, `$(location)` and `$(execpath)` values do not exist.
+Outside of Bazel only `inject_env` applies.
+""",
     implementation = _py_python_pex_impl,
     attrs = _attrs,
     executable = True,
