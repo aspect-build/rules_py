@@ -2,10 +2,7 @@
 # e2e/rules-python-protobuf/, so %workspace% climbs two directories up to the
 # repo root where bazelrc-preset.bzl generates bazel/defaults.bazelrc.
 import %workspace%/../../bazel/defaults.bazelrc
-
-# Build without the bytes on CI.
-common:ci --remote_download_outputs=minimal
-common:ci --nobuild_runfile_links
+import %workspace%/../../bazel/workspace.bazelrc
 
 # protobuf's prebuilt-protoc toolchain (@protobuf//bazel/private/oss/toolchains/
 # prebuilt) calls ctx.actions.run_shell without a `toolchain` parameter, which
