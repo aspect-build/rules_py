@@ -7,8 +7,3 @@ import %workspace%/../../bazel/workspace.bazelrc
 # regression test) can analyze on hosts without a system JDK installed —
 # rules_java's local_jdk emits a fail_rule when no host JDK is detected.
 common --java_runtime_version=remotejdk_11
-
-# Enable path mapping so WhlInstall actions are exercised with
-# supports-path-mapping. Actions that declare the execution requirement get
-# configuration-stripped cache keys; those that don't still work normally.
-build --experimental_output_paths=strip
