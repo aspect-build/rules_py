@@ -12,3 +12,6 @@ common --incompatible_strict_action_env
 # Build without the bytes
 common:ci --remote_download_outputs=minimal
 common:ci --nobuild_runfile_links
+
+# Strip the configuration from output paths of actions that support path mapping.
+build --experimental_output_paths=strip

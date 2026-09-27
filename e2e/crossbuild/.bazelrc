@@ -6,8 +6,3 @@
 # Bazel will not create the directory.
 try-import %workspace%/../../.aspect/bazelrc
 import %workspace%/../../bazel/workspace.bazelrc
-
-# Enable path mapping so WhlInstall actions are exercised with
-# supports-path-mapping. Actions that declare the execution requirement get
-# configuration-stripped cache keys; those that don't still work normally.
-build --experimental_output_paths=strip
