@@ -1,3 +1,5 @@
+import %workspace%/../../bazel/workspace.bazelrc
+
 # The whole point of this workspace: a half-migrated tree turns on the
 # rules_python provider compatibility layer so its not-yet-converted
 # rules_python py_* targets can still depend on already-converted rules_py

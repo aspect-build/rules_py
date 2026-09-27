@@ -1,3 +1,5 @@
+import %workspace%/../../../bazel/workspace.bazelrc
+
 common --test_output=all
 
 # The imports=[".."] only works properly when this matches the python toolchain major version.

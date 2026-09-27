@@ -1,0 +1,14 @@
+# Settings shared by every Bazel workspace in this repository; each workspace's
+# .bazelrc imports this file. %workspace% here would expand to the importing
+# workspace, so do not use it.
+
+# Match Bazel 9's default. Without this, PySdistNativeBuild actions on
+# Bazel 8 run without a default PATH, and clang's compiled-in default
+# linker (`ld`, not bundled with the hermetic LLVM toolchain) can't be
+# located. With it on, Bazel injects a static PATH=/bin:/usr/bin:/usr/local/bin
+# so clang's PATH search hits the runner's /usr/bin/ld.
+common --incompatible_strict_action_env
+
+# Build without the bytes
+common:ci --remote_download_outputs=minimal
+common:ci --nobuild_runfile_links

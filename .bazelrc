@@ -2,6 +2,7 @@
 try-import %workspace%/.aspect/bazelrc
 
 import %workspace%/bazel/defaults.bazelrc
+import %workspace%/bazel/workspace.bazelrc
 
 common --test_output=errors
 common --incompatible_disallow_empty_glob=False
@@ -22,7 +23,3 @@ common --@aspect_rules_py//py:python_version=3.13
 
 # Uncomment to enable verbose diagnostics for uv repository rules (sdist builds, git archives)
 # common --repo_env=RULES_PY_UV_VERBOSE=1
-
-# Build without the bytes
-common:ci --remote_download_outputs=minimal
-common:ci --nobuild_runfile_links

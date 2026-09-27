@@ -1,2 +1,4 @@
+import %workspace%/../../bazel/workspace.bazelrc
+
 # Activate this project's dependency group so @pypi//<pkg> targets are selected.
 common --@pypi//dep_group=py-pex-binary-example
