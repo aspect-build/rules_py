@@ -113,6 +113,7 @@ def _assemble_venv_target(ctx, executable, console_scripts):
     return VirtualenvInfo(
         bin_python = assembled.bin_python,
         imports = imports_depset,
+        pyi_imports = _py_library.make_pyi_imports_depset(ctx),
         runtime_runfiles = runfiles,
         transitive_pyi_files = pyi_depset,
         transitive_sources = srcs_depset,
@@ -356,6 +357,7 @@ py_venv = _wrap_with_debug(_py_venv)
 # shared (copied into venv kwargs but kept in kwargs so they also reach
 # the launcher rule).
 _VENV_ONLY_ATTRS = [
+    "pyi_deps",
     "resolutions",
     "virtual_deps",
     "package_collisions",

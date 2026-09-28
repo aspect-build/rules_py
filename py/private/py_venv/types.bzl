@@ -22,8 +22,9 @@ binary's launcher exec's the venv's `bin_python`.
     fields = {
         "bin_python": "File — the venv's bin/python symlink. Callers needing a launcher target point here.",
         "imports": "depset[str] — rlocation-root-relative import paths covered by this venv. Mirrors `PyInfo.imports` of the venv's dep closure.",
+        "pyi_imports": "depset[str] — import roots of `pyi_deps` in the transitive closure, for type checkers only. Surfaced by py_binary as `PyInfo.pyi_imports`. Never written to the venv's `.pth`; merged into the launcher's `@rules_python` `PyInfo.imports` under the provider compatibility flag.",
         "runtime_runfiles": "Runfiles — venv, wheels, and data without Python import sources.",
-        "transitive_pyi_files": "depset[File] — `.pyi` type stubs from `srcs`, `deps` and virtual-resolution targets. Surfaced by py_binary as `PyInfo.transitive_pyi_files`; never placed in runfiles.",
+        "transitive_pyi_files": "depset[File] — `.pyi` type stubs from `srcs`, `deps` and virtual-resolution targets, plus the full source and stub closure of `pyi_deps`. Surfaced by py_binary as `PyInfo.transitive_pyi_files`; never placed in runfiles.",
         "transitive_sources": "depset[File] — source artifacts carried by this venv: its own `srcs`, sources from `deps` that emit `PyInfo`, and files contributed by virtual-resolution targets. Surfaced by py_binary as `PyInfo.transitive_sources` so downstream consumers see the same source closure they'd see if srcs/deps lived on the binary directly.",
         "runtime_files": "depset[File] — generated venv support files and the runfiles library; excludes dependency and interpreter runfiles.",
         "console_scripts": "depset[File] — `bin/<name>` console-script wrappers. Not part of `runtime_runfiles`; launchers add them via `include_console_scripts`.",

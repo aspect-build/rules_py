@@ -12,8 +12,9 @@ RulesPyInfo = provider(
     doc = "Python source, import-path, and virtual-dependency information for a target's dependency closure.",
     fields = {
         "transitive_sources": "depset[File] — postorder depset of first-party `.py` sources in the transitive closure.",
-        "transitive_pyi_files": "depset[File] — postorder depset of `.pyi` type stubs in the transitive closure.",
+        "transitive_pyi_files": "depset[File] — postorder depset of files needed only for type checking: `.pyi` type stubs in the transitive closure, plus the sources and stubs of any `pyi_deps`. Never placed in runfiles.",
         "imports": "depset[str] — import roots to place on `sys.path` (rlocation-root-relative).",
+        "pyi_imports": "depset[str] — import roots needed only for type checking, from `pyi_deps` in the transitive closure. Never placed on `sys.path`. Optional: providers built without it are read as empty.",
         "virtual_dependencies": "depset[str] — names of required virtual dependencies, independent of their resolution status.",
         "virtual_resolutions": "depset[struct(virtual, target)] — virtual-dependency-name to concrete-target resolutions.",
     },

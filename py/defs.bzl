@@ -108,7 +108,7 @@ def py_binary(name, srcs = [], main = None, **kwargs):
     """Build and run a Python binary.
 
     Splits the call into a sibling `py_venv` (which carries srcs / deps
-    / imports / virtual_deps / resolutions / package_collisions /
+    / pyi_deps / imports / virtual_deps / resolutions / package_collisions /
     include_*_site_packages / interpreter_options) plus a thin launcher
     rule that exec's that venv's interpreter. Set `expose_venv = True`
     to make the sibling a first-class `:{name}.venv` target — runnable

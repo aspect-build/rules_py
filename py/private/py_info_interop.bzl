@@ -46,6 +46,16 @@ def get_transitive_pyi_files(target):
         return target[RulesPythonPyInfo].transitive_pyi_files
     return depset()
 
+def get_pyi_imports(target):
+    """Return the type-check-only import roots from rules_py's `PyInfo`.
+
+    `@rules_python`'s `PyInfo` has no such field: it merges `pyi_deps` import
+    roots straight into `imports`, which rules_py already reads.
+    """
+    if PyInfo in target:
+        return getattr(target[PyInfo], "pyi_imports", depset())
+    return depset()
+
 def get_transitive_sources(target):
     """The target's transitive first-party sources, from either `PyInfo`.
 

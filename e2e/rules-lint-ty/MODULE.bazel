@@ -1,0 +1,28 @@
+"""Type checking with aspect_rules_lint's ty aspect over rules_py targets.
+
+Proves `pyi_deps` gives ty what it needs to resolve `TYPE_CHECKING` imports,
+while the dependency stays out of the runnable program.
+"""
+
+module(name = "rules_lint_ty")
+
+bazel_dep(name = "aspect_rules_py")
+bazel_dep(name = "aspect_rules_lint")
+bazel_dep(name = "rules_python", version = "1.9.0")
+
+local_path_override(
+    module_name = "aspect_rules_py",
+    path = "../..",
+)
+
+# TODO: switch to a release once one includes
+# https://github.com/aspect-build/rules_lint/pull/1008, which makes the ty
+# aspect read `pyi_deps`.
+git_override(
+    module_name = "aspect_rules_lint",
+    commit = "aa6029f5f56c35a04fbff7bde056d00e2a6df744",
+    remote = "https://github.com/aspect-build/rules_lint.git",
+)
+
+python = use_extension("@rules_python//python/extensions:python.bzl", "python")
+python.toolchain(python_version = "3.12")

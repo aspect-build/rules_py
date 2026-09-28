@@ -1,0 +1,85 @@
+load("//py:defs.bzl", "py_binary", "py_library", "py_test", "py_venv")
+load(
+    ":pyi_deps_test.bzl",
+    "launcher_pyi_deps_test",
+    "library_pyi_deps_test",
+    "rules_python_provider_pyi_deps_test",
+    "transitive_pyi_deps_test",
+    "venv_pyi_deps_test",
+)
+
+package(default_testonly = True)
+
+py_library(
+    name = "heavy",
+    srcs = ["heavy/heavy.py"],
+    imports = ["heavy"],
+)
+
+# Needs `heavy` and `cowsay` only to resolve `TYPE_CHECKING` imports.
+py_library(
+    name = "typed",
+    srcs = ["typed.py"],
+    imports = ["."],
+    pyi_deps = [
+        ":heavy",
+        "@pypi//cowsay",
+    ],
+)
+
+library_pyi_deps_test(
+    name = "library_pyi_deps_test",
+    target_under_test = ":typed",
+)
+
+py_library(
+    name = "consumer",
+    deps = [":typed"],
+)
+
+transitive_pyi_deps_test(
+    name = "transitive_pyi_deps_test",
+    target_under_test = ":consumer",
+)
+
+py_binary(
+    name = "bin",
+    srcs = ["main.py"],
+    main = "main.py",
+    pyi_deps = [":heavy"],
+    deps = [":typed"],
+)
+
+launcher_pyi_deps_test(
+    name = "launcher_pyi_deps_test",
+    target_under_test = ":bin",
+)
+
+py_venv(
+    name = "venv",
+    deps = [":typed"],
+)
+
+venv_pyi_deps_test(
+    name = "venv_pyi_deps_test",
+    target_under_test = ":venv",
+)
+
+rules_python_provider_pyi_deps_test(
+    name = "rules_python_provider_library_test",
+    target_under_test = ":typed",
+)
+
+rules_python_provider_pyi_deps_test(
+    name = "rules_python_provider_launcher_test",
+    target_under_test = ":bin",
+)
+
+# Execution-time check: neither pyi_dep is importable.
+py_test(
+    name = "pyi_deps_not_importable_test",
+    srcs = ["main.py"],
+    main = "main.py",
+    pyi_deps = [":heavy"],
+    deps = [":typed"],
+)

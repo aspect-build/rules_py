@@ -1,0 +1,61 @@
+load("@aspect_rules_py//py:defs.bzl", "py_library", "py_test")
+load("//tools/lint:linters.bzl", "ty_test")
+
+# `Point` is needed only to type-check the `TYPE_CHECKING` import.
+py_library(
+    name = "app",
+    srcs = ["app.py"],
+    pyi_deps = ["//shapes:geometry"],
+)
+
+ty_test(
+    name = "app_ty_test",
+    srcs = [":app"],
+)
+
+# The same source without `pyi_deps`: ty cannot resolve the import.
+py_library(
+    name = "app_without_pyi_deps",
+    srcs = ["app.py"],
+)
+
+ty_test(
+    name = "app_without_pyi_deps_ty_test",
+    srcs = [":app_without_pyi_deps"],
+    expected_exit_code = 1,
+)
+
+# With `pyi_deps` ty sees the real `Point`, not an unknown type, so passing an
+# int is an error.
+py_library(
+    name = "misuse",
+    srcs = ["misuse.py"],
+    pyi_deps = ["//shapes:geometry"],
+)
+
+ty_test(
+    name = "misuse_ty_test",
+    srcs = [":misuse"],
+    expected_exit_code = 1,
+)
+
+py_test(
+    name = "runtime_test",
+    srcs = ["runtime_test.py"],
+    main = "runtime_test.py",
+    deps = [":app"],
+)
+
+# A consumer of `app` checks against `Point` too: `pyi_deps` propagate through
+# `deps` in the type-check closure.
+py_library(
+    name = "transitive_misuse",
+    srcs = ["transitive_misuse.py"],
+    deps = [":app"],
+)
+
+ty_test(
+    name = "transitive_misuse_ty_test",
+    srcs = [":transitive_misuse"],
+    expected_exit_code = 1,
+)

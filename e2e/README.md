@@ -38,6 +38,12 @@ workspace above must not carry: its `.bazelrc` turns on the rules_python provide
 compatibility layer, so rules_python `py_*` targets can depend on a rules_py `py_library`.
 Its `test.sh` asserts the same dependency is rejected with the flag off.
 
+`rules-lint-ty` type-checks rules_py targets with aspect_rules_lint's ty aspect,
+proving `pyi_deps` resolve for ty while staying out of the runnable program. It
+needs the same compatibility flag, since rules_lint reads rules_python's `PyInfo`,
+plus a rules_lint dependency the other workspaces don't carry. Its `test.sh` pins
+the diagnostics behind the negative `ty_test`s.
+
 `rules-python-protobuf` contains protobuf's native `py_proto_library` and
 rules_proto_grpc_python consumer tests. Keeping both generators here prevents
 their rules_python/protobuf dependency graph from leaking into the main test module.

@@ -519,6 +519,36 @@ VSCode `launch.json`:
 }
 ```
 
+## Type Checking
+
+A dependency needed only by a type checker — for an import guarded by
+`typing.TYPE_CHECKING` — goes in `pyi_deps` instead of `deps`. It is accepted
+by `py_library`, `py_binary`, `py_test` and `py_venv`:
+
+```starlark
+py_library(
+    name = "app",
+    srcs = ["app.py"],
+    deps = ["@pypi//requests"],
+    pyi_deps = [
+        "//shapes:geometry",
+        "@pypi//types_requests",
+    ],
+)
+```
+
+`pyi_deps` cost nothing at run time: they stay out of runfiles, `sys.path`, the
+venv's site-packages, container image layers and pex files. Type checkers find
+their sources, stubs and wheels in `PyInfo.transitive_pyi_files` and their
+import roots in `PyInfo.pyi_imports`, including `pyi_deps` reached through
+`deps`.
+
+[aspect_rules_lint](https://github.com/aspect-build/rules_lint)'s ty aspect
+reads `pyi_deps`. It reads rules_python's `PyInfo`, so turn on
+`--@aspect_rules_py//py:emit_rules_python_providers`; see
+[`e2e/rules-lint-ty`](e2e/rules-lint-ty) for a working setup. IDEs pointed at a
+target's venv don't see `pyi_deps`.
+
 ## Gazelle Integration
 
 Generate `BUILD` files automatically with the Gazelle extension:

@@ -10,7 +10,7 @@ load("@rules_cc//cc/common:cc_info.bzl", "CcInfo")
 load("//py/private:providers.bzl", "PyWheelsInfo")
 load("//py/private:pth.bzl", "make_imports_depset")
 load("//py/private:py_info.bzl", "PyInfo")
-load("//py/private:py_info_interop.bzl", "RulesPythonPyInfo", "get_py_info", "get_transitive_pyi_files", "get_transitive_sources", "has_py_info")
+load("//py/private:py_info_interop.bzl", "RulesPythonPyInfo", "get_py_info", "get_pyi_imports", "get_transitive_pyi_files", "get_transitive_sources", "has_py_info")
 load("//py/private:transitions.bzl", "reset_python_flags_transition")
 
 def _is_type_stub(file):
@@ -46,14 +46,31 @@ def _make_srcs_depset(ctx, extra_depsets = []):
 def _make_pyi_depset(ctx, extra_depsets = []):
     # Stubs are partitioned out of `transitive_sources` to match rules_python's
     # PyInfo shape, where `.pyi` files never count as runtime sources.
+    # `pyi_deps` contribute their whole closure here and nowhere else, so a
+    # type checker sees them while runfiles, imports and wheels do not.
+    pyi_deps = getattr(ctx.attr, "pyi_deps", [])
     return depset(
         order = "postorder",
         direct = _type_stubs(ctx.files.srcs),
         transitive = [
             get_transitive_pyi_files(target)
             for target in ctx.attr.deps
+        ] + [
+            depset(transitive = [get_transitive_sources(target), get_transitive_pyi_files(target)])
+            for target in pyi_deps
         ] + extra_depsets,
     )
+
+def _make_pyi_imports_depset(ctx):
+    """Import roots only type checkers need; never written to a `.pth`."""
+    pyi_deps = getattr(ctx.attr, "pyi_deps", [])
+    return depset(transitive = [
+        get_pyi_imports(target)
+        for target in getattr(ctx.attr, "deps", [])
+    ] + [
+        depset(transitive = [get_py_info(target).imports, get_pyi_imports(target)])
+        for target in pyi_deps
+    ])
 
 def _make_virtual_depset(ctx):
     return depset(
@@ -174,6 +191,7 @@ def _py_library_impl(ctx):
     transitive_srcs = _make_srcs_depset(ctx)
     transitive_pyi_files = _make_pyi_depset(ctx)
     imports = _make_imports_depset(ctx)
+    pyi_imports = _make_pyi_imports_depset(ctx)
     virtuals = _make_virtual_depset(ctx)
     resolutions = _make_virtual_resolutions_depset(ctx)
     runfiles = _make_merged_runfiles(ctx)
@@ -187,6 +205,7 @@ def _py_library_impl(ctx):
         ),
         PyInfo(
             imports = imports,
+            pyi_imports = pyi_imports,
             transitive_sources = transitive_srcs,
             transitive_pyi_files = transitive_pyi_files,
             virtual_dependencies = virtuals,
@@ -203,8 +222,10 @@ def _py_library_impl(ctx):
         # @rules_python py_* targets able to depend on this library.
         # Only the fields rules_py models are populated; virtual deps are
         # unrepresentable, so a @rules_python consumer never sees them.
+        # `pyi_deps` import roots are merged in as rules_python does, so a
+        # type-check aspect reading this provider resolves them.
         providers.append(RulesPythonPyInfo(
-            imports = imports,
+            imports = depset(transitive = [imports, pyi_imports]),
             transitive_sources = transitive_srcs,
             direct_pyi_files = depset(_type_stubs(ctx.files.srcs)),
             transitive_pyi_files = transitive_pyi_files,
@@ -229,6 +250,16 @@ _attrs = dict({
         # rules_py emits @rules_python providers only under the
         # migration-only //py:emit_rules_python_providers flag.
         providers = [[PyInfo], [RulesPythonPyInfo], [CcInfo]],
+    ),
+    "pyi_deps": attr.label_list(
+        doc = """Dependencies needed only for type checking.
+
+        These satisfy imports guarded by `typing.TYPE_CHECKING`. Their sources,
+        stubs and wheels are carried in `PyInfo.transitive_pyi_files` for type
+        checkers, but never become part of a runnable program: they are left
+        out of runfiles, `sys.path`, the venv's site-packages, image layers and
+        pex files.""",
+        providers = [[PyInfo], [RulesPythonPyInfo]],
     ),
     "data": attr.label_list(
         doc = """Runtime dependencies of the program.
@@ -266,6 +297,7 @@ py_library_utils = struct(
     make_imports_depset = _make_imports_depset,
     make_merged_runfiles = _make_merged_runfiles,
     make_pyi_depset = _make_pyi_depset,
+    make_pyi_imports_depset = _make_pyi_imports_depset,
     make_srcs_depset = _make_srcs_depset,
     make_wheels_depset = _make_wheels_depset,
     py_library_providers = _providers,
