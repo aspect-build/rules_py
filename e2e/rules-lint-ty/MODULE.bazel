@@ -1,6 +1,6 @@
 """Type checking with aspect_rules_lint's ty aspect over rules_py targets.
 
-Proves `pyi_deps` gives ty what it needs to resolve `TYPE_CHECKING` imports,
+Proves that pyi_deps gives ty what it needs to resolve TYPE_CHECKING imports,
 while the dependency stays out of the runnable program.
 """
 
