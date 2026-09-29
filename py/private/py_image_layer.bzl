@@ -1170,7 +1170,7 @@ def _py_image_layer_impl(ctx):
         repo_mapping = ctx.actions.declare_file(ctx.attr.name + "/_repo_mapping")
         args = ctx.actions.args()
         args.add("-v")
-        args.add("output=" + repo_mapping.path)
+        args.add(repo_mapping, format = "output=%s")
         args.add("-f")
         args.add(ctx.file._repo_mapping_merger)
         args.add_all(repo_mappings)

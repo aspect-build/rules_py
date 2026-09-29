@@ -365,18 +365,17 @@ def _pep517_native_whl(ctx):
             env["_PYTHON_HOST_PLATFORM"] = host_platform
 
     tool = ctx.attr.tool[DefaultInfo].files_to_run
+    io_args = ctx.actions.args()
+    io_args.add("--execroot-marker", _EXECROOT_MARKER)
+    io_args.add(archive)
+    io_args.add(wheel_file)
 
     ctx.actions.run(
         mnemonic = "PySdistNativeBuild",
         progress_message = "Native source compiling {} to a whl".format(archive.basename),
         executable = tool,
         toolchain = None,
-        arguments = ctx.attr.args + [patch_args] + memory_args(ctx) + config_setting_args(ctx) + cross_args + [
-            "--execroot-marker",
-            _EXECROOT_MARKER,
-            archive.path,
-            wheel_file.path,
-        ],
+        arguments = ctx.attr.args + [patch_args] + memory_args(ctx) + config_setting_args(ctx) + cross_args + [io_args],
         inputs = depset(
             [archive],
             transitive = [patch_inputs] + extra_inputs,
