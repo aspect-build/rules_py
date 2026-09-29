@@ -433,15 +433,7 @@ constraints of the target platform.
         config_common.toolchain_type(PY_TOOLCHAIN, mandatory = False),
     ],
     exec_groups = {
-        # Cross-compilation of sdists is intentionally unsupported: PEP 517
-        # build backends (setuptools, meson-python, etc.) have no standard
-        # mechanism for cross-compilation, Python headers for the target
-        # platform are not readily available, and output wheel tags would
-        # need to encode the target platform with no upstream tooling
-        # support. Packages that need cross-compiled native extensions should
-        # publish pre-built wheels for their target platforms instead.
-        #
-        # Detection inputs: NATIVE_BUILD_TOOLCHAIN has matching
+        # Cross detection inputs: NATIVE_BUILD_TOOLCHAIN has matching
         # exec_compatible_with and target_compatible_with, so it resolves
         # exactly when the exec and target platforms match — optional, its
         # absence is a cross signal, not a resolution error. The exec- and
