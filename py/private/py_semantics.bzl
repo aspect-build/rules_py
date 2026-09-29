@@ -25,6 +25,27 @@ file. rules_py requires a registered (hermetic) interpreter toolchain; system in
 (a py_runtime with `interpreter_path`) are not supported.
 """
 
+def _bundles(opt, flag):
+    """Whether a single-dash option bundles `-<flag>`; `-W`/`-X`/`-c`/`-m` take the rest as argument."""
+    if not opt.startswith("-") or opt.startswith("--"):
+        return False
+    for letter in opt[1:].elems():
+        if not letter.isalpha() or letter in "WXcm":
+            return False
+        if letter == flag:
+            return True
+    return False
+
+def _check_interpreter_options(ctx):
+    """Fails on options a venv launcher cannot run under.
+
+    `-S` skips the site processing that puts the venv's import paths and
+    site-packages on `sys.path`.
+    """
+    for opt in ctx.attr.interpreter_options:
+        if _bundles(opt, "S"):
+            fail("{}: interpreter_options {} disables site initialization, so the venv's dependencies cannot be imported".format(ctx.label, opt))
+
 def _resolve_toolchain(ctx):
     """Resolves the Python toolchain to a simple struct.
 
@@ -70,6 +91,7 @@ def _resolve_toolchain(ctx):
     )
 
 semantics = struct(
+    check_interpreter_options = _check_interpreter_options,
     interpreter_flags = _INTERPRETER_FLAGS,
     resolve_toolchain = _resolve_toolchain,
 )
