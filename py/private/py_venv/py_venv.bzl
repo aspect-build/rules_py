@@ -113,7 +113,10 @@ def _assemble_venv_target(ctx, executable, console_scripts):
     return VirtualenvInfo(
         bin_python = assembled.bin_python,
         imports = imports_depset,
-        pyi_imports = _py_library.make_pyi_imports_depset(ctx),
+        pyi_imports = _py_library.make_pyi_imports_depset(
+            ctx,
+            extra_depsets = virtual_resolution.pyi_imports,
+        ),
         runtime_runfiles = runfiles,
         transitive_pyi_files = pyi_depset,
         transitive_sources = srcs_depset,

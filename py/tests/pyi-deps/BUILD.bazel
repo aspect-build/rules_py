@@ -3,6 +3,7 @@ load(
     ":pyi_deps_test.bzl",
     "launcher_pyi_deps_test",
     "library_pyi_deps_test",
+    "resolution_pyi_deps_test",
     "rules_python_provider_pyi_deps_test",
     "transitive_pyi_deps_test",
     "venv_pyi_deps_test",
@@ -82,4 +83,29 @@ py_test(
     main = "main.py",
     pyi_deps = [":heavy"],
     deps = [":typed"],
+)
+
+# `pyi_deps` of a virtual-dependency resolution reach the binary's
+# type-check closure like those of an ordinary dep.
+py_library(
+    name = "resolved_impl",
+    pyi_deps = [":heavy"],
+)
+
+py_library(
+    name = "needs_resolved",
+    virtual_deps = ["resolved"],
+)
+
+py_binary(
+    name = "resolved_bin",
+    srcs = ["main.py"],
+    main = "main.py",
+    resolutions = {"resolved": ":resolved_impl"},
+    deps = [":needs_resolved"],
+)
+
+resolution_pyi_deps_test(
+    name = "resolution_pyi_deps_test",
+    target_under_test = ":resolved_bin",
 )

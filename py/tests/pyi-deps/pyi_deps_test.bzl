@@ -71,6 +71,18 @@ def _launcher_pyi_deps_test_impl(ctx):
 
 launcher_pyi_deps_test = analysistest.make(_launcher_pyi_deps_test_impl)
 
+def _resolution_pyi_deps_test_impl(ctx):
+    env = analysistest.begin(ctx)
+    target = analysistest.target_under_test(env)
+    info = target[PyInfo]
+    asserts.true(env, _has(_paths(info.transitive_pyi_files), "heavy/heavy.py"), "a resolution's pyi_deps reach type checkers")
+    asserts.true(env, _has(info.pyi_imports.to_list(), "heavy"), "a resolution's pyi_deps import roots reach type checkers")
+    asserts.false(env, _has(info.imports.to_list(), "heavy"), "a resolution's pyi_deps stay off sys.path")
+    asserts.false(env, _has(_runfile_paths(target), "heavy/heavy.py"), "a resolution's pyi_deps stay out of runfiles")
+    return analysistest.end(env)
+
+resolution_pyi_deps_test = analysistest.make(_resolution_pyi_deps_test_impl)
+
 def _venv_pyi_deps_test_impl(ctx):
     env = analysistest.begin(ctx)
     target = analysistest.target_under_test(env)

@@ -61,10 +61,10 @@ def _make_pyi_depset(ctx, extra_depsets = []):
         ] + extra_depsets,
     )
 
-def _make_pyi_imports_depset(ctx):
+def _make_pyi_imports_depset(ctx, extra_depsets = []):
     """Import roots only type checkers need; never written to a `.pth`."""
     pyi_deps = getattr(ctx.attr, "pyi_deps", [])
-    return depset(transitive = [
+    return depset(transitive = extra_depsets + [
         get_pyi_imports(target)
         for target in getattr(ctx.attr, "deps", [])
     ] + [
@@ -111,6 +111,7 @@ def _resolve_virtuals(ctx):
     seen = {}
     v_srcs = []
     v_pyi_files = []
+    v_pyi_imports = []
     v_runfiles = []
     v_imports = []
 
@@ -123,6 +124,7 @@ def _resolve_virtuals(ctx):
 
         v_srcs.append(_make_resolved_virtual_depset(resolution.target))
         v_pyi_files.append(get_transitive_pyi_files(resolution.target))
+        v_pyi_imports.append(get_pyi_imports(resolution.target))
         v_runfiles.append(resolution.target[DefaultInfo].default_runfiles.files)
 
         info = get_py_info(resolution.target)
@@ -136,6 +138,7 @@ def _resolve_virtuals(ctx):
     return struct(
         srcs = v_srcs,
         pyi_files = v_pyi_files,
+        pyi_imports = v_pyi_imports,
         runfiles = v_runfiles,
         imports = v_imports,
     )
