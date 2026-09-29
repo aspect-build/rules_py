@@ -1,0 +1,11 @@
+{
+    "environment": {
+        "BAZEL_TARGET": "//py/tests/py-pex-binary:env_pex",
+        "BAZEL_TARGET_NAME": "env_pex",
+        "BAZEL_WORKSPACE": "_main",
+        "FOO": "bar"
+    },
+    "inherited_environment": [
+        "INHERITED_VAR"
+    ]
+}

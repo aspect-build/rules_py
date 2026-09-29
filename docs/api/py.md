@@ -188,7 +188,13 @@ py_pex_binary(<a href="#py_pex_binary-name">name</a>, <a href="#py_pex_binary-bi
               <a href="#py_pex_binary-python_shebang">python_shebang</a>)
 </pre>
 
-Build a pex executable from a py_binary
+Build a pex executable from a py_binary.
+
+`bazel run` on the pex gets the `binary`'s `env` and `env_inherit`, with
+`BAZEL_TARGET`, `BAZEL_TARGET_NAME` and `BAZEL_WORKSPACE` naming the pex.
+`env` paths must use `$(rlocationpath)`: the pex resolves runfiles from its own
+archive, so `$(rootpath)`, `$(location)` and `$(execpath)` values do not exist.
+Outside of Bazel only `inject_env` applies.
 
 **ATTRIBUTES**
 
