@@ -1,4 +1,4 @@
-"""A pyi_dep is not importable at run time, yet its consumer runs."""
+"""A pyi_dep is not importable at run time."""
 
 import importlib.util
 

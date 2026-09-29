@@ -1,10 +1,10 @@
 load("@aspect_rules_py//py:defs.bzl", "py_library", "py_test")
 load("//tools/lint:linters.bzl", "ty_test")
 
-# `Point` is needed only to type-check the `TYPE_CHECKING` import.
 py_library(
     name = "app",
     srcs = ["app.py"],
+    # This dep is needed for type checking only.
     pyi_deps = ["//shapes:geometry"],
 )
 
@@ -13,7 +13,7 @@ ty_test(
     srcs = [":app"],
 )
 
-# The same source without `pyi_deps`: ty cannot resolve the import.
+# The same source without pyi_deps: ty cannot resolve the import.
 py_library(
     name = "app_without_pyi_deps",
     srcs = ["app.py"],
@@ -25,8 +25,7 @@ ty_test(
     expected_exit_code = 1,
 )
 
-# With `pyi_deps` ty sees the real `Point`, not an unknown type, so passing an
-# int is an error.
+# A type error can be detected using the type information from pyi_deps.
 py_library(
     name = "misuse",
     srcs = ["misuse.py"],
@@ -46,8 +45,6 @@ py_test(
     deps = [":app"],
 )
 
-# A consumer of `app` checks against `Point` too: `pyi_deps` propagate through
-# `deps` in the type-check closure.
 py_library(
     name = "transitive_misuse",
     srcs = ["transitive_misuse.py"],
