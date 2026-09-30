@@ -31,13 +31,10 @@ ty_report = rule(
 def ty_diagnostic_test(name, src, expected, **kwargs):
     """Asserts that ty's report on `src` contains `expected`.
 
-    `ty_test` only checks ty's exit code; this pins the diagnostic behind a
-    failure, so a negative case cannot pass for an unrelated reason.
-
     Args:
         name: Name of the test.
         src: The target ty checks.
-        expected: Text the report must contain, ANSI colors aside.
+        expected: Text the report must contain.
         **kwargs: Forwarded to the underlying `py_test`.
     """
     report = name + ".report"

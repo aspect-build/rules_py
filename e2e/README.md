@@ -41,8 +41,7 @@ Its `test.sh` asserts the same dependency is rejected with the flag off.
 `rules-lint-ty` type-checks rules_py targets with aspect_rules_lint's ty aspect,
 proving that `pyi_deps` resolve for ty while staying out of the runnable
 program. It needs the same compatibility flag, since rules_lint reads
-rules_python's `PyInfo`. Its `ty_diagnostic_test`s pin the diagnostics behind
-the negative `ty_test`s.
+rules_python's `PyInfo`.
 
 `rules-python-protobuf` contains protobuf's native `py_proto_library` and
 rules_proto_grpc_python consumer tests. Keeping both generators here prevents
