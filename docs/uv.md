@@ -536,6 +536,7 @@ repository rule execution, including:
 - **Missing archives** — warnings when an archive path cannot be resolved from a source label.
 - **Native source detection** — confirmation when native (non-Python) sources are detected in an sdist.
 - **Pure-Python fallback** — warnings when an sdist cannot be inspected and a pure-Python build is assumed.
+- **Bootstrap-cycle omissions** — warnings when the package being built is dropped from its build requirements' runtime dependencies.
 - **Git archive commands** — the exact `git` command executed and its stdout/stderr.
 - **Package version overrides** — confirmation when a package version is overridden with a local target.
 

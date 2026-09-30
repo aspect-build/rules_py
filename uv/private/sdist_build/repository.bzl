@@ -255,11 +255,12 @@ def _sdist_build_impl(repository_ctx):
             reachable_build_deps(selected_packages, local_graph),
         )
 
-        # buildifier: disable=print
-        print("WARNING: {} omits the package being built from the transitive runtime dependencies of discovered build requirements: {}. This avoids a potential bootstrap cycle, but the backend may still need the omitted package. Direct and explicit build requirements are unchanged.".format(
-            repository_ctx.name,
-            ", ".join(omitted_from),
-        ))
+        if repository_ctx.getenv("RULES_PY_UV_VERBOSE", ""):
+            # buildifier: disable=print
+            print("WARNING: {} omits the package being built from the transitive runtime dependencies of discovered build requirements: {}. This avoids a potential bootstrap cycle, but the backend may still need the omitted package. Direct and explicit build requirements are unchanged.".format(
+                repository_ctx.name,
+                ", ".join(omitted_from),
+            ))
 
     # TODO: When the configure tool didn't run or failed, we may want to
     # conservatively add setuptools + wheel as fallback build deps. For now
