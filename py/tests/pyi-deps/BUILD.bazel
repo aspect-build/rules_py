@@ -17,7 +17,6 @@ py_library(
     imports = ["heavy"],
 )
 
-# Needs `heavy` and `cowsay` only to resolve `TYPE_CHECKING` imports.
 py_library(
     name = "typed",
     srcs = ["typed.py"],
