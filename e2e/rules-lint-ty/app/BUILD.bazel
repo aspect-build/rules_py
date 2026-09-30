@@ -1,5 +1,5 @@
 load("@aspect_rules_py//py:defs.bzl", "py_library", "py_test")
-load("//tools/lint:linters.bzl", "ty_test")
+load("//tools/lint:linters.bzl", "ty_diagnostic_test", "ty_test")
 
 py_library(
     name = "app",
@@ -25,6 +25,12 @@ ty_test(
     expected_exit_code = 1,
 )
 
+ty_diagnostic_test(
+    name = "app_without_pyi_deps_diagnostic_test",
+    src = ":app_without_pyi_deps",
+    expected = "unresolved-import",
+)
+
 # A type error can be detected using the type information from pyi_deps.
 py_library(
     name = "misuse",
@@ -36,6 +42,12 @@ ty_test(
     name = "misuse_ty_test",
     srcs = [":misuse"],
     expected_exit_code = 1,
+)
+
+ty_diagnostic_test(
+    name = "misuse_diagnostic_test",
+    src = ":misuse",
+    expected = "Expected `Point`, found `Literal[3]`",
 )
 
 py_test(
@@ -55,4 +67,10 @@ ty_test(
     name = "transitive_misuse_ty_test",
     srcs = [":transitive_misuse"],
     expected_exit_code = 1,
+)
+
+ty_diagnostic_test(
+    name = "transitive_misuse_diagnostic_test",
+    src = ":transitive_misuse",
+    expected = "Expected `Point`, found `Literal[3]`",
 )
