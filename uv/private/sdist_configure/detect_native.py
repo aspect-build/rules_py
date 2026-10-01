@@ -67,6 +67,7 @@ _REQ_NAME_RE = re.compile(r"^([A-Za-z0-9]([A-Za-z0-9._-]*[A-Za-z0-9])?)")
 
 class ConfigureContext(TypedDict, total=False):
     src: str
+    cargo_lock: str
     version: str
     deps: list[str]
     available_deps: dict[str, str]
@@ -74,6 +75,8 @@ class ConfigureContext(TypedDict, total=False):
 
 class _OptionalDetectionResult(TypedDict, total=False):
     backend_path: list[str]
+    cargo_crates: list[dict[str, str]]
+    cargo_manifest: str
 
 
 class DetectionResult(_OptionalDetectionResult):
@@ -402,6 +405,141 @@ def _parse_setup_py_requires(content: str) -> tuple[list[str], list[str]]:
 
 # --- Detection ---
 
+def _parse_cargo_lock(content: str) -> list[dict[str, str]]:
+    """The dependency crates a Cargo.lock pins: name, version, source, checksum.
+
+    Packages without a `source` are the workspace's own crates (the root
+    package, path dependencies) and are already in the sdist; everything else
+    is what cargo would otherwise fetch at build time.
+
+    Raises:
+        ValueError: when the lock cannot be parsed — an empty file, malformed
+            TOML, or no tomllib. Callers must reject it: an unparsed lock
+            would otherwise silently degrade the build into resolving crates
+            online, whatever this lock actually pinned.
+    """
+    if not content:
+        raise ValueError("the file is empty")
+    if tomllib is None:
+        raise ValueError("parsing a Cargo.lock requires Python >= 3.11 (tomllib)")
+    try:
+        data = tomllib.loads(content)
+    except tomllib.TOMLDecodeError as e:
+        raise ValueError(f"invalid TOML: {e}") from e
+    crates = []
+    for pkg in data.get("package", []):
+        source = pkg.get("source")
+        if not source:
+            continue
+        crates.append({
+            "name": str(pkg.get("name", "")),
+            "version": str(pkg.get("version", "")),
+            "source": str(source),
+            "checksum": str(pkg.get("checksum", "")),
+        })
+    return crates
+
+
+def _parse_maturin_manifest_path(pyproject_content: str) -> str | None:
+    """The [tool.maturin] manifest-path value, or None when unset."""
+    if tomllib is None:
+        return None
+    try:
+        data = tomllib.loads(pyproject_content)
+    except tomllib.TOMLDecodeError:
+        return None
+    tool = data.get("tool", {})
+    maturin = tool.get("maturin", {}) if isinstance(tool, dict) else {}
+    value = maturin.get("manifest-path") if isinstance(maturin, dict) else None
+    return value if isinstance(value, str) and value else None
+
+
+def _resolve_cargo_manifest(
+    members: Sequence[str],
+    build_backend: str | None,
+    declared: Sequence[str],
+    pyproject_path: str | None,
+    pyproject_content: str | None,
+) -> str | None:
+    """The Cargo.toml member the build backend builds, or None for non-Rust sdists.
+
+    maturin honors `[tool.maturin] manifest-path`, else keeps the manifest
+    next to pyproject.toml. setuptools-rust names its manifest inside
+    setup.py, which cannot be parsed statically: with more than one
+    Cargo.toml that layout is not representable here and detection rejects
+    it — the shallowest manifest is not necessarily the one the backend
+    builds, and guessing by path depth generates and injects locks for the
+    wrong workspace.
+
+    Raises:
+        ValueError: when a Rust build's manifest cannot be determined.
+    """
+    if build_backend == "maturin":
+        is_rust = True
+    else:
+        is_rust = "setuptools_rust" in declared
+    if not is_rust:
+        return None
+
+    manifests = sorted(
+        (m for m in members if PurePosixPath(m).name == "Cargo.toml"),
+        key=lambda m: (len(PurePosixPath(m).parts), m),
+    )
+    if build_backend == "maturin":
+        base = PurePosixPath(pyproject_path).parent if pyproject_path else PurePosixPath(".")
+        selected = None
+        if pyproject_content:
+            rel = _parse_maturin_manifest_path(pyproject_content)
+            if rel:
+                selected = str(PurePosixPath(base, rel))
+                if selected not in members:
+                    raise ValueError(
+                        f"maturin's [tool.maturin] manifest-path '{rel}' does not exist in the sdist"
+                    )
+                return selected
+        selected = str(base / "Cargo.toml")
+        if selected in members:
+            return selected
+        raise ValueError("the maturin sdist has no Cargo.toml next to pyproject.toml; nothing to lock or build")
+
+    if len(manifests) == 1:
+        return manifests[0]
+    if not manifests:
+        raise ValueError("the sdist declares setuptools-rust but ships no Cargo.toml")
+    raise ValueError(
+        "the sdist ships {} Cargo.toml files ({}) and the one setuptools-rust builds is named "
+        "in setup.py, which rules_py cannot parse; vendoring or injecting a Cargo.lock for this "
+        "layout is not supported".format(len(manifests), ", ".join(manifests))
+    )
+
+
+def _find_cargo_lock(members: Sequence[str], manifest: str | None) -> str | None:
+    """The sdist's Cargo.lock: the one its Cargo workspace keeps.
+
+    Prefers the lock beside the resolved manifest; a lock at an outer
+    workspace root is shallower and still wins on depth. For a Rust build
+    with several locks at the same depth the workspaces are independent and
+    the build's lock is not derivable — rejected instead of guessed. Non-Rust
+    sdists keep the lenient shallowest choice: their locks (often vendored
+    test fixtures, like meson's) never drive vendoring.
+    """
+    locks = [m for m in members if PurePosixPath(m).name == "Cargo.lock"]
+    if not locks:
+        return None
+    if manifest:
+        sibling = str(PurePosixPath(manifest).parent / "Cargo.lock")
+        if sibling in locks:
+            return sibling
+    shallowest = min(len(PurePosixPath(m).parts) for m in locks)
+    shallow = sorted(m for m in locks if len(PurePosixPath(m).parts) == shallowest)
+    if manifest and len(shallow) > 1:
+        raise ValueError(
+            "the sdist ships {} Cargo.locks at the same depth ({}); independent Cargo "
+            "workspaces are not supported for vendoring".format(len(shallow), ", ".join(shallow))
+        )
+    return shallow[0]
+
+
 def _find_config_file(members: Sequence[str], filename: str) -> str | None:
     """Find a config file, accounting for the typical top-level sdist directory."""
     if filename in members:
@@ -480,11 +618,13 @@ def detect(archive_path: str, context: ConfigureContext) -> DetectionResult:
         declared = []
         build_backend = None
         backend_path = None
+        pyproject_content = None
 
         pyproject_path = _find_config_file(members, "pyproject.toml")
         if pyproject_path:
             content = read_fn(pyproject_path)
             if content:
+                pyproject_content = content
                 requires, build_backend, backend_path = _parse_pyproject_build_system(content)
                 declared.extend(requires)
 
@@ -548,6 +688,40 @@ def detect(archive_path: str, context: ConfigureContext) -> DetectionResult:
                     _parse_setup_py_requires(setup_py_content)
                 )
                 declared.extend(setup_py_setup_requires)
+
+        # Last: the Rust layout. `declared` is complete by now, which the
+        # manifest resolution depends on (setuptools-rust may be declared in
+        # setup.py's setup_requires).
+        cargo_manifest = _resolve_cargo_manifest(
+            members,
+            build_backend,
+            declared,
+            pyproject_path,
+            pyproject_content,
+        )
+        cargo_crates = None
+        context_lock = context.get("cargo_lock")
+        if context_lock:
+            with open(context_lock, encoding="utf-8") as f:
+                content = f.read()
+            try:
+                cargo_crates = _parse_cargo_lock(content)
+            except ValueError as e:
+                raise ValueError(
+                    f"the Cargo.lock declared via uv.override_package(cargo_lock = ...) ({context_lock}) is unusable: {e}. "
+                    "Regenerate it with `bazel run <the sdist_build repository>//:cargo_lock` or drop the override."
+                ) from e
+        else:
+            cargo_lock_path = _find_cargo_lock(members, cargo_manifest)
+            if cargo_lock_path:
+                content = read_fn(cargo_lock_path) or ""
+                try:
+                    cargo_crates = _parse_cargo_lock(content)
+                except ValueError as e:
+                    raise ValueError(
+                        f"{cargo_lock_path}, shipped in the sdist, is unusable: {e}. The build would resolve crates online; "
+                        "fix or drop it, or replace it with uv.override_package(cargo_lock = ...)."
+                    ) from e
     finally:
         close_fn()
 
@@ -595,6 +769,10 @@ def detect(archive_path: str, context: ConfigureContext) -> DetectionResult:
     }
     if backend_path is not None:
         result["backend_path"] = backend_path
+    if cargo_manifest is not None:
+        result["cargo_manifest"] = cargo_manifest
+    if cargo_crates is not None:
+        result["cargo_crates"] = cargo_crates
     return result
 
 

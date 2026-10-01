@@ -31,7 +31,9 @@
     "https://bcr.bazel.build/modules/bazel_features/1.4.1/MODULE.bazel": "e45b6bb2350aff3e442ae1111c555e27eac1d915e77775f6fdc4b351b758b5d7",
     "https://bcr.bazel.build/modules/bazel_features/1.42.0/MODULE.bazel": "e8ca15cb2639c5f12183db6dcb678735555d0cdd739b32a0418b6532b5e565f8",
     "https://bcr.bazel.build/modules/bazel_features/1.43.0/MODULE.bazel": "defa2226f06ba20550d6548c3a2ea2a7929634437a52973869c20c225450eb91",
-    "https://bcr.bazel.build/modules/bazel_features/1.43.0/source.json": "1c4207dc858d6de0eecef30026793616bbf420c74aac27b6bad212534a730437",
+    "https://bcr.bazel.build/modules/bazel_features/1.45.0/MODULE.bazel": "7daec6d87ab0703417486d4cb948af0b06f55d4d7c08cbb5978c80e79b538edf",
+    "https://bcr.bazel.build/modules/bazel_features/1.50.0/MODULE.bazel": "2083ef9c7a469f520890483ccf8e0189d6e71e2117e7752e15e6554433d5ae3e",
+    "https://bcr.bazel.build/modules/bazel_features/1.50.0/source.json": "e0ee3debde2789ff56e4452e612d126925ba9ab64d4bde79c67f099d2902df9b",
     "https://bcr.bazel.build/modules/bazel_features/1.9.0/MODULE.bazel": "885151d58d90d8d9c811eb75e3288c11f850e1d6b481a8c9f766adee4712358b",
     "https://bcr.bazel.build/modules/bazel_features/1.9.1/MODULE.bazel": "8f679097876a9b609ad1f60249c49d68bfab783dd9be012faf9d82547b14815a",
     "https://bcr.bazel.build/modules/bazel_lib/3.0.0/MODULE.bazel": "22b70b80ac89ad3f3772526cd9feee2fa412c2b01933fea7ed13238a448d370d",
@@ -42,6 +44,7 @@
     "https://bcr.bazel.build/modules/bazel_skylib/1.2.0/MODULE.bazel": "44fe84260e454ed94ad326352a698422dbe372b21a1ac9f3eab76eb531223686",
     "https://bcr.bazel.build/modules/bazel_skylib/1.2.1/MODULE.bazel": "f35baf9da0efe45fa3da1696ae906eea3d615ad41e2e3def4aeb4e8bc0ef9a7a",
     "https://bcr.bazel.build/modules/bazel_skylib/1.3.0/MODULE.bazel": "20228b92868bf5cfc41bda7afc8a8ba2a543201851de39d990ec957b513579c5",
+    "https://bcr.bazel.build/modules/bazel_skylib/1.4.0/MODULE.bazel": "2ab127ef8d56a739a99bb2ce00ec4c7d1ecc7977d4370c0ca6efd0d8f03d6d99",
     "https://bcr.bazel.build/modules/bazel_skylib/1.4.1/MODULE.bazel": "a0dcb779424be33100dcae821e9e27e4f2901d9dfd5333efe5ac6a8d7ab75e1d",
     "https://bcr.bazel.build/modules/bazel_skylib/1.4.2/MODULE.bazel": "3bd40978e7a1fac911d5989e6b09d8f64921865a45822d8b09e815eaa726a651",
     "https://bcr.bazel.build/modules/bazel_skylib/1.5.0/MODULE.bazel": "32880f5e2945ce6a03d1fbd588e9198c0a959bb42297b2cfaf1685b7bc32e138",
@@ -55,6 +58,7 @@
     "https://bcr.bazel.build/modules/bazel_skylib/1.9.0/source.json": "7ad77c1e8c1b84222d9b3f3cae016a76639435744c19330b0b37c0a3c9da7dc0",
     "https://bcr.bazel.build/modules/buildozer/7.1.2/MODULE.bazel": "2e8dd40ede9c454042645fd8d8d0cd1527966aa5c919de86661e62953cd73d84",
     "https://bcr.bazel.build/modules/buildozer/7.1.2/source.json": "c9028a501d2db85793a6996205c8de120944f50a0d570438fcae0457a5f9d1f8",
+    "https://bcr.bazel.build/modules/bzip2/1.0.8.bcr.3/MODULE.bazel": "29ecf4babfd3c762be00d7573c288c083672ab60e79c833ff7f49ee662e54471",
     "https://bcr.bazel.build/modules/gawk/5.3.2.bcr.3/MODULE.bazel": "f1b7bb2dd53e8f2ef984b39485ec8a44e9076dda5c4b8efd2fb4c6a6e856a31d",
     "https://bcr.bazel.build/modules/gawk/5.3.2.bcr.7/MODULE.bazel": "1e5e03c383fa64ebbe0942a225c32168fd6ef6b270351bbec481d47d19d1b96d",
     "https://bcr.bazel.build/modules/gawk/5.3.2.bcr.7/source.json": "34a83d58ae2f1ef6731d1fc8a1b6f07825741aff3f5993b67b67ec21d2c2946e",
@@ -65,13 +69,16 @@
     "https://bcr.bazel.build/modules/googletest/1.14.0/MODULE.bazel": "cfbcbf3e6eac06ef9d85900f64424708cc08687d1b527f0ef65aa7517af8118f",
     "https://bcr.bazel.build/modules/hermetic_launcher/0.0.14/MODULE.bazel": "67ff71bbfb482e58510451c4c8b8cd303c757f7ff79a2aff7cf381277be96f9f",
     "https://bcr.bazel.build/modules/hermetic_launcher/0.0.14/source.json": "475aa00426677e643e327b4b031d8816a3bc0a134c94d0d0d510cfd67b2cfd2c",
+    "https://bcr.bazel.build/modules/hermetic_launcher/0.0.8/MODULE.bazel": "3be7b0faca6f1e69e89197999e0b01ce058c42f3e764ef028466f7e0ff77c761",
     "https://bcr.bazel.build/modules/jsoncpp/1.9.5/MODULE.bazel": "31271aedc59e815656f5736f282bb7509a97c7ecb43e927ac1a37966e0578075",
     "https://bcr.bazel.build/modules/jsoncpp/1.9.5/source.json": "4108ee5085dd2885a341c7fab149429db457b3169b86eb081fa245eadf69169d",
     "https://bcr.bazel.build/modules/libpfm/4.11.0/MODULE.bazel": "45061ff025b301940f1e30d2c16bea596c25b176c8b6b3087e92615adbd52902",
+    "https://bcr.bazel.build/modules/llvm/0.8.18/MODULE.bazel": "56d507d49c02498731fa5a95fa48a778368f2d23c0f6184a578d057e58830458",
+    "https://bcr.bazel.build/modules/llvm/0.8.18/source.json": "ca45abf06bdd842e88acdda4a077038bbecddd3e90050951c2aff5f89b1b522e",
     "https://bcr.bazel.build/modules/llvm/0.8.3/MODULE.bazel": "dbc1bc13171f8f9980a75524883abef1c491613e8d8d805cd4ffa3767ba9708e",
-    "https://bcr.bazel.build/modules/llvm/0.8.3/source.json": "4b11874c26a9de53c03a25a517ebc36dee6b458c920fe9ed65e3ca279ff19775",
     "https://bcr.bazel.build/modules/package_metadata/0.0.3/MODULE.bazel": "77890552ecea9e284b5424c9de827a58099348763a4359e975c359a83d4faa83",
-    "https://bcr.bazel.build/modules/package_metadata/0.0.3/source.json": "742075a428ad12a3fa18a69014c2f57f01af910c6d9d18646c990200853e641a",
+    "https://bcr.bazel.build/modules/package_metadata/0.0.7/MODULE.bazel": "7adb03933fc8401f495800cf4eafcff0edc6da0ff55c7db223ef69d19f689486",
+    "https://bcr.bazel.build/modules/package_metadata/0.0.7/source.json": "50639625e937b56115012674c797cca7a05a96b4878c87d803c13dc2b31de8a0",
     "https://bcr.bazel.build/modules/platforms/0.0.10/MODULE.bazel": "8cb8efaf200bdeb2150d93e162c40f388529a25852b332cec879373771e48ed5",
     "https://bcr.bazel.build/modules/platforms/0.0.11/MODULE.bazel": "0daefc49732e227caa8bfa834d65dc52e8cc18a2faf80df25e8caea151a9413f",
     "https://bcr.bazel.build/modules/platforms/0.0.4/MODULE.bazel": "9b328e31ee156f53f3c416a64f8491f7eb731742655a47c9eec4703a71644aee",
@@ -89,7 +96,8 @@
     "https://bcr.bazel.build/modules/protobuf/29.0-rc2/MODULE.bazel": "6241d35983510143049943fc0d57937937122baf1b287862f9dc8590fc4c37df",
     "https://bcr.bazel.build/modules/protobuf/29.0-rc3/MODULE.bazel": "33c2dfa286578573afc55a7acaea3cada4122b9631007c594bf0729f41c8de92",
     "https://bcr.bazel.build/modules/protobuf/29.0/MODULE.bazel": "319dc8bf4c679ff87e71b1ccfb5a6e90a6dbc4693501d471f48662ac46d04e4e",
-    "https://bcr.bazel.build/modules/protobuf/29.0/source.json": "b857f93c796750eef95f0d61ee378f3420d00ee1dd38627b27193aa482f4f981",
+    "https://bcr.bazel.build/modules/protobuf/29.1/MODULE.bazel": "557c3457560ff49e122ed76c0bc3397a64af9574691cb8201b4e46d4ab2ecb95",
+    "https://bcr.bazel.build/modules/protobuf/29.1/source.json": "04cca85dce26b895ed037d98336d860367fe09919208f2ad383f0df1aff63199",
     "https://bcr.bazel.build/modules/protobuf/3.19.0/MODULE.bazel": "6b5fbb433f760a99a22b18b6850ed5784ef0e9928a72668b66e4d7ccd47db9b0",
     "https://bcr.bazel.build/modules/pybind11_bazel/2.11.1/MODULE.bazel": "88af1c246226d87e65be78ed49ecd1e6f5e98648558c14ce99176da041dc378e",
     "https://bcr.bazel.build/modules/pybind11_bazel/2.11.1/source.json": "be4789e951dd5301282729fe3d4938995dc4c1a81c2ff150afc9f1b0504c6022",
@@ -112,7 +120,8 @@
     "https://bcr.bazel.build/modules/rules_cc/0.1.5/MODULE.bazel": "88dfc9361e8b5ae1008ac38f7cdfd45ad738e4fa676a3ad67d19204f045a1fd8",
     "https://bcr.bazel.build/modules/rules_cc/0.2.16/MODULE.bazel": "9242fa89f950c6ef7702801ab53922e99c69b02310c39fb6e62b2bd30df2a1d4",
     "https://bcr.bazel.build/modules/rules_cc/0.2.18/MODULE.bazel": "4460ec36adc8f722a6a2a4ac9374cb91f2acebadaa93fc37966129afb3dece87",
-    "https://bcr.bazel.build/modules/rules_cc/0.2.18/source.json": "abad668ff2fd63ada1ac49bf386d37e27048b89a3465a6fd968bb832b00a09d3",
+    "https://bcr.bazel.build/modules/rules_cc/0.2.22/MODULE.bazel": "94df4328edef9e44d38de5e73b037cd348e75e7ae55f4e21bf07878c41a31ebb",
+    "https://bcr.bazel.build/modules/rules_cc/0.2.22/source.json": "b2d6d6f9c332ce269ad75b89c6f3168d809a66173c9040210fb9bcc733ab42fa",
     "https://bcr.bazel.build/modules/rules_cc/0.2.4/MODULE.bazel": "1ff1223dfd24f3ecf8f028446d4a27608aa43c3f41e346d22838a4223980b8cc",
     "https://bcr.bazel.build/modules/rules_cc/0.2.8/MODULE.bazel": "f1df20f0bf22c28192a794f29b501ee2018fa37a3862a1a2132ae2940a23a642",
     "https://bcr.bazel.build/modules/rules_foreign_cc/0.9.0/MODULE.bazel": "c9e8c682bf75b0e7c704166d79b599f93b72cfca5ad7477df596947891feeef6",
@@ -154,7 +163,8 @@
     "https://bcr.bazel.build/modules/rules_proto/5.3.0-21.7/MODULE.bazel": "e8dff86b0971688790ae75528fe1813f71809b5afd57facb44dad9e8eca631b7",
     "https://bcr.bazel.build/modules/rules_proto/6.0.2/MODULE.bazel": "ce916b775a62b90b61888052a416ccdda405212b6aaeb39522f7dc53431a5e73",
     "https://bcr.bazel.build/modules/rules_proto/7.0.2/MODULE.bazel": "bf81793bd6d2ad89a37a40693e56c61b0ee30f7a7fdbaf3eabbf5f39de47dea2",
-    "https://bcr.bazel.build/modules/rules_proto/7.0.2/source.json": "1e5e7260ae32ef4f2b52fd1d0de8d03b606a44c91b694d2f1afb1d3b28a48ce1",
+    "https://bcr.bazel.build/modules/rules_proto/7.1.0/MODULE.bazel": "002d62d9108f75bb807cd56245d45648f38275cb3a99dcd45dfb864c5d74cb96",
+    "https://bcr.bazel.build/modules/rules_proto/7.1.0/source.json": "39f89066c12c24097854e8f57ab8558929f9c8d474d34b2c00ac04630ad8940e",
     "https://bcr.bazel.build/modules/rules_python/0.10.2/MODULE.bazel": "cc82bc96f2997baa545ab3ce73f196d040ffb8756fd2d66125a530031cd90e5f",
     "https://bcr.bazel.build/modules/rules_python/0.23.1/MODULE.bazel": "49ffccf0511cb8414de28321f5fcf2a31312b47c40cc21577144b7447f2bf300",
     "https://bcr.bazel.build/modules/rules_python/0.25.0/MODULE.bazel": "72f1506841c920a1afec76975b35312410eea3aa7b63267436bfb1dd91d2d382",
@@ -162,15 +172,20 @@
     "https://bcr.bazel.build/modules/rules_python/0.31.0/MODULE.bazel": "93a43dc47ee570e6ec9f5779b2e64c1476a6ce921c48cc9a1678a91dd5f8fd58",
     "https://bcr.bazel.build/modules/rules_python/0.4.0/MODULE.bazel": "9208ee05fd48bf09ac60ed269791cf17fb343db56c8226a720fbb1cdf467166c",
     "https://bcr.bazel.build/modules/rules_python/0.40.0/MODULE.bazel": "9d1a3cd88ed7d8e39583d9ffe56ae8a244f67783ae89b60caafc9f5cf318ada7",
+    "https://bcr.bazel.build/modules/rules_python/1.6.3/MODULE.bazel": "a7b80c42cb3de5ee2a5fa1abc119684593704fcd2fec83165ebe615dec76574f",
     "https://bcr.bazel.build/modules/rules_python/1.7.0/MODULE.bazel": "d01f995ecd137abf30238ad9ce97f8fc3ac57289c8b24bd0bf53324d937a14f8",
+    "https://bcr.bazel.build/modules/rules_python/1.8.0/MODULE.bazel": "c151c025dbcc93d8f62ab68ecc313c9176a868a0e6386981bf2a12aec77cbe7b",
     "https://bcr.bazel.build/modules/rules_python/1.9.0/MODULE.bazel": "afc3a05f29f09f2d3ee95ad99a145250dab41a2b2d8d6f82cc91936b3213282c",
     "https://bcr.bazel.build/modules/rules_python/1.9.0/source.json": "3921ea0b65298d51aead5b9e4a82203d7be9b5918619b58b53f1c259f4e63169",
+    "https://bcr.bazel.build/modules/rules_rs/0.0.110/MODULE.bazel": "c0c3c938547998dbced9aafea3c67c28d6919a33ea63707b03f1da0359840355",
+    "https://bcr.bazel.build/modules/rules_rs/0.0.110/source.json": "679b8aad1f16158580dbfd4aac59eea2644740ff34078bc46030a5ec3bfa62f8",
     "https://bcr.bazel.build/modules/rules_rust/0.68.0/MODULE.bazel": "dcb4fe4396b49d3b2d72bccf634d27499dd2a58dcdfccfe8e17ba15c4bd150ae",
     "https://bcr.bazel.build/modules/rules_rust/0.68.0/source.json": "e5d5f37874c4af13dbdfbf1220889607d9b3cc51f2831e10c2035b6638442f07",
     "https://bcr.bazel.build/modules/rules_shell/0.2.0/MODULE.bazel": "fda8a652ab3c7d8fee214de05e7a9916d8b28082234e8d2c0094505c5268ed3c",
     "https://bcr.bazel.build/modules/rules_shell/0.4.1/MODULE.bazel": "00e501db01bbf4e3e1dd1595959092c2fadf2087b2852d3f553b5370f5633592",
     "https://bcr.bazel.build/modules/rules_shell/0.6.1/MODULE.bazel": "72e76b0eea4e81611ef5452aa82b3da34caca0c8b7b5c0c9584338aa93bae26b",
-    "https://bcr.bazel.build/modules/rules_shell/0.6.1/source.json": "20ec05cd5e592055e214b2da8ccb283c7f2a421ea0dc2acbf1aa792e11c03d0c",
+    "https://bcr.bazel.build/modules/rules_shell/0.8.0/MODULE.bazel": "f6a89f1d6a669a26f28fe814503857055d76306b79cfc11d12399af08d0b80ae",
+    "https://bcr.bazel.build/modules/rules_shell/0.8.0/source.json": "eb53cc815bc503c6683c5fe12d943f98883f81fc22f51403ec8a95610cba4195",
     "https://bcr.bazel.build/modules/stardoc/0.5.1/MODULE.bazel": "1a05d92974d0c122f5ccf09291442580317cdd859f07a8655f1db9a60374f9f8",
     "https://bcr.bazel.build/modules/stardoc/0.5.3/MODULE.bazel": "c7f6948dae6999bf0db32c1858ae345f112cacf98f174c7a8bb707e41b974f1c",
     "https://bcr.bazel.build/modules/stardoc/0.5.6/MODULE.bazel": "c43dabc564990eeab55e25ed61c07a1aadafe9ece96a4efabb3f8bf9063b71ef",
@@ -184,10 +199,15 @@
     "https://bcr.bazel.build/modules/upb/0.0.0-20220923-a547704/MODULE.bazel": "7298990c00040a0e2f121f6c32544bab27d4452f80d9ce51349b1a28f3005c43",
     "https://bcr.bazel.build/modules/with_cfg.bzl/0.12.0/MODULE.bazel": "b573395fe63aef4299ba095173e2f62ccfee5ad9bbf7acaa95dba73af9fc2b38",
     "https://bcr.bazel.build/modules/with_cfg.bzl/0.12.0/source.json": "3f3fbaeafecaf629877ad152a2c9def21f8d330d91aa94c5dc75bbb98c10b8b8",
+    "https://bcr.bazel.build/modules/xz/5.4.5.bcr.8/MODULE.bazel": "e48a69bd54053c2ec5fffc2a29fb70122afd3e83ab6c07068f63bc6553fa57cc",
+    "https://bcr.bazel.build/modules/zlib-ng/2.3.3.bcr.2/MODULE.bazel": "86130924115bf8dfc4aba286fb49a2ec8d32430a21771db9ccf5381acf0d10cc",
+    "https://bcr.bazel.build/modules/zlib-ng/2.3.3.bcr.2/source.json": "7aa4112eb2fbb99757e97cf0b7a4e2bdb3464b2b3cfb351bc807ffcb34bd349f",
     "https://bcr.bazel.build/modules/zlib/1.2.11/MODULE.bazel": "07b389abc85fdbca459b69e2ec656ae5622873af3f845e1c9d80fe179f3effa0",
     "https://bcr.bazel.build/modules/zlib/1.3.1.bcr.5/MODULE.bazel": "eec517b5bbe5492629466e11dae908d043364302283de25581e3eb944326c4ca",
     "https://bcr.bazel.build/modules/zlib/1.3.1.bcr.5/source.json": "22bc55c47af97246cfc093d0acf683a7869377de362b5d1c552c2c2e16b7a806",
-    "https://bcr.bazel.build/modules/zlib/1.3.1/MODULE.bazel": "751c9940dcfe869f5f7274e1295422a34623555916eb98c174c1e945594bf198"
+    "https://bcr.bazel.build/modules/zlib/1.3.1/MODULE.bazel": "751c9940dcfe869f5f7274e1295422a34623555916eb98c174c1e945594bf198",
+    "https://bcr.bazel.build/modules/zstd/1.5.7.bcr.1/MODULE.bazel": "c5977176dd8555be7a9d598512ae0cae11831259c06f00a5e5e0037d5db4e3f5",
+    "https://bcr.bazel.build/modules/zstd/1.5.7.bcr.1/source.json": "aa95e0b5aac9d80195b9047d223beaf26b1948be55d49f0e803e180e9ccc6e75"
   },
   "selectedYankedVersions": {},
   "moduleExtensions": {
@@ -298,123 +318,6 @@
           ],
           [
             "llvm+",
-            "bazel_tools",
-            "bazel_tools"
-          ]
-        ]
-      }
-    },
-    "@@pybind11_bazel+//:python_configure.bzl%extension": {
-      "general": {
-        "bzlTransitiveDigest": "D2/qWHU6yQFwRG7Bb+caqrYMha5avsASao2vERrxK24=",
-        "usagesDigest": "fycyB39YnXIJkfWCIXLUKJMZzANcuLy9ZE73hRucjFk=",
-        "recordedFileInputs": {
-          "@@pybind11_bazel+//MODULE.bazel": "88af1c246226d87e65be78ed49ecd1e6f5e98648558c14ce99176da041dc378e"
-        },
-        "recordedDirentsInputs": {},
-        "envVariables": {},
-        "generatedRepoSpecs": {
-          "local_config_python": {
-            "repoRuleId": "@@pybind11_bazel+//:python_configure.bzl%python_configure",
-            "attributes": {}
-          },
-          "pybind11": {
-            "repoRuleId": "@@bazel_tools//tools/build_defs/repo:http.bzl%http_archive",
-            "attributes": {
-              "build_file": "@@pybind11_bazel+//:pybind11.BUILD",
-              "strip_prefix": "pybind11-2.11.1",
-              "urls": [
-                "https://github.com/pybind/pybind11/archive/v2.11.1.zip"
-              ]
-            }
-          }
-        },
-        "recordedRepoMappingEntries": [
-          [
-            "pybind11_bazel+",
-            "bazel_tools",
-            "bazel_tools"
-          ]
-        ]
-      }
-    },
-    "@@rules_fuzzing+//fuzzing/private:extensions.bzl%non_module_dependencies": {
-      "general": {
-        "bzlTransitiveDigest": "4LouzhF/yT117s7peGnNs9ROomiJXC6Zl5R0oI21jho=",
-        "usagesDigest": "wy6ISK6UOcBEjj/mvJ/S3WeXoO67X+1llb9yPyFtPgc=",
-        "recordedFileInputs": {},
-        "recordedDirentsInputs": {},
-        "envVariables": {},
-        "generatedRepoSpecs": {
-          "platforms": {
-            "repoRuleId": "@@bazel_tools//tools/build_defs/repo:http.bzl%http_archive",
-            "attributes": {
-              "urls": [
-                "https://mirror.bazel.build/github.com/bazelbuild/platforms/releases/download/0.0.8/platforms-0.0.8.tar.gz",
-                "https://github.com/bazelbuild/platforms/releases/download/0.0.8/platforms-0.0.8.tar.gz"
-              ],
-              "sha256": "8150406605389ececb6da07cbcb509d5637a3ab9a24bc69b1101531367d89d74"
-            }
-          },
-          "rules_python": {
-            "repoRuleId": "@@bazel_tools//tools/build_defs/repo:http.bzl%http_archive",
-            "attributes": {
-              "sha256": "d70cd72a7a4880f0000a6346253414825c19cdd40a28289bdf67b8e6480edff8",
-              "strip_prefix": "rules_python-0.28.0",
-              "url": "https://github.com/bazelbuild/rules_python/releases/download/0.28.0/rules_python-0.28.0.tar.gz"
-            }
-          },
-          "bazel_skylib": {
-            "repoRuleId": "@@bazel_tools//tools/build_defs/repo:http.bzl%http_archive",
-            "attributes": {
-              "sha256": "cd55a062e763b9349921f0f5db8c3933288dc8ba4f76dd9416aac68acee3cb94",
-              "urls": [
-                "https://mirror.bazel.build/github.com/bazelbuild/bazel-skylib/releases/download/1.5.0/bazel-skylib-1.5.0.tar.gz",
-                "https://github.com/bazelbuild/bazel-skylib/releases/download/1.5.0/bazel-skylib-1.5.0.tar.gz"
-              ]
-            }
-          },
-          "com_google_absl": {
-            "repoRuleId": "@@bazel_tools//tools/build_defs/repo:http.bzl%http_archive",
-            "attributes": {
-              "urls": [
-                "https://github.com/abseil/abseil-cpp/archive/refs/tags/20240116.1.zip"
-              ],
-              "strip_prefix": "abseil-cpp-20240116.1",
-              "integrity": "sha256-7capMWOvWyoYbUaHF/b+I2U6XLMaHmky8KugWvfXYuk="
-            }
-          },
-          "rules_fuzzing_oss_fuzz": {
-            "repoRuleId": "@@rules_fuzzing+//fuzzing/private/oss_fuzz:repository.bzl%oss_fuzz_repository",
-            "attributes": {}
-          },
-          "honggfuzz": {
-            "repoRuleId": "@@bazel_tools//tools/build_defs/repo:http.bzl%http_archive",
-            "attributes": {
-              "build_file": "@@rules_fuzzing+//:honggfuzz.BUILD",
-              "sha256": "6b18ba13bc1f36b7b950c72d80f19ea67fbadc0ac0bb297ec89ad91f2eaa423e",
-              "url": "https://github.com/google/honggfuzz/archive/2.5.zip",
-              "strip_prefix": "honggfuzz-2.5"
-            }
-          },
-          "rules_fuzzing_jazzer": {
-            "repoRuleId": "@@bazel_tools//tools/build_defs/repo:http.bzl%http_jar",
-            "attributes": {
-              "sha256": "ee6feb569d88962d59cb59e8a31eb9d007c82683f3ebc64955fd5b96f277eec2",
-              "url": "https://repo1.maven.org/maven2/com/code-intelligence/jazzer/0.20.1/jazzer-0.20.1.jar"
-            }
-          },
-          "rules_fuzzing_jazzer_api": {
-            "repoRuleId": "@@bazel_tools//tools/build_defs/repo:http.bzl%http_jar",
-            "attributes": {
-              "sha256": "f5a60242bc408f7fa20fccf10d6c5c5ea1fcb3c6f44642fec5af88373ae7aa1b",
-              "url": "https://repo1.maven.org/maven2/com/code-intelligence/jazzer-api/0.20.1/jazzer-api-0.20.1.jar"
-            }
-          }
-        },
-        "recordedRepoMappingEntries": [
-          [
-            "rules_fuzzing+",
             "bazel_tools",
             "bazel_tools"
           ]
@@ -1086,6 +989,110 @@
     },
     "@@aspect_tools_telemetry+//:extension.bzl%telemetry": {
       "notice_version": "3"
+    },
+    "@@rules_rs+//rs/toolchains:module_extension.bzl%toolchains": {
+      "cargo-1.92.0-aarch64-apple-darwin.tar.xz": "bce6e7def37240c5a63115828017a9fc0ebcb31e64115382f5943b62b71aa34a",
+      "cargo-1.92.0-aarch64-pc-windows-msvc.tar.xz": "3fc47cc29781190c5075f807836c4b98d411aaf27c59598fbfb2aa781ccf6190",
+      "cargo-1.92.0-aarch64-unknown-linux-gnu.tar.xz": "cb2ce6be6411b986e25c71ad8a813f9dfbe3461738136fd684e3644f8dd75df4",
+      "cargo-1.92.0-x86_64-apple-darwin.tar.xz": "b033a7c33aba8af947c9d0ab2785f9696347cded228ffe731897f1c627466262",
+      "cargo-1.92.0-x86_64-pc-windows-msvc.tar.xz": "f4057534ec58708ed3554957582a6c8e8c6abfee011b5c8ad45c3ab27c0b3076",
+      "cargo-1.92.0-x86_64-unknown-linux-gnu.tar.xz": "e5e12be2c7126a7036c8adf573078a28b92611f5767cc9bd0a6f7c83081df103",
+      "clippy-1.92.0-aarch64-apple-darwin.tar.xz": "08c65b6cf8faae3861706f8c97acf2aa6b784ed9455354c3b13495a7cfe5cb84",
+      "clippy-1.92.0-aarch64-pc-windows-msvc.tar.xz": "2aa2f1288072ea1f870d6d860d09f5911c1305d506f344b65cf5e27b5070e262",
+      "clippy-1.92.0-aarch64-unknown-linux-gnu.tar.xz": "333ab38c673b589468b8293b525e5704fb52515d9d516ee28d3d34dd5a63d3c3",
+      "clippy-1.92.0-x86_64-apple-darwin.tar.xz": "39cce87aab3d8b71350edcb3f943fba7bc59581ce1e65e158ee01e64cf0f1cf5",
+      "clippy-1.92.0-x86_64-pc-windows-msvc.tar.xz": "51a9a67931a3e50eb0c26b4c6a7ec2ef6ddd633319343a2d4767710c1e33b21f",
+      "clippy-1.92.0-x86_64-unknown-linux-gnu.tar.xz": "2c1bf6e7da8ec50feba03fe188fc9a744ba59e2c6ece7970c13e201d08defa9a",
+      "rust-analyzer-1.92.0-aarch64-apple-darwin.tar.xz": "e2ec83302123119bbe04ed367fbb5d6d3575555faf7870f7b241f5bdeef3e6ed",
+      "rust-analyzer-1.92.0-aarch64-pc-windows-msvc.tar.xz": "fc645b480731828254c7691599c9d092032bfb5a728839cb3f2d52e7cce7fcd2",
+      "rust-analyzer-1.92.0-aarch64-unknown-linux-gnu.tar.xz": "f18c06dab73f5cffab6b7c58a51c3bcbbcc962b08d4a56974e958cac229eb0cd",
+      "rust-analyzer-1.92.0-x86_64-apple-darwin.tar.xz": "a0a9ef444c3223f0b55ef1ec54945b109c7e7ea7cb8d3f0696290aa2ac51507e",
+      "rust-analyzer-1.92.0-x86_64-pc-windows-msvc.tar.xz": "edcac488265c48737bf615481970e0a0b07fa98380f49d6322f6d53327a1b51a",
+      "rust-analyzer-1.92.0-x86_64-unknown-linux-gnu.tar.xz": "1b1dec1ca75c027968646a7524b2ebad070116df5fb625f8802deabe9c0b0b5a",
+      "rust-src-1.92.0.tar.xz": "333d45eeb76f210966dc5c1440b535dea5876ed0162f9286273c85e7a1e3cb29",
+      "rust-std-1.92.0-aarch64-apple-darwin.tar.xz": "ea619984fcb8e24b05dbd568d599b8e10d904435ab458dfba6469e03e0fd69aa",
+      "rust-std-1.92.0-aarch64-apple-ios-macabi.tar.xz": "d0453906db0abe9efb595e1ed59feb131a94c0312c0bc72da6482936667ff8da",
+      "rust-std-1.92.0-aarch64-apple-ios-sim.tar.xz": "9362b66fbaf2503276ea34f34b41b171269db9ba4dce05dde3472ea9d1852601",
+      "rust-std-1.92.0-aarch64-apple-ios.tar.xz": "81fb496f94a3f52ec2818a76a7107905b13b37d490ca849d22c0a7a7d7b0125e",
+      "rust-std-1.92.0-aarch64-linux-android.tar.xz": "ce6350bd43856c630773c93e40310989c6cb98a1178233c44e512a31761943d0",
+      "rust-std-1.92.0-aarch64-pc-windows-gnullvm.tar.xz": "4e79f57b80040757a3425568b5978986f026daf771649a64021c74bcc138214b",
+      "rust-std-1.92.0-aarch64-pc-windows-msvc.tar.xz": "b20c5c696af4ecfb683370ca0ee3c76ab8726fe6470ce9f1368d41a5b06ea065",
+      "rust-std-1.92.0-aarch64-unknown-fuchsia.tar.xz": "6021246b6c0d9d6104c0b350f7cd48a31d5707edaa8063f77f5636fe07bdb79d",
+      "rust-std-1.92.0-aarch64-unknown-linux-gnu.tar.xz": "ce2ab42c09d633b0a8b4b65a297c700ae0fad47aae890f75894782f95be7e36d",
+      "rust-std-1.92.0-aarch64-unknown-linux-musl.tar.xz": "94b9f84f21d29825c55a27fbb6b4b9fb9296a4a841aa54d85b95c42445623363",
+      "rust-std-1.92.0-aarch64-unknown-none-softfloat.tar.xz": "0dc46fafaaa36f53eec49e14a69e1d6d9ac6f0b9624a01081ad311d8139a2be0",
+      "rust-std-1.92.0-aarch64-unknown-none.tar.xz": "ab6a2edab924739fc2c86e9f8fd8068b379e881a6261a177d66608d3ea4cacb1",
+      "rust-std-1.92.0-aarch64-unknown-uefi.tar.xz": "f98001222bf23743598382c232b08d3137035b53645a420a1425288d501808af",
+      "rust-std-1.92.0-arm-linux-androideabi.tar.xz": "d41ec7255556b605dda04201a23e4445b5b86bc6786c703f91eb985bddc9f4ca",
+      "rust-std-1.92.0-arm-unknown-linux-gnueabi.tar.xz": "35478e20f8cc13912b31f2905b313a2820ddae564b363a66ab7a5da39d12787f",
+      "rust-std-1.92.0-arm-unknown-linux-gnueabihf.tar.xz": "836ada282b65c57d71f9b7e6fb490832410c954aac905c5437fb0bf851b53c83",
+      "rust-std-1.92.0-arm-unknown-linux-musleabi.tar.xz": "91d3c5fdbda9ba2e778bb638e3a5d060f3021bbc7a60edf22b0035be4e611b30",
+      "rust-std-1.92.0-arm-unknown-linux-musleabihf.tar.xz": "20411e3858308add0dadde9ce2059d82cdd6c5339881fa93ac995e733df0f832",
+      "rust-std-1.92.0-armv7-linux-androideabi.tar.xz": "06ac2f08dcf5c480e7767c0541c9bd7460754ec3a369a4b7097b328eca28fab9",
+      "rust-std-1.92.0-armv7-unknown-linux-gnueabi.tar.xz": "3d5e3fb14441ea8e6fc6307cbd89efd69be42143ff7f2b8dfb19818ddca993c0",
+      "rust-std-1.92.0-armv7-unknown-linux-gnueabihf.tar.xz": "e3ac810db43067d8af9e17679d47534e871f1daad8cd0762e67da935681e9e19",
+      "rust-std-1.92.0-armv7-unknown-linux-musleabi.tar.xz": "89cbf7db934d543754b446a52398081ec40ee6b98ed5bca93ac1dbd5faf48c16",
+      "rust-std-1.92.0-armv7-unknown-linux-musleabihf.tar.xz": "c7c08a389bd351226fd52266bfe2d2c444597e1bbb5d0307da44bdfa4df62c99",
+      "rust-std-1.92.0-i686-linux-android.tar.xz": "e45832b005556f65c6d26f05f34bd4ab5ceea8d9b9fefc4175d52b0780ca89db",
+      "rust-std-1.92.0-i686-pc-windows-gnu.tar.xz": "b3eefe10d4aed3ccbeaff3ae9cd2e0e0a36894c0635d0e69af1c9a698679d75f",
+      "rust-std-1.92.0-i686-pc-windows-gnullvm.tar.xz": "e6d709f85dea51d81f2f1a030845b732b9f7761d95d93c57c7276b0a451c2993",
+      "rust-std-1.92.0-i686-pc-windows-msvc.tar.xz": "e5671b276047647e994a7cab99c90ee70c46787572fbe4e266a13c6edb84d5ce",
+      "rust-std-1.92.0-i686-unknown-freebsd.tar.xz": "e008a0506ec4d5eff30abdf376c7933e235670bd6c5e1131c52bcda097a21116",
+      "rust-std-1.92.0-i686-unknown-linux-gnu.tar.xz": "abc840631a4462a4c8ec61341110ff653ab2ef86ef3b10f84489d00cc8a9310d",
+      "rust-std-1.92.0-i686-unknown-linux-musl.tar.xz": "c796874b1343721f575203fa179dc258e09ac45cd95dd6c35c4d5979a3870494",
+      "rust-std-1.92.0-i686-unknown-uefi.tar.xz": "90da7759e28e62fb82454d4eb4e02ac14320b8da3372e02f9ca4f47f7afbfe40",
+      "rust-std-1.92.0-loongarch64-unknown-linux-gnu.tar.xz": "62e2568ebf6f1addc750a8c32dd1fa4fef8d27679cbac33b837afeb54f204819",
+      "rust-std-1.92.0-loongarch64-unknown-linux-musl.tar.xz": "274838eebb615e6d2719157aa53230cd0c3233a1e6f1c975c0f5978198c55da3",
+      "rust-std-1.92.0-loongarch64-unknown-none.tar.xz": "7e03cbb3aeb5a2c882433f2de0d096455bcab2465729cb0399d1b31e2d400075",
+      "rust-std-1.92.0-powerpc-unknown-linux-gnu.tar.xz": "c3e809a324b00eb53096c58df38645bb496c6560de334dfe04ed0b77c0605aaa",
+      "rust-std-1.92.0-powerpc64-unknown-linux-gnu.tar.xz": "2ce706afa4a46b6773340854de877fc63618a40e351298a4e3da8eb482619863",
+      "rust-std-1.92.0-powerpc64le-unknown-linux-gnu.tar.xz": "eba59766c2d9805c0a1fc82fd723acbb36569e1bec1088c037bba84d965f70ba",
+      "rust-std-1.92.0-powerpc64le-unknown-linux-musl.tar.xz": "8b515e18b6ac8f8d37ea3cabe644b7f571984333c3b4192b7f5877e79eae7893",
+      "rust-std-1.92.0-riscv32imac-unknown-none-elf.tar.xz": "5915223db6b8afa173f67eb4fe6f5aff2402351ed9abab1b370d0860be4af6c9",
+      "rust-std-1.92.0-riscv32imc-unknown-none-elf.tar.xz": "e1c6968ce25ab78f2c5b5460691763a2d39cb71b01d6d54c208d4a8b735b0584",
+      "rust-std-1.92.0-riscv64gc-unknown-linux-gnu.tar.xz": "8ee20dcf3b1063fa6069b3ce85e1fcf42794dfa783263314865cb53fff42d9e4",
+      "rust-std-1.92.0-riscv64gc-unknown-linux-musl.tar.xz": "f20d822309900fd6c7230688694baf91e900154e44e6247feca49b7b7a203a57",
+      "rust-std-1.92.0-riscv64gc-unknown-none-elf.tar.xz": "7eacf6a98786d58ef912643fd5aedc35111712e96a47b7e5d3ccddcdf9fb166d",
+      "rust-std-1.92.0-s390x-unknown-linux-gnu.tar.xz": "ebf944dc95015498d322504a54e4f9cdb28590f7790aa3a9eb86d6cf4b6c93ff",
+      "rust-std-1.92.0-sparc64-unknown-linux-gnu.tar.xz": "d85afb14120c3c7367338a565a920db653dccd4bc5062398791d7b62b89fd1fd",
+      "rust-std-1.92.0-thumbv6m-none-eabi.tar.xz": "f55de77126b60e1da38f8a5cdd127db872155ce9fbb53d4459502dd47b1dd476",
+      "rust-std-1.92.0-thumbv7em-none-eabi.tar.xz": "fdee017dcebfa8675220c20ca65b945b6eaee744d5d19b92cb0ca5480dd19ba6",
+      "rust-std-1.92.0-thumbv7em-none-eabihf.tar.xz": "6bfd083ce4917440fb4b04ca39ab4dadc9f40d9dc2775056899857bfa8911fd0",
+      "rust-std-1.92.0-thumbv7m-none-eabi.tar.xz": "7dc4c92e97db5ce1ddd9fbb7fbb1ad2d367f1c2e20d296a6d6427480c900c315",
+      "rust-std-1.92.0-thumbv8m.main-none-eabi.tar.xz": "61a6a80d03ebdb80ab06a044d4ec60e3c2bd8dc4d6011e920cf41592df4f0646",
+      "rust-std-1.92.0-thumbv8m.main-none-eabihf.tar.xz": "24c2f65371a2a5c6a40b51ae0e276ea9afff0479255f180f5e1549a0a4d58fb3",
+      "rust-std-1.92.0-wasm32-unknown-emscripten.tar.xz": "59b7adf18c0cc416a005fad7f704203b965905eb1c0ed9c556daa3c14048b9f4",
+      "rust-std-1.92.0-wasm32-unknown-unknown.tar.xz": "6c73f053ccd6adc886f802270ba960fd854e5e1111e4b5cfb875f1fdcfc0eb60",
+      "rust-std-1.92.0-wasm32-wasip1-threads.tar.xz": "feea056dd657a26560dfddfe4b53daeef3ded83c140b453b6dbdebaabd2a664c",
+      "rust-std-1.92.0-wasm32-wasip1.tar.xz": "8107dc35f0b6b744d998e766351419b4e0d27cddd6456c461337753a25f29fcd",
+      "rust-std-1.92.0-wasm32-wasip2.tar.xz": "e69ce601b6b24eea08b0d9e1fb0d9bf2a4188b3109353b272be4d995f687c943",
+      "rust-std-1.92.0-x86_64-apple-darwin.tar.xz": "6ce143bf9e83c71e200f4180e8774ab22c8c8c2351c88484b13ff13be82c8d57",
+      "rust-std-1.92.0-x86_64-apple-ios-macabi.tar.xz": "6a292d774653f2deaac743060ec68bfd5d7ff01d9b364e1a7d1e57a679650b47",
+      "rust-std-1.92.0-x86_64-apple-ios.tar.xz": "b6e38e5f8c9e6fb294681a7951301856b8f9424af4589e14493c0c939338814c",
+      "rust-std-1.92.0-x86_64-linux-android.tar.xz": "ffd39429435ff2f0763b940dd6afb4b9ccb1ed443eeef4fff9f1e9b3c5730026",
+      "rust-std-1.92.0-x86_64-pc-windows-gnu.tar.xz": "d4043304ef0e4792fb79a1153cbeca41308aac37cb1af3aa6bc3f0bb6d2276e1",
+      "rust-std-1.92.0-x86_64-pc-windows-gnullvm.tar.xz": "6169605b3073a7c2d6960bc1c74cb9cd6b65f45ee34e7ede02368e07ce4564cf",
+      "rust-std-1.92.0-x86_64-pc-windows-msvc.tar.xz": "b4e53a9c9b96a1a0618364791b7728a1c8978101ec6d1ee78fe930e1ef061994",
+      "rust-std-1.92.0-x86_64-unknown-freebsd.tar.xz": "151929a4255175d14b2cbcb69ef46d9217add23be268b9cd1446f8eab16616f2",
+      "rust-std-1.92.0-x86_64-unknown-fuchsia.tar.xz": "51ec26391d166e2f190a329919e3c7bd793861f02284aba461a086268725d9f1",
+      "rust-std-1.92.0-x86_64-unknown-linux-gnu.tar.xz": "5f106805ed86ebf8df287039e53a45cf974391ef4d088c2760776b05b8e48b5d",
+      "rust-std-1.92.0-x86_64-unknown-linux-musl.tar.xz": "11f0b7efccdb5e7972e3c0fc23693a487abc28b624675c08161d055a016d527e",
+      "rust-std-1.92.0-x86_64-unknown-netbsd.tar.xz": "db6a8d3a091551701b12e40cc58d4a541adfb63f250074aae90d250329beb8de",
+      "rust-std-1.92.0-x86_64-unknown-none.tar.xz": "1d8420ab8eb241a35e38b76470277c722bd5a7aa4ac0c7a565ad6f30b37cb852",
+      "rust-std-1.92.0-x86_64-unknown-uefi.tar.xz": "1b849250cf095269f3a2c7bc2087a919386da7da28e80dc289e6268bc705142d",
+      "rustc-1.92.0-aarch64-apple-darwin.tar.xz": "15dee753c9217dff4cf45d734b29dc13ce6017d8a55fe34eed75022b39a63ff0",
+      "rustc-1.92.0-aarch64-pc-windows-msvc.tar.xz": "07ba5606143de3bc916455714f67732fca05805591396a8190d5e88b8863eea3",
+      "rustc-1.92.0-aarch64-unknown-linux-gnu.tar.xz": "7c8706fad4c038b5eacab0092e15db54d2b365d5f3323ca046fe987f814e7826",
+      "rustc-1.92.0-src.tar.xz": "ebee170bfe4c4dfc59521a101de651e5534f4dae889756a5c97ca9ea40d0c307",
+      "rustc-1.92.0-x86_64-apple-darwin.tar.xz": "0facbd5d2742c8e97c53d59c9b5b81db6088cfc285d9ecb99523a50d6765fc5c",
+      "rustc-1.92.0-x86_64-pc-windows-msvc.tar.xz": "6aec5aba5384ce1041538e71ebebf671d82e29f4fe697bc7844626d94b0dbfe6",
+      "rustc-1.92.0-x86_64-unknown-linux-gnu.tar.xz": "78b2dd9c6b1fcd2621fa81c611cf5e2d6950690775038b585c64f364422886e0",
+      "rustfmt-1.92.0-aarch64-apple-darwin.tar.xz": "5d8ea865a7999dc9141603be8a9352745bf8440da051eb1c43f0fcaaf6845441",
+      "rustfmt-1.92.0-aarch64-pc-windows-msvc.tar.xz": "e626e08df361c5a9127e0e4b5d73f87fd17ed30cc471887ebc033bebe97c0ff2",
+      "rustfmt-1.92.0-aarch64-unknown-linux-gnu.tar.xz": "1dce37aea2a7cb801f1756ffc531d7140428315a3d2c2f836272547eb7b9dacd",
+      "rustfmt-1.92.0-x86_64-apple-darwin.tar.xz": "e038bda323ed7f4d417efc5be44c4245d74b8394f9f8393b9d464d662c3a9499",
+      "rustfmt-1.92.0-x86_64-pc-windows-msvc.tar.xz": "3761b2e8a18d672b2804b0d1864dc122b7bc54343d6a109135c7843de7fa2ace",
+      "rustfmt-1.92.0-x86_64-unknown-linux-gnu.tar.xz": "38951ee55f21e9170236fc98c8ba373ae4338d863087c6b0a5fa8c4e797d52c4"
     }
   }
 }
