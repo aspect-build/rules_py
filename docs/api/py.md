@@ -306,9 +306,9 @@ Python source, import-path, and virtual-dependency information for a target's de
 | Name  | Description |
 | :------------- | :------------- |
 | <a id="PyInfo-transitive_sources"></a>transitive_sources |  depset[File] — postorder depset of first-party `.py` sources in the transitive closure.    |
-| <a id="PyInfo-transitive_pyi_files"></a>transitive_pyi_files |  depset[File] — postorder depset of files needed only for type checking: `.pyi` type stubs in the transitive closure, plus the sources and stubs of any `pyi_deps`. Never placed in runfiles.    |
+| <a id="PyInfo-transitive_pyi_files"></a>transitive_pyi_files |  depset[File] — postorder depset of files needed only for type checking: `.pyi` type stubs in the transitive closure, plus the sources and stubs of any `pyi_deps`.    |
 | <a id="PyInfo-imports"></a>imports |  depset[str] — import roots to place on `sys.path` (rlocation-root-relative).    |
-| <a id="PyInfo-pyi_imports"></a>pyi_imports |  depset[str] — import roots needed only for type checking, from `pyi_deps` in the transitive closure. Never placed on `sys.path`. Optional: providers built without it are read as empty.    |
+| <a id="PyInfo-pyi_imports"></a>pyi_imports |  depset[str] — import roots needed only for type checking, from `pyi_deps` in the transitive closure. Optional: providers built without it are read as empty.    |
 | <a id="PyInfo-virtual_dependencies"></a>virtual_dependencies |  depset[str] — names of required virtual dependencies, independent of their resolution status.    |
 | <a id="PyInfo-virtual_resolutions"></a>virtual_resolutions |  depset[struct(virtual, target)] — virtual-dependency-name to concrete-target resolutions.    |
 
