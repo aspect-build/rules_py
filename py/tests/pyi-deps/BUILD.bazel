@@ -1,0 +1,104 @@
+load("//py:defs.bzl", "py_binary", "py_library", "py_test")
+load(":pyi_deps_test.bzl", "rules_python_type_check_only_test", "type_check_only_test")
+
+package(default_testonly = True)
+
+# `heavy` (first-party) and `@pypi//cowsay` (a wheel) are needed only to
+# type-check `typed`'s `TYPE_CHECKING` imports.
+py_library(
+    name = "heavy",
+    srcs = ["heavy/heavy.py"],
+    imports = ["heavy"],
+)
+
+py_library(
+    name = "typed",
+    srcs = ["typed.py"],
+    imports = ["."],
+    pyi_deps = [
+        ":heavy",
+        "@pypi//cowsay",
+    ],
+)
+
+py_library(
+    name = "consumer",
+    deps = [":typed"],
+)
+
+# pyi_deps propagate through `deps`, and only to type checkers.
+type_check_only_test(
+    name = "library_test",
+    runtime = ["typed.py"],
+    target_under_test = ":consumer",
+    type_check_only = [
+        "heavy",
+        "cowsay",
+    ],
+)
+
+# At run time neither pyi_dep is importable.
+py_test(
+    name = "not_importable_test",
+    srcs = ["main.py"],
+    main = "main.py",
+    pyi_deps = [":heavy"],
+    deps = [":typed"],
+)
+
+# The same through py_test's macro, venv and launcher.
+type_check_only_test(
+    name = "launcher_test",
+    runtime = ["typed.py"],
+    target_under_test = ":not_importable_test",
+    type_check_only = [
+        "heavy",
+        "cowsay",
+    ],
+)
+
+# pyi_deps of a virtual-dependency resolution reach type checkers too.
+py_library(
+    name = "resolved_impl",
+    pyi_deps = [":heavy"],
+)
+
+py_library(
+    name = "needs_resolved",
+    virtual_deps = ["resolved"],
+)
+
+py_binary(
+    name = "resolved_bin",
+    srcs = ["main.py"],
+    main = "main.py",
+    resolutions = {"resolved": ":resolved_impl"},
+    deps = [":needs_resolved"],
+)
+
+type_check_only_test(
+    name = "resolution_test",
+    target_under_test = ":resolved_bin",
+    type_check_only = ["heavy"],
+)
+
+# The @rules_python providers emitted for py_library and for the launcher.
+rules_python_type_check_only_test(
+    name = "rules_python_library_test",
+    runtime = ["typed.py"],
+    target_under_test = ":consumer",
+    type_check_only = [
+        "heavy",
+        "cowsay",
+    ],
+)
+
+rules_python_type_check_only_test(
+    name = "rules_python_launcher_test",
+    runtime = ["typed.py"],
+    target_under_test = ":not_importable_test",
+    type_check_only = [
+        "heavy",
+        "cowsay",
+    ],
+)

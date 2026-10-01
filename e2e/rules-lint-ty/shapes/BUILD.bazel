@@ -1,0 +1,7 @@
+load("@aspect_rules_py//py:defs.bzl", "py_library")
+
+py_library(
+    name = "geometry",
+    srcs = ["geometry.py"],
+    visibility = ["//visibility:public"],
+)

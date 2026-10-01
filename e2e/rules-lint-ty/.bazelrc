@@ -1,0 +1,5 @@
+import %workspace%/../../bazel/workspace.bazelrc
+
+# rules_lint's ty aspect reads @rules_python's PyInfo, which rules_py emits
+# only under the provider compatibility layer.
+common --@aspect_rules_py//py:emit_rules_python_providers
