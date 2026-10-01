@@ -1,7 +1,7 @@
 """Regression cases for PEP 517 build-helper dispatch shapes.
 
 The packages here each cover a different sdist shape that
-pep517_whl/build_helper.py has to handle correctly; see the
+pep517_whl/tools/build_helper.py has to handle correctly; see the
 per-package BUILD.bazel files under `cdifflib/` and `pyahocorasick/`
 for the specifics.
 

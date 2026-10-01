@@ -367,3 +367,113 @@ config_settings_args_test = analysistest.make(
         ),
     },
 )
+
+def _fake_rust_toolchain_impl(ctx):
+    # The sysroot is this target's own output root: an "-exec" segment in it
+    # proves the dependent re-resolved us in the exec configuration. The
+    # make-variables mirror what rules_rust's current_rust_toolchain exports;
+    # `cargo` and `rustc` are Files, as rust_toolchain publishes them.
+    tools = []
+    for name in ("cargo", "rustc"):
+        tool = ctx.actions.declare_file("{}/bin/{}".format(ctx.label.name, name))
+        ctx.actions.write(tool, "#!/bin/sh\nexit 0\n", is_executable = True)
+        tools.append(tool)
+    return [
+        DefaultInfo(files = depset(tools)),
+        platform_common.ToolchainInfo(
+            sysroot = ctx.bin_dir.path,
+            all_files = depset(tools),
+            cargo = tools[0],
+            rustc = tools[1],
+        ),
+        platform_common.TemplateVariableInfo({
+            "CARGO": "/fake/bin/cargo",
+            "RUSTC": "/fake/bin/rustc",
+            "RUST_SYSROOT": ctx.bin_dir.path + "/fake_sysroot",
+        }),
+    ]
+
+fake_rust_toolchain = rule(
+    implementation = _fake_rust_toolchain_impl,
+    doc = "Stands in for rules_rust's current_rust_toolchain: ToolchainInfo with a sysroot, cargo and rustc.",
+)
+
+def _script_value(content, variable):
+    """The right-hand side of `variable="..."` in the generated script, or None."""
+    for line in content.splitlines():
+        if line.startswith(variable + "="):
+            return line[len(variable) + 1:].strip('"')
+    return None
+
+def _cargo_lock_generator_test_impl(ctx):
+    env = analysistest.begin(ctx)
+    target = analysistest.target_under_test(env)
+    writes = [a for a in target.actions if a.mnemonic == "FileWrite"]
+    asserts.equals(env, 1, len(writes), "the launcher is one written script")
+    if not writes:
+        return analysistest.end(env)
+    content = writes[0].content
+    asserts.equals(env, target[DefaultInfo].files_to_run.executable, writes[0].outputs.to_list()[0], "the script is the executable")
+
+    sdist = _script_value(content, "sdist") or ""
+    cargo = _script_value(content, "cargo") or ""
+    rustc = _script_value(content, "export RUSTC") or ""
+    asserts.true(env, sdist.startswith("$runfiles/") and sdist.endswith("/uv/private/pep517_whl/tests/__stub_sdist.tar.gz"), "sdist below the runfiles root; got: " + sdist)
+    asserts.true(env, cargo.endswith("/__fake_rust_toolchain/bin/cargo"), "the toolchain's cargo; got: " + cargo)
+    asserts.true(env, rustc.endswith("/__fake_rust_toolchain/bin/rustc"), "the toolchain's rustc, exported for cargo; got: " + rustc)
+    asserts.true(env, 'out="${1:-' + ctx.attr.expected_output + '}"' in content, "default output {}; got:\n{}".format(ctx.attr.expected_output, content))
+    asserts.true(env, "generate-lockfile --manifest-path" in content and "locate-project --workspace" in content, "cargo resolves the lock at the workspace root of the shallowest manifest")
+    asserts.true(env, 'name = \\"__stub_sdist\\"' in content, "the override snippet names the package; got:\n" + content)
+
+    runfiles = [f.basename for f in target[DefaultInfo].default_runfiles.files.to_list()]
+    for needed in ("__stub_sdist.tar.gz", "cargo", "rustc"):
+        asserts.true(env, needed in runfiles, "{} must be a runfile; got {}".format(needed, runfiles))
+    return analysistest.end(env)
+
+cargo_lock_generator_test = analysistest.make(
+    _cargo_lock_generator_test_impl,
+    attrs = {
+        "expected_output": attr.string(mandatory = True, doc = "Workspace-relative path the script writes when run without arguments."),
+    },
+)
+
+def _rust_host_sysroot_test_impl(ctx):
+    env = analysistest.begin(ctx)
+    target = analysistest.target_under_test(env)
+    variables = target[platform_common.TemplateVariableInfo].variables
+    sysroot = variables.get("RUST_HOST_SYSROOT", "")
+    asserts.true(env, sysroot != "", "RUST_HOST_SYSROOT must be exported; got: {}".format(variables))
+    asserts.true(
+        env,
+        "-exec" in sysroot,
+        "the sysroot must come from the toolchain re-resolved in the exec configuration; got: " + sysroot,
+    )
+    return analysistest.end(env)
+
+rust_host_sysroot_test = analysistest.make(_rust_host_sysroot_test_impl)
+
+def _vendored_crates_test_impl(ctx):
+    env = analysistest.begin(ctx)
+    target = analysistest.target_under_test(env)
+    actions = [a for a in target.actions if a.mnemonic == "PySdistNativeBuild"]
+    asserts.equals(env, 1, len(actions), "expected exactly one PySdistNativeBuild action")
+    if actions:
+        argv = list(actions[0].argv)
+        asserts.true(env, "--cargo-vendor-dir" in argv, "the vendor dir must reach the helper; got: {}".format(argv))
+        if "--cargo-vendor-dir" in argv:
+            vendor_dir = argv[argv.index("--cargo-vendor-dir") + 1]
+            asserts.true(env, vendor_dir.endswith("/tests/vendor"), "the vendor root, not a crate file; got: " + vendor_dir)
+        inputs = [f.path for f in actions[0].inputs.to_list()]
+        asserts.true(
+            env,
+            any([p.endswith("/vendor/fake-0.1.0/.cargo-checksum.json") for p in inputs]),
+            "vendored crate files must be action inputs",
+        )
+        asserts.true(env, "--cargo-lock" in argv, "the supplied Cargo.lock must reach the helper; got: {}".format(argv))
+        if "--cargo-lock" in argv:
+            lock = argv[argv.index("--cargo-lock") + 1]
+            asserts.true(env, lock.endswith("/tests/Cargo.lock"), "got: " + lock)
+            asserts.true(env, lock in inputs, "the Cargo.lock must be an action input")
+    return analysistest.end(env)
+
+pep517_native_whl_vendored_crates_test = analysistest.make(_vendored_crates_test_impl)

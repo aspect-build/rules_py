@@ -1,0 +1,4 @@
+exports_files(
+    ["cargo-deps.patch"],
+    visibility = ["//visibility:public"],
+)

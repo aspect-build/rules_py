@@ -892,3 +892,214 @@ if __name__ == "__main__":
     if failures:
         print(f"Failures: {', '.join(failures)}")
         sys.exit(1)
+
+
+# --- Cargo.lock ---
+
+_CARGO_LOCK = """\
+version = 4
+
+[[package]]
+name = "pkg"
+version = "1.0.0"
+dependencies = ["ahash", "local-helper"]
+
+[[package]]
+name = "ahash"
+version = "0.8.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e89da841a80418a9b391ebaea17f5c112ffaaa96f621d2c285b5174da76b9011"
+
+[[package]]
+name = "local-helper"
+version = "0.1.0"
+
+[[package]]
+name = "pyo3-fork"
+version = "0.22.0"
+source = "git+https://github.com/example/pyo3?rev=abc123#abc123"
+"""
+
+
+def test_cargo_lock_crates() -> None:
+    archive = _make_tar_gz({
+        "pkg-1.0/": None,
+        "pkg-1.0/Cargo.lock": _CARGO_LOCK,
+        "pkg-1.0/src/lib.rs": "",
+    })
+    result = detect(archive, {})
+    # Workspace crates (no source) are in the sdist already; everything else is a fetch.
+    assert result["cargo_crates"] == [
+        {
+            "name": "ahash",
+            "version": "0.8.11",
+            "source": "registry+https://github.com/rust-lang/crates.io-index",
+            "checksum": "e89da841a80418a9b391ebaea17f5c112ffaaa96f621d2c285b5174da76b9011",
+        },
+        {
+            "name": "pyo3-fork",
+            "version": "0.22.0",
+            "source": "git+https://github.com/example/pyo3?rev=abc123#abc123",
+            "checksum": "",
+        },
+    ]
+
+
+def test_no_cargo_lock_reports_nothing() -> None:
+    archive = _make_tar_gz({"pkg-1.0/": None, "pkg-1.0/src/lib.rs": ""})
+    result = detect(archive, {})
+    assert "cargo_crates" not in result
+
+
+def test_context_cargo_lock_replaces_the_sdists() -> None:
+    archive = _make_tar_gz({
+        "pkg-1.0/": None,
+        "pkg-1.0/Cargo.lock": _CARGO_LOCK,
+        "pkg-1.0/src/lib.rs": "",
+    })
+    provided = os.path.join(tempfile.mkdtemp(), "Cargo.lock")
+    with open(provided, "w") as f:
+        f.write(
+            '[[package]]\nname = "pkg"\nversion = "1.0.0"\n\n'
+            '[[package]]\nname = "bstr"\nversion = "1.10.0"\n'
+            'source = "registry+https://github.com/rust-lang/crates.io-index"\n'
+            'checksum = "abcd"\n'
+        )
+    result = detect(archive, {"cargo_lock": provided})
+    assert [c["name"] for c in result["cargo_crates"]] == ["bstr"]
+
+
+def test_nested_cargo_lock_is_found() -> None:
+    # setuptools-rust layout: the crate lives in a subdirectory.
+    archive = _make_tar_gz({
+        "pkg-1.0/": None,
+        "pkg-1.0/src/_pkg/Cargo.lock": _CARGO_LOCK,
+        "pkg-1.0/src/_pkg/src/lib.rs": "",
+    })
+    result = detect(archive, {})
+    assert [c["name"] for c in result["cargo_crates"]] == ["ahash", "pyo3-fork"]
+
+
+def test_shallowest_cargo_lock_wins() -> None:
+    archive = _make_tar_gz({
+        "pkg-1.0/": None,
+        "pkg-1.0/Cargo.lock": _CARGO_LOCK,
+        "pkg-1.0/vendor/dep/Cargo.lock": '[[package]]\nname = "other"\nversion = "1.0.0"\nsource = "registry+x"\nchecksum = "1"\n',
+        "pkg-1.0/src/lib.rs": "",
+    })
+    result = detect(archive, {})
+    assert [c["name"] for c in result["cargo_crates"]] == ["ahash", "pyo3-fork"]
+
+
+def test_malformed_context_cargo_lock_is_rejected() -> None:
+    archive = _make_tar_gz({
+        "pkg-1.0/": None,
+        "pkg-1.0/Cargo.lock": _CARGO_LOCK,
+        "pkg-1.0/src/lib.rs": "",
+    })
+    provided = os.path.join(tempfile.mkdtemp(), "Cargo.lock")
+    with open(provided, "w") as f:
+        f.write("not toml [")
+    try:
+        detect(archive, {"cargo_lock": provided})
+        assert False, "a malformed declared lock must fail detection"
+    except ValueError as e:
+        assert "declared via uv.override_package" in str(e)
+        assert "invalid TOML" in str(e)
+
+
+def test_malformed_shipped_cargo_lock_is_rejected() -> None:
+    archive = _make_tar_gz({
+        "pkg-1.0/": None,
+        "pkg-1.0/Cargo.lock": "not toml [",
+        "pkg-1.0/src/lib.rs": "",
+    })
+    try:
+        detect(archive, {})
+        assert False, "a malformed shipped lock must fail detection"
+    except ValueError as e:
+        assert "shipped in the sdist" in str(e)
+
+
+def test_empty_cargo_lock_is_rejected() -> None:
+    archive = _make_tar_gz({
+        "pkg-1.0/": None,
+        "pkg-1.0/Cargo.lock": "",
+        "pkg-1.0/src/lib.rs": "",
+    })
+    try:
+        detect(archive, {})
+        assert False, "an empty shipped lock must fail detection"
+    except ValueError as e:
+        assert "the file is empty" in str(e)
+
+
+def test_maturin_manifest_path_is_resolved() -> None:
+    archive = _make_tar_gz({
+        "pkg-1.0/": None,
+        "pkg-1.0/pyproject.toml": "[build-system]\nrequires = []\nbuild-backend = 'maturin'\n\n[tool.maturin]\nmanifest-path = 'rust/Cargo.toml'\n",
+        "pkg-1.0/Cargo.toml": '[package]\nname = "wrong"\nversion = "0.0.0"\n',
+        "pkg-1.0/rust/Cargo.toml": '[package]\nname = "right"\nversion = "0.1.0"\n',
+        "pkg-1.0/src/lib.rs": "",
+    })
+    result = detect(archive, {})
+    assert result["cargo_manifest"] == "pkg-1.0/rust/Cargo.toml"
+
+
+def test_maturin_manifest_path_missing_is_rejected() -> None:
+    archive = _make_tar_gz({
+        "pkg-1.0/": None,
+        "pkg-1.0/pyproject.toml": "[build-system]\nrequires = []\nbuild-backend = 'maturin'\n\n[tool.maturin]\nmanifest-path = 'gone/Cargo.toml'\n",
+        "pkg-1.0/src/lib.rs": "",
+    })
+    try:
+        detect(archive, {})
+        assert False, "a manifest-path outside the sdist must fail detection"
+    except ValueError as e:
+        assert "manifest-path" in str(e)
+
+
+def test_setuptools_rust_with_independent_workspaces_is_rejected() -> None:
+    archive = _make_tar_gz({
+        "pkg-1.0/": None,
+        "pkg-1.0/pyproject.toml": "[build-system]\nrequires = ['setuptools-rust']\nbuild-backend = 'setuptools.build_meta'\n",
+        "pkg-1.0/setup.py": "from setuptools_rust import RustExtension\n",
+        "pkg-1.0/one/Cargo.toml": '[package]\nname = "one"\nversion = "0.1.0"\n',
+        "pkg-1.0/two/Cargo.toml": '[package]\nname = "two"\nversion = "0.1.0"\n',
+        "pkg-1.0/src/lib.rs": "",
+    })
+    try:
+        detect(archive, {})
+        assert False, "multiple Cargo.toml files under setuptools-rust must fail detection"
+    except ValueError as e:
+        assert "Cargo.toml files" in str(e)
+
+
+def test_independent_workspaces_locks_are_rejected() -> None:
+    archive = _make_tar_gz({
+        "pkg-1.0/": None,
+        "pkg-1.0/pyproject.toml": "[build-system]\nrequires = ['setuptools-rust']\nbuild-backend = 'setuptools.build_meta'\n",
+        "pkg-1.0/setup.py": "from setuptools_rust import RustExtension\n",
+        "pkg-1.0/one/Cargo.toml": '[package]\nname = "one"\nversion = "0.1.0"\n',
+        "pkg-1.0/one/Cargo.lock": '[[package]]\nname = "one"\nversion = "0.1.0"\n',
+        "pkg-1.0/two/Cargo.toml": '[package]\nname = "two"\nversion = "0.1.0"\n',
+        "pkg-1.0/two/Cargo.lock": '[[package]]\nname = "two"\nversion = "0.1.0"\n',
+        "pkg-1.0/src/lib.rs": "",
+    })
+    try:
+        detect(archive, {})
+        assert False, "two same-depth Cargo.locks must fail detection"
+    except ValueError as e:
+        assert "independent Cargo workspaces" in str(e)
+
+
+def test_cargo_lock_without_registry_crates_is_valid() -> None:
+    # A valid lock pinning no external crates is workspace-only: vendoring
+    # nothing is correct, not a discard — distinct from a malformed lock.
+    archive = _make_tar_gz({
+        "pkg-1.0/": None,
+        "pkg-1.0/Cargo.lock": '[[package]]\nname = "pkg"\nversion = "1.0.0"\n',
+        "pkg-1.0/src/lib.rs": "",
+    })
+    result = detect(archive, {})
+    assert result["cargo_crates"] == []

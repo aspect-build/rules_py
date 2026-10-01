@@ -1,0 +1,54 @@
+
+load(":rust_native_whl.bzl", "pep517_rust_native_whl")
+load("@aspect_rules_py//uv/private/pep517_whl:frontend.bzl", "pep517_frontend")
+load("@aspect_rules_py//uv/private/pep517_whl:rust_layer.bzl", "rust_host_sysroot")
+load("@aspect_rules_py//uv/private/pep517_whl:cargo_lock.bzl", "cargo_lock_generator")
+load("@aspect_rules_py//py:defs.bzl", "py_binary")
+
+py_binary(
+    name = "build_tool",
+    main = "@aspect_rules_py//uv/private/pep517_whl/tools:build_helper.py",
+    srcs = ["@aspect_rules_py//uv/private/pep517_whl/tools:build_helper.py"],
+    deps = ["@@aspect_rules_py++uv+project__pycross_rust//:build", "@@aspect_rules_py++uv+project__pycross_rust//:maturin", "@project__pycross_rust//private/build_deps:maturin"],
+    include_console_scripts = True,
+)
+
+pep517_frontend(
+    name = "frontend",
+    actual = ":build_tool",
+)
+
+rust_host_sysroot(
+    name = "rust_host_sysroot",
+    actual = "@@rules_rust+//rust/toolchain:current_rust_toolchain",
+)
+
+cargo_lock_generator(
+    name = "cargo_lock",
+    manifest = "pydantic_core-2.47.0/Cargo.toml",
+    rust_toolchain = "@@rules_rust+//rust/toolchain:current_rust_toolchain",
+    sdist = "@@aspect_rules_py++uv+sdist__pydantic_core__422c1797a7864b2a//file:file",
+)
+
+filegroup(
+    name = "vendored_crates",
+    srcs = glob(["vendor/**"]),
+)
+
+pep517_rust_native_whl(
+    name = "whl",
+    src = "@@aspect_rules_py++uv+sdist__pydantic_core__422c1797a7864b2a//file:file",
+    tool = ":frontend",
+    version = "2.47.0",
+    toolchains = [
+        "@@rules_rust+//rust/toolchain:current_rust_toolchain",
+        ":rust_host_sysroot",
+    ],
+    vendored_crates = ":vendored_crates",
+    visibility = ["//visibility:public"],
+)
+
+exports_files(
+    ["BUILD.bazel"],
+    visibility = ["//visibility:public"],
+)
