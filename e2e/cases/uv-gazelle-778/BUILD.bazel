@@ -27,7 +27,6 @@ gazelle_python_manifest(
     hub = "pypi_uv_deps_650",
     venvs = [
         "airflow",
-        "crossbuild",
         "extras",
         "say",
     ],
