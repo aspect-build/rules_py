@@ -36,17 +36,20 @@ case "$sdist" in
     *.zip) unzip -q "$sdist" -d "$work" ;;
     *) tar -xf "$sdist" -C "$work" ;;
 esac
+top="$(find "$work" -mindepth 1 -maxdepth 1 | LC_ALL=C sort | head -n 1)"
 
-# The shallowest Cargo.toml is the crate (maturin: top level; setuptools-rust:
-# a subdirectory such as src/_bcrypt), the same choice the build makes when
-# it places the lock next to the manifest.
-manifest=""
-for depth in 1 2 3 4 5 6 7 8; do
-    manifest="$(find "$work" -mindepth "$depth" -maxdepth "$depth" -name Cargo.toml -type f | LC_ALL=C sort | head -n 1)"
-    [ -n "$manifest" ] && break
-done
-if [ -z "$manifest" ]; then
-    echo "error: {sdist_name} has no Cargo.toml; nothing to lock" >&2
+# The wheel build applies pre_build_patches before the backend reads the
+# sources; the generated lock must describe the same patched graph, or an
+# override that adds or upgrades a Cargo dependency would vendor crates the
+# offline build cannot use.
+{patch_cmds}
+
+# The manifest the backend builds, resolved once by the configure tool
+# (maturin's [tool.maturin] manifest-path, or the crate it names) instead of
+# a shallowest-guess this script used to make independently.
+manifest="$work/{manifest}"
+if [ ! -f "$manifest" ]; then
+    echo "error: {sdist_name}: resolved Cargo manifest '$manifest' is not in the sdist" >&2
     exit 1
 fi
 
@@ -99,10 +102,16 @@ def _cargo_lock_generator_impl(ctx):
     rustc = _tool(toolchain, "rustc")
     if cargo == None or rustc == None:
         fail("{}: rust_toolchain {} exposes no cargo and rustc; it must be a rules_rust `rust_toolchain`, such as `current_rust_toolchain`.".format(ctx.label, ctx.attr.rust_toolchain.label))
+    if not ctx.attr.manifest:
+        fail("{}: the configure tool resolved no Cargo manifest for this sdist; it may not build Rust at all.".format(ctx.label))
 
     sdist_name = ctx.file.sdist.basename
     stem = _sdist_stem(sdist_name)
     package = stem.rsplit("-", 1)[0]
+    patch_cmds = "".join([
+        '(cd "$top" && patch --no-backup-if-mismatch -p{} -i "$runfiles/{}")\n'.format(ctx.attr.pre_build_patch_strip, _runfiles_path(ctx, patch))
+        for patch in ctx.files.pre_build_patches
+    ])
     script = ctx.actions.declare_file(ctx.label.name + ".sh")
     ctx.actions.write(
         output = script,
@@ -111,6 +120,8 @@ def _cargo_lock_generator_impl(ctx):
             sdist = _runfiles_path(ctx, ctx.file.sdist),
             cargo = _runfiles_path(ctx, cargo),
             rustc = _runfiles_path(ctx, rustc),
+            manifest = ctx.attr.manifest,
+            patch_cmds = patch_cmds,
             default_output = ctx.attr.output or stem + ".Cargo.lock",
             package = package,
         ),
@@ -121,7 +132,10 @@ def _cargo_lock_generator_impl(ctx):
     all_files = getattr(toolchain, "all_files", None)
     if all_files:
         transitive.append(depset(all_files) if type(all_files) == "list" else all_files)
-    runfiles = ctx.runfiles(files = [ctx.file.sdist, cargo, rustc], transitive_files = depset(transitive = transitive))
+    runfiles = ctx.runfiles(
+        files = [ctx.file.sdist, cargo, rustc] + list(ctx.files.pre_build_patches),
+        transitive_files = depset(transitive = transitive),
+    )
     default_runfiles = ctx.attr.rust_toolchain[DefaultInfo].default_runfiles
     if default_runfiles:
         runfiles = runfiles.merge(default_runfiles)
@@ -132,9 +146,10 @@ cargo_lock_generator = rule(
     doc = """`bazel run` this target to write the sdist's `Cargo.lock` into the workspace.
 
 The lock is resolved with the project's own Rust toolchain (`cargo
-generate-lockfile` on the sdist's shallowest `Cargo.toml`, the manifest the
-build places the lock next to). The first argument overrides the output
-path, relative to the workspace root.""",
+generate-lockfile` on the manifest the configure tool resolved), over the
+sdist with its `pre_build_patches` applied — the same patched sources the
+wheel build sees. The first argument overrides the output path, relative to
+the workspace root.""",
     executable = True,
     attrs = {
         "sdist": attr.label(
@@ -146,6 +161,18 @@ path, relative to the workspace root.""",
             mandatory = True,
             providers = [platform_common.ToolchainInfo],
             doc = "A ruleset `rust_toolchain` exposing `cargo` and `rustc`; the project's `uv.rust_toolchain()`.",
+        ),
+        "manifest": attr.string(
+            mandatory = True,
+            doc = "The sdist member path of the Cargo.toml the backend builds, as resolved by the configure tool.",
+        ),
+        "pre_build_patches": attr.label_list(
+            allow_files = True,
+            doc = "Patches applied to the extracted sdist before the lock is resolved, the ones the wheel build applies.",
+        ),
+        "pre_build_patch_strip": attr.int(
+            default = 1,
+            doc = "The -p strip count for `pre_build_patches`.",
         ),
         "output": attr.string(
             default = "",

@@ -89,6 +89,7 @@ py_venv(
 
 root(
     name = "root",
+    mismatched_gil = True,
     tags = ["manual"],
     deps = [
         ":first",
@@ -124,6 +125,29 @@ root(
         ":passthrough_terminal",
         ":probe",
         ":same_value_terminal",
+    ],
+)
+
+# Our flag empty, rules_python's at the module default: the unpinned terminal
+# must leave our flag empty rather than resolve the default into it.
+root(
+    name = "unsynced_root",
+    tags = ["manual"],
+    deps = [
+        ":passthrough_terminal",
+        ":probe",
+    ],
+)
+
+# Only our flag set: the unpinned terminal must still rewrite rules_python's
+# flag so toolchains and hubs gated on it agree.
+root(
+    name = "our_flag_root",
+    python_version = "3.13",
+    tags = ["manual"],
+    deps = [
+        ":passthrough_terminal",
+        ":probe",
     ],
 )
 

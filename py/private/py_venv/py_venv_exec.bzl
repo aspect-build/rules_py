@@ -10,7 +10,7 @@ load("@bazel_lib//lib:expand_make_vars.bzl", "expand_locations", "expand_variabl
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load("@hermetic_launcher//launcher:lib.bzl", "launcher")
 load("//py/private:py_info.bzl", "PyInfo")
-load("//py/private:py_info_interop.bzl", "RulesPythonPyInfo", "get_py_info", "has_py_info")
+load("//py/private:py_info_interop.bzl", "RulesPythonPyInfo", "get_transitive_sources", "has_py_info")
 load("//py/private:py_semantics.bzl", _py_semantics = "semantics")
 load("//py/private:transitions.bzl", "reset_python_flags_transition", "venv_python_transition")
 load(":types.bzl", "VirtualenvInfo", "venv_root")
@@ -119,7 +119,7 @@ def _py_venv_exec_impl(ctx):
 
     # Merge runfiles, supporting `py_venv_exec(main)` not being in the `py_venv` runfiles.
     data_sources = [
-        get_py_info(target).transitive_sources
+        get_transitive_sources(target)
         for target in ctx.attr.data
         if has_py_info(target)
     ]
@@ -157,6 +157,7 @@ def _py_venv_exec_impl(ctx):
             # launcher will run with. `srcs` / `deps` live on the
             # sibling venv, not on this rule.
             imports = vinfo.imports,
+            transitive_pyi_files = vinfo.transitive_pyi_files,
             transitive_sources = vinfo.transitive_sources,
             virtual_dependencies = depset(),
             virtual_resolutions = depset(),
@@ -171,6 +172,7 @@ def _py_venv_exec_impl(ctx):
     if ctx.attr._emit_rules_python_providers[BuildSettingInfo].value:
         providers.append(RulesPythonPyInfo(
             imports = vinfo.imports,
+            transitive_pyi_files = vinfo.transitive_pyi_files,
             transitive_sources = vinfo.transitive_sources,
         ))
 

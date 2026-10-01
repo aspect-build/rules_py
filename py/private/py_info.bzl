@@ -12,6 +12,7 @@ RulesPyInfo = provider(
     doc = "Python source, import-path, and virtual-dependency information for a target's dependency closure.",
     fields = {
         "transitive_sources": "depset[File] — postorder depset of first-party `.py` sources in the transitive closure.",
+        "transitive_pyi_files": "depset[File] — postorder depset of `.pyi` type stubs in the transitive closure.",
         "imports": "depset[str] — import roots to place on `sys.path` (rlocation-root-relative).",
         "virtual_dependencies": "depset[str] — names of required virtual dependencies, independent of their resolution status.",
         "virtual_resolutions": "depset[struct(virtual, target)] — virtual-dependency-name to concrete-target resolutions.",

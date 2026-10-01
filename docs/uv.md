@@ -494,10 +494,8 @@ wired to it. Either ruleset works:
 
 - [rules_rust](https://github.com/bazelbuild/rules_rust):
   `toolchain = "@rules_rust//rust/toolchain:current_rust_toolchain"`
-- [rules_rs](https://github.com/hermeticbuild/rules_rs): its toolchains are
-  rules_rust `rust_toolchain` instances declared in the patched `rules_rust`
-  repository it fetches, so expose that repository and point at its
-  `current_rust_toolchain`:
+- [rules_rs](https://github.com/hermeticbuild/rules_rs): expose the `rules_rust`
+  repository it fetches and point at its `current_rust_toolchain`:
 
   ```starlark
   rules_rust_rs = use_extension("@rules_rs//rs:rules_rust.bzl", "rules_rust")
@@ -506,15 +504,20 @@ wired to it. Either ruleset works:
 
   then `toolchain = "@rules_rust_rs//rust/toolchain:current_rust_toolchain"`.
 
+Scope a declaration with `lock` to the project's `uv.lock`; every Rust sdist
+of that project builds with it, and no other package is touched:
+
 ```starlark
 uv.rust_toolchain(
+    lock = "//my_project:uv.lock",
     toolchain = "@rules_rust//rust/toolchain:current_rust_toolchain",
 )
 ```
 
-Scope a declaration with `lock` to apply it to one project only; it wins over
-the module-wide one for that project. That is how a workspace builds one
-project on rules_rust and another on rules_rs:
+A declaration without `lock` covers every `uv.project()` of the module that
+no scoped declaration covers — the right shape for a module building
+everything on one toolchain. Mixed workspaces declare one per project; a
+scoped declaration wins over the module-wide one for its project:
 
 ```starlark
 uv.rust_toolchain(
@@ -563,13 +566,12 @@ build.
 The rustc cargo runs is a wrapper that also makes the extension independent
 of where the action ran: sandbox and execroot paths are remapped out of the
 binaries (`--remap-path-prefix`), target crates compile as one codegen unit,
-and the `-C metadata=` hash cargo mangles into every symbol, which mixes in
-the host's `rustc -vV` output and the paths of host-compiled build scripts,
-is replaced for target crates by one derived from the toolchain's release
-string and the crate's own identity (package name and version, crate name,
-types, cfgs, target and the codegen options its profile sets). maturin's
-SBOM, which records sandbox paths, is turned
-off unless the sdist configures it. The wheel's bytes then match across hosts
+and the `-C metadata=` hash cargo mangles into every symbol — which mixes in
+the host line of `rustc -vV`, so two executor platforms produce different
+wheels — is replaced for target crates by one derived from the toolchain's
+release string and the crate's own identity (package name and version, crate
+name, manifest content, types, cfgs, target and the codegen options its
+profile sets). The wheel's bytes then match across hosts
 and downstream actions hit the cache. Crates that compile C or C++ through
 cc-rs (`ring`, `zstd-sys`) find the wired C toolchain under `CC_<triple>`,
 `CXX_<triple>`, `AR_<triple>` and `RANLIB_<triple>` instead of whatever is on

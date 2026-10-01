@@ -1,8 +1,10 @@
+load("@bazel_skylib//lib:selects.bzl", "selects")
 load("//py:defs.bzl", "py_library", "py_test")
+load(":abi_test.bzl", "abi_test_suite")
 
-# Empty marker modules: the freethreaded transition applies on the venv, so
-# only venv-side attrs like deps see the transitioned config. Selecting these
-# into deps lets the test observe which abi setting matched via find_spec.
+# Empty marker modules: interpreter transitions apply on the venv, so only
+# venv-side attrs like deps see the transitioned config. Selecting these into
+# deps lets the tests observe which wheel settings matched via find_spec.
 [
     genrule(
         name = "gen_" + tag,
@@ -12,6 +14,9 @@ load("//py:defs.bzl", "py_library", "py_test")
     for tag in [
         "abi3",
         "abi3t",
+        "cp312_none",
+        "cp313_none",
+        "py312_none",
     ]
 ]
 
@@ -24,6 +29,9 @@ load("//py:defs.bzl", "py_library", "py_test")
     for tag in [
         "abi3",
         "abi3t",
+        "cp312_none",
+        "cp313_none",
+        "py312_none",
     ]
 ]
 
@@ -32,6 +40,41 @@ _DEPS = select({
     "//conditions:default": [],
 }) + select({
     "//uv/private/constraints/abi:abi3t": [":abi3t"],
+    "//conditions:default": [],
+})
+
+selects.config_setting_group(
+    name = "cp312_none_wheel",
+    match_all = [
+        "//uv/private/constraints/abi:none",
+        "//uv/private/constraints/python:cp312",
+    ],
+)
+
+selects.config_setting_group(
+    name = "cp313_none_wheel",
+    match_all = [
+        "//uv/private/constraints/abi:none",
+        "//uv/private/constraints/python:cp313",
+    ],
+)
+
+selects.config_setting_group(
+    name = "py312_none_wheel",
+    match_all = [
+        "//uv/private/constraints/abi:none",
+        "//uv/private/constraints/python:py312",
+    ],
+)
+
+_PYTHON_TAG_DEPS = select({
+    ":cp312_none_wheel": [":cp312_none"],
+    "//conditions:default": [],
+}) + select({
+    ":cp313_none_wheel": [":cp313_none"],
+    "//conditions:default": [],
+}) + select({
+    ":py312_none_wheel": [":py312_none"],
     "//conditions:default": [],
 })
 
@@ -60,3 +103,31 @@ py_test(
     python_version = "3.13",
     deps = _DEPS,
 )
+
+py_test(
+    name = "python_tag_312_test",
+    srcs = ["python_tag_test.py"],
+    env = {
+        "EXPECT_CP312_NONE": "1",
+        "EXPECT_CP313_NONE": "0",
+        "EXPECT_PY312_NONE": "1",
+    },
+    main = "python_tag_test.py",
+    python_version = "3.12",
+    deps = _PYTHON_TAG_DEPS,
+)
+
+py_test(
+    name = "python_tag_313_test",
+    srcs = ["python_tag_test.py"],
+    env = {
+        "EXPECT_CP312_NONE": "0",
+        "EXPECT_CP313_NONE": "1",
+        "EXPECT_PY312_NONE": "1",
+    },
+    main = "python_tag_test.py",
+    python_version = "3.13",
+    deps = _PYTHON_TAG_DEPS,
+)
+
+abi_test_suite(name = "abi_tests")

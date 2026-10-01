@@ -989,3 +989,117 @@ def test_shallowest_cargo_lock_wins() -> None:
     })
     result = detect(archive, {})
     assert [c["name"] for c in result["cargo_crates"]] == ["ahash", "pyo3-fork"]
+
+
+def test_malformed_context_cargo_lock_is_rejected() -> None:
+    archive = _make_tar_gz({
+        "pkg-1.0/": None,
+        "pkg-1.0/Cargo.lock": _CARGO_LOCK,
+        "pkg-1.0/src/lib.rs": "",
+    })
+    provided = os.path.join(tempfile.mkdtemp(), "Cargo.lock")
+    with open(provided, "w") as f:
+        f.write("not toml [")
+    try:
+        detect(archive, {"cargo_lock": provided})
+        assert False, "a malformed declared lock must fail detection"
+    except ValueError as e:
+        assert "declared via uv.override_package" in str(e)
+        assert "invalid TOML" in str(e)
+
+
+def test_malformed_shipped_cargo_lock_is_rejected() -> None:
+    archive = _make_tar_gz({
+        "pkg-1.0/": None,
+        "pkg-1.0/Cargo.lock": "not toml [",
+        "pkg-1.0/src/lib.rs": "",
+    })
+    try:
+        detect(archive, {})
+        assert False, "a malformed shipped lock must fail detection"
+    except ValueError as e:
+        assert "shipped in the sdist" in str(e)
+
+
+def test_empty_cargo_lock_is_rejected() -> None:
+    archive = _make_tar_gz({
+        "pkg-1.0/": None,
+        "pkg-1.0/Cargo.lock": "",
+        "pkg-1.0/src/lib.rs": "",
+    })
+    try:
+        detect(archive, {})
+        assert False, "an empty shipped lock must fail detection"
+    except ValueError as e:
+        assert "the file is empty" in str(e)
+
+
+def test_maturin_manifest_path_is_resolved() -> None:
+    archive = _make_tar_gz({
+        "pkg-1.0/": None,
+        "pkg-1.0/pyproject.toml": "[build-system]\nrequires = []\nbuild-backend = 'maturin'\n\n[tool.maturin]\nmanifest-path = 'rust/Cargo.toml'\n",
+        "pkg-1.0/Cargo.toml": '[package]\nname = "wrong"\nversion = "0.0.0"\n',
+        "pkg-1.0/rust/Cargo.toml": '[package]\nname = "right"\nversion = "0.1.0"\n',
+        "pkg-1.0/src/lib.rs": "",
+    })
+    result = detect(archive, {})
+    assert result["cargo_manifest"] == "pkg-1.0/rust/Cargo.toml"
+
+
+def test_maturin_manifest_path_missing_is_rejected() -> None:
+    archive = _make_tar_gz({
+        "pkg-1.0/": None,
+        "pkg-1.0/pyproject.toml": "[build-system]\nrequires = []\nbuild-backend = 'maturin'\n\n[tool.maturin]\nmanifest-path = 'gone/Cargo.toml'\n",
+        "pkg-1.0/src/lib.rs": "",
+    })
+    try:
+        detect(archive, {})
+        assert False, "a manifest-path outside the sdist must fail detection"
+    except ValueError as e:
+        assert "manifest-path" in str(e)
+
+
+def test_setuptools_rust_with_independent_workspaces_is_rejected() -> None:
+    archive = _make_tar_gz({
+        "pkg-1.0/": None,
+        "pkg-1.0/pyproject.toml": "[build-system]\nrequires = ['setuptools-rust']\nbuild-backend = 'setuptools.build_meta'\n",
+        "pkg-1.0/setup.py": "from setuptools_rust import RustExtension\n",
+        "pkg-1.0/one/Cargo.toml": '[package]\nname = "one"\nversion = "0.1.0"\n',
+        "pkg-1.0/two/Cargo.toml": '[package]\nname = "two"\nversion = "0.1.0"\n',
+        "pkg-1.0/src/lib.rs": "",
+    })
+    try:
+        detect(archive, {})
+        assert False, "multiple Cargo.toml files under setuptools-rust must fail detection"
+    except ValueError as e:
+        assert "Cargo.toml files" in str(e)
+
+
+def test_independent_workspaces_locks_are_rejected() -> None:
+    archive = _make_tar_gz({
+        "pkg-1.0/": None,
+        "pkg-1.0/pyproject.toml": "[build-system]\nrequires = ['setuptools-rust']\nbuild-backend = 'setuptools.build_meta'\n",
+        "pkg-1.0/setup.py": "from setuptools_rust import RustExtension\n",
+        "pkg-1.0/one/Cargo.toml": '[package]\nname = "one"\nversion = "0.1.0"\n',
+        "pkg-1.0/one/Cargo.lock": '[[package]]\nname = "one"\nversion = "0.1.0"\n',
+        "pkg-1.0/two/Cargo.toml": '[package]\nname = "two"\nversion = "0.1.0"\n',
+        "pkg-1.0/two/Cargo.lock": '[[package]]\nname = "two"\nversion = "0.1.0"\n',
+        "pkg-1.0/src/lib.rs": "",
+    })
+    try:
+        detect(archive, {})
+        assert False, "two same-depth Cargo.locks must fail detection"
+    except ValueError as e:
+        assert "independent Cargo workspaces" in str(e)
+
+
+def test_cargo_lock_without_registry_crates_is_valid() -> None:
+    # A valid lock pinning no external crates is workspace-only: vendoring
+    # nothing is correct, not a discard — distinct from a malformed lock.
+    archive = _make_tar_gz({
+        "pkg-1.0/": None,
+        "pkg-1.0/Cargo.lock": '[[package]]\nname = "pkg"\nversion = "1.0.0"\n',
+        "pkg-1.0/src/lib.rs": "",
+    })
+    result = detect(archive, {})
+    assert result["cargo_crates"] == []

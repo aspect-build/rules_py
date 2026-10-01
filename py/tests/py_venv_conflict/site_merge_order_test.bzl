@@ -121,6 +121,7 @@ printf 'VALUE = %s\n' "$4" > "$site/other/from_final.py"
         ),
         PyInfo(
             imports = depset(site_packages_paths),
+            transitive_pyi_files = depset(),
             transitive_sources = depset(install_trees),
             virtual_dependencies = depset(),
             virtual_resolutions = depset(),
@@ -230,6 +231,7 @@ printf 'VALUE = %s\n' "$4" > "$site/mixed/sibling.py"
         ),
         PyInfo(
             imports = depset(site_packages_paths),
+            transitive_pyi_files = depset(),
             transitive_sources = depset(install_trees),
             virtual_dependencies = depset(),
             virtual_resolutions = depset(),

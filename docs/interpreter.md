@@ -14,8 +14,10 @@ are discovered automatically from PBS release artifacts and cached in your
 it — no repinning, no manifest regeneration.
 
 **No editorial decisions.** We don't decide which Python versions you can use.
-Any version published in a PBS release is available. Need Python 3.8? Add an
-older release date that includes it.
+Any version published in a PBS release is available. Need a version that newer
+releases dropped? Add an older release date that includes it. Note that the
+rules themselves require Python 3.10 or newer at runtime (see
+[Requirements](../README.md#requirements)).
 
 **Windows and cross-platform support.** 9 platforms are registered out of the
 box, including Windows (x86_64, aarch64, i686), Linux (glibc and musl), and
@@ -65,7 +67,7 @@ interpreters.configure(
 )
 
 interpreters.toolchain(python_version = "3.12")
-interpreters.toolchain(python_version = "3.8")  # Resolved from 20241002
+interpreters.toolchain(python_version = "3.10")  # Resolved from 20241002 once newer releases drop it
 
 use_repo(interpreters, "python_interpreters")
 register_toolchains("@python_interpreters//:all")
@@ -297,11 +299,13 @@ This interpreter provisioning is designed to coexist with `rules_python`:
 
 - The standard `@bazel_tools//tools/python:toolchain_type` is used for toolchain
   registration, so these interpreters work with all existing Python rules.
-- The `@rules_python//python/config_settings:python_version` flag is kept in
-  sync with our own version flag via build transitions. Set both flags to the
-  same value in `.bazelrc` so a terminal without a `python_version` override
-  stays in the caller's configuration; otherwise the synchronization alone
-  moves its subtree into a second configuration.
+- The `@rules_python//python/config_settings:python_version` flag follows our
+  own version flag via build transitions. A terminal without a `python_version`
+  override leaves our flag as inherited, so when only rules_python's flag is
+  set (or neither) its subtree stays in the caller's configuration. Setting
+  only our flag still moves the subtree, because rules_python's flag is
+  rewritten to match; set both flags to the same value in `.bazelrc` to avoid
+  that.
 - The `@rules_python//python/config_settings:py_freethreaded` flag is likewise
   synchronized with Aspect's free-threading setting inside Python terminals.
 - File-based runtimes registered with `rules_python`'s `py_runtime` /

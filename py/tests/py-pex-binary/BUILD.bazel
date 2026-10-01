@@ -1,7 +1,9 @@
 load("@bazel_lib//lib:testing.bzl", "assert_contains")
 load("@bazel_lib//lib:transitions.bzl", "platform_transition_binary")
 load("@bazel_skylib//rules:build_test.bzl", "build_test")
+load("@bazel_skylib//rules:diff_test.bzl", "diff_test")
 load("//py:defs.bzl", "py_binary", "py_pex_binary", "py_test")
+load(":run_env.bzl", "run_env_json")
 
 package(default_testonly = True)
 
@@ -84,6 +86,32 @@ py_test(
     ],
     main = "pex_info_test.py",
     deps = ["@pypi//bazel_runfiles"],
+)
+
+# The pex forwards the binary's RunEnvironmentInfo for `bazel run`, minus
+# VIRTUAL_ENV, with BAZEL_TARGET/BAZEL_TARGET_NAME naming the pex itself.
+py_binary(
+    name = "env_bin",
+    srcs = ["noop.py"],
+    env = {"FOO": "bar"},
+    env_inherit = ["INHERITED_VAR"],
+    main = "noop.py",
+)
+
+py_pex_binary(
+    name = "env_pex",
+    binary = ":env_bin",
+)
+
+run_env_json(
+    name = "env_pex_run_env",
+    target = ":env_pex",
+)
+
+diff_test(
+    name = "test_env_pex_run_env",
+    file1 = ":env_pex_run_env",
+    file2 = "env_pex_run_env.json",
 )
 
 # Verify PEX building works under a platform transition. The PEX builder must

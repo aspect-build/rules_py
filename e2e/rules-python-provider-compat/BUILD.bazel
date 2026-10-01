@@ -1,5 +1,7 @@
 load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_library", rules_py_test = "py_test")
+load("@rules_python//python:py_library.bzl", rules_python_library = "py_library")
 load("@rules_python//python:py_test.bzl", rules_python_test = "py_test")
+load(":type_stubs_test.bzl", "merged_stubs_test")
 
 # One converted library, two consumers: the @rules_python test stands in
 # for a package the migration hasn't reached yet, the rules_py test for one it
@@ -9,8 +11,25 @@ load("@rules_python//python:py_test.bzl", rules_python_test = "py_test")
 py_library(
     name = "lib",
     testonly = True,
-    srcs = ["lib.py"],
+    srcs = [
+        "lib.py",
+        "lib.pyi",
+    ],
     imports = ["."],
+)
+
+# rules_python's PyInfo builder merges the emitted provider field by field, so
+# the stub partition must arrive in the shape it expects: direct/transitive
+# `pyi_files` populated, and no `.pyi` among `transitive_sources`.
+rules_python_library(
+    name = "rules_python_wrapper",
+    testonly = True,
+    deps = [":lib"],
+)
+
+merged_stubs_test(
+    name = "merged_stubs_test",
+    target_under_test = ":rules_python_wrapper",
 )
 
 rules_python_test(

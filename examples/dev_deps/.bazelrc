@@ -1,3 +1,5 @@
+import %workspace%/../../bazel/workspace.bazelrc
+
 # Default to dev venv — includes debug/test tools
 common --@pypi//dep_group=dev
 

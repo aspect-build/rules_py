@@ -3,8 +3,8 @@
 The `deps` attribute on rules_py rules accepts targets built by either
 ruleset. rules_py always emits its own `PyInfo`
 (`//py/private:py_info.bzl`); native `@rules_python` targets (e.g.
-a `py_proto_library`) carry `@rules_python`'s. Both expose `transitive_sources`
-and `imports`, which is everything rules_py reads from a foreign dep.
+a `py_proto_library`) carry `@rules_python`'s. Both expose the source, type
+stub, and import information rules_py reads from a foreign dep.
 
 This module is the single place that knows about both providers. Rule code
 calls these accessors at the API edge instead of loading `@rules_python`'s
@@ -37,3 +37,24 @@ def get_py_info(target):
     if RulesPythonPyInfo in target:
         return target[RulesPythonPyInfo]
     return None
+
+def get_transitive_pyi_files(target):
+    """Return the `.pyi` closure from either ruleset's `PyInfo`, or an empty depset for targets carrying neither."""
+    if PyInfo in target:
+        return target[PyInfo].transitive_pyi_files
+    if RulesPythonPyInfo in target:
+        return target[RulesPythonPyInfo].transitive_pyi_files
+    return depset()
+
+def get_transitive_sources(target):
+    """The target's transitive first-party sources, from either `PyInfo`.
+
+    `@rules_python` drops precompiled sources from `transitive_sources` under
+    `precompile_source_retention = omit_source` and carries them only in
+    `transitive_implicit_pyc_source_files`.
+    """
+    info = get_py_info(target)
+    return depset(transitive = [
+        info.transitive_sources,
+        getattr(info, "transitive_implicit_pyc_source_files", depset()),
+    ])

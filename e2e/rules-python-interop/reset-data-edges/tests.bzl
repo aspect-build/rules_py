@@ -12,7 +12,7 @@ _FREETHREADED_FLAG = "@aspect_rules_py//py/private/interpreter:freethreaded"
 _RPY_FREETHREADED_FLAG = "@rules_python//python/config_settings:py_freethreaded"
 
 _ProbeInfo = provider(fields = ["file"])
-_ProbeFilesInfo = provider(fields = ["files", "modes", "bin_dirs"])
+_ProbeFilesInfo = provider(fields = ["files", "modes", "versions", "bin_dirs"])
 
 def _probe_impl(ctx):
     out = ctx.actions.declare_file(ctx.label.name + ".txt")
@@ -34,6 +34,7 @@ def _probe_aspect_impl(target, ctx):
 
     transitive = []
     transitive_modes = []
+    transitive_versions = []
     transitive_bin_dirs = []
     deps = []
     for attr_name in ["data", "deps"]:
@@ -48,6 +49,7 @@ def _probe_aspect_impl(target, ctx):
         if _ProbeFilesInfo in dep:
             transitive.append(dep[_ProbeFilesInfo].files)
             transitive_modes.append(dep[_ProbeFilesInfo].modes)
+            transitive_versions.append(dep[_ProbeFilesInfo].versions)
             transitive_bin_dirs.append(dep[_ProbeFilesInfo].bin_dirs)
 
     # Record every visited target; the test impl filters to the names it
@@ -58,12 +60,19 @@ def _probe_aspect_impl(target, ctx):
         ctx.attr._rpy_freethreaded[BuildSettingInfo].value,
     )]
 
+    versions = [(
+        ctx.label.name,
+        ctx.attr._python_version[BuildSettingInfo].value,
+        ctx.attr._rpy_version[BuildSettingInfo].value,
+    )]
+
     # bin_dir carries the configuration's output segment, so equal paths mean
     # one configuration.
     bin_dirs = [(ctx.label.name, ctx.bin_dir.path)]
     return [_ProbeFilesInfo(
         files = depset(direct = direct, transitive = transitive),
         modes = depset(direct = modes, transitive = transitive_modes),
+        versions = depset(direct = versions, transitive = transitive_versions),
         bin_dirs = depset(direct = bin_dirs, transitive = transitive_bin_dirs),
     )]
 
@@ -72,7 +81,9 @@ _probe_aspect = aspect(
     attr_aspects = ["data", "deps", "venv"],
     attrs = {
         "_freethreaded": attr.label(default = _FREETHREADED_FLAG),
+        "_python_version": attr.label(default = _PYTHON_VERSION_FLAG),
         "_rpy_freethreaded": attr.label(default = _RPY_FREETHREADED_FLAG),
+        "_rpy_version": attr.label(default = _RPY_VERSION_FLAG),
     },
 )
 
@@ -112,6 +123,7 @@ def _root_impl(ctx):
     return [_ProbeFilesInfo(
         files = depset(transitive = transitive),
         modes = depset(transitive = [dep[_ProbeFilesInfo].modes for dep in ctx.attr.deps]),
+        versions = depset(transitive = [dep[_ProbeFilesInfo].versions for dep in ctx.attr.deps]),
         bin_dirs = depset(transitive = [dep[_ProbeFilesInfo].bin_dirs for dep in ctx.attr.deps]),
     )]
 
@@ -131,10 +143,10 @@ def _baseline_transition_impl(settings, attr):
     # but data must restore both original values to share one configuration.
     return {
         _DEP_GROUP_FLAG: "baseline",
-        _PYTHON_VERSION_FLAG: "",
+        _PYTHON_VERSION_FLAG: attr.python_version,
         _RPY_VERSION_FLAG: settings[_RPY_VERSION_FLAG],
         _FREETHREADED_FLAG: False,
-        _RPY_FREETHREADED_FLAG: "yes",
+        _RPY_FREETHREADED_FLAG: "yes" if attr.mismatched_gil else "no",
     }
 
 _baseline_transition = transition(
@@ -160,6 +172,12 @@ root = rule(
             cfg = _baseline_transition,
             allow_empty = False,
         ),
+        # Only rules_python's GIL flag set, so inheriting terminals must honor
+        # it. Needs every terminal below to select 3.13+.
+        "mismatched_gil": attr.bool(default = False),
+        # Our version flag for an unsynced root; rules_python's keeps the
+        # module default.
+        "python_version": attr.string(default = ""),
         # Both flag pairs already agree, so a terminal that keeps their values
         # has nothing to synchronize.
         "synced": attr.bool(default = False),
@@ -213,6 +231,41 @@ def _passthrough_terminals_test_impl(ctx):
 
 _passthrough_terminals_test = analysistest.make(_passthrough_terminals_test_impl)
 
+def _probe_versions(env):
+    return sorted([
+        (ours, rpy)
+        for name, ours, rpy in analysistest.target_under_test(env)[_ProbeFilesInfo].versions.to_list()
+        if name == "probe"
+    ])
+
+# An unpinned terminal never resolves a version into our empty flag, so the
+# probe keeps the caller's versions whichever edge reaches it.
+def _unpinned_keeps_empty_flag_test_impl(ctx):
+    env = analysistest.begin(ctx)
+    versions = _probe_versions(env)
+    asserts.true(env, len(versions) > 0, "the probe should be visited")
+    for ours, _ in versions:
+        asserts.equals(env, "", ours, "an unpinned terminal should not resolve a version into our flag")
+    return analysistest.end(env)
+
+_unpinned_keeps_empty_flag_test = analysistest.make(_unpinned_keeps_empty_flag_test_impl)
+
+# With only our flag set, an unpinned terminal rewrites rules_python's flag to
+# match: the probe under the root keeps the module default, the probe behind
+# the terminal sees our version on both flags.
+def _unpinned_syncs_rules_python_flag_test_impl(ctx):
+    env = analysistest.begin(ctx)
+    versions = _probe_versions(env)
+    asserts.equals(env, 2, len(versions), "the probe should be reached from the root and from the terminal")
+    asserts.true(env, ("3.13", "3.13") in versions, "the terminal should sync rules_python's flag to ours")
+    caller = [v for v in versions if v != ("3.13", "3.13")]
+    asserts.equals(env, 1, len(caller))
+    asserts.equals(env, "3.13", caller[0][0], "the root should analyze the probe with only our flag set")
+    asserts.true(env, caller[0][1] != "3.13", "rules_python's flag should differ from ours at the root")
+    return analysistest.end(env)
+
+_unpinned_syncs_rules_python_flag_test = analysistest.make(_unpinned_syncs_rules_python_flag_test_impl)
+
 def _shared_binaries_test_impl(ctx):
     env = analysistest.begin(ctx)
     under_test = analysistest.target_under_test(env)[_ProbeFilesInfo]
@@ -244,6 +297,16 @@ def reset_data_edges_test_suite():
         name = "passthrough_terminals_test",
         tags = ["manual"],
         target_under_test = ":synced_root",
+    )
+    _unpinned_keeps_empty_flag_test(
+        name = "unpinned_keeps_empty_flag_test",
+        tags = ["manual"],
+        target_under_test = ":unsynced_root",
+    )
+    _unpinned_syncs_rules_python_flag_test(
+        name = "unpinned_syncs_rules_python_flag_test",
+        tags = ["manual"],
+        target_under_test = ":our_flag_root",
     )
     _shared_binaries_test(
         name = "shared_binaries_test",

@@ -20,9 +20,12 @@ Every other subdirectory is a self-contained workspace with its own `MODULE.baze
 resolving against a *different* module graph on purpose, driven by its own `test.sh`
 (nested bazel): `interpreter-runtime-metadata` (a pre-release interpreter),
 `interpreter-toolchain-settings` (a conflicting toolchain declaration),
-`interpreter-input-validation` (an intentionally-invalid config). The latter two are
+`interpreter-input-validation` (an intentionally-invalid config),
+`interpreter-build-config` (invalid `build_config` fixtures in sibling `root-*/`
+modules, asserting module-extension evaluation failures). The latter three are
 config-flag / failure-assertion / nested-module checks that `bazel test //...` can't
-express; `interpreter-runtime-metadata` also has ordinary `//...` tests.
+express; `interpreter-runtime-metadata` and `interpreter-build-config` also have
+ordinary `//...` tests.
 
 `rules-python-interop` carries both directions of rules_py ↔ rules_python interop in
 one module, split by Python version so neither side's toolchains shadow the other's
@@ -35,9 +38,9 @@ workspace above must not carry: its `.bazelrc` turns on the rules_python provide
 compatibility layer, so rules_python `py_*` targets can depend on a rules_py `py_library`.
 Its `test.sh` asserts the same dependency is rejected with the flag off.
 
-`rules-python-protobuf` exercises rules_proto_grpc_python-generated bindings in
-an isolated module so its rules_python/protobuf/grpc dependency graph does not
-leak into the main test module.
+`rules-python-protobuf` contains protobuf's native `py_proto_library` and
+rules_proto_grpc_python consumer tests. Keeping both generators here prevents
+their rules_python/protobuf dependency graph from leaking into the main test module.
 
 `crossbuild` covers `pep517_native_whl`'s cross-compilation path across the
 PEP 517 backends, each with more than one real package so no backend's cross
@@ -83,3 +86,6 @@ Each job runs `aspect test //...` first, then its `test.sh` (if it has one):
 - `interpreter-toolchain-settings`, `interpreter-input-validation` — `//...` runs a
   dumb `build_test` smoke target, then `test.sh` does the real work (config-flag /
   failure-assertion / nested-module checks that can't be `sh_test`s under `//...`).
+- `interpreter-build-config` — `//...` asserts a valid `build_config` resolves and
+  runs, then `test.sh` asserts the invalid `root-*/` fixtures fail extension
+  evaluation.

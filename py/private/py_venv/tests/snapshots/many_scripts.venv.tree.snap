@@ -84,14 +84,14 @@ case $0 in
 esac
 exec "${script_dir}/python" -c 'import sys; from importlib import import_module; from operator import attrgetter; sys.argv[0] = "coverage"; sys.exit(attrgetter("main")(import_module("coverage.cmdline"))())' "$@"
 ---
-FILE bin/coverage-3.11
+FILE bin/coverage-3.13
 ---
 #!/bin/sh
 case $0 in
     */*) script_dir=${0%/*} ;;
     *) script_dir=. ;;
 esac
-exec "${script_dir}/python" -c 'import sys; from importlib import import_module; from operator import attrgetter; sys.argv[0] = "coverage-3.11"; sys.exit(attrgetter("main")(import_module("coverage.cmdline"))())' "$@"
+exec "${script_dir}/python" -c 'import sys; from importlib import import_module; from operator import attrgetter; sys.argv[0] = "coverage-3.13"; sys.exit(attrgetter("main")(import_module("coverage.cmdline"))())' "$@"
 ---
 FILE bin/coverage3
 ---
@@ -246,8 +246,8 @@ LINK lib/python3.13/site-packages/rfc3339_validator-0.1.4.dist-info -> ../../../
 LINK lib/python3.13/site-packages/rfc3339_validator.py -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__rfc3339_validator__0_1_4/actual_install.install/lib/python3.13/site-packages/rfc3339_validator.py
 LINK lib/python3.13/site-packages/rfc3986_validator-0.1.1.dist-info -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__rfc3986_validator__0_1_1/actual_install.install/lib/python3.13/site-packages/rfc3986_validator-0.1.1.dist-info
 LINK lib/python3.13/site-packages/rfc3986_validator.py -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__rfc3986_validator__0_1_1/actual_install.install/lib/python3.13/site-packages/rfc3986_validator.py
-LINK lib/python3.13/site-packages/rpds -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__rpds_py__0_18_0/actual_install.install/lib/python3.13/site-packages/rpds
-LINK lib/python3.13/site-packages/rpds_py-0.18.0.dist-info -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__rpds_py__0_18_0/actual_install.install/lib/python3.13/site-packages/rpds_py-0.18.0.dist-info
+LINK lib/python3.13/site-packages/rpds -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__rpds_py__0_19_1/actual_install.install/lib/python3.13/site-packages/rpds
+LINK lib/python3.13/site-packages/rpds_py-0.19.1.dist-info -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__rpds_py__0_19_1/actual_install.install/lib/python3.13/site-packages/rpds_py-0.19.1.dist-info
 LINK lib/python3.13/site-packages/six-1.16.0.dist-info -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__six__1_16_0/actual_install.install/lib/python3.13/site-packages/six-1.16.0.dist-info
 LINK lib/python3.13/site-packages/six.py -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__six__1_16_0/actual_install.install/lib/python3.13/site-packages/six.py
 LINK lib/python3.13/site-packages/sqlparse -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__sqlparse__0_5_1/actual_install.install/lib/python3.13/site-packages/sqlparse

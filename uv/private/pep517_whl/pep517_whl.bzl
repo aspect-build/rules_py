@@ -24,6 +24,9 @@ def _pep517_whl(ctx):
     # helper renames onto this. Consumers read identity from dist-info only.
     wheel_file = ctx.actions.declare_file(ctx.label.name + ".whl")
     patch_args, patch_inputs = patch_args_and_inputs(ctx)
+    io_args = ctx.actions.args()
+    io_args.add(archive)
+    io_args.add(wheel_file)
 
     # The build tool is a py_binary wrapping build_helper.py. Using it as
     # a tool (not just an input) causes Bazel to materialize its runfiles in
@@ -35,10 +38,7 @@ def _pep517_whl(ctx):
         progress_message = "Source compiling {} to a whl".format(archive.basename),
         executable = ctx.executable.tool,
         toolchain = None,
-        arguments = ctx.attr.args + [patch_args] + memory_args(ctx) + config_setting_args(ctx) + [
-            archive.path,
-            wheel_file.path,
-        ],
+        arguments = ctx.attr.args + [patch_args] + memory_args(ctx) + config_setting_args(ctx) + [io_args],
         inputs = depset([archive], transitive = [patch_inputs]),
         tools = [ctx.attr.tool[DefaultInfo].files_to_run],
         outputs = [wheel_file],

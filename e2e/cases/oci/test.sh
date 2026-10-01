@@ -146,3 +146,13 @@ if [[ "${USE_BAZEL_VERSION:-}" != 9* ]]; then
     fi
     echo "PASS: nested launcher prefixes share the same runfiles layout"
 fi
+
+echo "== images build unchanged under coverage =="
+# The listing test pins the layer contents, so a coverage build that
+# instrumented the wrapped binaries fails it rather than the build.
+if ! "$BAZEL" test --collect_code_coverage \
+    //oci/py_venv_image_layer:my_app_amd64_layers_test >"$output_log" 2>&1; then
+    cat "$output_log" >&2
+    fail "expected the image listing test to pass under coverage"
+fi
+echo "PASS: coverage does not alter image contents"

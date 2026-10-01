@@ -1,3 +1,4 @@
+load("@aspect_rules_py//py:defs.bzl", "py_test")
 load("@aspect_rules_py//uv:defs.bzl", "gazelle_python_manifest")
 
 # Exercise generating a Gazelle manifest covering a ton of venvs. Reads
@@ -18,5 +19,29 @@ gazelle_python_manifest(
         "airflow",
         "extras",
         "say",
+    ],
+)
+
+gazelle_python_manifest(
+    name = "gazelle_python_manifest_without_stubs",
+    hub = "pypi_uv_deps_650",
+    venvs = [
+        "airflow",
+        "crossbuild",
+        "extras",
+        "say",
+    ],
+)
+
+py_test(
+    name = "stub_packages_test",
+    srcs = ["stub_packages_test.py"],
+    args = [
+        "$(rootpath :gazelle_python_manifest)",
+        "$(rootpath :gazelle_python_manifest_without_stubs)",
+    ],
+    data = [
+        ":gazelle_python_manifest",
+        ":gazelle_python_manifest_without_stubs",
     ],
 )

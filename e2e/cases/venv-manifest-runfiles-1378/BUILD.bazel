@@ -12,7 +12,7 @@
 #
 # gazelle:ignore
 
-load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_library")
+load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_library", "py_unittest_test")
 load("@rules_shell//shell:sh_test.bzl", "sh_test")
 
 py_library(
@@ -35,10 +35,21 @@ py_binary(
     ],
 )
 
+# The unittest driver resolves its baked test files through runfiles too.
+py_unittest_test(
+    name = "manifest_unittest",
+    srcs = ["manifest_unittest_test.py"],
+    tags = ["manual"],
+    deps = [":firstparty"],
+)
+
 sh_test(
     name = "test",
     srcs = ["wrapper.sh"],
-    data = [":check_manifest_imports"],
+    data = [
+        ":check_manifest_imports",
+        ":manifest_unittest",
+    ],
     # The tree's MANIFEST symlink — the merged manifest this test hands to the
     # child — is only materialized in an unsandboxed runfiles tree.
     local = True,

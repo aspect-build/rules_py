@@ -10,7 +10,7 @@ import os
 import sys
 import tempfile
 import unittest
-from os import makedirs, path
+from os import chmod, makedirs, path
 
 from uv.private.pep517_whl.tools import build_helper
 
@@ -872,39 +872,58 @@ class ConfigureCargoCrossEnvTest(unittest.TestCase):
 
 
 class InjectCargoLockTest(unittest.TestCase):
-    def _tree(self, manifest_rel: str) -> tuple[str, str]:
+    def _tree(self, manifest_rel: str, pyproject: str | None = None) -> tuple[str, str, str]:
         tmp = tempfile.mkdtemp()
         manifest = path.join(tmp, "worktree", manifest_rel)
         makedirs(path.dirname(manifest), exist_ok=True)
         open(manifest, "w").close()
+        if pyproject is not None:
+            with open(path.join(tmp, "worktree", "pyproject.toml"), "w") as f:
+                f.write(pyproject)
+        # A stub cargo answering `locate-project --workspace` with the crate's
+        # own manifest: the test pins where cargo says the workspace root is.
+        cargo = path.join(tmp, "cargo")
+        with open(cargo, "w") as f:
+            f.write(
+                "#!/bin/sh\n"
+                'while [ "$#" -gt 0 ]; do case "$1" in --manifest-path) manifest="$2";; esac; shift; done\n'
+                'echo "$manifest"\n'
+            )
+        chmod(cargo, 0o755)
         lock = path.join(tmp, "user.Cargo.lock")
         with open(lock, "w") as f:
             f.write("version = 4\n")
-        return path.join(tmp, "worktree"), lock
+        return path.join(tmp, "worktree"), lock, cargo
 
     def test_lock_lands_next_to_the_root_manifest(self) -> None:
-        worktree, lock = self._tree("Cargo.toml")
-        dest = build_helper._inject_cargo_lock(worktree, lock)
+        worktree, lock, cargo = self._tree("Cargo.toml")
+        dest = build_helper._inject_cargo_lock(worktree, lock, cargo)
         self.assertEqual(path.join(worktree, "Cargo.lock"), dest)
         with open(dest) as f:
             self.assertEqual("version = 4\n", f.read())
 
     def test_nested_manifest_is_found_at_any_depth(self) -> None:
         # bcrypt keeps its crate under src/_bcrypt/.
-        worktree, lock = self._tree(path.join("src", "_bcrypt", "Cargo.toml"))
-        self.assertEqual(path.join(worktree, "src", "_bcrypt", "Cargo.lock"), build_helper._inject_cargo_lock(worktree, lock))
+        worktree, lock, cargo = self._tree(path.join("src", "_bcrypt", "Cargo.toml"))
+        self.assertEqual(path.join(worktree, "src", "_bcrypt", "Cargo.lock"), build_helper._inject_cargo_lock(worktree, lock, cargo))
 
-    def test_shallowest_manifest_wins(self) -> None:
-        worktree, lock = self._tree("Cargo.toml")
+    def test_maturin_manifest_path_is_honored(self) -> None:
+        worktree, lock, cargo = self._tree(
+            path.join("src", "_bcrypt", "Cargo.toml"),
+            pyproject="[build-system]\nbuild-backend = 'maturin'\n\n[tool.maturin]\nmanifest-path = 'src/_bcrypt/Cargo.toml'\n",
+        )
         deeper = path.join(worktree, "vendor", "dep", "Cargo.toml")
         makedirs(path.dirname(deeper))
         open(deeper, "w").close()
-        self.assertEqual(path.join(worktree, "Cargo.lock"), build_helper._inject_cargo_lock(worktree, lock))
+        self.assertEqual(path.join(worktree, "src", "_bcrypt", "Cargo.lock"), build_helper._inject_cargo_lock(worktree, lock, cargo))
 
-    def test_no_manifest_no_copy(self) -> None:
+    def test_no_manifest_is_a_rejected_inconsistency(self) -> None:
+        # A declared lock over a manifest-less tree cannot be placed; that is
+        # an inconsistent override, not a silent no-op.
         worktree = tempfile.mkdtemp()
-        self.assertIsNone(build_helper._inject_cargo_lock(worktree, "/nonexistent/Cargo.lock"))
-        self.assertIsNone(build_helper._inject_cargo_lock(worktree, ""))
+        with self.assertRaises(SystemExit):
+            build_helper._inject_cargo_lock(worktree, "/nonexistent/Cargo.lock", "/bin/true")
+        self.assertIsNone(build_helper._inject_cargo_lock(worktree, "", None))
 
 
 class ForbidBackendToolchainDownloadsTest(unittest.TestCase):
@@ -1017,6 +1036,25 @@ class RustcWrapperTest(unittest.TestCase):
         self.assertNotEqual(same, other_features)
         self.assertEqual(same, reordered, "argument order is cargo's business, not identity")
 
+    def test_symbol_hash_includes_the_crate_manifest(self) -> None:
+        # Two checkouts of the same crate with the same name and version but a
+        # patched manifest are distinct units; cargo's own metadata would not
+        # notice either (it is source-blind).
+        tmp = tempfile.mkdtemp()
+        wrapper = build_helper._write_rustc_wrapper(tmp, self._fake_rustc(tmp), "/tc/sysroot", self._TARGET)
+        fork_a = tempfile.mkdtemp()
+        fork_b = tempfile.mkdtemp()
+        with open(path.join(fork_a, "Cargo.toml"), "w") as f:
+            f.write("[package]\nname = \"ext\"\nversion = \"1.2.3\"\n")
+        with open(path.join(fork_b, "Cargo.toml"), "w") as f:
+            f.write("[package]\nname = \"ext\"\nversion = \"1.2.3\"\n[dependencies]\ncfg-if = \"1.0.0\"\n")
+        args = self._CRATE + ["-C", "metadata=aaaa", "--target", self._TARGET]
+        a = self._metadata(_run_wrapper(wrapper, args, env={**self._PKG, "CARGO_MANIFEST_DIR": fork_a}))
+        b = self._metadata(_run_wrapper(wrapper, args, env={**self._PKG, "CARGO_MANIFEST_DIR": fork_b}))
+        again = self._metadata(_run_wrapper(wrapper, args, env={**self._PKG, "CARGO_MANIFEST_DIR": fork_a}))
+        self.assertNotEqual(a, b, "a patched manifest is a different unit")
+        self.assertEqual(a, again)
+
     def test_symbol_hash_tracks_the_toolchain(self) -> None:
         tmp_a, tmp_b = tempfile.mkdtemp(), tempfile.mkdtemp()
         rustc_b = self._fake_rustc(tmp_b)
@@ -1058,32 +1096,6 @@ class RustcWrapperTest(unittest.TestCase):
         self.assertEqual(1, len(joined))
         self.assertNotEqual("-Cmetadata=cafe", joined[0])
 
-
-class DisableMaturinSbomTest(unittest.TestCase):
-    def _worktree(self, pyproject: str | None) -> str:
-        tmp = tempfile.mkdtemp()
-        if pyproject is not None:
-            with open(path.join(tmp, "pyproject.toml"), "w") as f:
-                f.write(pyproject)
-        return tmp
-
-    def test_sbom_is_turned_off(self) -> None:
-        tmp = self._worktree('[build-system]\nbuild-backend = "maturin"\n')
-        self.assertTrue(build_helper._disable_maturin_sbom(tmp))
-        with open(path.join(tmp, "pyproject.toml")) as f:
-            content = f.read()
-        self.assertIn("[tool.maturin.sbom]\nrust = false\nauditwheel = false\n", content)
-        self.assertTrue(content.startswith("[build-system]"), "the sdist's own configuration is kept")
-
-    def test_explicit_sbom_configuration_is_respected(self) -> None:
-        original = '[tool.maturin.sbom]\nrust = true\n'
-        tmp = self._worktree(original)
-        self.assertFalse(build_helper._disable_maturin_sbom(tmp))
-        with open(path.join(tmp, "pyproject.toml")) as f:
-            self.assertEqual(original, f.read())
-
-    def test_no_pyproject_no_change(self) -> None:
-        self.assertFalse(build_helper._disable_maturin_sbom(self._worktree(None)))
 
 
 class CcRsEnvTest(unittest.TestCase):

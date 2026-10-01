@@ -1,5 +1,5 @@
 
-load("@aspect_rules_py//uv/private/pep517_whl:pep517_native_whl.bzl", "pep517_native_whl")
+load(":rust_native_whl.bzl", "pep517_rust_native_whl")
 load("@aspect_rules_py//uv/private/pep517_whl:frontend.bzl", "pep517_frontend")
 load("@aspect_rules_py//uv/private/pep517_whl:rust_layer.bzl", "rust_host_sysroot")
 load("@aspect_rules_py//uv/private/pep517_whl:cargo_lock.bzl", "cargo_lock_generator")
@@ -25,6 +25,7 @@ rust_host_sysroot(
 
 cargo_lock_generator(
     name = "cargo_lock",
+    manifest = "bcrypt-5.0.0/src/_bcrypt/Cargo.toml",
     rust_toolchain = "@@rules_rust+//rust/toolchain:current_rust_toolchain",
     sdist = "@@aspect_rules_py++uv+sdist__bcrypt__f748f7c2d6fd375c//file:file",
 )
@@ -34,7 +35,7 @@ filegroup(
     srcs = glob(["vendor/**"]),
 )
 
-pep517_native_whl(
+pep517_rust_native_whl(
     name = "whl",
     src = "@@aspect_rules_py++uv+sdist__bcrypt__f748f7c2d6fd375c//file:file",
     tool = ":frontend",
