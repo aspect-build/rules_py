@@ -1,16 +1,10 @@
-load("//py:defs.bzl", "py_binary", "py_library", "py_test", "py_venv")
-load(
-    ":pyi_deps_test.bzl",
-    "launcher_pyi_deps_test",
-    "library_pyi_deps_test",
-    "resolution_pyi_deps_test",
-    "rules_python_provider_pyi_deps_test",
-    "transitive_pyi_deps_test",
-    "venv_pyi_deps_test",
-)
+load("//py:defs.bzl", "py_binary", "py_library", "py_test")
+load(":pyi_deps_test.bzl", "rules_python_type_check_only_test", "type_check_only_test")
 
 package(default_testonly = True)
 
+# `heavy` (first-party) and `@pypi//cowsay` (a wheel) are needed only to
+# type-check `typed`'s `TYPE_CHECKING` imports.
 py_library(
     name = "heavy",
     srcs = ["heavy/heavy.py"],
@@ -27,65 +21,43 @@ py_library(
     ],
 )
 
-library_pyi_deps_test(
-    name = "library_pyi_deps_test",
-    target_under_test = ":typed",
-)
-
 py_library(
     name = "consumer",
     deps = [":typed"],
 )
 
-transitive_pyi_deps_test(
-    name = "transitive_pyi_deps_test",
+# pyi_deps propagate through `deps`, and only to type checkers.
+type_check_only_test(
+    name = "library_test",
+    runtime = ["typed.py"],
     target_under_test = ":consumer",
+    type_check_only = [
+        "heavy",
+        "cowsay",
+    ],
 )
 
-py_binary(
-    name = "bin",
-    srcs = ["main.py"],
-    main = "main.py",
-    pyi_deps = [":heavy"],
-    deps = [":typed"],
-)
-
-launcher_pyi_deps_test(
-    name = "launcher_pyi_deps_test",
-    target_under_test = ":bin",
-)
-
-py_venv(
-    name = "venv",
-    deps = [":typed"],
-)
-
-venv_pyi_deps_test(
-    name = "venv_pyi_deps_test",
-    target_under_test = ":venv",
-)
-
-rules_python_provider_pyi_deps_test(
-    name = "rules_python_provider_library_test",
-    target_under_test = ":typed",
-)
-
-rules_python_provider_pyi_deps_test(
-    name = "rules_python_provider_launcher_test",
-    target_under_test = ":bin",
-)
-
-# Execution-time check: neither pyi_dep is importable.
+# At run time neither pyi_dep is importable.
 py_test(
-    name = "pyi_deps_not_importable_test",
+    name = "not_importable_test",
     srcs = ["main.py"],
     main = "main.py",
     pyi_deps = [":heavy"],
     deps = [":typed"],
 )
 
-# `pyi_deps` of a virtual-dependency resolution reach the binary's
-# type-check closure like those of an ordinary dep.
+# The same through py_test's macro, venv and launcher.
+type_check_only_test(
+    name = "launcher_test",
+    runtime = ["typed.py"],
+    target_under_test = ":not_importable_test",
+    type_check_only = [
+        "heavy",
+        "cowsay",
+    ],
+)
+
+# pyi_deps of a virtual-dependency resolution reach type checkers too.
 py_library(
     name = "resolved_impl",
     pyi_deps = [":heavy"],
@@ -104,7 +76,29 @@ py_binary(
     deps = [":needs_resolved"],
 )
 
-resolution_pyi_deps_test(
-    name = "resolution_pyi_deps_test",
+type_check_only_test(
+    name = "resolution_test",
     target_under_test = ":resolved_bin",
+    type_check_only = ["heavy"],
+)
+
+# The @rules_python providers emitted for py_library and for the launcher.
+rules_python_type_check_only_test(
+    name = "rules_python_library_test",
+    runtime = ["typed.py"],
+    target_under_test = ":consumer",
+    type_check_only = [
+        "heavy",
+        "cowsay",
+    ],
+)
+
+rules_python_type_check_only_test(
+    name = "rules_python_launcher_test",
+    runtime = ["typed.py"],
+    target_under_test = ":not_importable_test",
+    type_check_only = [
+        "heavy",
+        "cowsay",
+    ],
 )
