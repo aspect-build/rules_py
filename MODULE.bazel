@@ -20,7 +20,7 @@ bazel_dep(name = "rules_cc", version = "0.2.16")
 bazel_dep(name = "rules_python", version = "1.9.0")
 bazel_dep(name = "rules_shell", version = "0.6.1")
 bazel_dep(name = "tar.bzl", version = "0.10.1")
-bazel_dep(name = "hermetic_launcher", version = "0.0.14")
+bazel_dep(name = "hermetic_launcher", version = "0.0.16")
 
 tools = use_extension("//py:extensions.bzl", "py_tools")
 tools.rules_py_tools()
