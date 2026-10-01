@@ -260,7 +260,7 @@ _attrs = dict({
         These satisfy imports guarded by `typing.TYPE_CHECKING`. Their sources,
         stubs and wheels are carried in `PyInfo.transitive_pyi_files` for type
         checkers, but never become part of a runnable program: they are left
-        out of runfiles, `sys.path`, the venv's site-packages, image layers and
+        out of runfiles, `sys.path`, the venv's site-packages, image layers, and
         pex files.""",
         providers = [[PyInfo], [RulesPythonPyInfo]],
     ),
