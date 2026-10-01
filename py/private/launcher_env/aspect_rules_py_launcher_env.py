@@ -135,7 +135,8 @@ def start_coverage() -> "Coverage | None":
     Bazel sets COVERAGE_MANIFEST for a target carrying InstrumentedFilesInfo
     (https://bazel.build/rules/lib/providers/InstrumentedFilesInfo); its lines
     are the files that matched --instrumentation_filter. Returns None when
-    coverage is not enabled or the `coverage` package is not a dependency.
+    coverage is not enabled, the manifest is empty, or the `coverage` package
+    is not a dependency.
     """
     global _absfile_mapping
 
@@ -150,6 +151,12 @@ def start_coverage() -> "Coverage | None":
 
     with open(os.environ["COVERAGE_MANIFEST"], "r") as mf:
         manifest_entries = mf.read().splitlines()
+    # An empty manifest means Bazel asked us to instrument nothing. Do not
+    # start coverage then: coverage.py treats an empty `include` as "no
+    # filter" and traces every imported module, which can push a test with
+    # a heavy import graph past its timeout for no coverage data at all.
+    if not manifest_entries:
+        return None
     _absfile_mapping = {coverage.files.abs_file(mfe): mfe for mfe in manifest_entries}
 
     # Include patterns must be absolute: coveragepy matches relative patterns
