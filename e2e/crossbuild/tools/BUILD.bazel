@@ -1,6 +1,7 @@
 # Shared helpers consumed by //... via load("//tools:...").
 
 load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_library", "py_test")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load(":ant_layer.bzl", "ant_home")
 load(":rust_layer.bzl", "rust_host_sysroot")
 
@@ -49,5 +50,21 @@ ant_home(
     name = "ant_home",
     all_files = "@apache_ant//:all_files",
     ant_bin = "@apache_ant//:bin/ant",
+    visibility = ["//visibility:public"],
+)
+
+# The hermetic LLVM toolchain ships empty stub libunwind/libgcc_s archives on
+# the linker search path and relies on cc_toolchain.static_runtime_lib /
+# dynamic_runtime_lib to supply the real unwinder; cc rules honor that,
+# rules_rust's cdylib link does not. A Rust extension module built without
+# this links clean but leaves every _Unwind_* symbol undefined, and dlopen
+# fails under any interpreter, rules_py's or the system's. Linux only: on
+# macOS the symbols resolve from the process via -undefined dynamic_lookup.
+cc_library(
+    name = "llvm_unwinder",
+    srcs = select({
+        "@platforms//os:linux": ["@llvm//runtimes/libunwind:libunwind.static"],
+        "//conditions:default": [],
+    }),
     visibility = ["//visibility:public"],
 )

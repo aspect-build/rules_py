@@ -1,0 +1,39 @@
+"""pyo3-rules-rs: the same PyO3 extension module as //pyo3-extension, built
+with the pyo3 extension rules_rs re-exports from its patched rules_rust
+repository (exposed here as @rules_rust_rs) and the pyo3 toolchains rules_rs
+provisions over its own crate resolution.
+
+Like rules_rust_pyo3, that pyo3_toolchain reads the interpreter, its version
+and libpython from the rules_python toolchain types python_interpreters
+registers; this case covers the rules_rs flavour of that contract.
+"""
+
+bazel_dep(name = "rules_rs", version = "0.0.110")
+
+# rules_rs toolchains are rules_rust `rust_toolchain` instances declared in the
+# patched rules_rust repository rules_rs fetches, so they register under that
+# repository's toolchain type and never compete with the BCR rules_rust
+# toolchains the other cases use.
+rs_toolchains = use_extension("@rules_rs//rs/toolchains:module_extension.bzl", "toolchains")
+rs_toolchains.toolchain(
+    edition = "2021",
+    version = "1.92.0",
+)
+use_repo(rs_toolchains, "default_rust_toolchains")
+
+register_toolchains("@default_rust_toolchains//...")
+
+rules_rust_rs = use_extension("@rules_rs//rs:rules_rust.bzl", "rules_rust")
+
+# Bazel 8 has no path mapper for cc_common, so the vendored rules_rust's
+# rustc actions must not advertise path mapping; see the patch header.
+rules_rust_rs.patch(
+    patches = ["//pyo3-rules-rs:rules_rust_path_mapping_bazel8.patch"],
+    strip = 1,
+)
+use_repo(rules_rust_rs, rules_rust_rs = "rules_rust")
+
+register_toolchains(
+    "@rules_rust_rs//extensions/pyo3/toolchains:toolchain",
+    "@rules_rust_rs//extensions/pyo3/toolchains:rust_toolchain",
+)
