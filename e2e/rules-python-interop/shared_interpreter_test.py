@@ -12,7 +12,7 @@ def main() -> None:
 
     # Unresolved on purpose: realpath may chase Bazel's content-addressed
     # repo cache, losing the repo directory that identifies the provider.
-    base = sys._base_executable or sys.executable
+    base = getattr(sys, "_base_executable", None) or sys.executable
     assert "rules_python" in base and "python_3_11" in base, base
     print("underlying interpreter:", base)
 

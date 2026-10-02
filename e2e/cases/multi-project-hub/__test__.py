@@ -3,4 +3,4 @@
 
 import cowsay
 
-cowsay.cow("multi-project-hub")
+print(cowsay.get_output_string("cow", "multi-project-hub"))

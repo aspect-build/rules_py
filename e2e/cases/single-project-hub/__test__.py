@@ -13,4 +13,4 @@ assert not any(
     for line in manifest.splitlines()
 ), manifest
 
-cowsay.cow("single-project-hub")
+print(cowsay.get_output_string("cow", "single-project-hub"))

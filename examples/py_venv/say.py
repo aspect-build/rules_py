@@ -8,26 +8,22 @@ execroot = f"{output_base}/execroot"
 external = f"{output_base}/external"
 runfiles = sys.prefix.split(".runfiles/")[0] + ".runfiles"
 
-def _simplify(s: str | list[str]) -> str | list[str]:
-    if isinstance(s, str):
-        return s \
-            .replace(runfiles, "${RUNFILES}") \
-            .replace(execroot, "${BAZEL_EXECROOT}") \
-            .replace(external, "${BAZEL_EXTERNAL}") \
-            .replace(output_base, "${BAZEL_BASE}")
-
-    elif isinstance(s, list):
-        return [_simplify(it) for it in s]
+def _simplify(s: str) -> str:
+    return s \
+        .replace(runfiles, "${RUNFILES}") \
+        .replace(execroot, "${BAZEL_EXECROOT}") \
+        .replace(external, "${BAZEL_EXTERNAL}") \
+        .replace(output_base, "${BAZEL_BASE}")
 
 print("sys.prefix:", _simplify(sys.prefix))
 print("sys.path:")
-for it in _simplify(sys.path):
-    print(" -", it)
+for it in sys.path:
+    print(" -", _simplify(it))
 import site
 print("site.PREFIXES:")
-for it in _simplify(site.PREFIXES):
-    print(" -", it)
+for it in site.PREFIXES:
+    print(" -", _simplify(it))
 
 import cowsay
 
-cowsay.cow('hello py_venv! (built at <BUILD_TIMESTAMP>)')
+print(cowsay.get_output_string("cow", 'hello py_venv! (built at <BUILD_TIMESTAMP>)'))

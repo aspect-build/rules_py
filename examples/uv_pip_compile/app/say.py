@@ -1,3 +1,3 @@
 import cowsay
 
-cowsay.cow('hello py_binary!')
+print(cowsay.get_output_string("cow", 'hello py_binary!'))
