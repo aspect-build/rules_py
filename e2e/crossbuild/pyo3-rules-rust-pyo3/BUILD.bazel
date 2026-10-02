@@ -1,0 +1,20 @@
+# A PyO3 extension module through rules_rust_pyo3: pyo3_extension builds the
+# cdylib, names it after the target and provides PyInfo, so a py_test depends
+# on it like any py_library.
+
+load("@aspect_rules_py//py:defs.bzl", "py_test")
+load("@rules_rust_pyo3//:defs.bzl", "pyo3_extension")
+
+pyo3_extension(
+    name = "pyo3_ext_rr",
+    srcs = ["src/lib.rs"],
+    imports = ["."],
+)
+
+py_test(
+    name = "test_pyo3_ext_rr",
+    srcs = ["test_pyo3_ext_rr.py"],
+    main = "test_pyo3_ext_rr.py",
+    python_version = "3.12",
+    deps = [":pyo3_ext_rr"],
+)
