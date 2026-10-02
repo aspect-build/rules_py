@@ -1,0 +1,26 @@
+# A PyO3 extension module through rules_rs's re-exported pyo3 rules.
+#
+# Manual: under --experimental_output_paths=strip (on in every workspace here)
+# rules_rs's bootstrap of rules_rust's process_wrapper passes the C++
+# toolchain's linker by its unmapped bazel-out path and rustc cannot find it
+# (rules_rs 0.0.110 and 0.0.112). Run with --experimental_output_paths=off:
+#   bazel test --experimental_output_paths=off //pyo3-rules-rs/...
+
+load("@aspect_rules_py//py:defs.bzl", "py_test")
+load("@rules_rust_rs//extensions/pyo3:defs.bzl", "pyo3_extension")
+
+pyo3_extension(
+    name = "pyo3_ext_rs",
+    srcs = ["src/lib.rs"],
+    imports = ["."],
+    tags = ["manual"],
+)
+
+py_test(
+    name = "test_pyo3_ext_rs",
+    srcs = ["test_pyo3_ext_rs.py"],
+    main = "test_pyo3_ext_rs.py",
+    python_version = "3.12",
+    tags = ["manual"],
+    deps = [":pyo3_ext_rs"],
+)
