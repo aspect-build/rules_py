@@ -1,0 +1,27 @@
+"""pyo3-extension: a Python extension module written in Rust with PyO3, built
+by rules_rust inside the workspace rather than from an sdist.
+
+This is the shape consumers use to extend Python with Rust directly: a
+rust_shared_library over the pyo3 crate, renamed to a loadable module and
+imported from a rules_py py_test. The abi3 feature plus PYO3_NO_PYTHON keeps
+pyo3's build script from probing an interpreter, so the build is hermetic.
+"""
+
+crate = use_extension("@rules_rust//crate_universe:extensions.bzl", "crate")
+crate.spec(
+    features = [
+        "abi3-py312",
+        "extension-module",
+    ],
+    package = "pyo3",
+    version = "=0.29.3",
+)
+crate.annotation(
+    build_script_env = {"PYO3_NO_PYTHON": "1"},
+    crate = "pyo3-build-config",
+    repositories = ["pyo3_crates"],
+)
+crate.from_specs(
+    name = "pyo3_crates",
+)
+use_repo(crate, "pyo3_crates")

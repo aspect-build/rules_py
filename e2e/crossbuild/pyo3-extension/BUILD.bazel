@@ -1,0 +1,45 @@
+# A PyO3 extension module built with rules_rust and imported through rules_py.
+# rules_rust names the cdylib lib<crate>.{so,dylib}; Python imports the module
+# by its own name with a .so suffix on every platform maturin targets.
+
+load("@aspect_rules_py//py:defs.bzl", "py_library", "py_test")
+load("@rules_rust//rust:defs.bzl", "rust_shared_library")
+
+rust_shared_library(
+    name = "pyo3_ext_cdylib",
+    srcs = ["src/lib.rs"],
+    crate_name = "pyo3_ext",
+    # Extension modules resolve the interpreter's symbols at load time; Mach-O
+    # needs to be told so, ELF allows it by default.
+    rustc_flags = select({
+        "@platforms//os:macos": [
+            "-C",
+            "link-arg=-undefined",
+            "-C",
+            "link-arg=dynamic_lookup",
+        ],
+        "//conditions:default": [],
+    }),
+    deps = ["@pyo3_crates//:pyo3"],
+)
+
+genrule(
+    name = "pyo3_ext_module",
+    srcs = [":pyo3_ext_cdylib"],
+    outs = ["pyo3_ext.so"],
+    cmd = "cp $< $@",
+)
+
+py_library(
+    name = "pyo3_ext",
+    data = [":pyo3_ext_module"],
+    imports = ["."],
+)
+
+py_test(
+    name = "test_pyo3_ext",
+    srcs = ["test_pyo3_ext.py"],
+    main = "test_pyo3_ext.py",
+    python_version = "3.12",
+    deps = [":pyo3_ext"],
+)
