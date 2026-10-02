@@ -2,8 +2,9 @@
 # cdylib, names it after the target and provides PyInfo, so a py_test depends
 # on it like any py_library.
 
-load("@aspect_rules_py//py:defs.bzl", "py_test")
+load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_image_layer", "py_test")
 load("@rules_rust_pyo3//:defs.bzl", "pyo3_extension")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 
 pyo3_extension(
     name = "pyo3_ext_rr",
@@ -17,4 +18,27 @@ py_test(
     main = "test_pyo3_ext_rr.py",
     python_version = "3.12",
     deps = [":pyo3_ext_rr"],
+)
+
+# Packaged for OCI: pyo3_extension provides PyInfo rather than plain data, so
+# py_image_layer's aspect takes a different path to the .so than in
+# //pyo3-extension; the extracted layers must still run.
+py_binary(
+    name = "pyo3_app_rr",
+    srcs = ["__main__.py"],
+    main = "__main__.py",
+    python_version = "3.12",
+    deps = [":pyo3_ext_rr"],
+)
+
+py_image_layer(
+    name = "pyo3_app_rr_layers",
+    binary = ":pyo3_app_rr",
+)
+
+sh_test(
+    name = "test_image_layers",
+    srcs = ["test_image_layers.sh"],
+    args = ["$(locations :pyo3_app_rr_layers)"],
+    data = [":pyo3_app_rr_layers"],
 )

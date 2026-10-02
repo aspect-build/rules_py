@@ -2,8 +2,9 @@
 # rules_rust names the cdylib lib<crate>.{so,dylib}; Python imports the module
 # by its own name with a .so suffix on every platform maturin targets.
 
-load("@aspect_rules_py//py:defs.bzl", "py_library", "py_test")
+load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_image_layer", "py_library", "py_test")
 load("@rules_rust//rust:defs.bzl", "rust_shared_library")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 
 rust_shared_library(
     name = "pyo3_ext_cdylib",
@@ -42,4 +43,27 @@ py_test(
     main = "test_pyo3_ext.py",
     python_version = "3.12",
     deps = [":pyo3_ext"],
+)
+
+# The same extension packaged for OCI: py_image_layer must ship pyo3_ext.so in
+# a layer and the image's interpreter must load it. The layers are extracted
+# into one root and /app run on the host, no container daemon.
+py_binary(
+    name = "pyo3_app",
+    srcs = ["__main__.py"],
+    main = "__main__.py",
+    python_version = "3.12",
+    deps = [":pyo3_ext"],
+)
+
+py_image_layer(
+    name = "pyo3_app_layers",
+    binary = ":pyo3_app",
+)
+
+sh_test(
+    name = "test_image_layers",
+    srcs = ["test_image_layers.sh"],
+    args = ["$(locations :pyo3_app_layers)"],
+    data = [":pyo3_app_layers"],
 )
