@@ -74,8 +74,9 @@ def _extract_whl_install_pkg(label_str):
 def normalize_label(label_str):
     """Canonicalize a label so user-supplied strings match `str(target.label)`.
 
-    Rewrites whl_install labels to '@pip//<pkg>', strips the '@@//' prefix,
-    and expands implicit target names ('//foo/bar' → '//foo/bar:bar').
+    Rewrites whl_install labels and hub-qualified pip keys (`@<hub>//<pkg>`) to
+    '@pip//<pkg>', strips the '@@//' prefix, and expands implicit target names
+    ('//foo/bar' → '//foo/bar:bar').
 
     This function is idempotent: normalize_label(normalize_label(x)) == normalize_label(x).
 
@@ -92,8 +93,17 @@ def normalize_label(label_str):
     pkg = _extract_whl_install_pkg(label_str)
     if pkg != None:
         label_str = "@pip//" + pkg
-    if label_str.startswith("@@//"):
+    elif label_str.startswith("@@//"):
         label_str = label_str[2:]
+    elif label_str.startswith("@") and not label_str.startswith("@@"):
+        # A user key spelled with an apparent repo name: `@pip//<pkg>` by the
+        # documented convention, or the hub's own name (`@pypi//<pkg>`). Only
+        # user strings have this form; analysis-side labels are canonical
+        # (`@@...`), and first-party keys are main-repo labels. Pip packages
+        # are matched by name, so the repo part is dropped.
+        pkg = label_str.split("//", 1)[1].split(":", 1)[0] if "//" in label_str else ""
+        if pkg and "/" not in pkg:
+            label_str = "@pip//" + pkg
     parts = label_str.split("//", 1)
     if len(parts) == 2 and parts[1] and ":" not in parts[1]:
         target_name = parts[1].rsplit("/", 1)[-1]
@@ -205,7 +215,8 @@ py_layer_tier = rule(
     attrs = {
         "groups": attr.string_dict(
             default = {},
-            doc = ("Maps @pip//package → group name (whole pip package), " +
+            doc = ("Maps @pip//package → group name (whole pip package; the hub's own " +
+                   "name works too, e.g. @pypi//package), " +
                    "@pip//package:glob → group name (pip subpath split), or " +
                    "//some/first_party:lib → group name (first-party PyInfo target). " +
                    "First-party main-repo labels may be written as //pkg:name; " +
