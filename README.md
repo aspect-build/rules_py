@@ -372,6 +372,9 @@ py_layer_tier(
 )
 ```
 
+Pip packages are matched by name, so `@pip//torch` and the hub's own spelling
+(`@pypi//torch`) select the same package.
+
 `py_image_layer` sets compression for the layers it creates itself — the
 `groups` tars, the squashed pip layer (`"packages"`), and the source layer
 (`"default"`) — and takes precedence over the tier for a group both name:
