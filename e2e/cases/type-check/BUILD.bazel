@@ -1,0 +1,56 @@
+# Type checking runs as a validation action, so `bazel test //...` checks the
+# well-typed targets here. The ill-typed fixtures are `manual`; test.sh asserts
+# that building them fails.
+load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_library", "py_test")
+
+exports_files(["ignore_invalid_assignment.ty.toml"])
+
+py_library(
+    name = "stubs_only",
+    srcs = ["stubs_only/stubs_only.py"],
+    imports = ["stubs_only"],
+)
+
+py_library(
+    name = "shapes",
+    srcs = ["shapes.py"],
+    imports = ["."],
+    pyi_deps = [":stubs_only"],
+)
+
+# Checks a first-party dep and a wheel from the hub.
+py_test(
+    name = "type_check_test",
+    srcs = ["__test__.py"],
+    dep_group = "single_project_hub",
+    main = "__test__.py",
+    python_version = "3.11",
+    deps = [
+        ":shapes",
+        "@pypi_single//cowsay",
+    ],
+)
+
+py_library(
+    name = "opted_out",
+    srcs = ["ill_typed.py"],
+    type_check = False,
+    deps = [":shapes"],
+)
+
+py_library(
+    name = "ill_typed",
+    srcs = ["ill_typed.py"],
+    tags = ["manual"],
+    deps = [":shapes"],
+)
+
+py_binary(
+    name = "ill_typed_bin",
+    srcs = ["ill_typed_main.py"],
+    dep_group = "single_project_hub",
+    main = "ill_typed_main.py",
+    python_version = "3.11",
+    tags = ["manual"],
+    deps = ["@pypi_single//cowsay"],
+)

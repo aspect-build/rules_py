@@ -9,4 +9,4 @@ every mainstream host and this import fails at runtime.
 
 import cowsay
 
-cowsay.cow("arch-alias-marker")
+print(cowsay.get_output_string("cow", "arch-alias-marker"))

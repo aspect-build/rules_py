@@ -3,3 +3,8 @@ import %workspace%/../../bazel/workspace.bazelrc
 # rules_lint's ty aspect reads @rules_python's PyInfo, which rules_py emits
 # only under the provider compatibility layer.
 common --@aspect_rules_py//py:emit_rules_python_providers
+
+# This workspace exercises rules_lint's ty aspect, and its negative fixtures are
+# ill-typed on purpose. rules_py's own type-check validation is covered by
+# e2e/cases/type-check.
+common --@aspect_rules_py//py:type_check=false

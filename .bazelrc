@@ -21,5 +21,10 @@ common --@pypi//dep_group=aspect_rules_py
 # Default python version
 common --@aspect_rules_py//py:python_version=3.13
 
+# rules_py's own test fixtures and tools aren't written to type check cleanly
+# (e.g. modules that only exist after a site-packages merge). The type check
+# validation itself is covered by //py/tests/type-check and e2e/cases/type-check.
+common --@aspect_rules_py//py:type_check=false
+
 # Uncomment to enable verbose diagnostics for uv repository rules (sdist builds, git archives)
 # common --repo_env=RULES_PY_UV_VERBOSE=1

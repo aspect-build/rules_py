@@ -6,6 +6,9 @@ import subprocess
 import sys
 import tempfile
 
+# Undocumented, so absent from typeshed.
+_BASE_EXECUTABLE: str = getattr(sys, "_base_executable")
+
 
 def _verify_prefixes(expected_cwd: str) -> None:
     assert os.path.samefile(os.getcwd(), expected_cwd), (os.getcwd(), expected_cwd)
@@ -28,12 +31,12 @@ def _verify_prefixes(expected_cwd: str) -> None:
     }
     assert (home == "") == expect_empty_home, (home, sys.version_info)
     if expect_empty_home:
-        assert sys._base_executable != sys.executable, sys.executable
+        assert _BASE_EXECUTABLE != sys.executable, sys.executable
         assert os.path.samefile(
-            os.path.dirname(os.path.dirname(sys._base_executable)),
+            os.path.dirname(os.path.dirname(_BASE_EXECUTABLE)),
             sys.base_prefix,
         ), (
-            sys._base_executable,
+            _BASE_EXECUTABLE,
             sys.base_prefix,
         )
 
@@ -82,9 +85,9 @@ def _verify_nested_venv(expected_cwd: str) -> None:
             ),
             None,
         )
-        assert child_home == os.path.dirname(os.path.abspath(sys._base_executable)), (
+        assert child_home == os.path.dirname(os.path.abspath(_BASE_EXECUTABLE)), (
             child_home,
-            sys._base_executable,
+            _BASE_EXECUTABLE,
         )
 
         child_python = os.path.join(

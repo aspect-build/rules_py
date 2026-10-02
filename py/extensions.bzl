@@ -2,6 +2,7 @@
 
 load("@aspect_tools_telemetry_report//:defs.bzl", "TELEMETRY")  # buildifier: disable=load
 load("//py/private/interpreter:extension.bzl", _python_interpreters = "python_interpreters")
+load("//py/private/toolchain:ty.bzl", "DEFAULT_TY_VERSION")
 load(":toolchains.bzl", "DEFAULT_TOOLS_REPOSITORY", "rules_py_toolchains")
 
 python_interpreters = _python_interpreters
@@ -11,6 +12,9 @@ py_toolchain = tag_class(attrs = {
 Base name for generated repositories, allowing more than one toolchain to be registered.
 Overriding the default is only permitted in the root module.
 """, default = DEFAULT_TOOLS_REPOSITORY),
+    "ty_version": attr.string(doc = """\
+Version of ty backing the default type checker toolchain.
+""", default = DEFAULT_TY_VERSION),
 })
 
 def _toolchains_extension_impl(module_ctx):
@@ -26,14 +30,14 @@ def _toolchains_extension_impl(module_ctx):
 
             # Ensure the root wins in case of differences
             if mod.is_root:
-                rules_py_toolchains(toolchain.name)
+                rules_py_toolchains(toolchain.name, ty_version = toolchain.ty_version)
                 root_name = toolchain.name
             else:
-                registrations.append(toolchain.name)
+                registrations.append(toolchain)
 
-    for name in registrations:
-        if name != root_name:
-            rules_py_toolchains(name)
+    for toolchain in registrations:
+        if toolchain.name != root_name:
+            rules_py_toolchains(toolchain.name, ty_version = toolchain.ty_version)
 
     return module_ctx.extension_metadata(reproducible = True)
 
