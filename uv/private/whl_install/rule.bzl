@@ -13,7 +13,7 @@ load("//uv/private:source_built_wheel.bzl", "SourceBuiltWheelInfo")
 # declares exclusions the selected wheel's retained RECORD paths are filtered
 # and the layout is RE-DERIVED here at analysis time (matching pre-derivation
 # semantics — an excluded initializer reclassifies namespace/regular).
-load(":metadata.bzl", "derive_layout", "parse_exclude_glob", "record_path_excluded")
+load(":metadata.bzl", "derive_layout", "parse_exclude_glob", "pkgutil_namespace_top_levels", "record_path_excluded")
 
 PyWheelMetadataInfo = provider(
     doc = """Analysis-time site-packages layout of a single wheel.
@@ -32,7 +32,7 @@ PyWheelMetadataInfo = provider(
     fields = {
         "top_levels": "All immediate site-packages entry names the wheel installs. Empty means unknown layout.",
         "top_level_dirs": "Subset of non-metadata top_levels that are directories.",
-        "namespace_top_levels": "Subset of top_levels that are PEP 420 namespace packages.",
+        "namespace_top_levels": "Subset of top_levels that are namespace packages: PEP 420 or a pkgutil stub.",
         "namespace_entries": "Concrete `/`-joined entries beneath the namespace top-levels.",
         "namespace_dirs": "Implicit-namespace directory skeleton under the namespace top-levels.",
         "regular_roots": "Minimal `__init__.py`-carrying directories under the namespace top-levels.",
@@ -184,7 +184,7 @@ def _whl_install(ctx):
             for path in meta.record_paths
             if not record_path_excluded(path.split("/"), patterns)
         ]
-        layout = derive_layout(retained)
+        layout = derive_layout(retained, pkgutil_namespace_top_levels(meta))
         top_levels = layout.top_levels
         top_level_dirs = layout.top_level_dirs
         namespace_top_levels = layout.namespace_top_levels
