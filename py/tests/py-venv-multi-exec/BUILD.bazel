@@ -1,6 +1,7 @@
 load("@rules_python//python:defs.bzl", "py_library")
 load("//py:defs.bzl", "py_library", "py_venv")
 load("//py/private/py_venv:defs.bzl", "py_venv_exec_test")
+load("//py/tests:analysis_failure_test.bzl", "analysis_failure_test")
 load(":env_inherit_test.bzl", "contextual_keys_not_inherited_test", "env_inherit_test")
 load(":freethreaded_flag_test.bzl", "freethreaded_flag_test")
 load(":runfiles_mapping.bzl", "runfiles_mapping")
@@ -118,6 +119,49 @@ py_venv_exec_test(
     name = "test_entry_a",
     main = "entry_a.py",
     venv = ":shared_venv",
+)
+
+# A capital S inside another option's argument does not disable site.
+py_venv_exec_test(
+    name = "test_warning_option_with_s",
+    interpreter_options = ["-Wignore::SyntaxWarning"],
+    main = "entry_a.py",
+    venv = ":shared_venv",
+)
+
+# `-S` skips the site processing that puts the venv on sys.path.
+[
+    [
+        py_venv_exec_test(
+            name = "_test_no_site_" + name,
+            interpreter_options = [opt],
+            main = "entry_a.py",
+            tags = ["manual"],
+            venv = ":shared_venv",
+        ),
+        analysis_failure_test(
+            name = "test_no_site_{}_failure".format(name),
+            expected_error = "interpreter_options {} disables site initialization".format(opt),
+            target_under_test = ":_test_no_site_" + name,
+        ),
+    ]
+    for name, opt in [
+        ("plain", "-S"),
+        ("bundled", "-bS"),
+    ]
+]
+
+py_venv(
+    name = "_no_site_venv",
+    srcs = ["entry_a.py"],
+    interpreter_options = ["-S"],
+    tags = ["manual"],
+)
+
+analysis_failure_test(
+    name = "test_no_site_venv_failure",
+    expected_error = "interpreter_options -S disables site initialization",
+    target_under_test = ":_no_site_venv",
 )
 
 py_venv_exec_test(
