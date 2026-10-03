@@ -5,8 +5,7 @@ load("@rules_shell//shell:sh_test.bzl", "sh_test")
 
 package(default_testonly = True)
 
-# A closure where every .py is listed by exactly one target, so sharding is
-# safe. The launchers pin sourceless so they run from sharded bytecode.
+# The launchers pin sourceless so they run from sharded bytecode.
 
 py_library(
     name = "meta",
@@ -59,7 +58,17 @@ py_library(
 # three shards place the three-source library's files in two of them.
 compile_action_count_test(
     name = "batch_compiles_default_shards_test",
+    expected = 4,
+    targets = [
+        ":app_test",
+        ":cli",
+    ],
+)
+
+compile_action_count_test(
+    name = "batch_compiles_0_shards_test",
     expected = 6,
+    pyc_shards = "0",
     targets = [
         ":app_test",
         ":cli",
@@ -138,10 +147,10 @@ pyc_config_test(
 )
 
 # A library requested beside its launcher compiles once per global flag value;
-# `off` launchers activate `pycache`, so the three modes compile the five sources twice.
+# `off` launchers activate `pycache`, so the three modes compile three targets twice.
 compile_action_count_test(
     name = "global_flag_shares_library_compiles_test",
-    expected = 10,
+    expected = 6,
     modes = [
         "off",
         "pycache",

@@ -1,0 +1,20 @@
+load("@aspect_rules_py//py:defs.bzl", "py_library")
+load("@rules_python//python:py_library.bzl", rules_python_library = "py_library")
+
+# One source listed by both rulesets in a repository other than the main one;
+# rules_python precompiles its `__pycache__` layout.
+py_library(
+    name = "rules_py",
+    srcs = ["ext_shared.py"],
+    imports = ["."],
+    visibility = ["//visibility:public"],
+)
+
+rules_python_library(
+    name = "rules_python",
+    srcs = ["ext_shared.py"],
+    imports = ["."],
+    precompile = "enabled",
+    precompile_source_retention = "keep_source",
+    visibility = ["//visibility:public"],
+)

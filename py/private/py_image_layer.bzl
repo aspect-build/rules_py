@@ -748,8 +748,10 @@ def _file_to_mtree_entry(
         maybe_symlink = False,
         executable_dsts = {},
         owner = "0",
-        group = "0"):
-    dst = _source_destination(f.short_path, strip_prefix, root, executable_dsts)
+        group = "0",
+        bytecode_short_paths = {}):
+    # Compiled bytecode lives in a per-target directory; place it where runfiles do.
+    dst = _source_destination(bytecode_short_paths.get(f.path, f.short_path), strip_prefix, root, executable_dsts)
 
     # `f.is_symlink` emits `type=link` (awk readlinks once); `maybe_symlink=True`
     # emits `type=file content=` (awk readlinks to detect repo-rule-staged
@@ -782,7 +784,11 @@ def _source_file_to_mtree(
         runfile_executable_paths,
         repo_mapping_path,
         owner = "0",
-        group = "0"):
+        group = "0",
+        bytecode_short_paths = {},
+        dropped_bytecode = {}):
+    if f.path in dropped_bytecode:
+        return []
     if f.path == repo_mapping_path:
         return _file_to_mtree_entry(
             f,
@@ -800,7 +806,7 @@ def _source_file_to_mtree(
             _file_to_mtree_entry(child, "0755", strip_prefix, root, maybe_symlink, executable_dsts, owner, group)
             for child in dir_expander.expand(f)
         ]
-    entry = _file_to_mtree_entry(f, "0755", strip_prefix, root, maybe_symlink, executable_dsts, owner, group)
+    entry = _file_to_mtree_entry(f, "0755", strip_prefix, root, maybe_symlink, executable_dsts, owner, group, bytecode_short_paths)
     if f.path not in runfile_executable_paths:
         return entry
     return [
@@ -814,7 +820,10 @@ def _source_file_to_mtree(
         ),
     ]
 
-def _user_file_to_mtree(f, dir_expander, owner = "0", group = "0"):
+def _user_file_to_mtree(f, dir_expander, owner = "0", group = "0", bytecode_short_paths = {}, dropped_bytecode = {}):
+    if f.path in dropped_bytecode:
+        return []
+
     # Rule-level groups may contain declared symlinks that File.is_symlink
     # doesn't expose, so every grouped file needs the readlink fallback.
     # Source-closure files get 0755 via the tar action's chmod set.
@@ -823,7 +832,7 @@ def _user_file_to_mtree(f, dir_expander, owner = "0", group = "0"):
             _file_to_mtree_entry(child, "0755", maybe_symlink = True, owner = owner, group = group)
             for child in dir_expander.expand(f)
         ]
-    return _file_to_mtree_entry(f, "0644", maybe_symlink = True, owner = owner, group = group)
+    return _file_to_mtree_entry(f, "0644", maybe_symlink = True, owner = owner, group = group, bytecode_short_paths = bytecode_short_paths)
 
 def _should_skip_pkg_path(p):
     return (
@@ -1103,8 +1112,10 @@ def _declare_group_tar(ctx, rule_codecs, plan, bsdtar, bsdtar_files, out_basenam
     )
     return tar_out
 
-def _fp_files_for_pyc(files, mode, pyc_by_source_path):
+def _fp_files_for_pyc(files, mode, pyc_by_source_path, bytecode_by_path):
     """Swap a first-party group's sources for bytecode; matched by runfiles path across configurations.
+
+    Each bytecode path ships the one file `bytecode_by_path` chose for it.
 
     Returns struct(files, staged): every file the group packages, and the
     subset other actions must stage, which excludes the bytecode they only
@@ -1118,11 +1129,11 @@ def _fp_files_for_pyc(files, mode, pyc_by_source_path):
         entries = pyc_by_source_path.get(f.short_path) if f.extension == "py" else None
         if entries == None:
             out.append(f)
-        elif mode == "pycache":
+            continue
+        if mode == "pycache":
             out.append(f)
-            bytecode.extend([entry.pycache for entry in entries])
-        else:
-            bytecode.extend([entry.pyc for entry in entries])
+        paths = {(entry.pycache_path if mode == "pycache" else entry.pyc_path): True for entry in entries}
+        bytecode.extend([bytecode_by_path[path] for path in paths if path in bytecode_by_path])
     return struct(files = depset(out + bytecode), staged = depset(out))
 
 def _py_image_layer_impl(ctx):
@@ -1243,6 +1254,30 @@ def _py_image_layer_impl(ctx):
     # to find them. Map every launcher's `.runfiles/` tree into that shared root.
     all_tars = []
     source_maybe_symlink = any([info.interpreter_layer == None for info in infos])
+
+    # Each mode reads one layout, so every bytecode file has one destination.
+    pyc_infos = [binary[PycInfo] for binary in binaries if PycInfo in binary]
+    pyc_entries = depset(transitive = [info.entries for info in pyc_infos]).to_list() if effective_pyc != "off" else []
+
+    # Several owners may provide one path's bytecode. Keep one file, preferring one
+    # already at that path, as runfiles do; CPython never reads a main's own cache.
+    mains = {binary[PycModeInfo].main: True for binary in binaries if PycModeInfo in binary}
+    bytecode_by_path = {}
+    for entry in pyc_entries:
+        f, path = (entry.pyc, entry.pyc_path) if effective_pyc == "sourceless" else (entry.pycache, entry.pycache_path)
+        if effective_pyc == "pycache" and entry.source.short_path in mains:
+            continue
+        if path not in bytecode_by_path or f.short_path == path:
+            bytecode_by_path[path] = f
+    bytecode_short_paths = {f.path: path for path, f in bytecode_by_path.items()}
+
+    # rules_python's own bytecode reaches the source closure too; only the chosen files ship.
+    dropped_bytecode = {
+        f.path: True
+        for entry in pyc_entries
+        for f in (entry.pyc, entry.pycache)
+        if f.path not in bytecode_short_paths
+    }
     source_map = lambda f, d: _source_file_to_mtree(
         f,
         d,
@@ -1254,6 +1289,8 @@ def _py_image_layer_impl(ctx):
         repo_mapping.path if repo_mapping != None else "",
         owner,
         group,
+        bytecode_short_paths,
+        dropped_bytecode,
     )
     pkg_map = lambda f, d: _pkg_file_to_mtree(f, d, owner, group)
     interpreter_map = lambda f, d: _interpreter_file_to_mtree(f, d, owner, group)
@@ -1271,17 +1308,12 @@ def _py_image_layer_impl(ctx):
         fp_layer_entries.extend(info.first_party_layers.to_list())
 
     # Configured copies of one source share a runfiles path; group entries by it.
-    pyc_infos = [binary[PycInfo] for binary in binaries if PycInfo in binary]
     pyc_by_source_path = {}
-    pyc_entries = depset(transitive = [info.entries for info in pyc_infos]).to_list()
     pyc_files = []
-    if effective_pyc == "sourceless":
-        # Source-retaining rules_python targets also carry __pycache__ files for
-        # normal runfiles. Images remove those sources, so only colocated bytecode
-        # is useful in their sourceless layout.
-        pyc_files = [depset([entry.pyc for entry in pyc_entries])]
-    elif effective_pyc == "pycache":
-        pyc_files = [info.pycache_files for info in pyc_infos]
+
+    # Each image ships only its mode's layout, even for source-retaining rules_python targets.
+    if bytecode_by_path:
+        pyc_files = [depset(bytecode_by_path.values())]
     if effective_pyc != "off":
         for entry in pyc_entries:
             dest = entry.source.short_path
@@ -1302,13 +1334,13 @@ def _py_image_layer_impl(ctx):
             seen_fp_labels.add(entry.label)
         fp_group_files.setdefault(entry.group, []).append(entry.files)
     fp_groups = {
-        group: _fp_files_for_pyc(depset(transitive = files), effective_pyc, pyc_by_source_path)
+        group: _fp_files_for_pyc(depset(transitive = files), effective_pyc, pyc_by_source_path, bytecode_by_path)
         for group, files in fp_group_files.items()
     }
     fp_by_group = {group: [layout.files] for group, layout in fp_groups.items()}
     first_party_reference_files = [layout.files for layout in fp_groups.values()]
     rule_layouts = [
-        (group_name, _fp_files_for_pyc(files, effective_pyc, pyc_by_source_path))
+        (group_name, _fp_files_for_pyc(files, effective_pyc, pyc_by_source_path, bytecode_by_path))
         for group_name, files in rule_group_specs
     ]
     rule_groups = [(group_name, layout.files) for group_name, layout in rule_layouts]
@@ -1321,13 +1353,14 @@ def _py_image_layer_impl(ctx):
         depset(transitive = [info.python_sources for info in infos]),
         effective_pyc,
         pyc_by_source_path,
+        bytecode_by_path,
     ).staged)
     if repo_mapping != None:
         layer_sources.append(depset([repo_mapping]))
     staged_files = depset(transitive = layer_sources)
     source_files = depset(transitive = [staged_files] + pyc_files)
     rule_group_map = lambda f, d: (
-        source_map(f, d) if f.short_path in executable_dsts else _user_file_to_mtree(f, d, owner, group)
+        source_map(f, d) if f.short_path in executable_dsts else _user_file_to_mtree(f, d, owner, group, bytecode_short_paths, dropped_bytecode)
     )
 
     # Interpreter tars are declared at the configured toolchain, so identical

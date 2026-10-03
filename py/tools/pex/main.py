@@ -96,13 +96,6 @@ parser.add_argument(
 )
 
 parser.add_argument(
-    "--exclude-source",
-    dest="excluded_sources",
-    default=[],
-    action="append",
-)
-
-parser.add_argument(
     "--inject-env",
     dest="inject_env",
     default=[],
@@ -174,11 +167,8 @@ for dep in options.dependencies:
     pex_info.add_distribution(key, dist_hash)
     pex_builder.add_requirement(dist.as_requirement())
 
-excluded_sources = set(options.excluded_sources)
 for source in options.sources:
     src, dest = source.split("=", 1)
-    if src in excluded_sources:
-        continue
 
     # if destination path matches the entrypoint script, then also set the executable.
     if dest == executable:

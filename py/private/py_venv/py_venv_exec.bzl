@@ -13,7 +13,7 @@ load("//py/private:providers.bzl", "PycInfo")
 load("//py/private:py_info.bzl", "PyInfo")
 load("//py/private:py_info_interop.bzl", "RulesPythonPyInfo", "get_transitive_sources", "has_py_info")
 load("//py/private:py_semantics.bzl", _py_semantics = "semantics")
-load("//py/private:pyc.bzl", "PYC_MODES", "PYC_MODE_ATTRS", "PycModeInfo", "SOURCELESS_XOPTION")
+load("//py/private:pyc.bzl", "PYC_MODES", "PYC_MODE_ATTRS", "PycModeInfo", "SOURCELESS_XOPTION", "layout_runfiles")
 load("//py/private:transitions.bzl", "reset_python_flags_transition", "venv_python_transition")
 load(":types.bzl", "VirtualenvInfo", "venv_root")
 
@@ -62,16 +62,16 @@ def _main_entry(entries, main):
             return entry
     return None
 
-def _without_pycache(info, pycache_files):
+def _without_pycache(info, pycache_runfiles):
     return PycInfo(
         complete = info.complete,
         conflicts = info.conflicts,
         direct_entries = info.direct_entries,
         entries = info.entries,
         missing_sources = info.missing_sources,
-        pycache_files = pycache_files,
-        sourceless_files = info.sourceless_files,
-        transitive_pycache_files = info.transitive_pycache_files,
+        pycache_runfiles = pycache_runfiles,
+        sourceless_runfiles = info.sourceless_runfiles,
+        transitive_pycache_runfiles = info.transitive_pycache_runfiles,
         validations = info.validations,
     )
 
@@ -80,6 +80,7 @@ def _resolve_pyc(ctx, venv, main, passed_env, inherited_env):
     vinfo = venv[VirtualenvInfo]
     if mode == "off":
         return struct(
+            bytecode = None,
             entrypoint = main,
             info = venv[PycInfo] if PycInfo in venv else None,
             mode = mode,
@@ -97,15 +98,17 @@ def _resolve_pyc(ctx, venv, main, passed_env, inherited_env):
         # CPython never reads a cache for the script it runs, so main's is not shipped.
         main_entry = _main_entry(info.direct_entries, main)
         if main_entry != None:
-            info = _without_pycache(info, depset(
-                [entry.pycache for entry in info.direct_entries if entry != main_entry],
-                transitive = [info.transitive_pycache_files],
-            ))
+            own = [entry for entry in info.direct_entries if entry != main_entry]
+            info = _without_pycache(
+                info,
+                layout_runfiles(ctx, [(entry.pycache_path, entry.pycache) for entry in own], transitive = [info.transitive_pycache_runfiles]),
+            )
         return struct(
+            bytecode = info.pycache_runfiles,
             entrypoint = main,
             info = info,
             mode = mode,
-            venv_files = depset(transitive = [vinfo.transitive_sources, info.pycache_files]),
+            venv_files = vinfo.transitive_sources,
         )
 
     # Sourceless bytecode is level 0 and loads regardless of the optimization requested.
@@ -122,7 +125,7 @@ def _resolve_pyc(ctx, venv, main, passed_env, inherited_env):
 
     if not info.complete:
         missing = sorted([src.short_path for src in info.missing_sources.to_list()])
-        fail("{}: sourceless could not compile all first-party sources{}. A source compiles only in the `srcs` of a target in its own package.".format(
+        fail("{}: sourceless could not compile all first-party sources{}. A source compiles only where a target lists it in `srcs` by its file label.".format(
             ctx.label,
             ": " + ", ".join(missing) if missing else "",
         ))
@@ -132,14 +135,13 @@ def _resolve_pyc(ctx, venv, main, passed_env, inherited_env):
         fail(("{}: sourceless requested but no bytecode was produced for main {}. " +
               "List the main in the srcs of the venv or of one of its direct first-party deps.").format(ctx.label, main))
 
-    venv_files = info.sourceless_files
+    venv_files = depset()
     if ctx.attr.retain_srcs:
-        venv_files = depset(
-            ctx.files.srcs + [main] + _package_markers(info, ctx.files.srcs + [main]),
-            transitive = [info.sourceless_files],
-        )
+        venv_files = depset(ctx.files.srcs + [main] + _package_markers(info, ctx.files.srcs + [main]))
     return struct(
+        bytecode = info.sourceless_runfiles,
         entrypoint = main_entry.pyc,
+        entrypoint_path = main_entry.pyc_path[len("../"):] if main_entry.pyc_path.startswith("../") else ctx.workspace_name + "/" + main_entry.pyc_path,
         info = info,
         mode = mode,
         venv_files = venv_files,
@@ -235,11 +237,19 @@ def _py_venv_exec_impl(ctx):
             embedded_args = embedded_args,
             transformed_args = transformed_args,
         )
-    embedded_args, transformed_args = launcher.append_runfile(
-        file = pyc.entrypoint,
-        embedded_args = embedded_args,
-        transformed_args = transformed_args,
-    )
+    if pyc.mode == "sourceless":
+        # Bytecode reaches its natural path through a runfiles symlink, not its own short_path.
+        embedded_args, transformed_args = launcher.append_raw_transformed_arg(
+            arg = pyc.entrypoint_path,
+            embedded_args = embedded_args,
+            transformed_args = transformed_args,
+        )
+    else:
+        embedded_args, transformed_args = launcher.append_runfile(
+            file = pyc.entrypoint,
+            embedded_args = embedded_args,
+            transformed_args = transformed_args,
+        )
     launcher.compile_stub(
         ctx = ctx,
         embedded_args = embedded_args,
@@ -260,7 +270,7 @@ def _py_venv_exec_impl(ctx):
         files = ctx.files.data + ([] if pyc.mode == "sourceless" else [main]),
         transitive_files = depset(transitive = [pyc.venv_files] + data_sources),
     ).merge(vinfo.runtime_runfiles).merge_all(
-        [target[DefaultInfo].default_runfiles for target in ctx.attr.data],
+        [target[DefaultInfo].default_runfiles for target in ctx.attr.data] + ([pyc.bytecode] if pyc.bytecode != None else []),
     )
     if ctx.attr.include_console_scripts:
         runfiles = runfiles.merge(ctx.runfiles(transitive_files = vinfo.console_scripts))
@@ -296,7 +306,7 @@ def _py_venv_exec_impl(ctx):
             environment = passed_env,
             inherited_environment = inherited_env,
         ),
-        PycModeInfo(mode = pyc.mode),
+        PycModeInfo(main = main.short_path, mode = pyc.mode),
     ]
     if pyc.info != None:
         providers.append(pyc.info)

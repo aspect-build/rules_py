@@ -86,12 +86,11 @@ string_flag(
     visibility = ["//visibility:public"],
 )
 
-# PyCompile actions per target: 0 compiles each source separately (shareable
-# across targets); N shards a target's sources by path hash into N actions;
-# -1 picks N from the source count.
+# PyCompile actions per target: 0 compiles each source separately; N shards a
+# target's sources by path hash into N actions; -1 picks N from the source count.
 int_flag(
     name = "pyc_shards",
-    build_setting_default = 0,
+    build_setting_default = -1,
     visibility = ["//visibility:public"],
 )
 

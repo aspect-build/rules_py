@@ -59,7 +59,7 @@ py_library(
     ],
 )
 
-# Overlapping srcs share per-source compiles; the test asserts natural runfiles paths.
+# Overlapping srcs; the test asserts every module loads from its natural runfiles path.
 [
     py_test(
         name = "overlap_{}_test".format(mode),
@@ -229,15 +229,23 @@ py_library(
     ]
 ]
 
-py_binary(
-    name = "batch_conflict_bin",
-    srcs = ["noop.py"],
-    tags = ["manual"],
-    deps = [
-        ":overlap_a",
-        ":overlap_b",
-    ],
-)
+# Each target compiles into its own directory, so batches never conflict.
+[
+    pyc_config_test(
+        name = "overlap_{}_shards_{}_test".format(mode, label),
+        env = {"EXPECT_PYC": mode},
+        pyc_shards = shards,
+        target = ":overlap_{}_test".format(mode),
+    )
+    for mode in [
+        "pycache",
+        "sourceless",
+    ]
+    for shards, label in [
+        ("1", "one"),
+        ("-1", "auto"),
+    ]
+]
 
 py_venv(
     name = "shared_versioned_venv",
@@ -526,7 +534,7 @@ compile_action_count_test(
 
 compile_action_count_test(
     name = "all_modes_share_venv_bytecode_test",
-    expected = 2,
+    expected = 1,
     targets = [
         ":test_pyc_cache",
         ":test_pyc_default",

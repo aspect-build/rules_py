@@ -1,0 +1,3 @@
+# Separate repositories, not packages of this one.
+pyc/submodule
+shared_extrepo

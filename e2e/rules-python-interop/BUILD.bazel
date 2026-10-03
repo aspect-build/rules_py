@@ -691,27 +691,25 @@ rules_py_test(
     deps = [":precompiled_lib"],
 )
 
-# The aspect only compiles sources owned by the library's own package, so a
-# source borrowed from another package leaves sourceless incomplete.
+# A source borrowed from another package compiles in the library listing it.
 rules_python_library(
     name = "cross_package_lib",
     srcs = ["//cross-package:helper.py"],
 )
 
-rules_py_test(
-    name = "cross_package_pyc_only_test",
-    srcs = ["rules_python_dep_test.py"],
-    main = "rules_python_dep_test.py",
-    precompile = "sourceless",
-    tags = ["manual"],
-    deps = [":cross_package_lib"],
-)
-
-analysis_failure_test(
-    name = "cross_package_pyc_only_failure_test",
-    expected_error = "sourceless could not compile all first-party sources: cross-package/helper.py",
-    target_under_test = ":cross_package_pyc_only_test",
-)
+[
+    rules_py_test(
+        name = "cross_package_{}_test".format(mode),
+        srcs = ["cross_package_test.py"],
+        main = "cross_package_test.py",
+        precompile = mode,
+        deps = [":cross_package_lib"],
+    )
+    for mode in [
+        "pycache",
+        "sourceless",
+    ]
+]
 
 # rules_python's console-script machinery reads the pip hub's dist-info to
 # generate a py_binary; unpinned, that binary lands on a rules_py-provisioned
@@ -784,16 +782,14 @@ build_test(
 )
 
 # The same checked-in source listed by a rules_py and a rules_python library.
-# A consumer of both analyzes in every mode while rules_python leaves the
-# source uncompiled; with rules_python precompiling it, both rulesets claim the
-# natural bytecode paths and test.sh asserts the documented analysis conflict.
+# rules_py compiles into its own directory, so the two never claim one output;
+# where rules_python precompiled a layout, its bytecode is the one shipped.
 [
     [
         py_library(
             name = "shared_{}_rules_py".format(name),
             srcs = ["shared/{}.py".format(name)],
             imports = ["shared"],
-            tags = ["manual"] if precompile == "enabled" else [],
         ),
         rules_python_library(
             name = "shared_{}_rules_python".format(name),
@@ -801,14 +797,12 @@ build_test(
             imports = ["shared"],
             precompile = precompile,
             precompile_source_retention = retention,
-            tags = ["manual"] if precompile == "enabled" else [],
         ),
         rules_py_test(
             name = "shared_{}_test".format(name),
             srcs = ["shared_source_test.py"],
             env = {"SHARED_MODULE": name},
             main = "shared_source_test.py",
-            tags = ["manual"] if precompile == "enabled" else [],
             deps = [
                 ":shared_{}_rules_py".format(name),
                 ":shared_{}_rules_python".format(name),
@@ -818,16 +812,40 @@ build_test(
     for name, precompile, retention in [
         ("disabled", "disabled", "inherit"),
         ("keep_source", "enabled", "keep_source"),
+        ("omit_source", "enabled", "omit_source"),
     ]
 ]
 
-# Header flags of the bytecode CPython loads: rules_py compiles unchecked-hash (1).
+# Header flags of the bytecode CPython loads: rules_python's checked-hash (3)
+# wherever it precompiled the layout read, else rules_py's unchecked-hash (1).
+SHARED_FLAGS = {
+    ("disabled", "pycache"): 1,
+    ("disabled", "sourceless"): 1,
+    ("keep_source", "pycache"): 3,
+    ("keep_source", "sourceless"): 3,
+    ("omit_source", "pycache"): 1,
+    ("omit_source", "sourceless"): 3,
+}
+
+# The same sharing in another repository: rules_python's checked-hash cache must
+# still win at its path in both modes, since the source is retained.
+rules_py_test(
+    name = "shared_external_test",
+    srcs = ["shared_source_test.py"],
+    env = {"SHARED_MODULE": "ext_shared"},
+    main = "shared_source_test.py",
+    deps = [
+        "@shared_extrepo//:rules_py",
+        "@shared_extrepo//:rules_python",
+    ],
+)
+
 [
     pyc_config_test(
-        name = "shared_disabled_{}_test".format(mode),
-        env = {"EXPECT_FLAGS": "1"},
+        name = "shared_external_{}_test".format(mode),
+        env = {"EXPECT_FLAGS": "3"},
         precompile = mode,
-        target = ":shared_disabled_test",
+        target = ":shared_external_test",
     )
     for mode in [
         "pycache",
@@ -835,10 +853,16 @@ build_test(
     ]
 ]
 
-# Images ship one file per bytecode path, and only their mode's layout.
+# Images place one file per bytecode path, preferring the one already there, and
+# ship only their mode's layout: sourceless images strip sources, so their
+# colocated `.pyc` is what runs, even where rules_python wrote only `__pycache__`.
 SHARED_IMAGE_FLAGS = {
     ("disabled", "pycache"): ("shared/__pycache__/disabled.", 1, "shared/disabled.pyc"),
     ("disabled", "sourceless"): ("shared/disabled.pyc", 1, "shared/__pycache__/disabled."),
+    ("keep_source", "pycache"): ("shared/__pycache__/keep_source.", 3, "shared/keep_source.pyc"),
+    ("keep_source", "sourceless"): ("shared/keep_source.pyc", 1, "shared/__pycache__/keep_source."),
+    ("omit_source", "pycache"): ("shared/__pycache__/omit_source.", 1, "shared/omit_source.pyc"),
+    ("omit_source", "sourceless"): ("shared/omit_source.pyc", 3, "shared/__pycache__/omit_source."),
 }
 
 [
@@ -870,4 +894,50 @@ SHARED_IMAGE_FLAGS = {
         ),
     ]
     for (name, mode), (path, flags, other_layout) in SHARED_IMAGE_FLAGS.items()
+]
+
+# Images agree with the launcher in another repository: under pycache rules_python's
+# checked-hash cache, a plain runfile, wins over rules_py's bytecode at that path.
+[
+    [
+        py_binary(
+            name = "shared_external_{}_bin".format(mode),
+            srcs = ["shared_source_test.py"],
+            main = "shared_source_test.py",
+            precompile = mode,
+            deps = [
+                "@shared_extrepo//:rules_py",
+                "@shared_extrepo//:rules_python",
+            ],
+        ),
+        py_image_layer(
+            name = "shared_external_{}_layers".format(mode),
+            binary = ":shared_external_{}_bin".format(mode),
+        ),
+        rules_py_test(
+            name = "shared_external_{}_layers_test".format(mode),
+            srcs = ["assert_image_pyc_flags.py"],
+            args = [
+                "--expect=shared_extrepo/{}={}".format(path, flags),
+                "--absent=shared_extrepo/" + other_layout,
+                "$(rootpaths :shared_external_{}_layers)".format(mode),
+            ],
+            data = [":shared_external_{}_layers".format(mode)],
+            main = "assert_image_pyc_flags.py",
+        ),
+    ]
+    for mode, path, flags, other_layout in [
+        ("pycache", "__pycache__/ext_shared.", 3, "ext_shared.pyc"),
+        ("sourceless", "ext_shared.pyc", 1, "__pycache__/ext_shared."),
+    ]
+]
+
+[
+    pyc_config_test(
+        name = "shared_{}_{}_test".format(name, mode),
+        env = {"EXPECT_FLAGS": str(flags)},
+        precompile = mode,
+        target = ":shared_{}_test".format(name),
+    )
+    for (name, mode), flags in SHARED_FLAGS.items()
 ]
