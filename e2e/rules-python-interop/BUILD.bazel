@@ -829,6 +829,32 @@ SHARED_FLAGS = {
     ("omit_source", "sourceless"): 3,
 }
 
+# The same sharing in another repository: rules_python's checked-hash cache must
+# still win at its path in both modes, since the source is retained.
+rules_py_test(
+    name = "shared_external_test",
+    srcs = ["shared_source_test.py"],
+    env = {"SHARED_MODULE": "ext_shared"},
+    main = "shared_source_test.py",
+    deps = [
+        "@shared_extrepo//:rules_py",
+        "@shared_extrepo//:rules_python",
+    ],
+)
+
+[
+    pyc_config_test(
+        name = "shared_external_{}_test".format(mode),
+        env = {"EXPECT_FLAGS": "3"},
+        precompile = mode,
+        target = ":shared_external_test",
+    )
+    for mode in [
+        "pycache",
+        "sourceless",
+    ]
+]
+
 # Images place one file per bytecode path, preferring the one already there, and
 # ship only their mode's layout: sourceless images strip sources, so their
 # colocated `.pyc` is what runs, even where rules_python wrote only `__pycache__`.

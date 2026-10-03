@@ -185,7 +185,6 @@ bytecode_sources = rule(
 def _runfiles_with_suffix_impl(ctx):
     runfiles = ctx.attr.target[0][DefaultInfo].default_runfiles
     paths = [f.short_path for f in runfiles.files.to_list()]
-    paths += ["../" + entry.path for entry in runfiles.root_symlinks.to_list()]
     paths += [entry.path for entry in runfiles.symlinks.to_list()]
     paths = sorted({path: True for path in paths if path.endswith(ctx.attr.suffix)}.keys())
     out = ctx.actions.declare_file(ctx.label.name + ".txt")

@@ -109,3 +109,12 @@ use_repo(uv, "rpy_pypi")
 # Layer tars for the pip-hub image snapshot.
 tar_toolchains = use_extension("@tar.bzl//tar:extensions.bzl", "toolchains")
 use_repo(tar_toolchains, "bsd_tar_toolchains")
+
+local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
+
+# Bytecode shared with rules_python outside the main repository, whose runfiles
+# entries take a different path.
+local_repository(
+    name = "shared_extrepo",
+    path = "./shared_extrepo",
+)

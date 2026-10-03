@@ -222,18 +222,16 @@ def layout_runfiles(ctx, mappings, files = [], transitive = []):
         runfiles
     """
 
-    # Files already at their natural path are plain runfiles, which win over symlinks there.
+    # Files already at their natural path are plain runfiles, which win over `symlinks`
+    # there; `root_symlinks` would replace them. `../<repo>/...` keys reach other repositories.
     plain = list(files)
     symlinks = {}
-    root_symlinks = {}
     for path, f in mappings:
         if f.short_path == path:
             plain.append(f)
-        elif path.startswith("../"):
-            root_symlinks[path[len("../"):]] = f
         else:
             symlinks[path] = f
-    return ctx.runfiles(files = plain, symlinks = symlinks, root_symlinks = root_symlinks).merge_all([r for r in transitive if r != None])
+    return ctx.runfiles(files = plain, symlinks = symlinks).merge_all([r for r in transitive if r != None])
 
 def _compile_action(ctx, compiler, jobs):
     compile_args = ctx.actions.args()
