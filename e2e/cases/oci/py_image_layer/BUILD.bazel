@@ -490,6 +490,32 @@ py_test(
     main = "assert_shared_layers.py",
 )
 
+# A tier key may name the hub instead of the documented `@pip//` spelling:
+# `@pypi_oci_py_image_layer//colorama` promotes colorama exactly like
+# `@pip//colorama` does, instead of silently matching nothing.
+py_layer_tier(
+    name = "hub_qualified_tier",
+    groups = {"@pypi_oci_py_image_layer//colorama": "colorama"},
+)
+
+py_image_layer(
+    name = "hub_qualified_layers",
+    binary = ":sharing_probe_bin",
+    layer_tier = ":hub_qualified_tier",
+)
+
+py_test(
+    name = "hub_qualified_tier_test",
+    srcs = ["assert_tar_paths.py"],
+    args = [
+        "--count=/colorama/ansi.py=1",
+        "--tar-contains=_pip_layer_tar.tar.gz=/colorama/ansi.py",
+        "$(rootpaths :hub_qualified_layers)",
+    ],
+    data = [":hub_qualified_layers"],
+    main = "assert_tar_paths.py",
+)
+
 # Ownership coverage. Every layer kind has its own mtree emitter, so the binary
 # and tier below are shaped to produce one of each: pip whole-group (colorama
 # rest), pip subpath split (colorama_code), first-party group (branding),
