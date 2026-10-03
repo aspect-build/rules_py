@@ -1,0 +1,38 @@
+Do not advertise path mapping for links through the cc_toolchain.
+
+`--codegen=linker=` and `--codegen=link-arg=` carry cc_common strings, which
+path mapping never rewrites. Under --experimental_output_paths=strip a
+generated linker keeps its bazel-out/<cfg>/... path while the rest of the
+command moves to bazel-out/cfg/..., and rustc fails with "linker ... not
+found". Drop once https://github.com/bazelbuild/rules_rust/issues/4250 is
+fixed and rules_rs picks it up.
+
+--- a/rust/private/rustc.bzl
++++ b/rust/private/rustc.bzl
+@@ -1451,6 +1451,8 @@
+     # If linker_type is not explicitly set, infer from which linker is actually being used
+     ld_is_direct_driver = False
+ 
++    uses_cc_linker = False
++
+     # gcc runs dlltool internally when acting as the linker, but rustc drives the linker directly so
+     # it needs dlltool's path: apply outside the link-emit gate below since rlib compiles need it too.
+     if cc_toolchain and toolchain.target_os == "windows" and toolchain.target_abi == "gnu":
+@@ -1497,6 +1499,7 @@
+                 rpaths,
+                 add_flags_for_binary = add_flags_for_binary,
+             )
++            uses_cc_linker = linker_config.rust_linker == None
+ 
+             ld_is_direct_driver = linker_config.is_direct_driver
+             link_env = _get_linker_env(linker_config)
+@@ -1773,7 +1776,8 @@
+         rustc_path = rustc_path,
+         rustc_flags = rustc_flags,
+         extra_rustc_flags = rust_flags_args,
+-        supports_path_mapping = not target_has_location_expansion,
++        # cc_common linker strings are never path mapped (bazelbuild/rules_rust#4250).
++        supports_path_mapping = not target_has_location_expansion and not uses_cc_linker,
+         all = all_args,
+     )
+ 

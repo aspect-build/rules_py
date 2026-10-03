@@ -1,7 +1,7 @@
 # A PyO3 extension module through rules_rs's re-exported pyo3 rules.
 #
-# The vendored rules_rust needs a patch to build under Bazel 8 with path
-# mapping on; see setup.MODULE.bazel and rules_rust_path_mapping_bazel8.patch.
+# The vendored rules_rust needs a patch to build with path mapping on; see
+# setup.MODULE.bazel and rules_rust_4250_path_mapping_cc_linker.patch.
 
 load("@aspect_rules_py//py:defs.bzl", "py_test")
 load("@rules_rust_rs//extensions/pyo3:defs.bzl", "pyo3_extension")
