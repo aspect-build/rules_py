@@ -11,17 +11,10 @@ fail() {
     exit 1
 }
 
-batch_error="$(mktemp)"
 cross_dir="$(mktemp -d)"
 edited_backup="$(mktemp)"
 cp pyc/edited_lib.py "$edited_backup"
-trap 'cp "$edited_backup" pyc/edited_lib.py; rm -rf "$batch_error" "$cross_dir" "$edited_backup"' EXIT
-
-echo "== batched bytecode reports shared-source action conflicts =="
-if bazel build --@aspect_rules_py//py:precompile=pycache --@aspect_rules_py//py:pyc_shards=1 //pyc:batch_conflict_bin >"$batch_error" 2>&1; then
-    fail "expected shared sources in batched targets to conflict"
-fi
-grep -Fq "conflicting actions" "$batch_error" || fail "expected conflicting-actions diagnostic"
+trap 'cp "$edited_backup" pyc/edited_lib.py; rm -rf "$cross_dir" "$edited_backup"' EXIT
 
 echo "== non-Python deps keep their output path across bytecode flags =="
 generated_path() {

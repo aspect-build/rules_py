@@ -82,7 +82,7 @@ _PYPY_7323 = _runtime(minor = 11, micro = 15, implementation_name = "pypy", pyc_
 
 def _entry(runtime):
     return struct(
-        pycache = struct(basename = "mod.{}.pyc".format(runtime.pyc_tag)),
+        pycache_path = "__pycache__/mod.{}.pyc".format(runtime.pyc_tag),
         bytecode_key = bytecode_key(runtime),
     )
 
@@ -93,7 +93,7 @@ def _bytecode_conflicts_test_impl(ctx):
     final = _entry(_runtime(minor = 13, micro = 0, pyc_tag = "cpython-313"))
     later_final = _entry(_runtime(minor = 13, micro = 2, pyc_tag = "cpython-313"))
     other_minor = _entry(_runtime(minor = 12, pyc_tag = "cpython-312"))
-    unknown = struct(pycache = final.pycache, bytecode_key = None)
+    unknown = struct(pycache_path = final.pycache_path, bytecode_key = None)
 
     for mode in ["pycache", "sourceless"]:
         asserts.true(env, bytecode_conflicts(alpha, final, mode), mode + ": one cache tag, different magic")

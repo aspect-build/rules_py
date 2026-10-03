@@ -1,21 +1,18 @@
 """Compile Python sources into PEP 552 hash-based bytecode.
 
-Usage: pyc_compile.py [--expect-version VERSION] [--sourceless] [--checked-hash] SRC OUT DFILE...
+Usage: pyc_compile.py [--expect-version VERSION] [--checked-hash] SRC OUT DFILE...
        pyc_compile.py @ARGFILE
        pyc_compile.py --persistent_worker
 
-Each ``SRC OUT DFILE`` triple compiles ``SRC`` to ``OUT`` (a PEP 3147
-``__pycache__`` file or a colocated sourceless ``.pyc``) with ``DFILE`` stored
-as its logical source path. ``--sourceless`` also writes the same bytes to the
-colocated ``.pyc`` beside a ``__pycache__`` ``OUT``. ``--checked-hash`` makes
-Python re-validate the bytecode against its source on import.
+Each ``SRC OUT DFILE`` triple compiles ``SRC`` to ``OUT`` with ``DFILE`` stored
+as its logical source path. ``--checked-hash`` makes Python re-validate the
+bytecode against its source on import.
 """
 
 from __future__ import annotations
 
 import importlib.util
 import marshal
-import os
 import sys
 
 _PRERELEASE_ABBREVS = {"alpha": "a", "beta": "b", "candidate": "rc"}
@@ -25,35 +22,23 @@ class CompileError(Exception):
     pass
 
 
-def parse_args(argv: list[str]) -> tuple[str | None, bool, bool, list[str]]:
+def parse_args(argv: list[str]) -> tuple[str | None, bool, list[str]]:
     # Only a lone argument is an argfile: source paths may start with "@".
     if len(argv) == 1 and argv[0].startswith("@"):
         with open(argv[0][1:], encoding="utf-8") as f:
             argv = f.read().splitlines()
     expect_version = None
-    sourceless = False
     checked_hash = False
     files = []
     args = iter(argv)
     for arg in args:
         if arg == "--expect-version":
             expect_version = next(args, None)
-        elif arg == "--sourceless":
-            sourceless = True
         elif arg == "--checked-hash":
             checked_hash = True
         else:
             files.append(arg)
-    return expect_version, sourceless, checked_hash, files
-
-
-def sourceless_path(src: str, out: str) -> str:
-    """``pkg/__pycache__/mod.<tag>.pyc`` beside ``mod.py`` -> ``pkg/mod.pyc``."""
-    cache_dir = os.path.dirname(out)
-    if os.path.basename(cache_dir) != "__pycache__":
-        raise CompileError("--sourceless requires a __pycache__ output, got {}".format(out))
-    stem = os.path.basename(src)[: -len(".py")]
-    return os.path.join(os.path.dirname(cache_dir), stem + ".pyc")
+    return expect_version, checked_hash, files
 
 
 def check_version(expected: str) -> None:
@@ -77,29 +62,18 @@ def check_version(expected: str) -> None:
 
 
 def compile_all(argv: list[str]) -> None:
-    expect_version, sourceless, checked_hash, files = parse_args(argv)
+    expect_version, checked_hash, files = parse_args(argv)
     if not files or len(files) % 3:
         raise CompileError("expected SRC OUT DFILE triples")
     if expect_version:
         check_version(expect_version)
     for src, out, dfile in zip(*[iter(files)] * 3):
-        data = compile_source(src, dfile, checked_hash)
-        write(out, data)
-        if sourceless:
-            copy(out, sourceless_path(src, out), data)
+        write(out, compile_source(src, dfile, checked_hash))
 
 
 def write(path: str, data: bytes) -> None:
     with open(path, "wb") as f:
         f.write(data)
-
-
-def copy(src: str, dst: str, data: bytes) -> None:
-    """Both layouts hold the same bytes; a hard link avoids writing them twice."""
-    try:
-        os.link(src, dst)
-    except OSError:
-        write(dst, data)
 
 
 def compile_source(src: str, dfile: str, checked_hash: bool) -> bytes:

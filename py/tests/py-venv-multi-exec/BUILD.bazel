@@ -136,6 +136,7 @@ py_venv(
     name = "foreign_source_venv",
     srcs = [
         "entry_foreign.py",
+        "entry_foreign_import.py",
         "//py/tests/py-venv-multi-exec/cross-pkg:foreign_source.py",
     ],
     imports = ["."],
@@ -244,18 +245,31 @@ py_venv_exec_test(
 
 pyc_layout_test(
     name = "test_foreign_source_pyc_runfiles",
-    expect_pyc = False,
     mode = "pycache",
     module = "foreign_source",
     target = ":test_foreign_source_pyc",
 )
 
-py_venv_exec_test(
-    name = "_test_foreign_source_pyc_only",
-    main = "entry_foreign.py",
-    precompile = "sourceless",
-    tags = ["manual"],
-    venv = ":foreign_source_venv",
+# A src owned by another package compiles in the target listing it.
+[
+    py_venv_exec_test(
+        name = "test_foreign_source_import_{}".format(mode),
+        env = {"EXPECT_PYC": mode},
+        main = "entry_foreign_import.py",
+        precompile = mode,
+        venv = ":foreign_source_venv",
+    )
+    for mode in [
+        "pycache",
+        "sourceless",
+    ]
+]
+
+pyc_layout_test(
+    name = "test_foreign_source_pyc_only_runfiles",
+    mode = "sourceless",
+    module = "foreign_source",
+    target = ":test_foreign_source_import_sourceless",
 )
 
 # Source-retaining pyc tolerates optimization: CPython skips level-0 caches under -O.
@@ -396,12 +410,6 @@ analysis_failure_test(
     name = "test_pyc_only_venv_optimize_env_failure",
     expected_error = "sourceless does not support PYTHONOPTIMIZE",
     target_under_test = ":_test_pyc_only_venv_optimize_env",
-)
-
-analysis_failure_test(
-    name = "test_foreign_source_pyc_only_failure",
-    expected_error = "sourceless could not compile all first-party sources",
-    target_under_test = ":_test_foreign_source_pyc_only",
 )
 
 # Same shared venv, two different `main` entry points. Both reach
