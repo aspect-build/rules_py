@@ -238,8 +238,9 @@ platform(
         "@platforms//os:linux",
         "@platforms//cpu:aarch64",
     ],
-    # These flags must be reset to values appropriate for the target.
-    # Their default values are appropriate to the host.
+    # These flags must be set to values appropriate for the target. Their
+    # default values are appropriate to the host; see "Execution platforms"
+    # below for why the host should declare them too.
     flags = [
         "--@aspect_rules_py//uv/private/constraints/platform:platform_libc=glibc",
         "--@aspect_rules_py//uv/private/constraints/platform:platform_version=2.39",
@@ -270,6 +271,66 @@ platform_transition_filegroup(
     target_platform = ":arm64_linux",
 )
 ```
+
+### Execution platforms in a crossbuild
+
+`platform_libc` and `platform_version` are Starlark flags, and Bazel carries
+Starlark flags unchanged into exec configurations. Once a target platform sets
+them, every Python tool built with `cfg = "exec"` for that build inherits the
+*target's* values while running on the *execution* machine. The tool's venv
+then resolves wheels for the wrong platform: a macOS client building for
+linux/glibc gets `platform_libc=glibc` in its tools, so neither `macosx_*`
+wheels (they need `libsystem`) nor `manylinux_*` wheels (they need `os:linux`)
+match, and the package falls back to its sdist. A Linux client targeting a
+newer glibc is worse: the tool picks `manylinux` wheels the client cannot load.
+
+rules_py resets both flags for the PEP 517 frontends it generates (the
+`pep517_frontend` wrapper), so sdist builds are unaffected. Any other exec
+tool, such as a `py_binary` behind a `cfg = "exec"` attribute of your own
+rules, gets no reset.
+
+The fix is to declare the flags on the execution platform as well. A
+platform's `flags` are merged into every configuration that selects it
+through `--platforms`, and the exec transition sets `--platforms` to the
+chosen execution platform after any Starlark transition has run, so the
+execution platform's values win for user tools and generated frontends alike.
+For local builds that is one host platform per operating system, selected
+with a platform-specific config:
+
+```starlark
+platform(
+    name = "host_macos",
+    parents = ["@platforms//host"],
+    flags = [
+        "--@aspect_rules_py//uv/private/constraints/platform:platform_libc=libsystem",
+        "--@aspect_rules_py//uv/private/constraints/platform:platform_version=14.0",
+    ],
+)
+
+platform(
+    name = "host_linux",
+    parents = ["@platforms//host"],
+    flags = [
+        "--@aspect_rules_py//uv/private/constraints/platform:platform_libc=glibc",
+        "--@aspect_rules_py//uv/private/constraints/platform:platform_version=2.35",
+    ],
+)
+```
+
+```
+# .bazelrc
+common --enable_platform_specific_config
+build:macos --host_platform=//platforms:host_macos
+build:linux --host_platform=//platforms:host_linux
+```
+
+Use the lowest libc version your machines of that OS run: `platform_version`
+is a compatibility floor, and a tool resolved for a newer version than the
+machine has will not load. A platform's `flags` cannot use `select()`, which
+is why a single checked-in host platform only works when every machine runs
+the same OS. The same declaration belongs on any platform registered with
+`--extra_execution_platforms`, such as a remote execution pool; without it,
+that pool's tools inherit whatever the target platform set.
 
 ## Example: Constraining library compatibility
 
