@@ -34,6 +34,14 @@ load("@bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
 load("@tar.bzl//tar:mtree.bzl", "mtree_mutate", "mtree_spec")
 load("@tar.bzl//tar:tar.bzl", "tar")
 
+# Default compression when a py_image_layer doesn't set `compress`. Resolved
+# from the //py:layer_compression flag so users can flip it globally with
+# --@aspect_rules_py//py:layer_compression=zstd.
+_DEFAULT_COMPRESS = select({
+    "@aspect_rules_py//py:layer_compression_zstd": "zstd",
+    "//conditions:default": "gzip",
+})
+
 default_layer_groups = {
     # match *only* external repositories containing a Python interpreter,
     # by matching the interpreter repo naming convention:
@@ -109,7 +117,7 @@ def py_image_layer(
         binary,
         root = "/",
         layer_groups = {},
-        compress = "gzip",
+        compress = None,
         tar_args = [],
         compute_unused_inputs = 1,
         platform = None,
@@ -141,7 +149,9 @@ def py_image_layer(
         binary: a py_binary target
         root: Path to where the layers should be rooted. If not specified, the layers will be rooted at the workspace root.
         layer_groups: Additional layer groups to create. They are used to group files into layers based on their path. In the form of: ```{"<name>": "regex_to_match_against_file_paths"}```
-        compress: Compression algorithm to use. Default is gzip. See: https://github.com/bazel-contrib/bazel-lib/blob/main/docs/tar.md#tar_rule-compress
+        compress: Compression algorithm to use. When unset, defaults to the
+            //py:layer_compression flag (gzip unless overridden globally with
+            --@aspect_rules_py//py:layer_compression=zstd). See: https://github.com/bazel-contrib/bazel-lib/blob/main/docs/tar.md#tar_rule-compress
         compute_unused_inputs: Whether to compute unused inputs. Default is 1. See: https://github.com/bazel-contrib/bazel-lib/blob/main/docs/tar.md#tar_rule-compute_unused_inputs
         platform: The platform to use for the transition. Default is None. See: https://github.com/bazel-contrib/bazel-lib/blob/main/docs/transitions.md#platform_transition_binary-target_platform
         owner: An owner uid for the uncompressed files. See mtree_mutate: https://github.com/bazel-contrib/bazel-lib/blob/main/docs/tar.md#mutating-the-tar-contents
@@ -154,6 +164,9 @@ def py_image_layer(
     """
     if root != None and not root.startswith("/"):
         fail("root path must start with '/' but got '{root}', expected '/{root}'".format(root = root))
+
+    if compress == None:
+        compress = _DEFAULT_COMPRESS
 
     # Produce the manifest for a tar file of our py_binary, but don't tar it up yet, so we can split
     # into fine-grained layers for better pull, push and remote cache performance.
