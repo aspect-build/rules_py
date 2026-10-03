@@ -22,6 +22,8 @@ load("@bazel_lib//lib:paths.bzl", "to_rlocation_path")
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load("//py/private:providers.bzl", "PyWheelsInfo")
 load("//py/private:py_info.bzl", "PyInfo")
+load("//py/private:pyc.bzl", "PycModeInfo")
+load("//py/private:transitions.bzl", "no_bytecode_transition")
 load("//py/private/py_venv:types.bzl", "PY_VENV_KINDS", "VirtualenvInfo", "venv_root")
 load("//py/private/py_venv:virtuals_resolvers.bzl", "VENV_OWNED_ROOTS")
 load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN", "interpreter_files_and_version")
@@ -185,7 +187,9 @@ def _dep_arg(wheel):
     return "--dependency={}/{}".format(wheel.install_tree.path, suffix)
 
 def _py_python_pex_impl(ctx):
-    binary = ctx.attr.binary
+    binary = _single_target(ctx.attr.binary)
+    if PycModeInfo in binary and binary[PycModeInfo].mode == "sourceless":
+        fail("py_pex_binary {} requires binary {} to use precompile = \"off\" or \"pycache\": sourceless strips the sources a PEX ships".format(ctx.label, binary.label))
     binary_default = binary[DefaultInfo]
 
     # py_venv_exec emits depset([launcher, main]) — the non-executable file is
@@ -211,9 +215,10 @@ def _py_python_pex_impl(ctx):
 
     # --source packages everything in runfiles except what is packaged another
     # way: wheel trees go out as --dependency; the interpreter repos and venv
-    # plumbing aren't packaged. `add_all` expands the wheel tree artifacts before
-    # `map_each`, so we match the expanded children against the tree's exec-root
-    # path prefix (the unexpanded tree artifact never would).
+    # plumbing aren't packaged, and rules_py's bytecode, being runfiles symlinks
+    # rather than runfiles.files, never reaches here. `add_all` expands the wheel
+    # tree artifacts before `map_each`, so we match the expanded children against
+    # the tree's exec-root path prefix (the unexpanded tree artifact never would).
     wheel_tree_prefixes = [w.install_tree.path + "/" for w in wheels_list]
     interpreter_prefixes = closure.interpreter_roots.to_list()
     venv_prefixes = [r + "/" for r in closure.venv_roots.to_list()]
@@ -327,7 +332,7 @@ def _py_python_pex_impl(ctx):
 _attrs = dict({
     "binary": attr.label(
         executable = True,
-        cfg = "target",
+        cfg = no_bytecode_transition,
         mandatory = True,
         doc = "The py_binary target to package.",
         aspects = [_closure_aspect],
@@ -366,6 +371,12 @@ Build a pex executable from a py_binary.
 `env` paths must use `$(rlocationpath)`: the pex resolves runfiles from its own
 archive, so `$(rootpath)`, `$(location)` and `$(execpath)` values do not exist.
 Outside of Bazel only `inject_env` applies.
+
+A pex always packages first-party sources, whatever
+`--@aspect_rules_py//py:precompile` requests: `binary` is built with that flag
+reset to `off`, the `__pycache__` bytecode of a `binary` pinned to
+`precompile = "pycache"` is left out, and a `binary` pinned to
+`precompile = "sourceless"` fails analysis.
 """,
     implementation = _py_python_pex_impl,
     attrs = _attrs,

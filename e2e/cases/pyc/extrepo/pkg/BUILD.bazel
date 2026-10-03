@@ -1,0 +1,14 @@
+load("@aspect_rules_py//py:defs.bzl", "py_library")
+
+genrule(
+    name = "gen",
+    outs = ["generated.py"],
+    cmd = "echo 'VALUE = 1' > $@",
+)
+
+py_library(
+    name = "generated_lib",
+    srcs = ["generated.py"],
+    imports = [".."],
+    visibility = ["//visibility:public"],
+)

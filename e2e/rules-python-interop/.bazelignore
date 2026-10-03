@@ -1,0 +1,2 @@
+# A separate repository (MODULE.bazel), not a package of this one.
+shared_extrepo

@@ -1,0 +1,4 @@
+module(name = "pyc_submodule")
+
+# Deliberately no aspect_rules_py: its repo cannot name rules_py's labels.
+bazel_dep(name = "rules_python", version = "1.9.0")

@@ -1,4 +1,5 @@
 load("//py:defs.bzl", "py_binary", "py_library", "py_test", "py_venv")
+load("//py/tests:pyc_testing.bzl", "runfiles_with_suffix_test")
 load(
     ":type_stubs_test.bzl",
     "first_party_stubs_test",
@@ -80,6 +81,22 @@ py_binary(
 launcher_stubs_test(
     name = "launcher_stubs_test",
     target_under_test = ":bin",
+)
+
+# Sourceless keeps non-Python sidecars from srcs, but stubs are never runtime files.
+py_binary(
+    name = "annotated_bin",
+    srcs = ["annotated_main.py"],
+    main = "annotated_main.py",
+    deps = [":annotated"],
+)
+
+runfiles_with_suffix_test(
+    name = "sourceless_launcher_stubs_test",
+    expected = [],
+    precompile = "sourceless",
+    suffix = ".pyi",
+    target = ":annotated_bin",
 )
 
 py_venv(

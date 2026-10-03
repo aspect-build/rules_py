@@ -178,6 +178,147 @@ py_test(
 )
 ```
 
+### First-party bytecode
+
+`py_binary` and `py_test` accept `precompile = "off" | "pycache" | "sourceless"`
+(`select()` accepted). The default is `off`; `--@aspect_rules_py//py:precompile`
+changes it for targets that leave `precompile` unset, and an explicit `precompile` pins the
+mode regardless of the flag.
+
+- `off` packages first-party `.py` sources.
+- `pycache` packages sources and PEP 3147 `__pycache__` bytecode. The launcher's
+  own main runs from source, as CPython consults no cache for it.
+- `sourceless` packages colocated first-party `.pyc` files without their source.
+  Tracebacks then carry no source lines. The main must be in the `srcs` of the
+  venv or of one of its direct first-party deps, which `py_binary` and `py_test`
+  arrange; a `py_venv_exec` with any other main fails analysis. `.py` files in `data` are
+  payload, not modules: they ship as-is and are never compiled. Listing a file
+  in both `srcs` and `data` is unsupported. A directory output in
+  `srcs` is likewise never compiled and ships as source.
+
+First-party bytecode carries PEP 552 unchecked-hash headers by default: Bazel
+rebuilds a `.pyc` whenever its source changes, so Python never re-validates it
+at import. Editing a source and rerunning a stale `bazel-bin` launcher without
+rebuilding therefore runs the old bytecode, where `off` mode would follow the
+runfiles symlink to the edit; use `bazel run` or rebuild first. For source
+trees edited without a rebuild,
+`--@aspect_rules_py//py:pyc_invalidation_mode=checked-hash` makes Python hash
+each source on import and use the edit, at some import cost; `sourceless` has
+no source to check. Third-party bytecode compiled by `whl_install` has its own
+`--@aspect_rules_py//uv/private/pyc:whl_install_pyc_invalidation_mode`.
+
+Each target compiles its sources into a directory of its own, and runfiles
+place the bytecode at its natural paths beside the sources. A source listed by
+several targets compiles once per target to identical bytecode, so overlapping
+`srcs` never conflict. Compile actions exist only below a launcher that
+requests bytecode, so `off` builds declare none.
+
+Only `.py` files listed in a `py_*` target's `srcs` by their own file label
+(checked-in or generated) and owned by that target's package are compiled.
+Files reached through a rule target in `srcs` (`filegroup`, `genrule`,
+`py_library`) or borrowed from another package stay source; `sourceless` fails
+analysis listing them.
+
+Dependencies still built by rules_python rules (`py_proto_library`,
+unconverted `py_library` targets) are compiled too, and keep their sources
+under `sourceless`; packages from a rules_python pip hub run from source. See
+[migrating](docs/migrating.md#bytecode-for-unconverted-targets) for bytecode
+those rules precompile themselves.
+
+`--@aspect_rules_py//py:pyc_shards` sets how many `PyCompile` actions each
+target gets: `0` is one action per file, `N` shards a
+target's sources by path hash into `N` actions, so `1` compiles the whole
+target at once, and the default `-1` picks the smallest power of two that
+averages at most 64 sources per shard. Adding or editing a source recompiles
+only its shard, except that `-1` reshuffles a target whose source count crosses
+a doubling boundary. A repo opts in once:
+
+```
+# .bazelrc
+build --@aspect_rules_py//py:precompile=sourceless
+```
+
+Bytecode is compiled by an exec-platform CPython matching the target's cache
+tag and feature version (prereleases must match exactly), the default with the
+rules_py interpreter hub, so cross-platform builds work out of the box. The
+target interpreter never compiles, as it may not run on the build host: other
+implementations, and versions without a matching exec interpreter, compile only
+through a `pyc_compiler_toolchain_type` toolchain registered for that version,
+and otherwise ship as source (`sourceless` then fails analysis). A self-contained
+compiler must implement the same
+argument-file interface as [`pyc_compile.py`](py/private/pyc_compile.py):
+
+```starlark
+load("@aspect_rules_py//py:defs.bzl", "py_pyc_compiler_toolchain")
+
+config_setting(
+    name = "python_3_13",
+    flag_values = {"@aspect_rules_py//py:python_version": "3.13"},
+)
+
+py_pyc_compiler_toolchain(
+    name = "python_3_13_pyc_compiler_impl",
+    tool = "//tools:pyc_compiler",
+)
+
+toolchain(
+    name = "python_3_13_pyc_compiler",
+    target_settings = [":python_3_13"],
+    toolchain = ":python_3_13_pyc_compiler_impl",
+    toolchain_type = "@aspect_rules_py//py:pyc_compiler_toolchain_type",
+)
+```
+
+Then register it in `MODULE.bazel`:
+
+```starlark
+register_toolchains("//:python_3_13_pyc_compiler")
+```
+
+A `tool` that is itself a rules_py target, such as a `py_binary`, also needs a
+`target_settings` entry matching `--@aspect_rules_py//py:precompile=pycache`
+or `sourceless`; otherwise the tool's own venv selects the toolchain while it
+is analyzed and Bazel reports a dependency cycle.
+
+By default compilation automatically shards each target into `PyCompile`
+actions averaging at most 64 sources; see `pyc_shards` above to choose a fixed
+count or one action per source. The reference compiler is served by a Bazel
+persistent worker so the interpreter starts once per worker rather than per
+action; size the pool with
+`--worker_max_instances=PyCompile=N`. A custom compiler runs as a normal spawn.
+Compile actions support path mapping (`--experimental_output_paths=strip`), so
+a source compiled in one configuration is a cache hit in every other.
+
+`bazel coverage` runs `sourceless` targets as `pycache`, adding back the sources
+coverage.py attributes lines to; `pycache` and `off` are unchanged.
+
+Bytecode is compiled at optimization level 0. Under `pycache` an optimized
+interpreter (`-O`/`-OO`, `PYTHONOPTIMIZE`) ignores the cache and runs from
+source. Under `sourceless` there is no source, so `-O`/`-OO`
+`interpreter_options` and `PYTHONOPTIMIZE` set or inherited by the launcher
+or its venv fail analysis. A launcher with `isolated = False` also reads
+`PYTHONOPTIMIZE` from the invoking environment, so a sourceless launcher run
+with it set fails at startup. Compilation otherwise runs with the interpreter's
+default parser settings: a library's bytecode is shared by every launcher, so
+launcher `interpreter_options` that change parsing, such as
+`-X int_max_str_digits` or `-W error::SyntaxWarning`, only reach the files
+the interpreter still parses itself, which is everything under `off` and a
+launcher's own main under `pycache`. Sources that need them must stay in `off`
+mode. A cache prefix (`-X pycache_prefix`, `PYTHONPYCACHEPREFIX`) makes
+CPython ignore in-tree `__pycache__`, so under `pycache` it recompiles every
+import; use `off` or `sourceless` with one.
+
+Because pytest collects `.py` source files, `py_pytest_test` under `sourceless`
+keeps its own `srcs` as source beside their bytecode; dependencies stay
+sourceless.
+
+`py_image_layer` ships whatever bytecode its binaries carry: set `precompile` on the
+`py_binary` (or the global flag) and the image follows. Every binary in one
+image must use the same mode.
+
+`py_pex_binary` is the exception to the global flag: a PEX always packages
+first-party sources, and a `binary` pinned to `sourceless` fails analysis.
+
 ## Dependency Resolution with `uv`
 
 `aspect_rules_py//uv` is our alternative to `rules_python`'s `pip.parse`:

@@ -187,3 +187,44 @@ def make_wheel_record(
         metadata_top_levels = tuple(metadata_top_levels),
         cs_claims = tuple(cs_claims),
     )
+
+PycInfo = provider(
+    doc = "Private: first-party Python bytecode artifacts.",
+    fields = {
+        "complete": "bool — whether every transitive Python source has a bytecode entry.",
+        "conflicts": "depset[string] — dependencies whose own bytecode at the natural paths is unusable at level 0.",
+        "direct_entries": "list[struct(source, pyc, pyc_path, pycache, pycache_path, bytecode_key)] — bytecode mappings declared directly by this target.",
+        "entries": "depset[struct(source, pyc, pyc_path, pycache, pycache_path, bytecode_key)] — transitive bytecode mappings. pyc and pycache are the bytecode for the colocated sourceless and PEP 3147 layouts, one byte-identical file unless another ruleset precompiled a layout; *_path is the path each is read from, in `File.short_path` form; bytecode_key identifies the target runtime's bytecode, or None.",
+        "missing_sources": "depset[File] — Python sources without bytecode entries.",
+        "pycache_runfiles": "runfiles | None — bytecode at its PEP 3147 `__pycache__` paths.",
+        "transitive_pycache_runfiles": "runfiles | None — pycache_runfiles of dependencies only.",
+        "sourceless_runfiles": "runfiles | None — bytecode at its colocated paths, plus non-Python source artifacts retained by sourceless.",
+        "validations": "depset[File] — validation outputs checking reused bytecode; a launcher builds them.",
+    },
+)
+
+# Outside a bytecode launcher's closure no compilation is declared.
+INACTIVE_PYC_INFO = PycInfo(
+    complete = False,
+    conflicts = depset(),
+    direct_entries = [],
+    entries = depset(),
+    missing_sources = depset(),
+    pycache_runfiles = None,
+    transitive_pycache_runfiles = None,
+    sourceless_runfiles = None,
+    validations = depset(),
+)
+
+# Wheels carry no first-party sources, so nothing is left to compile.
+WHEEL_PYC_INFO = PycInfo(
+    complete = True,
+    conflicts = depset(),
+    direct_entries = [],
+    entries = depset(),
+    missing_sources = depset(),
+    pycache_runfiles = None,
+    transitive_pycache_runfiles = None,
+    sourceless_runfiles = None,
+    validations = depset(),
+)
