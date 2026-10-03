@@ -121,33 +121,6 @@ class VersionCheckTest(unittest.TestCase):
         exec(code, namespace)
         self.assertEqual(namespace["K"]().m(), 42)  # type: ignore[attr-defined]
 
-    def test_sourceless_writes_colocated_copy(self) -> None:
-        files = triple(self.tmp, "mod")
-        sourceless = os.path.join(self.tmp, "mod.pyc")
-        result = self.run_compile("--sourceless", *files)
-        self.assertEqual(result.returncode, 0, result.stderr)
-        with open(files[1], "rb") as cache, open(sourceless, "rb") as colocated:
-            self.assertEqual(cache.read(), colocated.read())
-        self.assertEqual(os.stat(files[1]).st_ino, os.stat(sourceless).st_ino)
-
-    def test_sourceless_copy_replaces_existing_file(self) -> None:
-        files = triple(self.tmp, "mod")
-        sourceless = os.path.join(self.tmp, "mod.pyc")
-        with open(sourceless, "wb") as f:
-            f.write(b"stale")
-        result = self.run_compile("--sourceless", *files)
-        self.assertEqual(result.returncode, 0, result.stderr)
-        with open(files[1], "rb") as cache, open(sourceless, "rb") as colocated:
-            self.assertEqual(cache.read(), colocated.read())
-
-    def test_sourceless_requires_pycache_output(self) -> None:
-        src, _, dfile = triple(self.tmp, "mod")
-        result = self.run_compile(
-            "--sourceless", src, os.path.join(self.tmp, "mod.pyc"), dfile
-        )
-        self.assertNotEqual(result.returncode, 0)
-        self.assertIn("__pycache__", result.stderr)
-
     def test_checked_hash_follows_source_edits(self) -> None:
         # Real cache tag, so the interpreter consults the file on import.
         pycache_name = "mod.{}.pyc".format(sys.implementation.cache_tag)

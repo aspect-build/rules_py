@@ -48,10 +48,8 @@ py_pyc_compiler_toolchain = rule(
 Exactly one of `runtime` or `tool` is required. A `tool` must implement the
 `@ARGFILE` interface of `py/private/pyc_compile.py` and be registered with the
 same version gating as the interpreter it stands in for. Compile actions are
-path-mapped, so a `tool` must write only to the paths it is given, plus the
-colocated `.pyc` that `--sourceless` derives from each `__pycache__` output,
-and embed only the `DFILE` argument, never an input or output path, in its
-bytecode. It must also honour `--checked-hash`, passed under
+path-mapped, so a `tool` must write only to the paths it is given and embed
+only the `DFILE` argument, never an input or output path, in its bytecode. It must also honour `--checked-hash`, passed under
 `--@aspect_rules_py//py:pyc_invalidation_mode=checked-hash`.
 
 A `tool` that is itself a rules_py target, such as a `py_binary`, resolves this
