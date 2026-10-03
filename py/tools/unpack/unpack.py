@@ -636,6 +636,8 @@ def main() -> None:
                 "-q",
                 "--invalidation-mode",
                 args.pyc_invalidation_mode,
+                "-s",
+                str(site_packages),
                 "--",
                 str(site_packages),
             ],
