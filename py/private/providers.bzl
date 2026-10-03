@@ -193,12 +193,12 @@ PycInfo = provider(
     fields = {
         "complete": "bool — whether every transitive Python source has a bytecode entry.",
         "conflicts": "depset[string] — dependencies whose own bytecode at the natural paths is unusable at level 0.",
-        "direct_entries": "list[struct(source, pyc, pycache, bytecode_key)] — bytecode mappings declared directly by this target.",
-        "entries": "depset[struct(source, pyc, pycache, bytecode_key)] — transitive bytecode mappings; pyc is the colocated sourceless layout, byte-identical to pycache; bytecode_key identifies the target runtime's bytecode, or None.",
+        "direct_entries": "list[struct(source, pyc, pyc_path, pycache, pycache_path, bytecode_key)] — bytecode mappings declared directly by this target.",
+        "entries": "depset[struct(source, pyc, pyc_path, pycache, pycache_path, bytecode_key)] — transitive bytecode mappings. pyc and pycache are the bytecode for the colocated sourceless and PEP 3147 layouts, one byte-identical file unless another ruleset precompiled a layout; *_path is the path each is read from, in `File.short_path` form; bytecode_key identifies the target runtime's bytecode, or None.",
         "missing_sources": "depset[File] — Python sources without bytecode entries.",
-        "pycache_files": "depset[File] — PEP 3147 __pycache__ files for source-retaining mode.",
-        "transitive_pycache_files": "depset[File] — pycache_files of dependencies only, without this target's direct entries.",
-        "sourceless_files": "depset[File] — colocated .pyc files plus non-Python source artifacts retained by sourceless.",
+        "pycache_runfiles": "runfiles | None — bytecode at its PEP 3147 `__pycache__` paths.",
+        "transitive_pycache_runfiles": "runfiles | None — pycache_runfiles of dependencies only.",
+        "sourceless_runfiles": "runfiles | None — bytecode at its colocated paths, plus non-Python source artifacts retained by sourceless.",
         "validations": "depset[File] — validation outputs checking reused bytecode; a launcher builds them.",
     },
 )
@@ -210,9 +210,9 @@ INACTIVE_PYC_INFO = PycInfo(
     direct_entries = [],
     entries = depset(),
     missing_sources = depset(),
-    pycache_files = depset(),
-    transitive_pycache_files = depset(),
-    sourceless_files = depset(),
+    pycache_runfiles = None,
+    transitive_pycache_runfiles = None,
+    sourceless_runfiles = None,
     validations = depset(),
 )
 
@@ -223,8 +223,8 @@ WHEEL_PYC_INFO = PycInfo(
     direct_entries = [],
     entries = depset(),
     missing_sources = depset(),
-    pycache_files = depset(),
-    transitive_pycache_files = depset(),
-    sourceless_files = depset(),
+    pycache_runfiles = None,
+    transitive_pycache_runfiles = None,
+    sourceless_runfiles = None,
     validations = depset(),
 )

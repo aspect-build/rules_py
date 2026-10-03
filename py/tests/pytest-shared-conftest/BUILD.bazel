@@ -1,4 +1,5 @@
 load("//py:defs.bzl", "py_pytest_test")
+load("//py/tests:pyc_testing.bzl", "pyc_config_test")
 
 package(default_testonly = True)
 
@@ -20,6 +21,23 @@ package(default_testonly = True)
     ]
     for mode in [
         "off",
+        "pycache",
+        "sourceless",
+    ]
+]
+
+# Batched compiles stay per target, so the shared conftest.py never conflicts.
+[
+    pyc_config_test(
+        name = "{}_{}_shards_one_test".format(test, mode),
+        pyc_shards = "1",
+        target = ":{}_{}_test".format(test, mode),
+    )
+    for test in [
+        "a",
+        "b",
+    ]
+    for mode in [
         "pycache",
         "sourceless",
     ]

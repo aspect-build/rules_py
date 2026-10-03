@@ -108,8 +108,13 @@ rules_python pip hub are never compiled and run from source in every mode;
 a rules_py uv hub installs wheels with bytecode.
 
 rules_python precompiles only targets that set `precompile = "enabled"` or build
-under `--@rules_python//python/config_settings:precompile=enabled`. Such a
-dependency blocks a gradual migration in three cases, until it sets the
+under `--@rules_python//python/config_settings:precompile=enabled`. Where it
+precompiled a layout itself (`__pycache__` for `keep_source`, the colocated
+`.pyc` for `omit_source`), its file is the one shipped for that layout and
+rules_py compiles the other, so a `sourceless` image, which strips sources and
+reads the colocated layout, runs rules_py's bytecode for a `keep_source`
+library. Such a dependency blocks a gradual migration in two cases, until it
+sets the
 attribute shown, disables its precompilation, or is converted to rules_py:
 
 - A nonzero `precompile_optimize_level` fails both bytecode modes at analysis,
@@ -120,9 +125,6 @@ attribute shown, disables its precompilation, or is converted to rules_py:
   `__pycache__` bytecode that is not checked-hash fails the build: set
   `precompile_invalidation_mode = "checked_hash"` (its default `auto` already is,
   outside `-c opt`).
-- A source listed by both a rules_py target and a precompiling rules_python
-  target fails analysis with conflicting actions on the natural bytecode paths
-  (`off` declares no bytecode): list the source once.
 
 Under `sourceless` a rules_python `py_library` still ships its sources from its
 own runfiles, so rules_py also ships their `__pycache__` bytecode, which CPython

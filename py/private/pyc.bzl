@@ -18,7 +18,10 @@ SOURCELESS_XOPTION = "aspect_rules_py_sourceless"
 
 PycModeInfo = provider(
     doc = "Private: effective first-party bytecode mode of a runnable target.",
-    fields = {"mode": "One of off, pycache, or sourceless."},
+    fields = {
+        "main": "str — short_path of the launcher's main, whose own bytecode CPython never reads under pycache.",
+        "mode": "One of off, pycache, or sourceless.",
+    },
 )
 
 # Terminals read only the flag, as the default for an unset `precompile` attribute.
@@ -168,7 +171,7 @@ def bytecode_conflicts(entry, other, mode):
     Distinct `pycache` tags coexist beside their source; otherwise the bytecode
     must be interchangeable, and an unknown identity fails closed.
     """
-    if mode == "pycache" and entry.pycache.basename != other.pycache.basename:
+    if mode == "pycache" and entry.pycache_path.rpartition("/")[2] != other.pycache_path.rpartition("/")[2]:
         return False
     return entry.bytecode_key == None or entry.bytecode_key != other.bytecode_key
 
@@ -200,23 +203,53 @@ def _shard(path, shards):
     h = ((h ^ (h >> 16)) * 0x45D9F3B) & 0xFFFFFFFF
     return (h ^ (h >> 16)) % shards
 
-def _compile_action(ctx, compiler, jobs, sourceless):
+def _package_prefix(label):
+    """The short_path prefix of files in `label`'s package."""
+    prefix = "../{}/".format(label.workspace_name) if label.workspace_name else ""
+    return prefix + label.package + "/" if label.package else prefix
+
+def layout_runfiles(ctx, mappings, files = [], transitive = []):
+    """Runfiles placing bytecode at its natural paths.
+
+    Args:
+        ctx: rule or aspect ctx.
+        mappings: list[(short path, File)] — bytecode and where CPython reads it,
+            in `File.short_path` form (`../<repo>/...` outside the main repository).
+        files: list[File] — other files kept at their own paths.
+        transitive: list[runfiles] — dependency layouts to merge.
+
+    Returns:
+        runfiles
+    """
+
+    # Files already at their natural path are plain runfiles, which win over symlinks there.
+    plain = list(files)
+    symlinks = {}
+    root_symlinks = {}
+    for path, f in mappings:
+        if f.short_path == path:
+            plain.append(f)
+        elif path.startswith("../"):
+            root_symlinks[path[len("../"):]] = f
+        else:
+            symlinks[path] = f
+    return ctx.runfiles(files = plain, symlinks = symlinks, root_symlinks = root_symlinks).merge_all([r for r in transitive if r != None])
+
+def _compile_action(ctx, compiler, jobs):
     compile_args = ctx.actions.args()
     compile_args.set_param_file_format("multiline")
     compile_args.use_param_file("@%s", use_always = True)
     if compiler.expected_version:
         compile_args.add("--expect-version", compiler.expected_version)
-    if sourceless:
-        compile_args.add("--sourceless")
     if compiler.checked_hash:
         compile_args.add("--checked-hash")
 
     # A pseudo filename keeps sourceless tracebacks off unrelated cwd files; CPython
     # swaps in the real path when the source is present.
-    for src, outputs in jobs:
-        compile_args.add_all([src, outputs[0], "<{}>".format(src.short_path)])
+    for src, out in jobs:
+        compile_args.add_all([src, out, "<{}>".format(src.short_path)])
     if len(jobs) == 1:
-        progress = "Python precompiling {} into {}".format(jobs[0][0].short_path, ", ".join([out.short_path for out in jobs[0][1]]))
+        progress = "Python precompiling {} into {}".format(jobs[0][0].short_path, jobs[0][1].short_path)
     else:
         progress = "Python precompiling {} sources for {}".format(len(jobs), ctx.label)
     ctx.actions.run(
@@ -226,7 +259,7 @@ def _compile_action(ctx, compiler, jobs, sourceless):
         execution_requirements = compiler.execution_requirements,
         inputs = [src for src, _ in jobs],
         tools = [compiler.tool.tools],
-        outputs = [out for _, outputs in jobs for out in outputs],
+        outputs = [out for _, out in jobs],
         mnemonic = "PyCompile",
         progress_message = progress,
         env = {
@@ -236,23 +269,23 @@ def _compile_action(ctx, compiler, jobs, sourceless):
         },
     )
 
-def compile_pycs(ctx, srcs, existing = {}, owned = True):
+def compile_pycs(ctx, srcs, existing = {}):
     """Compile this rule's own first-party sources to bytecode.
+
+    Each source compiles once, into a directory of this target's own, so several
+    targets listing one source never declare the same output. Runfiles place the
+    result at the natural paths; see `make_pyc_info`.
 
     Args:
         ctx: rule or aspect ctx carrying PYC_ATTRS and PYC_TOOLCHAINS.
         srcs: list[File] — the rule's direct sources.
         existing: dict[short_path, File] — bytecode the owning target already
             declares at the natural paths; taken instead of compiled.
-        owned: whether `srcs` are this target's own; inferred sources shared
-            by several targets are only compiled per source.
 
     Returns:
-        struct(entries, pycache_files) of lists; empty lists
-        when no bytecode-compatible compiler is available.
+        struct(entries) — empty when no bytecode-compatible compiler is available.
     """
     entries = []
-    pycache_files = []
 
     target_toolchain = ctx.toolchains[PY_TOOLCHAIN]
     target_runtime = target_toolchain.py3_runtime if target_toolchain != None else None
@@ -272,7 +305,7 @@ def compile_pycs(ctx, srcs, existing = {}, owned = True):
 
     pyc_tag = pycache_tag(target_runtime)
     if target_runtime == None or pyc_compile_tool == None or pyc_tag == None:
-        return struct(entries = entries, pycache_files = pycache_files)
+        return struct(entries = entries)
 
     # Per-source arguments go through the flagfile a worker receives per request.
     tool_args = ctx.actions.args()
@@ -296,55 +329,53 @@ def compile_pycs(ctx, srcs, existing = {}, owned = True):
     if shards < -1:
         fail("--@aspect_rules_py//py:pyc_shards must be -1 (automatic), 0 (per source) or a shard count, got {}".format(shards))
     key = bytecode_key(target_runtime)
+    package_prefix = _package_prefix(ctx.label)
     jobs = []
     for src in srcs:
         if src.extension != "py":
             continue
         if src.owner.package != ctx.label.package or src.owner.workspace_name != ctx.label.workspace_name:
             continue
-        stem = src.basename[:-3]
-        pycache_basename = "{}.{}.pyc".format(stem, pyc_tag)
-        pyc = None
-        pycache = None
-        if existing:
-            directory = src.short_path[:-len(src.basename)]
-            pyc = existing.get(directory + stem + ".pyc")
-            pycache = existing.get(directory + "__pycache__/" + pycache_basename)
+        stem = src.short_path[:-len(".py")]
+        directory = src.short_path[:-len(src.basename)]
+        pyc_short_path = stem + ".pyc"
+        pycache_short_path = "{}__pycache__/{}.{}.pyc".format(directory, src.basename[:-len(".py")], pyc_tag)
+        pyc = existing.get(pyc_short_path)
+        pycache = existing.get(pycache_short_path)
+        if pyc == None or pycache == None:
+            compiled = ctx.actions.declare_file("_{}.pyc/{}.pyc".format(ctx.label.name, stem[len(package_prefix):]))
+            jobs.append((src, compiled))
+            pyc = pyc or compiled
+            pycache = pycache or compiled
+        entries.append(struct(
+            source = src,
+            pyc = pyc,
+            pyc_path = pyc_short_path,
+            pycache = pycache,
+            pycache_path = pycache_short_path,
+            bytecode_key = key,
+        ))
 
-        outputs = []
-        if pycache == None:
-            pycache = ctx.actions.declare_file("__pycache__/{}".format(pycache_basename), sibling = src)
-            outputs.append(pycache)
-        if pyc == None:
-            pyc = ctx.actions.declare_file(stem + ".pyc", sibling = src)
-            outputs.append(pyc)
-        if outputs:
-            jobs.append((src, outputs))
-        entries.append(struct(source = src, pyc = pyc, pycache = pycache, bytecode_key = key))
-        pycache_files.append(pycache)
-
-    # Per-source actions stay shareable across targets; path-hash shards keep other
-    # shards' keys stable when a source is added.
-    if not owned:
-        shards = 0
-    elif shards == -1:
+    # Path-hash shards keep other shards' keys stable when a source is added.
+    if shards == -1:
         shards = auto_shards(len(jobs))
     if shards:
         sharded = {}
         for job in jobs:
-            sharded.setdefault((_shard(job[0].short_path, shards), len(job[1])), []).append(job)
+            sharded.setdefault(_shard(job[0].short_path, shards), []).append(job)
         groups = sharded.values()
     else:
         groups = [[job] for job in jobs]
     for group in groups:
-        _compile_action(ctx, compiler, group, len(group[0][1]) == 2)
+        _compile_action(ctx, compiler, group)
 
-    return struct(entries = entries, pycache_files = pycache_files)
+    return struct(entries = entries)
 
-def make_pyc_info(compiled, sources = [], deps = [], conflicts = [], source_retained = False, validations = []):
+def make_pyc_info(ctx, compiled, sources = [], deps = [], conflicts = [], source_retained = False, validations = []):
     """Merge this rule's own compiled bytecode with its dependencies'.
 
     Args:
+        ctx: rule or aspect ctx.
         compiled: the struct returned by `compile_pycs` (or None).
         sources: list[File] — this rule's direct contribution to PyInfo.
         deps: Targets whose PycInfo (when present) is inherited.
@@ -359,8 +390,8 @@ def make_pyc_info(compiled, sources = [], deps = [], conflicts = [], source_reta
     transitive_conflicts = []
     transitive_entries = []
     transitive_missing_sources = []
-    transitive_pycache_files = []
-    transitive_sourceless_files = []
+    transitive_pycache_runfiles = []
+    transitive_sourceless_runfiles = []
     transitive_validations = []
     complete = True
     for dep in deps:
@@ -369,8 +400,8 @@ def make_pyc_info(compiled, sources = [], deps = [], conflicts = [], source_reta
             transitive_conflicts.append(dep_pyc.conflicts)
             transitive_entries.append(dep_pyc.entries)
             transitive_missing_sources.append(dep_pyc.missing_sources)
-            transitive_pycache_files.append(dep_pyc.pycache_files)
-            transitive_sourceless_files.append(dep_pyc.sourceless_files)
+            transitive_pycache_runfiles.append(dep_pyc.pycache_runfiles)
+            transitive_sourceless_runfiles.append(dep_pyc.sourceless_runfiles)
             transitive_validations.append(dep_pyc.validations)
             complete = complete and dep_pyc.complete
         elif has_py_info(dep):
@@ -390,6 +421,10 @@ def make_pyc_info(compiled, sources = [], deps = [], conflicts = [], source_reta
             missing_sources.append(src)
     complete = complete and not missing_sources
 
+    pycache_mappings = [(entry.pycache_path, entry.pycache) for entry in direct_entries]
+    sourceless_mappings = [(entry.pyc_path, entry.pyc) for entry in direct_entries]
+    if source_retained:
+        sourceless_mappings += pycache_mappings
     return PycInfo(
         complete = complete,
         conflicts = depset(direct = conflicts, transitive = transitive_conflicts),
@@ -402,15 +437,9 @@ def make_pyc_info(compiled, sources = [], deps = [], conflicts = [], source_reta
             direct = missing_sources,
             transitive = transitive_missing_sources,
         ),
-        pycache_files = depset(
-            direct = compiled.pycache_files if compiled else [],
-            transitive = transitive_pycache_files,
-        ),
-        transitive_pycache_files = depset(transitive = transitive_pycache_files),
-        sourceless_files = depset(
-            direct = retained_sources + [entry.pyc for entry in direct_entries] + ([entry.pycache for entry in direct_entries] if source_retained else []),
-            transitive = transitive_sourceless_files,
-        ),
+        pycache_runfiles = layout_runfiles(ctx, pycache_mappings, transitive = transitive_pycache_runfiles),
+        transitive_pycache_runfiles = layout_runfiles(ctx, [], transitive = transitive_pycache_runfiles),
+        sourceless_runfiles = layout_runfiles(ctx, sourceless_mappings, retained_sources, transitive_sourceless_runfiles),
         validations = depset(direct = validations, transitive = transitive_validations),
     )
 
@@ -438,6 +467,7 @@ def target_pyc_info(ctx):
     if not _precompile_active(ctx):
         return INACTIVE_PYC_INFO
     return make_pyc_info(
+        ctx,
         compile_pycs(ctx, own_compile_sources(ctx.attr.srcs)),
         sources = ctx.files.srcs,
         deps = deps,
@@ -506,7 +536,7 @@ def _pyc_aspect_impl(target, ctx):
         conflicts.append("{} precompiles at precompile_optimize_level = {}; bytecode modes need level 0, so set it to 0 or disable its precompilation".format(target.label, optimize_level))
         srcs = []
 
-    compiled = compile_pycs(ctx, srcs, existing = existing, owned = owned)
+    compiled = compile_pycs(ctx, srcs, existing = existing)
 
     # Reused bytecode keeps its producer's invalidation mode; checked-hash verifies the headers themselves.
     # Only `__pycache__` is read beside a source; a colocated `.pyc` runs only without one, so it has nothing to check.
@@ -521,6 +551,7 @@ def _pyc_aspect_impl(target, ctx):
 
     # rules_python keeps its sources in runfiles, so sourceless launchers need __pycache__ too.
     return [make_pyc_info(
+        ctx,
         compiled,
         sources = srcs,
         deps = getattr(ctx.rule.attr, "deps", []),

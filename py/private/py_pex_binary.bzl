@@ -20,7 +20,7 @@ py_pex_binary(
 
 load("@bazel_lib//lib:paths.bzl", "to_rlocation_path")
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
-load("//py/private:providers.bzl", "PyWheelsInfo", "PycInfo")
+load("//py/private:providers.bzl", "PyWheelsInfo")
 load("//py/private:py_info.bzl", "PyInfo")
 load("//py/private:pyc.bzl", "PycModeInfo")
 load("//py/private:transitions.bzl", "no_bytecode_transition")
@@ -214,10 +214,11 @@ def _py_python_pex_impl(ctx):
     runfiles = binary_default.data_runfiles
 
     # --source packages everything in runfiles except what is packaged another
-    # way: wheel trees go out as --dependency; the interpreter repos, venv
-    # plumbing and rules_py's bytecode aren't packaged. `add_all` expands the wheel tree artifacts before
-    # `map_each`, so we match the expanded children against the tree's exec-root
-    # path prefix (the unexpanded tree artifact never would).
+    # way: wheel trees go out as --dependency; the interpreter repos and venv
+    # plumbing aren't packaged, and rules_py's bytecode, being runfiles symlinks
+    # rather than runfiles.files, never reaches here. `add_all` expands the wheel
+    # tree artifacts before `map_each`, so we match the expanded children against
+    # the tree's exec-root path prefix (the unexpanded tree artifact never would).
     wheel_tree_prefixes = [w.install_tree.path + "/" for w in wheels_list]
     interpreter_prefixes = closure.interpreter_roots.to_list()
     venv_prefixes = [r + "/" for r in closure.venv_roots.to_list()]
@@ -280,10 +281,6 @@ def _py_python_pex_impl(ctx):
         map_each = _map_source,
         allow_closure = True,
     )
-
-    # Only the bytecode rules_py added; `__pycache__` files from data or other rules still ship.
-    if PycInfo in binary:
-        args.add_all(binary[PycInfo].pycache_files, format_each = "--exclude-source=%s")
 
     args.add(to_rlocation_path(ctx, entrypoint), format = "--entrypoint=%s")
     args.add(ctx.attr.python_shebang, format = "--python-shebang=%s")
