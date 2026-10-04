@@ -155,6 +155,14 @@ write_source_files(
         "snapshots/venv_data_files_1366.whl_dist.widgetsnbextension.BUILD.bazel": "@whl__widgetsnbextension__8156704e4346a571//:BUILD.bazel",
         "snapshots/venv_data_files_1366.whl_dist.jupyterlab_widgets.BUILD.bazel": "@whl__jupyterlab_widgets__45fa36d9c6422cf2//:BUILD.bazel",
 
+        # whl_dist for the two wheels in //namespace-init-collision, each
+        # shipping a pkgutil `backports/__init__.py` stub. Pins that the
+        # extractor reads the stub and lays `backports` out as a namespace
+        # (the stub among `namespace_entries`, no `backports` regular root)
+        # instead of a regular package.
+        "snapshots/namespace_init_collision.whl_dist.backports_weakref.BUILD.bazel": "@whl__backports_weakref__81bc9b51c0abc58e//:BUILD.bazel",
+        "snapshots/namespace_init_collision.whl_dist.backports_shutil_get_terminal_size.BUILD.bazel": "@whl__backports_shutil_get_terminal_size__0975ba55054c15e3//:BUILD.bazel",
+
         # Prefix data projection for //venv-data-files-1366: which roots the two
         # wheels' `.data/data/` files materialise under `sys.prefix`, and the
         # shape below them. `path/` is a real directory (the wheels share it, so
@@ -220,6 +228,9 @@ write_source_files(
         #   between two of those lines, pinning both that the reuse did not
         #   reorder `sys.path` and that a plain entry landing mid-file is
         #   one the later lines can see.
+        # * namespace_init_collision — two wheels sharing a pkgutil
+        #   namespace stub; the per-entry merge covers both, so neither
+        #   appears in the .pth fallback.
         # * pth_install_tree_fallback — two install_tree wheels colliding
         #   on a REGULAR top-level; the collision loser stays on the
         #   fallback (an extend_path winner can still graft from it).
@@ -231,6 +242,7 @@ write_source_files(
         #   which would re-run an already-projected root `.pth`).
         #   Reverting that branch changes these snapshots.
         "snapshots/pth_namespace_547.test.venv.pth": "//pth-namespace-547:test.venv.pth",
+        "snapshots/namespace_init_collision.test.venv.pth": "//namespace-init-collision:test.venv.pth",
         "snapshots/firebase_admin.test_tool.venv.pth": "//firebase-admin-import:test_tool.venv.pth",
         "snapshots/wheel_root_pth.venv.pth": "//uv-include-group:wheel_root_pth_test.venv.pth",
         "snapshots/multi_addsitedir.venv.pth": "//uv-include-group:multi_addsitedir_test.venv.pth",

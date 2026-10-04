@@ -71,6 +71,11 @@ def parse_record_path(line):
 
     return "".join(path)
 
+def parse_record_size(line):
+    """Return the size field of one RECORD row, or -1 when it is absent."""
+    size = line.rsplit(",", 1)[-1].strip()
+    return int(size) if size.isdigit() else -1
+
 def site_packages_segments(path, data_directory):
     """Map a RECORD path to its installed site-packages segments."""
     segments = path.split("/")
@@ -129,11 +134,13 @@ def parse_record(record, data_directory):
       data_directory: The `<project>-<version>.data` directory name.
 
     Returns:
-      A struct of `record_segments` (list of segment lists, RECORD order) and
-      `data_files` (sorted prefix-relative paths).
+      A struct of `record_segments` (list of segment lists, RECORD order),
+      `data_files` (sorted prefix-relative paths) and `top_level_init_sizes`
+      (top-level name -> RECORD size of its direct `__init__.py`).
     """
     record_segments = []
     data_files = []
+    top_level_init_sizes = {}
     for line in record.splitlines() if record else []:
         path = parse_record_path(line)
         if not path:
@@ -150,9 +157,12 @@ def parse_record(record, data_directory):
             if not first_segment or first_segment in (".", "..") or first_segment.startswith("/"):
                 continue
             record_segments.append(segments)
+            if len(segments) == 2 and segments[1] == "__init__.py":
+                top_level_init_sizes[first_segment] = parse_record_size(line)
     return struct(
         record_segments = record_segments,
         data_files = sorted(data_files),
+        top_level_init_sizes = top_level_init_sizes,
     )
 
 def native_roots_for_segments(segments, collision_roots = ()):
@@ -486,7 +496,88 @@ def _read_dist_info(rctx, whl_path, basename):
     rctx.delete(metadata_dir)
     return record, entry_points, metadata_directory
 
-def derive_layout(record_segments):
+# Legacy (pkgutil / pkg_resources) namespace packages declare themselves in a
+# `<toplevel>/__init__.py` holding nothing but the declaration:
+# https://packaging.python.org/en/latest/guides/packaging-namespace-packages/#legacy-namespace-packages
+# Reading one means inflating the whole wheel, so only initializers whose
+# RECORD size fits a stub are read; a larger one is a regular package.
+# uv tolerates the same duplicate stub by overwriting in place and exempting
+# it from its module-conflict check (`warn_package_conflicts`):
+# https://github.com/astral-sh/uv/blob/main/crates/uv-install-wheel/src/linker.rs
+PKGUTIL_NAMESPACE_STUB_MAX_BYTES = 512
+
+# Whitespace-stripped statement forms a stub may contain. True marks the
+# declaration itself; at least one must be present.
+_PKGUTIL_NAMESPACE_STUB_STATEMENTS = {
+    "importpkgutil": False,
+    "importpkg_resources": False,
+    "frompkgutilimportextend_path": False,
+    "frompkg_resourcesimportdeclare_namespace": False,
+    "try:": False,
+    "except:": False,
+    "exceptImportError:": False,
+    "exceptException:": False,
+    "pass": False,
+    "__path__=__import__('pkgutil').extend_path(__path__,__name__)": True,
+    "__path__=__import__(\"pkgutil\").extend_path(__path__,__name__)": True,
+    "__path__=pkgutil.extend_path(__path__,__name__)": True,
+    "__path__=extend_path(__path__,__name__)": True,
+    "__import__('pkg_resources').declare_namespace(__name__)": True,
+    "__import__(\"pkg_resources\").declare_namespace(__name__)": True,
+    "pkg_resources.declare_namespace(__name__)": True,
+    "declare_namespace(__name__)": True,
+}
+
+def is_pkgutil_namespace_stub(text):
+    """Whether an `__init__.py` only declares a pkgutil / pkg_resources namespace.
+
+    Comments, blank lines and single-line docstrings are skipped; every other
+    line must be one of the stub statement forms, whitespace aside. Anything
+    else is a regular package initializer. Conservative by design: site_merge.py
+    re-checks the real AST when two such files meet in a physical merge.
+    """
+    declared = False
+    for line in text.splitlines():
+        code = line.split("#", 1)[0].replace(" ", "").replace("\t", "").replace("\r", "")
+        if not code:
+            continue
+        quote = code[:3]
+        if quote in ("\"\"\"", "'''") and len(code) >= 6 and code.endswith(quote):
+            continue
+        if code not in _PKGUTIL_NAMESPACE_STUB_STATEMENTS:
+            return False
+        declared = declared or _PKGUTIL_NAMESPACE_STUB_STATEMENTS[code]
+    return declared
+
+def read_pkgutil_namespace_top_levels(rctx, whl_path, top_level_init_sizes):
+    """Return the top-levels whose `__init__.py` is a pkgutil namespace stub.
+
+    Extracts a top-level's subtree only when its initializer is small enough
+    to be a stub (see `PKGUTIL_NAMESPACE_STUB_MAX_BYTES`).
+    """
+    candidates = sorted([
+        top_level
+        for top_level, size in top_level_init_sizes.items()
+        if size > 0 and size <= PKGUTIL_NAMESPACE_STUB_MAX_BYTES
+    ])
+    if not candidates:
+        return []
+    stub_dir = "_wheel_stubs"
+    stubs = []
+    for top_level in candidates:
+        rctx.delete(stub_dir)
+        rctx.extract(archive = whl_path, output = stub_dir, strip_prefix = top_level)
+        init = rctx.path(stub_dir).get_child("__init__.py")
+        if init.exists and is_pkgutil_namespace_stub(rctx.read(init)):
+            stubs.append(top_level)
+    rctx.delete(stub_dir)
+    return stubs
+
+def pkgutil_namespace_top_levels(layout):
+    """Namespace top-levels whose stub `__init__.py` is one of their entries."""
+    return [tl for tl in layout.namespace_top_levels if tl + "/__init__.py" in layout.namespace_entries]
+
+def derive_layout(record_segments, pkgutil_namespace_top_levels = ()):
     """Derive the site-packages layout from filtered RECORD segment lists.
 
     `record_segments` are site-packages-relative paths (install-root escapes
@@ -495,7 +586,17 @@ def derive_layout(record_segments):
     an `__init__.py`, or the last file under a top-level, reclassifies
     namespace/regular and drops stale entries instead of leaving the advertised
     topology out of sync with the installed tree.
+
+    `pkgutil_namespace_top_levels` names top-levels whose direct `__init__.py`
+    is a legacy namespace stub (see `read_pkgutil_namespace_top_levels`). Such a
+    top-level is laid out as a namespace: the stub is one more concrete entry
+    beneath it rather than the mark of a regular package, so wheels sharing the
+    namespace merge per entry and venv assembly projects one stub for the
+    Python-side `__path__` extension to run from. The stub entry is the only
+    way `__init__.py` appears under a namespace top-level, which is how later
+    stages tell a stub namespace from a PEP 420 one.
     """
+    stub_top_levels = {top_level: True for top_level in pkgutil_namespace_top_levels}
 
     # First path segment = top-level name. Track which top-levels have a direct
     # `<toplevel>/__init__.py` (regular packages); the complement are PEP 420
@@ -509,13 +610,14 @@ def derive_layout(record_segments):
     for segments in record_segments:
         first_segment = segments[0]
         top_levels_set[first_segment] = True
-        if len(segments) == 1 or (len(segments) >= 2 and segments[1] == "__init__.py"):
+        is_stub = len(segments) == 2 and segments[1] == "__init__.py" and first_segment in stub_top_levels
+        if len(segments) == 1 or (len(segments) >= 2 and segments[1] == "__init__.py" and not is_stub):
             regular_top_levels[first_segment] = True
         if native_roots_for_segments(segments):
             native_segments.append(segments)
         for i in range(1, len(segments)):
             dirs_set["/".join(segments[:i])] = True
-        if len(segments) >= 2 and segments[-1] == "__init__.py":
+        if len(segments) >= 2 and segments[-1] == "__init__.py" and not is_stub:
             init_dirs["/".join(segments[:-1])] = True
 
     # Namespace entries: for each path under a namespace top-level, descend to
@@ -603,6 +705,7 @@ def extract_install_metadata(rctx, whl_path, basename):
     # paths venv assembly projects.
     parsed = parse_record(record, data_directory)
     record_segments = parsed.record_segments
+    pkgutil_namespace_top_levels = read_pkgutil_namespace_top_levels(rctx, whl_path, parsed.top_level_init_sizes)
 
     # entry_points.txt: INI-style file. Only `[console_scripts]` interests
     # us — pip/uv synthesize executables under `bin/<name>` from those at
@@ -634,7 +737,7 @@ def extract_install_metadata(rctx, whl_path, basename):
     # wheel's top_levels is never empty (empty stays reserved for source-built
     # wheels of unknown layout). `record_paths` is preserved so whl_install can
     # re-derive the layout after applying exclude_glob.
-    layout = derive_layout(record_segments)
+    layout = derive_layout(record_segments, pkgutil_namespace_top_levels)
     return struct(
         top_levels = layout.top_levels,
         top_level_dirs = layout.top_level_dirs,

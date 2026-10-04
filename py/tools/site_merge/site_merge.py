@@ -27,6 +27,7 @@ may not ship the directory).
 from __future__ import annotations
 
 import argparse
+import ast
 import filecmp
 import os
 import shutil
@@ -35,6 +36,113 @@ import sys
 from pathlib import Path
 from types import TracebackType
 from collections.abc import Callable, Sequence
+
+
+_NAMESPACE_DECLARATIONS = {"pkgutil": "extend_path", "pkg_resources": "declare_namespace"}
+
+
+def is_namespace_stub(source: bytes) -> bool:
+    """Whether an ``__init__.py`` does nothing but declare a legacy namespace.
+
+    Legacy namespace packages (``pkgutil.extend_path`` or setuptools'
+    ``pkg_resources.declare_namespace``) ship one such initializer per
+    contributing distribution, and the packaging guide requires the copies to
+    be interchangeable: a flat ``pip``/``uv`` install keeps whichever was
+    written last, so anything else in the file is unreachable.
+    https://packaging.python.org/en/latest/guides/packaging-namespace-packages/#legacy-namespace-packages
+
+    Accepts imports of those two modules (plain, ``from``, aliased), the
+    declaration in every spelling, docstrings, ``pass`` and the
+    ``try``/``except ImportError`` fallback wrapping them. A file with no
+    statements is a stub as well: a merge loses nothing by replacing it.
+    """
+    try:
+        tree = ast.parse(source)
+    except (SyntaxError, ValueError):
+        return False
+    modules: dict[str, str] = {}
+    functions: dict[str, tuple[str, str]] = {}
+
+    def declaration(node: ast.expr) -> bool:
+        if not isinstance(node, ast.Call) or node.keywords:
+            return False
+        func = node.func
+        if isinstance(func, ast.Name):
+            target = functions.get(func.id)
+        elif isinstance(func, ast.Attribute):
+            value = func.value
+            if isinstance(value, ast.Name):
+                module = modules.get(value.id)
+            elif (
+                isinstance(value, ast.Call)
+                and isinstance(value.func, ast.Name)
+                and value.func.id == "__import__"
+                and len(value.args) == 1
+                and isinstance(value.args[0], ast.Constant)
+            ):
+                module = value.args[0].value
+            else:
+                module = None
+            target = (module, func.attr) if isinstance(module, str) else None
+        else:
+            return False
+        if target is None or _NAMESPACE_DECLARATIONS.get(target[0]) != target[1]:
+            return False
+        expected = ["__path__", "__name__"] if target[0] == "pkgutil" else ["__name__"]
+        return [
+            arg.id if isinstance(arg, ast.Name) else None for arg in node.args
+        ] == expected
+
+    def harmless(stmt: ast.stmt) -> bool:
+        if isinstance(stmt, ast.Import):
+            for alias in stmt.names:
+                if alias.name not in _NAMESPACE_DECLARATIONS:
+                    return False
+                modules[alias.asname or alias.name] = alias.name
+            return True
+        if isinstance(stmt, ast.ImportFrom):
+            if stmt.module == "__future__":
+                return True
+            if stmt.level or stmt.module not in _NAMESPACE_DECLARATIONS:
+                return False
+            for alias in stmt.names:
+                if alias.name != _NAMESPACE_DECLARATIONS[stmt.module]:
+                    return False
+                functions[alias.asname or alias.name] = (stmt.module, alias.name)
+            return True
+        if isinstance(stmt, ast.Pass):
+            return True
+        if isinstance(stmt, ast.Expr):
+            if isinstance(stmt.value, ast.Constant) and isinstance(stmt.value.value, str):
+                return True
+            return declaration(stmt.value)
+        if isinstance(stmt, ast.Assign):
+            targets = stmt.targets
+            return (
+                len(targets) == 1
+                and isinstance(targets[0], ast.Name)
+                and targets[0].id == "__path__"
+                and declaration(stmt.value)
+            )
+        if isinstance(stmt, ast.Try):
+            return (
+                not stmt.orelse
+                and not stmt.finalbody
+                and all(harmless(inner) for inner in stmt.body)
+                and all(harmless(inner) for handler in stmt.handlers for inner in handler.body)
+            )
+        return False
+
+    return all(harmless(stmt) for stmt in tree.body)
+
+
+def _equivalent(src_file: Path, dest: Path) -> bool:
+    """Whether two files may share a merge path without conflicting."""
+    if src_file.name != "__init__.py" or dest.name != "__init__.py":
+        return filecmp.cmp(str(src_file), str(dest), shallow=False)
+    source = src_file.read_bytes()
+    existing = dest.read_bytes()
+    return source == existing or (is_namespace_stub(source) and is_namespace_stub(existing))
 
 
 def _remove(path: Path) -> None:
@@ -95,7 +203,7 @@ def merge(into: Path, sources: Sequence[Path]) -> list[tuple[Path, Path | None, 
                     # The wheel extractor treats any execute bit as executable
                     # (py/tools/unpack/unpack.py). Other mode differences may
                     # reflect executor umask and are benign for identical data.
-                    if filecmp.cmp(str(src_file), str(dest), shallow=False):
+                    if _equivalent(src_file, dest):
                         src_executable = bool(src_file.stat().st_mode & 0o111)
                         dest_executable = bool(dest.stat().st_mode & 0o111)
                         if src_executable != dest_executable:
