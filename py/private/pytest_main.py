@@ -26,8 +26,6 @@ except ModuleNotFoundError as e:
     print("ERROR: pytest must be included in the deps of the py_pytest_main or py_test target")
     raise e
 
-cov = launcher_env.start_coverage()
-
 from pytest_shard import ShardPlugin
 
 def main() -> int:
@@ -37,6 +35,7 @@ def main() -> int:
     # (not their directory) scopes collection to this target's own srcs — a
     # workspace-root source would otherwise leave pytest to recurse the whole
     # runfiles tree.
+    runfiles_root = os.getcwd()
     test_paths: list[str] = []
     target_name = os.environ.get("BAZEL_TARGET_NAME", "")
     target = os.environ.get("BAZEL_TARGET", "")
@@ -52,6 +51,9 @@ def main() -> int:
 
     # This statement will be replaced if the user provides a chdir path
     _ = 0  # no-op
+
+    # After the chdir so coverage discovers its config from the chdir target.
+    cov = launcher_env.start_coverage(runfiles_root)
 
     os.environ["ENV"] = "testing"
 
