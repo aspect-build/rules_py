@@ -145,6 +145,7 @@ def start_coverage(runfiles_root: str = os.curdir) -> "Coverage | None":
         return None
     try:
         import coverage
+        import coverage.exceptions
         import coverage.files
     except ModuleNotFoundError as e:
         print("WARNING: python coverage setup failed. Do you need to include the 'coverage' package as a dependency of the test target?", e)
@@ -159,11 +160,18 @@ def start_coverage(runfiles_root: str = os.curdir) -> "Coverage | None":
 
     # Include patterns must be absolute: coveragepy matches relative patterns
     # against the CWD, so a test with `chdir` set would match nothing.
+    # Empty source options keep user config from overriding `include`.
     rcfile = os.environ.get("COVERAGE_RCFILE")
     cov = coverage.Coverage(
         config_file=os.path.join(runfiles_root, rcfile) if rcfile else True,
         include=list(_absfile_mapping.keys()),
+        source=[],
+        source_pkgs=[],
     )
+    try:
+        cov.set_option("run:source_dirs", [])
+    except coverage.exceptions.ConfigError:
+        pass  # coverage < 7.8 has no source_dirs
     cov.start()
     return cov
 

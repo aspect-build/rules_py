@@ -76,6 +76,9 @@ check_branches bazel-testlogs/coverage-drivers/coverage_pytest_chdir_test/covera
 # The runfiles-relative COVERAGE_RCFILE must not be resolved against the chdir.
 check_coverage //coverage-drivers:coverage_pytest_chdir_rcfile_test bazel-testlogs/coverage-drivers/coverage_pytest_chdir_rcfile_test/coverage.dat
 check_branches bazel-testlogs/coverage-drivers/coverage_pytest_chdir_rcfile_test/coverage.dat
+for rc in data_file relative_files source source_dirs source_pkgs; do
+    check_coverage "//coverage-drivers:coverage_pytest_rcfile_${rc}_test" "bazel-testlogs/coverage-drivers/coverage_pytest_rcfile_${rc}_test/coverage.dat"
+done
 check_coverage //coverage-drivers:coverage_unittest_test bazel-testlogs/coverage-drivers/coverage_unittest_test/coverage.dat
 
 echo "All coverage driver checks passed."

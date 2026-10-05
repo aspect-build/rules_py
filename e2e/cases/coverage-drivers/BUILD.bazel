@@ -91,3 +91,28 @@ py_pytest_test(
         "@pypi_coverage_drivers//pytest",
     ],
 )
+
+# User coverage config must not override the manifest include or the SF: path
+# mapping. Each target points COVERAGE_RCFILE at one conflicting setting.
+[
+    py_pytest_test(
+        name = "coverage_pytest_rcfile_%s_test" % rc,
+        srcs = ["cov_add_test.py"],
+        data = ["rcfiles/%s.coveragerc" % rc],
+        dep_group = "coverage-drivers",
+        env = {"COVERAGE_RCFILE": "coverage-drivers/rcfiles/%s.coveragerc" % rc},
+        imports = ["."],
+        deps = [
+            ":lib",
+            "@pypi_coverage_drivers//coverage",
+            "@pypi_coverage_drivers//pytest",
+        ],
+    )
+    for rc in [
+        "data_file",
+        "relative_files",
+        "source",
+        "source_dirs",
+        "source_pkgs",
+    ]
+]
