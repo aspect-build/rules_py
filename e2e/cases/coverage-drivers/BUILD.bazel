@@ -37,12 +37,16 @@ py_unittest_test(
 # Regression: a baked chdir must not empty the coverage data. COVERAGE_MANIFEST
 # holds execroot-relative paths and coveragepy matches relative include patterns
 # against the CWD, so the pre-chdir `cov.start()` alone isn't enough — the
-# patterns have to be absolute.
+# patterns have to be absolute. Coverage must also read its config from the
+# chdir target (chdir_data/pyproject.toml enables branch coverage).
 py_pytest_test(
     name = "coverage_pytest_chdir_test",
     srcs = ["cov_add_test.py"],
     chdir = "coverage-drivers/chdir_data",
-    data = ["chdir_data/keep.txt"],
+    data = [
+        "chdir_data/keep.txt",
+        "chdir_data/pyproject.toml",
+    ],
     dep_group = "coverage-drivers",
     imports = ["."],
     deps = [
@@ -67,3 +71,48 @@ py_pytest_test(
         "@pypi_coverage_drivers//pytest",
     ],
 )
+
+# A runfiles-relative COVERAGE_RCFILE must still resolve from the runfiles root
+# after the chdir; rcfiles/branch.coveragerc is the only config enabling branches.
+py_pytest_test(
+    name = "coverage_pytest_chdir_rcfile_test",
+    srcs = ["cov_add_test.py"],
+    chdir = "coverage-drivers/chdir_data",
+    data = [
+        "chdir_data/keep.txt",
+        "rcfiles/branch.coveragerc",
+    ],
+    dep_group = "coverage-drivers",
+    env = {"COVERAGE_RCFILE": "$(rootpath rcfiles/branch.coveragerc)"},
+    imports = ["."],
+    deps = [
+        ":lib",
+        "@pypi_coverage_drivers//coverage",
+        "@pypi_coverage_drivers//pytest",
+    ],
+)
+
+# User coverage config must not override the manifest include or the SF: path
+# mapping. Each target points COVERAGE_RCFILE at one conflicting setting.
+[
+    py_pytest_test(
+        name = "coverage_pytest_rcfile_%s_test" % rc,
+        srcs = ["cov_add_test.py"],
+        data = ["rcfiles/%s.coveragerc" % rc],
+        dep_group = "coverage-drivers",
+        env = {"COVERAGE_RCFILE": "coverage-drivers/rcfiles/%s.coveragerc" % rc},
+        imports = ["."],
+        deps = [
+            ":lib",
+            "@pypi_coverage_drivers//coverage",
+            "@pypi_coverage_drivers//pytest",
+        ],
+    )
+    for rc in [
+        "data_file",
+        "relative_files",
+        "source",
+        "source_dirs",
+        "source_pkgs",
+    ]
+]

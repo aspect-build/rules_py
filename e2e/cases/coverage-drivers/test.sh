@@ -57,9 +57,28 @@ check_coverage() {
     echo "OK: ${target} emitted LCOV with foo.py coverage and the expected fixups."
 }
 
+# Only a config file read by coverage enables branch coverage.
+check_branches() {
+    local datfile="$1"
+
+    grep -q '^BRDA:' "${datfile}" || {
+        echo "FAIL: no BRDA: records in ${datfile}; coverage ignored the branch config" >&2
+        cat "${datfile}" >&2
+        exit 1
+    }
+}
+
 check_coverage //coverage-drivers:coverage_pytest_test bazel-testlogs/coverage-drivers/coverage_pytest_test/coverage.dat
 check_coverage //coverage-drivers:coverage_pytest_codegen_test bazel-testlogs/coverage-drivers/coverage_pytest_codegen_test/coverage.dat
 check_coverage //coverage-drivers:coverage_pytest_chdir_test bazel-testlogs/coverage-drivers/coverage_pytest_chdir_test/coverage.dat
+# chdir_data/pyproject.toml is only found if coverage starts after the chdir.
+check_branches bazel-testlogs/coverage-drivers/coverage_pytest_chdir_test/coverage.dat
+# The runfiles-relative COVERAGE_RCFILE must not be resolved against the chdir.
+check_coverage //coverage-drivers:coverage_pytest_chdir_rcfile_test bazel-testlogs/coverage-drivers/coverage_pytest_chdir_rcfile_test/coverage.dat
+check_branches bazel-testlogs/coverage-drivers/coverage_pytest_chdir_rcfile_test/coverage.dat
+for rc in data_file relative_files source source_dirs source_pkgs; do
+    check_coverage "//coverage-drivers:coverage_pytest_rcfile_${rc}_test" "bazel-testlogs/coverage-drivers/coverage_pytest_rcfile_${rc}_test/coverage.dat"
+done
 check_coverage //coverage-drivers:coverage_unittest_test bazel-testlogs/coverage-drivers/coverage_unittest_test/coverage.dat
 
 echo "All coverage driver checks passed."
