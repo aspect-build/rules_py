@@ -87,38 +87,34 @@ jobs:
                 bazel run $BAZEL_ASPECT_FLAGS @uv -- run --locked --group dev -- ty check --python-version 3.11 --error-on-warning --output-format github "${runtime311[@]}"
     test:
         name: test (${{ matrix.workspace.path }}, ${{ matrix.bazel.id }})
-        # Workspaces that ask for the 32-core runner get the Aspect Workflows
-        # `aspect-large` pool instead. Fork PRs get no repo secrets and must not run
-        # on self-hosted runners, so they keep GitHub's 32-core runner.
-        runs-on: ${{ (matrix.workspace.runner == 'ubuntu-22.04-32core' && github.event.pull_request.head.repo.fork != true) && fromJSON('["self-hosted","aspect-workflows","aspect-large"]') || matrix.workspace.runner }}
-        # Self-hosted runners have no cheap default ceiling; GitHub's is 6h.
+        runs-on: ubuntu-latest
         timeout-minutes: 90
         strategy:
             fail-fast: false
             matrix:
                 workspace:
-                - { path: ".", slug: "root", runner: "ubuntu-latest" }
-                - { path: "e2e/cases", slug: "e2e", runner: "ubuntu-22.04-32core" }
-                - { path: "e2e/crossbuild", slug: "e2e-crossbuild", runner: "ubuntu-22.04-32core" }
-                - { path: "e2e/interpreter-runtime-metadata", slug: "e2e-interpreter-runtime-metadata", runner: "ubuntu-latest" }
-                - { path: "e2e/interpreter-toolchain-settings", slug: "e2e-interpreter-toolchain-settings", runner: "ubuntu-latest" }
-                - { path: "e2e/interpreter-input-validation", slug: "e2e-interpreter-input-validation", runner: "ubuntu-latest" }
-                - { path: "e2e/interpreter-build-config", slug: "e2e-interpreter-build-config", runner: "ubuntu-latest" }
-                - { path: "e2e/rules-python-interop", slug: "e2e-rules-python-interop", runner: "ubuntu-latest" }
-                - { path: "e2e/rules-python-provider-compat", slug: "e2e-rules-python-provider-compat", runner: "ubuntu-latest" }
-                - { path: "e2e/rules-python-protobuf", slug: "e2e-rules-python-protobuf", runner: "ubuntu-22.04-32core" }
-                - { path: "e2e/rules-lint-ty", slug: "e2e-rules-lint-ty", runner: "ubuntu-latest" }
-                - { path: "examples/debugger", slug: "examples-debugger", runner: "ubuntu-latest" }
-                - { path: "examples/dev_deps", slug: "examples-dev_deps", runner: "ubuntu-latest" }
-                - { path: "examples/django", slug: "examples-django", runner: "ubuntu-latest" }
-                - { path: "examples/multi_version", slug: "examples-multi_version", runner: "ubuntu-latest" }
-                - { path: "examples/py_binary", slug: "examples-py_binary", runner: "ubuntu-latest" }
-                - { path: "examples/py_pex_binary", slug: "examples-py_pex_binary", runner: "ubuntu-latest" }
-                - { path: "examples/py_venv", slug: "examples-py_venv", runner: "ubuntu-latest" }
-                - { path: "examples/pytest", slug: "examples-pytest", runner: "ubuntu-latest" }
-                - { path: "examples/uv_pip_compile", slug: "examples-uv_pip_compile", runner: "ubuntu-latest" }
-                - { path: "examples/virtual_deps", slug: "examples-virtual_deps", runner: "ubuntu-latest" }
-                - { path: "examples/protobuf", slug: "examples-protobuf", runner: "ubuntu-22.04-32core" }
+                - { path: ".", slug: "root" }
+                - { path: "e2e/cases", slug: "e2e" }
+                - { path: "e2e/crossbuild", slug: "e2e-crossbuild" }
+                - { path: "e2e/interpreter-runtime-metadata", slug: "e2e-interpreter-runtime-metadata" }
+                - { path: "e2e/interpreter-toolchain-settings", slug: "e2e-interpreter-toolchain-settings" }
+                - { path: "e2e/interpreter-input-validation", slug: "e2e-interpreter-input-validation" }
+                - { path: "e2e/interpreter-build-config", slug: "e2e-interpreter-build-config" }
+                - { path: "e2e/rules-python-interop", slug: "e2e-rules-python-interop" }
+                - { path: "e2e/rules-python-provider-compat", slug: "e2e-rules-python-provider-compat" }
+                - { path: "e2e/rules-python-protobuf", slug: "e2e-rules-python-protobuf" }
+                - { path: "e2e/rules-lint-ty", slug: "e2e-rules-lint-ty" }
+                - { path: "examples/debugger", slug: "examples-debugger" }
+                - { path: "examples/dev_deps", slug: "examples-dev_deps" }
+                - { path: "examples/django", slug: "examples-django" }
+                - { path: "examples/multi_version", slug: "examples-multi_version" }
+                - { path: "examples/py_binary", slug: "examples-py_binary" }
+                - { path: "examples/py_pex_binary", slug: "examples-py_pex_binary" }
+                - { path: "examples/py_venv", slug: "examples-py_venv" }
+                - { path: "examples/pytest", slug: "examples-pytest" }
+                - { path: "examples/uv_pip_compile", slug: "examples-uv_pip_compile" }
+                - { path: "examples/virtual_deps", slug: "examples-virtual_deps" }
+                - { path: "examples/protobuf", slug: "examples-protobuf" }
                 bazel:
                 # An empty version falls back to the workspace's .bazelversion, which validates
                 # the committed MODULE.bazel.lock; alternate versions may regenerate it instead.
@@ -126,12 +122,6 @@ jobs:
                 - { id: "bazel-9", version: "9.x", flags: "--bazel-flag=--test_tag_filters=-skip-on-bazel9 --bazel-flag=--lockfile_mode=update" }
         env:
             USE_BAZEL_VERSION: ${{ matrix.bazel.version }}
-            # `runs-on` above, read back: --remote only where this entry lands on
-            # a GitHub-hosted runner. On a self-hosted Aspect Workflows runner the
-            # ASPECT_WORKFLOWS_* environment already names the deployment every
-            # task builds against, and the CLI fails the task rather than route
-            # the build off it.
-            REMOTE_FLAG: ${{ (secrets.ASPECT_OSS_API_TOKEN != '' && (matrix.workspace.runner != 'ubuntu-22.04-32core' || github.event.pull_request.head.repo.fork == true)) && '--remote' || '' }}
         steps:
             - uses: actions/checkout@v6
             - uses: aspect-build/setup-aspect@2306377a61c45954ab2df7c7311698b109364352 # v2026.26.9
@@ -145,19 +135,6 @@ jobs:
                 if [ -f test.sh ]; then
                     bash test.sh
                 fi
-            # Self-hosted runners keep the Bazel server alive between jobs, and both
-            # bazel legs share one output base. A client of another Bazel version
-            # kills that server with `shutdown`, on which Bazel's lockfile module
-            # also runs: a 9.x server left by the bazel-9 leg rewrites
-            # MODULE.bazel.lock (lockFileVersion 28) after actions/checkout has
-            # restored the committed file, and the bazel-8 leg then fails
-            # --lockfile_mode=error. Shutting down here keeps that write inside the
-            # job that owns the server, ahead of the next checkout.
-            - name: Shut down the Bazel server
-              if: always() && runner.environment == 'self-hosted'
-              working-directory: ${{ matrix.workspace.path }}
-              timeout-minutes: 5
-              run: bazel shutdown
 
     test-darwin:
         name: test (., ${{ matrix.runner }})
@@ -266,7 +243,7 @@ jobs:
 
     crossbuild-wheels-amd64:
         name: build wheels on amd64
-        runs-on: ubuntu-22.04-32core
+        runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v6
             - uses: aspect-build/setup-aspect@2306377a61c45954ab2df7c7311698b109364352 # v2026.26.9
