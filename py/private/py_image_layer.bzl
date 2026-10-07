@@ -1106,6 +1106,12 @@ def _py_image_layer_impl(ctx):
     binaries = ctx.attr.binaries
     if not binaries:
         fail("py_image_layer requires at least one binary")
+    for binary in binaries:
+        if PyInfo not in binary:
+            fail(
+                "py_image_layer: {} is not a rules_py py_binary or py_test. ".format(binary.label) +
+                "Native launchers, transition wrappers and rules_python binaries are not supported.",
+            )
     single_binary = len(binaries) == 1
     infos = [binary[_LayerInfo] for binary in binaries]
     bsdtar, bsdtar_files = _tar_toolchain(ctx)

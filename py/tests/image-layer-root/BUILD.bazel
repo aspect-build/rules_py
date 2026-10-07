@@ -1,0 +1,52 @@
+load("@bazel_lib//lib:transitions.bzl", "platform_transition_binary")
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+load("//py:defs.bzl", "py_binary", "py_image_layer", "py_venv")
+load("//py/tests:analysis_failure_test.bzl", "analysis_failure_test")
+
+py_venv(
+    name = "venv",
+    tags = ["manual"],
+)
+
+sh_binary(
+    name = "native_launcher",
+    srcs = ["launcher.sh"],
+    data = [":venv"],
+    tags = ["manual"],
+)
+
+py_image_layer(
+    name = "native_launcher_layers",
+    binary = ":native_launcher",
+)
+
+analysis_failure_test(
+    name = "native_launcher_test",
+    expected_error = "is not a rules_py py_binary or py_test",
+    target_under_test = ":native_launcher_layers",
+)
+
+py_binary(
+    name = "app",
+    srcs = ["main.py"],
+    main = "main.py",
+    tags = ["manual"],
+)
+
+platform_transition_binary(
+    name = "transitioned_app",
+    binary = ":app",
+    tags = ["manual"],
+    target_platform = "@platforms//host",
+)
+
+py_image_layer(
+    name = "transitioned_app_layers",
+    binary = ":transitioned_app",
+)
+
+analysis_failure_test(
+    name = "transition_wrapper_test",
+    expected_error = "is not a rules_py py_binary or py_test",
+    target_under_test = ":transitioned_app_layers",
+)
