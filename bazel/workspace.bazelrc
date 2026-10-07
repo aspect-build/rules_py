@@ -13,5 +13,10 @@ common --incompatible_strict_action_env
 common:ci --remote_download_outputs=minimal
 common:ci --nobuild_runfile_links
 
+# --jobs defaults to the core count, which caps remote cache lookups and downloads
+# at 4 in flight on a GitHub-hosted runner. Local actions stay bounded by
+# --local_resources.
+common:ci --jobs=64
+
 # Strip the configuration from output paths of actions that support path mapping.
 build --experimental_output_paths=strip
