@@ -1,5 +1,5 @@
 load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
-load("//py:defs.bzl", "py_test")
+load("//py:defs.bzl", "py_library", "py_test")
 
 package(default_testonly = True)
 
@@ -31,12 +31,25 @@ cc_binary(
     deps = ["//py:current_py_cc_headers_abi3"],
 )
 
+py_library(
+    name = "example_library_stubs",
+    srcs = ["example_library.pyi"],
+    imports = ["."],
+)
+
+py_library(
+    name = "limited_api_library_stubs",
+    srcs = ["limited_api_library.pyi"],
+    imports = ["."],
+)
+
 # Python extensions retain the terminal's interpreter configuration through
 # deps so their headers match the runtime that imports them.
 py_test(
     name = "test_smoke",
     srcs = ["test_smoke.py"],
     imports = ["."],
+    pyi_deps = [":example_library_stubs"],
     python_version = "3.13",
     target_compatible_with = _WINDOWS_INCOMPATIBLE,
     deps = [":example_library.so"],
@@ -46,6 +59,7 @@ py_test(
     name = "test_limited_api",
     srcs = ["test_limited_api.py"],
     imports = ["."],
+    pyi_deps = [":limited_api_library_stubs"],
     python_version = "3.13",
     target_compatible_with = _WINDOWS_INCOMPATIBLE,
     deps = [":limited_api_library.so"],

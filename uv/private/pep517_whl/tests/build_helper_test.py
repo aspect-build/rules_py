@@ -364,49 +364,49 @@ class WheelPlatformErrorTest(unittest.TestCase):
         error = build_helper._wheel_platform_error(
             "pkg-1.0-cp313-cp313-macosx_11_0_arm64.whl", "linux", "aarch64", host_os="darwin"
         )
-        self.assertIsNotNone(error)
+        assert error is not None
         self.assertIn("exec host OS 'macosx'", error)
 
     def test_linux_tag_for_darwin_target_on_linux_host_is_a_leak(self) -> None:
         error = build_helper._wheel_platform_error(
             "pkg-1.0-cp313-cp313-manylinux_2_17_aarch64.whl", "darwin", "aarch64", host_os="linux"
         )
-        self.assertIsNotNone(error)
+        assert error is not None
         self.assertIn("exec host OS 'linux'", error)
 
     def test_wrong_os_without_leak_reports_missing_target_os(self) -> None:
         error = build_helper._wheel_platform_error(
             "pkg-1.0-cp313-cp313-macosx_10_9_x86_64.whl", "windows", "x86_64", host_os="linux"
         )
-        self.assertIsNotNone(error)
+        assert error is not None
         self.assertIn("does not contain target OS 'win'", error)
 
     def test_wrong_cpu_reports_missing_target_cpu(self) -> None:
         error = build_helper._wheel_platform_error(
             "pkg-1.0-cp313-cp313-manylinux_2_17_x86_64.whl", "linux", "aarch64", host_os="linux"
         )
-        self.assertIsNotNone(error)
+        assert error is not None
         self.assertIn("does not contain target CPU 'aarch64'", error)
 
     def test_darwin_tag_spelled_aarch64_fails_cpu_check(self) -> None:
         error = build_helper._wheel_platform_error(
             "pkg-1.0-cp313-cp313-macosx_11_0_aarch64.whl", "darwin", "aarch64", host_os="darwin"
         )
-        self.assertIsNotNone(error)
+        assert error is not None
         self.assertIn("target CPU 'arm64'", error)
 
     def test_universal2_does_not_bypass_non_darwin_targets(self) -> None:
         error = build_helper._wheel_platform_error(
             "pkg-1.0-cp313-cp313-macosx_11_0_universal2.whl", "linux", "aarch64", host_os="linux"
         )
-        self.assertIsNotNone(error)
+        assert error is not None
         self.assertIn("does not contain target OS 'linux'", error)
 
     def test_bare_linux_arm_tag_fails_armv7l_check(self) -> None:
         error = build_helper._wheel_platform_error(
             "pkg-1.0-cp313-cp313-linux_arm.whl", "linux", "arm", host_os="linux"
         )
-        self.assertIsNotNone(error)
+        assert error is not None
         self.assertIn("target CPU 'armv7l'", error)
 
 

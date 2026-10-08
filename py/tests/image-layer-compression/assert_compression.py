@@ -8,7 +8,7 @@ container. `--absent SUFFIX` asserts no layer matches.
 import argparse
 import sys
 import tarfile
-from typing import NoReturn
+from typing import Literal, NoReturn
 
 # libarchive picks the filter from the bsdtar flag, not the file name, so the
 # leading bytes are what actually prove the flag reached the tar action.
@@ -26,7 +26,7 @@ MAGIC = {
 
 # Containers the standard library can open get checked for real; the rest
 # (zstd, lz4, .Z) stop at the magic check.
-TARFILE_MODES = {
+TARFILE_MODES: dict[str, Literal["r:", "r:gz", "r:bz2", "r:xz"]] = {
     ".tar": "r:",
     ".tar.gz": "r:gz",
     ".tar.bz2": "r:bz2",

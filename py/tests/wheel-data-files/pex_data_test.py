@@ -21,6 +21,7 @@ RLOCATIONS = {
 
 def main() -> None:
     r = runfiles.Create()
+    assert r is not None, "runfiles not found"
     found = []
     for rlocation, expected in RLOCATIONS.items():
         path = r.Rlocation(rlocation)

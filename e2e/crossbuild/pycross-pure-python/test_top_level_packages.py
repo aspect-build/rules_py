@@ -28,8 +28,10 @@ class TopLevelPackagesTest(unittest.TestCase):
         for pkg in self._get_packages():
             with self.subTest(package=pkg):
                 spec = importlib.util.find_spec(pkg)
-                self.assertIsNotNone(spec, f"{pkg} module spec not found")
-                self.assertIsNotNone(spec.origin, f"{pkg} has no origin (namespace package?)")
+                if spec is None:
+                    self.fail(f"{pkg} module spec not found")
+                if spec.origin is None:
+                    self.fail(f"{pkg} has no origin (namespace package?)")
                 self.assertIn(
                     "site-packages",
                     spec.origin,

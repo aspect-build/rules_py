@@ -21,7 +21,9 @@ PKG = "_main/py/tests/py-pex-binary"
 def read_pex(name: str) -> tuple[str, dict[str, object]]:
     # source_repo skips CurrentRepository's caller-frame inspection, which
     # cannot see through the venv's site-packages indirection.
+    assert r is not None, "runfiles not found"
     path = r.Rlocation("{}/{}.pex".format(PKG, name), source_repo="")
+    assert path is not None, "{}.pex not found in runfiles".format(name)
     with open(path, "rb") as f:
         shebang = f.readline().rstrip(b"\r\n").decode()
     with zipfile.ZipFile(path) as zf:
@@ -66,7 +68,9 @@ assert info.get("inherit_path", "false") == "false", info
 # structural exclusions: the sibling venv's `.pth`/`pyvenv.cfg` plumbing and the
 # interpreter must be filtered out, while first-party `data` files are kept.
 def pex_names(name: str) -> list[str]:
+    assert r is not None, "runfiles not found"
     path = r.Rlocation("{}/{}.pex".format(PKG, name), source_repo="")
+    assert path is not None, "{}.pex not found in runfiles".format(name)
     with zipfile.ZipFile(path) as zf:
         return zf.namelist()
 

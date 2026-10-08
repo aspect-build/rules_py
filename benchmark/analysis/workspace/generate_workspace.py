@@ -42,6 +42,15 @@ EXTERNAL_DEPS = [
     "djangorestframework",
 ]
 
+# Import names of the external deps whose distribution names differ.
+IMPORT_NAMES = {
+    "beautifulsoup4": "bs4",
+    "djangorestframework": "rest_framework",
+    "factory_boy": "factory",
+    "ipython": "IPython",
+    "pyyaml": "yaml",
+}
+
 # Extras unique to each PEP 735 group in pyproject.toml (dev/test include the
 # default group, so default-pool deps stay resolvable under every group).
 GROUP_EXTRA_DEPS = {
@@ -187,7 +196,8 @@ def generate_package(
 
     # External deps are just imported to create real load-time edges.
     for dep in external_deps:
-        imports.append(f"import {dep.split('//')[-1]}")
+        dist = dep.split("//")[-1]
+        imports.append(f"import {IMPORT_NAMES.get(dist, dist)}")
 
     (pkg_dir / "__init__.py").write_text(INIT_TEMPLATE.format(name=name))
     (pkg_dir / "lib.py").write_text(

@@ -2,4 +2,4 @@
 
 import cowsay
 
-cowsay.cow("bench")
+print(cowsay.get_output_string("cow", "bench"))

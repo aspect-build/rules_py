@@ -65,7 +65,7 @@ def _load_unpack(path: Path) -> ModuleType:
     return module
 
 
-def _record_rows(site_packages: Path) -> list[tuple[str, str, str]]:
+def _record_rows(site_packages: Path) -> list[list[str]]:
     record_path = next(site_packages.glob("*.dist-info/RECORD"))
     with record_path.open(newline="", encoding="utf-8") as record:
         return list(csv.reader(record))
@@ -197,7 +197,7 @@ def main() -> None:
             hashed_names.add(path.name)
             return original_sha256(path)
 
-        unpack_module._sha256 = recording_sha256
+        setattr(unpack_module, "_sha256", recording_sha256)
         unpack_module.install_wheel(
             f"{sys.version_info.major}.{sys.version_info.minor}",
             record_out,
@@ -999,6 +999,7 @@ else:
         )
 
         distribution, = importlib.metadata.distributions(path=[str(filtered_site_packages)])
+        assert distribution.files is not None
         recorded = {str(path): path for path in distribution.files}
         assert "demo/keep.py" in recorded
         assert "../../../share/demo/retained.txt" in recorded
@@ -1034,6 +1035,7 @@ else:
                 assert path.hash is None and path.size is None
                 continue
             assert path.size == installed.stat().st_size
+            assert path.hash is not None, name
             assert path.hash.mode == "sha256"
             digest = urlsafe_b64encode(hashlib.sha256(installed.read_bytes()).digest())
             assert path.hash.value == digest.decode().rstrip("=")

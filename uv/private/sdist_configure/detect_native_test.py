@@ -8,7 +8,7 @@ import tempfile
 import zipfile
 from collections.abc import Mapping
 
-from uv.private.sdist_configure.detect_native import detect
+from uv.private.sdist_configure.detect_native import ConfigureContext, detect
 
 
 def _make_tar_gz(members: Mapping[str, str | None]) -> str:
@@ -224,7 +224,7 @@ build-backend = "setuptools.build_meta"
         "pkg-1.0/pyproject.toml": pyproject,
         "pkg-1.0/pkg/__init__.py": "",
     })
-    context = {
+    context: ConfigureContext = {
         "deps": [],
         "available_deps": {
             "setuptools": "@pypi//setuptools:install",
@@ -248,7 +248,7 @@ build-backend = "setuptools.build_meta"
         "pkg-1.0/pyproject.toml": pyproject,
         "pkg-1.0/pkg/__init__.py": "",
     })
-    context = {
+    context: ConfigureContext = {
         "deps": ["@pypi//setuptools:install"],
         "available_deps": {
             "setuptools": "@pypi//setuptools:install",
@@ -273,7 +273,7 @@ build-backend = "setuptools.build_meta"
         "pkg-1.0/pyproject.toml": pyproject,
         "pkg-1.0/pkg/__init__.py": "",
     })
-    context = {
+    context: ConfigureContext = {
         "deps": [],
         "available_deps": {
             "setuptools": "@pypi//setuptools:install",
@@ -294,7 +294,7 @@ def test_inferred_deps_in_extra_deps() -> None:
         "pkg-1.0/pkg/fast.pyx": "# cython",
         "pkg-1.0/pkg/__init__.py": "",
     })
-    context = {
+    context: ConfigureContext = {
         "deps": [],
         "available_deps": {
             "cython": "@pypi//cython:install",
@@ -650,7 +650,7 @@ def test_setup_py_setup_requires_in_extra_deps() -> None:
         ),
         "pkg-1.0/pkg/__init__.py": "",
     })
-    context = {
+    context: ConfigureContext = {
         "deps": [],
         "available_deps": {
             "cython": "@pypi//cython:install",
