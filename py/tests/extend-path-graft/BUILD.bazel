@@ -79,6 +79,9 @@ py_test(
     main = "extend_path_graft_test.py",
     # Both wheels claim `graftpkg`; downgrade so the venv still assembles.
     package_collisions = "warning",
+    # The checker sees each wheel's `graftpkg` separately; only the venv
+    # merges them.
+    type_check = False,
     # Last dep wins the collision, so the winner goes last.
     deps = [
         ":graftloser",

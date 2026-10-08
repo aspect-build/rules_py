@@ -6,5 +6,7 @@ py_library(
         ":pytest_shard.py",
     ],
     imports = ["."],
+    # This target cannot be type-checked without a hard dependency on pytest.
+    type_check = False,
     visibility = ["//visibility:public"],
 )

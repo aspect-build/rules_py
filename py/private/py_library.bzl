@@ -11,6 +11,8 @@ load("//py/private:pth.bzl", "make_imports_depset")
 load("//py/private:py_info.bzl", "PyInfo")
 load("//py/private:py_info_interop.bzl", "RulesPythonPyInfo", "get_py_info", "get_pyi_imports", "get_transitive_pyi_files", "get_transitive_sources", "has_py_info")
 load("//py/private:transitions.bzl", "reset_python_flags_transition")
+load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN")
+load("//py/private/type_check:type_check.bzl", "TYPE_CHECK_ATTRS", "TYPE_CHECK_EXEC_GROUPS", "type_check_validation")
 
 def _is_type_stub(file):
     return file.extension == "pyi"
@@ -216,6 +218,19 @@ def _py_library_impl(ctx):
         PyWheelsInfo(
             wheels = wheels,
         ),
+        OutputGroupInfo(
+            _validation = type_check_validation(
+                ctx,
+                # A library's own virtual deps only resolve in the binaries
+                # that pick an implementation, so its imports of them can't
+                # be checked here.
+                srcs = [] if getattr(ctx.attr, "virtual_deps", None) else ctx.files.srcs,
+                transitive_sources = transitive_srcs,
+                transitive_pyi_files = transitive_pyi_files,
+                imports = imports,
+                pyi_imports = pyi_imports,
+            ),
+        ),
         instrumented_files_info,
     ]
 
@@ -285,7 +300,7 @@ _attrs = dict({
         """,
         providers = [[PyInfo], [RulesPythonPyInfo]],
     ),
-})
+}, **TYPE_CHECK_ATTRS)
 
 _providers = [
     DefaultInfo,
@@ -313,4 +328,8 @@ py_library = rule(
         "_emit_rules_python_providers": attr.label(default = "//py/private:emit_rules_python_providers"),
     }, **py_library_utils.attrs),
     provides = py_library_utils.py_library_providers,
+    # The interpreter toolchain gives the type check its target Python
+    # version. Optional so libraries keep analyzing without one.
+    toolchains = [config_common.toolchain_type(PY_TOOLCHAIN, mandatory = False)],
+    exec_groups = TYPE_CHECK_EXEC_GROUPS,
 )

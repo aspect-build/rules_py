@@ -1,0 +1,143 @@
+load("//py:defs.bzl", "py_binary", "py_library", "py_type_checker_toolchain")
+load(":type_check_test.bzl", "binary_checker_test", "checked_test", "config_without_flag_test", "env_checker_test", "flag_off_test", "unchecked_test")
+
+py_library(
+    name = "dep",
+    srcs = ["dep/dep.py"],
+    imports = ["dep"],
+)
+
+py_library(
+    name = "lib",
+    srcs = ["lib.py"],
+    imports = ["."],
+    pyi_deps = ["@pypi//cowsay"],
+    deps = [":dep"],
+)
+
+py_library(
+    name = "opted_out",
+    srcs = ["lib.py"],
+    type_check = False,
+    deps = [":dep"],
+)
+
+py_library(
+    name = "no_srcs",
+    deps = [":lib"],
+)
+
+py_binary(
+    name = "bin",
+    srcs = ["main.py"],
+    deps = [":lib"],
+)
+
+py_binary(
+    name = "bin_opted_out",
+    srcs = ["main.py"],
+    type_check = False,
+    deps = [":lib"],
+)
+
+# The library's own source is checked against the target Python version, with
+# first-party, pyi_deps and wheel import roots as search paths.
+checked_test(
+    name = "library_test",
+    argv = [
+        "--src=py/tests/type-check/lib.py",
+        "--python-version",
+        "3.13",
+        "--python-version-flag=--python-version",
+        "--search-path-flag=--extra-search-path",
+        "--import=_main/py/tests/type-check/dep",
+    ],
+    argv_fragments = ["cowsay"],
+    # pyi_deps roots come first, so stubs take precedence over runtime packages.
+    argv_order = [
+        "cowsay",
+        "--import=_main/py/tests/type-check/dep",
+    ],
+    target_under_test = ":lib",
+)
+
+# py_binary's sources are checked on its venv, which the launcher depends on.
+checked_test(
+    name = "binary_test",
+    argv = ["--src=py/tests/type-check/main.py"],
+    target_under_test = ":_bin.venv",
+)
+
+unchecked_test(
+    name = "opted_out_test",
+    target_under_test = ":opted_out",
+)
+
+unchecked_test(
+    name = "binary_opted_out_test",
+    target_under_test = ":_bin_opted_out.venv",
+)
+
+unchecked_test(
+    name = "no_srcs_test",
+    target_under_test = ":no_srcs",
+)
+
+flag_off_test(
+    name = "flag_off_test",
+    target_under_test = ":lib",
+)
+
+py_type_checker_toolchain(
+    name = "env_checker_impl",
+    checker = "fake_checker.sh",
+    search_path_env = "MYPYPATH",
+)
+
+toolchain(
+    name = "env_checker",
+    toolchain = ":env_checker_impl",
+    toolchain_type = "//py:type_checker_toolchain_type",
+)
+
+env_checker_test(
+    name = "env_checker_test",
+    argv = [
+        "--search-path-env",
+        "MYPYPATH",
+    ],
+    target_under_test = ":lib",
+)
+
+config_without_flag_test(
+    name = "config_without_flag_test",
+    target_under_test = ":lib",
+)
+
+# A checker that is itself a py_binary, as mypy from a lockfile would be. Its
+# own venv must not resolve this toolchain, or analysis cycles.
+py_binary(
+    name = "binary_checker",
+    srcs = ["main.py"],
+    main = "main.py",
+    deps = [":lib"],
+)
+
+py_type_checker_toolchain(
+    name = "binary_checker_impl",
+    checker = ":binary_checker",
+    search_path_flag = "--search-path",
+)
+
+toolchain(
+    name = "binary_checker_toolchain",
+    target_settings = ["//py:type_check_enabled"],
+    toolchain = ":binary_checker_impl",
+    toolchain_type = "//py:type_checker_toolchain_type",
+)
+
+binary_checker_test(
+    name = "binary_checker_test",
+    argv = ["--search-path-flag=--search-path"],
+    target_under_test = ":lib",
+)

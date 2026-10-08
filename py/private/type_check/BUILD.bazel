@@ -1,0 +1,39 @@
+load("@bazel_lib//:bzl_library.bzl", "bzl_library")
+load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
+
+package(default_visibility = ["//py:__subpackages__"])
+
+# Set through the //py:type_check alias; see type_check.bzl.
+bool_flag(
+    name = "type_check_flag",
+    build_setting_default = True,
+)
+
+# Gates the default ty toolchain, so ty is only downloaded when type checking is on.
+config_setting(
+    name = "enabled",
+    flag_values = {":type_check_flag": "true"},
+    visibility = ["//visibility:public"],
+)
+
+# Set through the //py:type_check_config alias. Empty means the toolchain's
+# own default configuration.
+label_flag(
+    name = "config",
+    build_setting_default = ":no_config",
+)
+
+filegroup(name = "no_config")
+
+# Run directly with the exec interpreter rather than as a py_binary: a
+# py_binary runner would itself be type checked, and so depend on itself.
+exports_files(["run_checker.py"])
+
+bzl_library(
+    name = "type_check",
+    srcs = ["type_check.bzl"],
+    deps = [
+        "//py/private/toolchain:types",
+        "@bazel_skylib//rules:common_settings",
+    ],
+)

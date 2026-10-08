@@ -63,6 +63,37 @@ alias(
     visibility = ["//visibility:public"],
 )
 
+# Type checking runs as a validation action on py_library, py_binary and py_test,
+# using the checker from this toolchain type (ty by default). Register a
+# py_type_checker_toolchain to use a different checker.
+toolchain_type(
+    name = "type_checker_toolchain_type",
+    visibility = ["//visibility:public"],
+)
+
+# --@aspect_rules_py//py:type_check=false turns type checking off everywhere.
+alias(
+    name = "type_check",
+    actual = "//py/private/type_check:type_check_flag",
+    visibility = ["//visibility:public"],
+)
+
+# Matches when type checking is on. A custom type checker toolchain() lists it in
+# `target_settings`, so the checker's own Python targets don't resolve it.
+alias(
+    name = "type_check_enabled",
+    actual = "//py/private/type_check:enabled",
+    visibility = ["//visibility:public"],
+)
+
+# --@aspect_rules_py//py:type_check_config=//:ty.toml sets the checker's
+# configuration file, overriding the toolchain's default.
+alias(
+    name = "type_check_config",
+    actual = "//py/private/type_check:config",
+    visibility = ["//visibility:public"],
+)
+
 # Users can set --@aspect_rules_py//py:layer_tier=//path:custom_tier to switch
 # the pip-package grouping + compression plan consumed by py_image_layer.
 label_flag(
@@ -97,6 +128,7 @@ bzl_library(
         "//py/private/interpreter:current_py_toolchain",
         "//py/private/interpreter:runtime",
         "//py/private/py_venv:defs",
+        "//py/private/toolchain:type_checker",
         "@bazel_lib//lib:utils",
         "@rules_python//python:packaging_bzl",
         "@rules_python//python:pip_bzl",
@@ -112,6 +144,7 @@ bzl_library(
     deps = [
         ":toolchains",
         "//py/private/interpreter:extension",
+        "//py/private/toolchain:ty",
         "@aspect_tools_telemetry_report//:defs.bzl",
     ],
 )
@@ -123,6 +156,7 @@ bzl_library(
     deps = [
         "//py/private/toolchain:repo",
         "//py/private/toolchain:tools",
+        "//py/private/toolchain:ty",
         "@bazel_lib//lib:repositories",
         "@bazel_tools//tools/build_defs/repo:http.bzl",
     ],

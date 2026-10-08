@@ -81,6 +81,7 @@ bzl_library(
         "//py/private:py_semantics",
         "//py/private:transitions",
         "//py/private/toolchain:types",
+        "//py/private/type_check",
         "@bazel_lib//lib:expand_make_vars",
         "@bazel_lib//lib:paths",
     ],

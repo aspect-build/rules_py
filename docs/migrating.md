@@ -10,6 +10,21 @@ The rest of the BUILD file can remain the same.
 
 If using Gazelle, see the note on [using with Gazelle](/README.md#gazelle-integration)
 
+## Type checking is on by default
+
+`py_library`, `py_binary` and `py_test` type check their sources with ty as a
+validation action, so code that has never been type checked may fail to build
+after migrating. Fix the errors, opt individual targets out with
+`type_check = False`, or turn checking off until the tree is ready:
+
+```
+# .bazelrc
+common --@aspect_rules_py//py:type_check=false
+```
+
+If you type check with aspect_rules_lint's ty aspect today, this replaces it.
+See [Type checking](type-checking.md).
+
 ## Update virtualenv paths
 
 In rules_py v2.0, `py_venv_link` links the target's complete runfiles tree into
