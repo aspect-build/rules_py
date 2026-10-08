@@ -6,5 +6,7 @@ py_library(
     # module, where a plain name could be shadowed by a user dep.
     srcs = ["aspect_rules_py_launcher_env.py"],
     imports = ["."],
+    # This target cannot be type-checked without a hard dependency on coverage.
+    type_check = False,
     visibility = ["//visibility:public"],
 )

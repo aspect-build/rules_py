@@ -1,7 +1,11 @@
 """Create the toolchains repository for rules_py.
 
-Generates native_build toolchain entries — one per supported platform — that
-back pep517_whl's cross-compilation guard (see NATIVE_BUILD_TOOLCHAIN in types.bzl).
+Generates, per supported platform:
+
+- a native_build toolchain entry backing pep517_whl's cross-compilation guard
+  (see NATIVE_BUILD_TOOLCHAIN in types.bzl);
+- a type checker toolchain entry for the default ty checker (see
+  TYPE_CHECKER_TOOLCHAIN in types.bzl).
 """
 
 load("//py/private/toolchain:tools.bzl", "TOOLCHAIN_PLATFORMS")
@@ -24,9 +28,21 @@ toolchain(
     toolchain_type = "@aspect_rules_py//py/private/toolchain:native_build_toolchain_type",
 )
 
+# The type check runs on the exec platform; any target platform is fine. Gated
+# on the type_check flag so that ty is not resolved or downloaded when type
+# checking is off.
+toolchain(
+    name = "type_checker_{platform}_toolchain",
+    exec_compatible_with = {compatible_with},
+    target_settings = ["@aspect_rules_py//py/private/type_check:enabled"],
+    toolchain = "@{ty_repo}_{platform}//:ty_toolchain",
+    toolchain_type = "@aspect_rules_py//py:type_checker_toolchain_type",
+)
+
 """.format(
             platform = platform,
             compatible_with = meta.compatible_with,
+            ty_repo = repository_ctx.attr.ty_repo_prefix,
         )
 
     repository_ctx.file("BUILD.bazel", build_content)
@@ -35,5 +51,11 @@ toolchain(
 
 toolchains_repo = repository_rule(
     _toolchains_repo_impl,
-    doc = "Creates a repository with native_build toolchain entries for all supported platforms.",
+    doc = "Creates a repository with rules_py's toolchain entries for all supported platforms.",
+    attrs = {
+        "ty_repo_prefix": attr.string(
+            mandatory = True,
+            doc = "Name prefix of the per-platform ty repositories; `_<platform>` is appended.",
+        ),
+    },
 )

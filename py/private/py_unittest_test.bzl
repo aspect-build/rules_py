@@ -93,6 +93,8 @@ def py_unittest_test(
         testonly = True,
         tags = tags,
         deps = [Label("//py/private/launcher_env")],
+        # Generated code; not the caller's to type check.
+        type_check = False,
     )
 
     py_binary_with_venv(
