@@ -26,12 +26,12 @@ concurrency:
 # with no credential.
 env:
     ASPECT_WORKSPACE: ${{ github.workspace }}
-    REMOTE_FLAG: ${{ secrets.ASPECT_OSS_API_TOKEN != '' && '--remote' || '' }}
+    REMOTE_FLAG: ${{ secrets.ASPECT_CLOUD_API_TOKEN != '' && '--remote' || '' }}
     # The vanilla-`bazel` half of the same wiring. The attribution comes with it:
     # the aspect-bes group this chains points --workspace_status_command at
     # `aspect setup workspace-data`, which stamps the same keys an `aspect <task>`
     # sends as --build_metadata.
-    BAZEL_ASPECT_FLAGS: ${{ secrets.ASPECT_OSS_API_TOKEN != '' && '--config=aspect-cloud' || '' }}
+    BAZEL_ASPECT_FLAGS: ${{ secrets.ASPECT_CLOUD_API_TOKEN != '' && '--config=aspect-cloud' || '' }}
 
 jobs:
     buildifier:
@@ -40,7 +40,7 @@ jobs:
             - uses: actions/checkout@v6
             - uses: aspect-build/setup-aspect@2306377a61c45954ab2df7c7311698b109364352 # v2026.26.9
               with:
-                aspect-api-token: ${{ secrets.ASPECT_OSS_API_TOKEN }}
+                aspect-api-token: ${{ secrets.ASPECT_CLOUD_API_TOKEN }}
             - name: Buildifier
               run: aspect buildifier $REMOTE_FLAG --task:name=buildifier
     gazelle:
@@ -49,7 +49,7 @@ jobs:
             - uses: actions/checkout@v6
             - uses: aspect-build/setup-aspect@2306377a61c45954ab2df7c7311698b109364352 # v2026.26.9
               with:
-                aspect-api-token: ${{ secrets.ASPECT_OSS_API_TOKEN }}
+                aspect-api-token: ${{ secrets.ASPECT_CLOUD_API_TOKEN }}
             - name: Gazelle
               run: aspect gazelle $REMOTE_FLAG --task:name=gazelle
     typecheck:
@@ -58,7 +58,7 @@ jobs:
             - uses: actions/checkout@v6
             - uses: aspect-build/setup-aspect@2306377a61c45954ab2df7c7311698b109364352 # v2026.26.9
               with:
-                aspect-api-token: ${{ secrets.ASPECT_OSS_API_TOKEN }}
+                aspect-api-token: ${{ secrets.ASPECT_CLOUD_API_TOKEN }}
             - name: Ruff annotations
               run: bazel run $BAZEL_ASPECT_FLAGS @uv -- run --locked --group dev -- ruff check .
             - name: Typecheck maintained Python
@@ -126,7 +126,7 @@ jobs:
             - uses: actions/checkout@v6
             - uses: aspect-build/setup-aspect@2306377a61c45954ab2df7c7311698b109364352 # v2026.26.9
               with:
-                aspect-api-token: ${{ secrets.ASPECT_OSS_API_TOKEN }}
+                aspect-api-token: ${{ secrets.ASPECT_CLOUD_API_TOKEN }}
             # Plain `bazel` in the test.sh scripts gets none of the flags `aspect test`
             # injects, so point it at the same remote cache from the machine rc. The
             # flags are spelled out because --config=aspect-cloud is defined only at the
@@ -174,7 +174,7 @@ jobs:
                   repository-cache: true
             - uses: aspect-build/setup-aspect@2306377a61c45954ab2df7c7311698b109364352 # v2026.26.9
               with:
-                aspect-api-token: ${{ secrets.ASPECT_OSS_API_TOKEN }}
+                aspect-api-token: ${{ secrets.ASPECT_CLOUD_API_TOKEN }}
             - name: Test
               run: bazel test $BAZEL_ASPECT_FLAGS --test_tag_filters=-skip-on-bazel8 --lockfile_mode=error -- //...
 
@@ -200,7 +200,7 @@ jobs:
             # aspect-cloud rc section names, not as a task runner.
             - uses: aspect-build/setup-aspect@2306377a61c45954ab2df7c7311698b109364352 # v2026.26.9
               with:
-                aspect-api-token: ${{ secrets.ASPECT_OSS_API_TOKEN }}
+                aspect-api-token: ${{ secrets.ASPECT_CLOUD_API_TOKEN }}
             - name: Cross-build linux wheels from macOS
               working-directory: e2e/crossbuild
               shell: bash
@@ -266,7 +266,7 @@ jobs:
             - uses: actions/checkout@v6
             - uses: aspect-build/setup-aspect@2306377a61c45954ab2df7c7311698b109364352 # v2026.26.9
               with:
-                aspect-api-token: ${{ secrets.ASPECT_OSS_API_TOKEN }}
+                aspect-api-token: ${{ secrets.ASPECT_CLOUD_API_TOKEN }}
             - name: Cross-build arm64 wheels
               working-directory: e2e/crossbuild
               run: |
@@ -325,7 +325,7 @@ jobs:
             - uses: actions/checkout@v6
             - uses: aspect-build/setup-aspect@2306377a61c45954ab2df7c7311698b109364352 # v2026.26.9
               with:
-                aspect-api-token: ${{ secrets.ASPECT_OSS_API_TOKEN }}
+                aspect-api-token: ${{ secrets.ASPECT_CLOUD_API_TOKEN }}
             - name: Cross-build amd64 wheels
               working-directory: e2e/crossbuild
               run: |
