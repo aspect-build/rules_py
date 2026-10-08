@@ -47,7 +47,7 @@ deactivate nondestructive
 # The runfiles library code has some deps on this so we just set it :/
 : "${BASH_SOURCE:=$0}"
 
-VIRTUAL_ENV="$(dirname "$(dirname "${BASH_SOURCE}")")"
+VIRTUAL_ENV="$(cd "$(dirname "${BASH_SOURCE}")/.." && pwd)"
 export VIRTUAL_ENV
 
 # unset PYTHONHOME if set
