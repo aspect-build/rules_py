@@ -69,7 +69,6 @@ py_test(
     name = "self_exclusion_direct_requirement_test",
     srcs = ["self_exclusion_test.py"],
     args = ["direct"],
-    # The test imports B only for "shared"; let the checker see it anyway.
     pyi_deps = [":self_exclusion_b_install"],
     deps = ["@uv_project_self_exclusion_test//private/build_deps:a"],
 )

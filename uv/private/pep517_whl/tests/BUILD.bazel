@@ -143,8 +143,6 @@ py_binary(
     name = "__build_helper",
     srcs = ["//uv/private/pep517_whl/tools:build_helper.py"],
     main = "//uv/private/pep517_whl/tools:build_helper.py",
-    # build_helper imports memory_monitor only when a wheel opts in, so it's
-    # left out at run time; let the checker see it anyway.
     pyi_deps = ["//uv/private/pep517_whl/tools"],
     deps = ["@pypi//build"],
 )
