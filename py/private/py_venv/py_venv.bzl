@@ -122,6 +122,7 @@ def _assemble_venv_target(ctx, executable, console_scripts):
         transitive_sources = srcs_depset,
         runtime_files = runtime_files,
         console_scripts = depset(assembled.console_scripts),
+        activate = assembled.activate,
     ), venv_only
 
 def _venv_providers(ctx, venv, venv_only, executable = None, include_sources = False):
@@ -500,6 +501,11 @@ def py_venv_link(name, venv, link_name = None, **kwargs):
     valid for Python and IDEs. This requires directory-based runfiles; a
     manifest alone cannot expose a runfiles tree.
 
+    The linked tree is a developer environment, so `include_console_scripts`
+    defaults to `True` here, unlike on binaries: the link carries the venv's
+    console-script wrappers and its `bin/activate`. Pass
+    `include_console_scripts = False` to link the interpreter alone.
+
     Args:
         name: Runnable target name. `bazel run :<name>` materialises
             the runfiles symlink.
@@ -513,6 +519,7 @@ def py_venv_link(name, venv, link_name = None, **kwargs):
         **kwargs: Forwarded to the underlying `py_binary`.
     """
     link_script = str(Label("//py/private/py_venv:templates/link.py"))
+    kwargs.setdefault("include_console_scripts", True)
     _py_venv_exec(
         name = name,
         main = link_script,

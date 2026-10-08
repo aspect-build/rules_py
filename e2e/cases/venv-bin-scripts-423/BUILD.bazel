@@ -1,4 +1,5 @@
-load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_test")
+load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_test", "py_venv_link")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
 load("//tools:pth_snapshot.bzl", "extract_venv_bin")
 
 py_test(
@@ -56,8 +57,41 @@ extract_venv_bin(
     target = ":exposed_bin.venv",
 )
 
-# With `include_console_scripts`, the binary carries the wrappers too, but
-# never `activate`.
+# A link is a developer environment: it carries `activate` and the wrappers
+# by default, and `include_console_scripts = False` links the interpreter alone.
+py_venv_link(
+    name = "exposed_bin.venv_link",
+    venv = ":exposed_bin.venv",
+)
+
+py_venv_link(
+    name = "exposed_bin.venv_link_no_scripts",
+    include_console_scripts = False,
+    venv = ":exposed_bin.venv",
+)
+
+extract_venv_bin(
+    name = "exposed_bin_venv_link_bin_snapshot",
+    out = "exposed_bin.venv_link.bin.txt",
+    target = ":exposed_bin.venv_link",
+)
+
+extract_venv_bin(
+    name = "exposed_bin_venv_link_no_scripts_bin_snapshot",
+    out = "exposed_bin.venv_link_no_scripts.bin.txt",
+    target = ":exposed_bin.venv_link_no_scripts",
+)
+
+# Links the tree the way `bazel run` would, sources `bin/activate` from it and
+# runs a wrapper found through PATH.
+sh_test(
+    name = "venv_link_activate_test",
+    srcs = ["venv_link_activate_test.sh"],
+    data = [":exposed_bin.venv_link"],
+)
+
+# With `include_console_scripts`, the binary carries the wrappers and
+# `activate` too.
 py_binary(
     name = "opt_in_bin",
     srcs = ["__test__.py"],

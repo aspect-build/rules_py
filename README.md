@@ -447,7 +447,9 @@ py_binary(
   binary's deps.
 - `bazel run //:my_app.venv_link` — materialises a workspace-local symlink
   pointing at the target's complete runfiles tree and prints the venv's nested
-  path below that link. **Point your IDE at the printed venv path.**
+  path below that link. **Point your IDE at the printed venv path.** The
+  linked venv carries `bin/activate` and the console-script wrappers of its
+  wheels, so `source <printed path>/bin/activate` works in a shell.
 
 Then point your IDE to the virtualenv path printed by the command:
 

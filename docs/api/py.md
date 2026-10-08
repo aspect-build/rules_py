@@ -816,6 +816,11 @@ preserving the runfiles directory layout keeps the venv's relative paths
 valid for Python and IDEs. This requires directory-based runfiles; a
 manifest alone cannot expose a runfiles tree.
 
+The linked tree is a developer environment, so `include_console_scripts`
+defaults to `True` here, unlike on binaries: the link carries the venv's
+console-script wrappers and its `bin/activate`. Pass
+`include_console_scripts = False` to link the interpreter alone.
+
 
 **PARAMETERS**
 
