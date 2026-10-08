@@ -1,0 +1,2 @@
+[rules]
+invalid-assignment = "ignore"

@@ -2,16 +2,32 @@
 
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
 load("//py/private/toolchain:repo.bzl", "toolchains_repo")
+load("//py/private/toolchain:ty.bzl", "DEFAULT_TY_VERSION", "TY_PLATFORMS", "TY_VERSIONS", "ty_repository")
 
 DEFAULT_TOOLS_REPOSITORY = "rules_py_tools"
 
-def rules_py_toolchains(name = DEFAULT_TOOLS_REPOSITORY):
+def rules_py_toolchains(name = DEFAULT_TOOLS_REPOSITORY, ty_version = DEFAULT_TY_VERSION):
     """Create toolchain repositories for rules_py.
 
     Args:
         name: prefix used in created repositories
+        ty_version: version of ty backing the default type checker toolchain
     """
-    toolchains_repo(name = name)
+    if ty_version not in TY_VERSIONS:
+        fail("ty version {} is not known to rules_py; choose one of: {}".format(
+            ty_version,
+            ", ".join(sorted(TY_VERSIONS.keys())),
+        ))
+    ty_repo_prefix = name + "_ty"
+    for platform, triple in TY_PLATFORMS.items():
+        ty_repository(
+            name = "{}_{}".format(ty_repo_prefix, platform),
+            version = ty_version,
+            platform = triple,
+            sha256 = TY_VERSIONS[ty_version][triple],
+        )
+
+    toolchains_repo(name = name, ty_repo_prefix = ty_repo_prefix)
 
     http_file(
         name = "rules_py_pex_2_3_1",

@@ -131,6 +131,12 @@ def py_pytest_main(name, py_library = default_py_library, deps = [], data = [], 
         **kwargs
     )
 
+    library_kwargs = {}
+    if py_library == default_py_library:
+        # Generated code, which imports pytest from whatever the consuming
+        # test depends on; not the caller's to type check.
+        library_kwargs["type_check"] = False
+
     py_library(
         name = name,
         testonly = testonly,
@@ -142,4 +148,5 @@ def py_pytest_main(name, py_library = default_py_library, deps = [], data = [], 
             Label("//py/private/pytest_shard"),
         ],
         data = data,
+        **library_kwargs
     )

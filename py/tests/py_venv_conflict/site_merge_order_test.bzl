@@ -255,6 +255,8 @@ def site_merge_order_test_suite():
 
     py_test(
         name = "site_merge_order_test",
+        # The checker sees each colliding wheel's copy separately; only the venv merges them.
+        type_check = False,
         srcs = ["test_site_merge_order.py"],
         package_collisions = "ignore",
         deps = [":_site_merge_wheels"],
@@ -267,6 +269,8 @@ def site_merge_order_test_suite():
 
     py_test(
         name = "native_nested_collision_test",
+        # The checker sees each colliding wheel's copy separately; only the venv merges them.
+        type_check = False,
         srcs = ["test_native_nested_collision.py"],
         package_collisions = "ignore",
         deps = [":_native_nested_wheels"],
@@ -280,6 +284,8 @@ def site_merge_order_test_suite():
 
     py_test(
         name = "native_nested_regular_first_collision_test",
+        # The checker sees each colliding wheel's copy separately; only the venv merges them.
+        type_check = False,
         srcs = ["test_native_nested_collision.py"],
         package_collisions = "ignore",
         deps = [":_native_nested_regular_first_wheels"],

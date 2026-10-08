@@ -28,6 +28,8 @@ py_library(
     testonly = True,
     srcs = ["pytest_main.py"],
     imports = ["."],
+    # This target cannot be type-checked without a hard dependency on pytest.
+    type_check = False,
     visibility = ["//visibility:public"],
     deps = [
         "//py/private/launcher_env",
@@ -92,6 +94,8 @@ bzl_library(
         ":py_semantics",
         ":py_wheel",
         ":transitions",
+        "//py/private/toolchain:types",
+        "//py/private/type_check",
         "@bazel_skylib//lib:types",
         "@bazel_skylib//rules:common_settings",
     ],
