@@ -177,30 +177,15 @@ def _whl_install(ctx):
     # or mis-merges. console_scripts live under bin/, so exclusions never touch
     # them. record_paths is carried only for wheels of excluding packages; a
     # source-built wheel has none, and its layout is already empty.
+    layout = meta
     if ctx.attr.exclude_glob and meta.record_paths:
         patterns = [parse_exclude_glob(pattern) for pattern in ctx.attr.exclude_glob]
-        retained = [
-            path.split("/")
-            for path in meta.record_paths
-            if not record_path_excluded(path.split("/"), patterns)
-        ]
+        retained = []
+        for path in meta.record_paths:
+            segments = path.split("/")
+            if not record_path_excluded(segments, patterns):
+                retained.append(segments)
         layout = derive_layout(retained)
-        top_levels = layout.top_levels
-        top_level_dirs = layout.top_level_dirs
-        namespace_top_levels = layout.namespace_top_levels
-        namespace_entries = layout.namespace_entries
-        namespace_dirs = layout.namespace_dirs
-        regular_roots = layout.regular_roots
-        native_roots = layout.native_roots
-    else:
-        top_levels = meta.top_levels
-        top_level_dirs = meta.top_level_dirs
-        namespace_top_levels = meta.namespace_top_levels
-        namespace_entries = meta.namespace_entries
-        namespace_dirs = meta.namespace_dirs
-        regular_roots = meta.regular_roots
-        native_roots = meta.native_roots
-    console_scripts = meta.console_scripts
 
     # Prefix data files (`.data/data/`) are unaffected by exclude_glob (it only
     # removes site-packages files).
@@ -230,11 +215,11 @@ def _whl_install(ctx):
         arguments.add("--patch-strip", str(ctx.attr.patch_strip))
         for files in patch_files:
             arguments.add_all(files, before_each = "--patch")
-        preserve_paths = {path: None for path in top_levels}
-        for path in namespace_entries + namespace_dirs + regular_roots:
+        preserve_paths = set(layout.top_levels)
+        for path in layout.namespace_entries + layout.namespace_dirs + layout.regular_roots:
             root = path.split("/")[0]
             if not root.endswith(".dist-info") and not root.endswith(".egg-info"):
-                preserve_paths[path] = None
+                preserve_paths.add(path)
         arguments.add_all(
             sorted(preserve_paths),
             before_each = "--preserve-path",
@@ -317,15 +302,15 @@ def _whl_install(ctx):
         # venv assembly's per-top-level symlinks reference each wheel by
         # its natural runfiles path rather than through this File.
         wheels = depset(direct = [make_wheel_record(
-            top_levels = top_levels,
-            top_level_dirs = top_level_dirs,
-            namespace_top_levels = namespace_top_levels,
-            namespace_entries = namespace_entries,
-            namespace_dirs = namespace_dirs,
-            regular_roots = regular_roots,
-            native_roots = native_roots,
+            top_levels = layout.top_levels,
+            top_level_dirs = layout.top_level_dirs,
+            namespace_top_levels = layout.namespace_top_levels,
+            namespace_entries = layout.namespace_entries,
+            namespace_dirs = layout.namespace_dirs,
+            regular_roots = layout.regular_roots,
+            native_roots = layout.native_roots,
             site_packages_rfpath = site_packages_rfpath,
-            console_scripts = console_scripts,
+            console_scripts = meta.console_scripts,
             # unpack.py's data-file manifest guard (above) fails the build if a
             # patch alters the data set, so this list always matches the tree.
             data_files = data_files,
