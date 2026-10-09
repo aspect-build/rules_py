@@ -4,7 +4,6 @@ Supports "virtual" dependencies with a `virtual_deps` attribute, which lists pac
 without binding them to a particular version of that package.
 """
 
-load("@bazel_skylib//lib:new_sets.bzl", "sets")
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load("@rules_cc//cc/common:cc_info.bzl", "CcInfo")
 load("//py/private:providers.bzl", "PyWheelsInfo")
@@ -120,7 +119,7 @@ def _resolve_virtuals(ctx):
             conflicts_with = resolutions[seen[resolution.virtual]].target
             fail("Conflict in virtual dependency resolutions while resolving '{}'. Dependency is resolved by {} and {}".format(resolution.virtual, str(resolution.target), str(conflicts_with)))
 
-        seen.update([[resolution.virtual, i]])
+        seen[resolution.virtual] = i
 
         v_srcs.append(_make_resolved_virtual_depset(resolution.target))
         v_pyi_files.append(get_transitive_pyi_files(resolution.target))
@@ -131,7 +130,7 @@ def _resolve_virtuals(ctx):
         if info:
             v_imports.append(info.imports)
 
-    missing = sets.to_list(sets.difference(sets.make(virtual), sets.make(seen.keys())))
+    missing = [v for v in virtual if v not in seen]
     if len(missing) > 0:
         fail("The following dependencies were marked as virtual, but no concrete label providing them was given: {}".format(", ".join(missing)))
 

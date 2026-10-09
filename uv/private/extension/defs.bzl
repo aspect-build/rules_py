@@ -52,7 +52,6 @@ resolved dependencies available in the `@uv` repository.
 """
 
 load("@bazel_lib//lib:resource_sets.bzl", "resource_set_values")
-load("@bazel_skylib//lib:sets.bzl", "sets")
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
 load("//py/private/interpreter:resolve.bzl", "resolve_host_interpreter_label")
 load("//uv/private:normalize_name.bzl", "normalize_name")
@@ -592,7 +591,7 @@ def _parse_projects(module_ctx, hub_specs):
                             for it in extract_requirement_marker_pairs(project.lock, project_id, req, default_versions, package_versions, fail_if_missing = sbuild_required)
                         ]
 
-                    build_deps = sets.to_list(sets.make(build_deps + lock_build_deps))
+                    build_deps = list(set(build_deps + lock_build_deps))
 
                     pre_build_patches = []
                     pre_build_patch_strip = 1

@@ -92,7 +92,6 @@ bzl_library(
         ":py_semantics",
         ":py_wheel",
         ":transitions",
-        "@bazel_skylib//lib:new_sets",
         "@bazel_skylib//lib:types",
         "@bazel_skylib//rules:common_settings",
     ],
