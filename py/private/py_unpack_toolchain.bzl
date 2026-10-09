@@ -2,7 +2,7 @@
 
 A registered `py_unpack_toolchain` replaces the default, which runs
 //py/tools/unpack under the exec-tools interpreter. Both toolchain types are
-resolved together, so the tool and the `--compile-pyc` interpreter share one
+resolved together, so the tool and the `--python-bin` interpreter share one
 execution platform.
 """
 
@@ -31,23 +31,23 @@ def resolve_unpack_tool(ctx):
         struct(executable, arguments, inputs) for `ctx.actions.run`; callers
         append the unpack CLI flags to `arguments`.
     """
+    exec_runtime = ctx.toolchains[EXEC_TOOLS_TOOLCHAIN].exec_runtime
+    python_bin = ["--python-bin", exec_runtime.interpreter]
+    runtime_inputs = depset([exec_runtime.interpreter], transitive = [exec_runtime.files])
+
     custom = ctx.toolchains[UNPACK_TOOLCHAIN]
     if custom:
         return struct(
             executable = custom.unpack_tool,
-            arguments = [],
-            inputs = depset(),
+            arguments = python_bin,
+            inputs = runtime_inputs,
         )
 
-    exec_runtime = ctx.toolchains[EXEC_TOOLS_TOOLCHAIN].exec_runtime
     default_tool = ctx.attr._unpack[PySourceToolInfo]
     return struct(
         executable = exec_runtime.interpreter,
-        arguments = ["-S", "-E", "-s", "-B", default_tool.main],
-        inputs = depset(
-            [exec_runtime.interpreter],
-            transitive = [default_tool.files, exec_runtime.files],
-        ),
+        arguments = ["-S", "-E", "-s", "-B", default_tool.main] + python_bin,
+        inputs = depset(transitive = [runtime_inputs, default_tool.files]),
     )
 
 def _py_unpack_toolchain_impl(ctx):

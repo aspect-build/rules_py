@@ -371,11 +371,12 @@ exclusion.
 | `--into <dir>` | | always | output tree artifact; install the wheel here |
 | `--wheel <file>` | | always | the `.whl` to install |
 | `--python-version <M.m>` | | always | target interpreter major.minor version |
+| `--python-bin <interpreter>` | | always | an exec-config interpreter runnable on the executor (a declared input); its version may differ from `--python-version` — only `--compile-pyc` implies an exact match |
 | `--exclude-glob <pattern>` | yes | on feature | remove matching site-packages files post-install |
 | `--patch <file>` | yes | on feature | patch the installed tree, in order, cwd `<into>` |
 | `--patch-strip <N>` | | with `--patch` | `-p<N>` strip count |
 | `--preserve-path <path>` | yes | with `--patch` | fail if patching changes these paths' layout |
-| `--compile-pyc <interpreter>` | | on feature | pre-compile `.pyc` bytecode with this exec-config interpreter (a declared input) |
+| `--compile-pyc` | | on feature | pre-compile `.pyc` bytecode with `--python-bin`; takes no value |
 | `--pyc-invalidation-mode <mode>` | | with `--compile-pyc` | PEP 552 mode |
 
 Requirements:
