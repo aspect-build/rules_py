@@ -122,10 +122,19 @@ def assemble_venv(
         console_scripts: list[File] — `bin/<name>` wrappers.
     """
 
+    # Wheels whose top-level layout is known but which stay on the `.pth`
+    # fallback. Their root entries — including any root `.pth` files — were
+    # projected into the venv site-packages, so `_format_imp` emits a plain
+    # path line. Wheels without a known layout (e.g. source-built scripts)
+    # project nothing and must use `site.addsitedir`.
+    wheel_by_site_packages = {}
+    known_layout_site_pkgs = set()
     top_level_to_site_pkgs, fully_covered_site_pkgs, console_scripts_map, merge_groups, data_file_to_site_pkgs, collisions = resolve_wheel_collisions(
         ctx,
         wheels,
         console_scripts = console_script_tmpl != None,
+        wheel_by_sp = wheel_by_site_packages,
+        known_layout_site_pkgs = known_layout_site_pkgs,
     )
     enforce_collision_policy(collisions, package_collisions)
 
@@ -142,19 +151,6 @@ def assemble_venv(
     venv_to_runfiles_escape = tc.venv_to_runfiles_escape
     wheel_py_ver = tc.wheel_py_ver
     site_packages_rel = tc.site_packages_rel
-
-    # site_packages_rfpath → install_tree, used only by the regular-package
-    # merge action below. The per-top-level symlinks and .pth lines locate
-    # each wheel by its runfiles path directly, not through this map.
-    tree_by_sp = {w.site_packages_rfpath: w.install_tree for w in wheels}
-
-    # site_packages_rfpath → True for wheels whose top-level layout is known
-    # (they declare `top_levels`), so the per-top-level symlink loop projects
-    # their root entries — including any root `.pth` files — into the venv
-    # site-packages. Wheels that carry only `console_scripts` (e.g. source-built
-    # scripts) leave `top_levels` empty: nothing is projected for them, so their
-    # `.pth` line must use `site.addsitedir` (see `_format_imp`).
-    known_layout_site_pkgs = {w.site_packages_rfpath: True for w in wheels if w.top_levels}
 
     declared = []  # accumulator for all outputs
 
@@ -228,7 +224,7 @@ def assemble_venv(
     # The merge runs as a build action under the exec-configuration
     # interpreter (same shape as WhlInstall's unpack action). Every
     # PyWheelsInfo record carries an install_tree (see providers.bzl),
-    # so each contributing wheel resolves in tree_by_sp.
+    # so each contributing wheel resolves in wheel_by_site_packages.
     for group in merge_groups:
         exec_toolchain = ctx.toolchains[EXEC_TOOLS_TOOLCHAIN]
         exec_runtime = exec_toolchain.exec_runtime if exec_toolchain else None
@@ -251,7 +247,7 @@ def assemble_venv(
         arguments.add("--collision-policy", package_collisions)
         trees = []
         for sp in group.site_packages_list:
-            tree = tree_by_sp[sp]
+            tree = wheel_by_site_packages[sp].install_tree
             trees.append(tree)
             arguments.add_all(
                 [tree],

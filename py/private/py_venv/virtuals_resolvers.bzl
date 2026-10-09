@@ -688,12 +688,15 @@ def _resolve_metadata_collisions(metadata_claimants, metadata_duplicates, state,
         if winner in fully_covered:
             state.top_level_to_site_pkgs[tl] = winner
 
-def resolve_wheel_collisions(ctx, wheels, console_scripts):
+def resolve_wheel_collisions(ctx, wheels, console_scripts, wheel_by_sp = None, known_layout_site_pkgs = None):
     """Walk ``PyWheelsInfo.wheels`` and produce merge plans for site-packages + bin/.
 
     Policy-agnostic: collisions are recorded, not reported.  The caller
     must call ``enforce_collision_policy`` to apply error/warning/ignore.
     ``console_scripts``: False skips console-script resolution, empty map, no collisions.
+    ``wheel_by_sp``: optional dict filled with site_packages_rfpath → wheel.
+    ``known_layout_site_pkgs``: optional set filled with wheels left on the
+    ``.pth`` fallback whose layout is known (they projected some entries).
 
     Returns:
       (top_level_to_site_pkgs, fully_covered, console_scripts_map,
@@ -708,7 +711,7 @@ def resolve_wheel_collisions(ctx, wheels, console_scripts):
     metadata_claimants = {}
     metadata_duplicates = {}
     cs_claimants = {}
-    wheel_by_sp = {}
+    wheel_by_sp = {} if wheel_by_sp == None else wheel_by_sp
     for w in wheels:
         wheel_by_sp[w.site_packages_rfpath] = w
         for tl in w.metadata_top_levels:
@@ -747,6 +750,10 @@ def resolve_wheel_collisions(ctx, wheels, console_scripts):
     console_scripts_map = _resolve_console_scripts(cs_claimants, complain)
     data_file_to_site_pkgs = _resolve_data_files(wheels, complain)
     fully_covered = _compute_fully_covered(wheels, state)
+    if known_layout_site_pkgs != None:
+        for site_packages in state.skipped_per_wheel:
+            if site_packages not in fully_covered:
+                known_layout_site_pkgs.add(site_packages)
     _resolve_metadata_collisions(metadata_claimants, metadata_duplicates, state, fully_covered, complain, ctx)
 
     return (
