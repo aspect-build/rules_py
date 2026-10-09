@@ -63,8 +63,8 @@ alias(
     visibility = ["//visibility:public"],
 )
 
-# Type checking runs as a validation action on py_library, py_binary and py_test,
-# using the checker from this toolchain type (ty by default). Register a
+# py_library, py_binary and py_test type check their sources with the checker
+# from this toolchain type (ty by default) when type checking is on. Register a
 # py_type_checker_toolchain to use a different checker.
 toolchain_type(
     name = "type_checker_toolchain_type",

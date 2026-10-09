@@ -1,4 +1,4 @@
-"""Analysis tests for the type-check validation action."""
+"""Analysis tests for type checking."""
 
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
 
