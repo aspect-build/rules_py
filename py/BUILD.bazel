@@ -71,7 +71,7 @@ toolchain_type(
     visibility = ["//visibility:public"],
 )
 
-# --@aspect_rules_py//py:type_check=false turns type checking off everywhere.
+# --@aspect_rules_py//py:type_check turns type checking on everywhere; it's off by default.
 alias(
     name = "type_check",
     actual = "//py/private/type_check:type_check_flag",
