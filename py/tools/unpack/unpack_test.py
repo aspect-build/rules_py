@@ -150,7 +150,9 @@ def _run_unpack(
         str(wheel),
         "--python-version",
         f"{sys.version_info.major}.{sys.version_info.minor}",
-        *(("--compile-pyc", str(python)) if compile_pyc else ()),
+        "--python-bin",
+        str(python),
+        *(("--compile-pyc",) if compile_pyc else ()),
         *extra_args,
     ]
     return subprocess.run(
@@ -302,8 +304,9 @@ def main() -> None:
             str(good_wheel),
             "--python-version",
             f"{sys.version_info.major}.{sys.version_info.minor}",
-            "--compile-pyc",
+            "--python-bin",
             sys.executable,
+            "--compile-pyc",
         ]
         try:
             unpack_module.main()

@@ -1,15 +1,11 @@
-/* Minimal custom wheel-unpack tool, exercising the exec-tools toolchain's
- * `unpack_tool` contract (docs/interpreter.md, "Custom wheel-unpack tool")
- * from a self-contained non-Python binary.
+/* Native replacement for the default unpack.py, registered through
+ * py_unpack_toolchain (docs/interpreter.md, "Custom wheel-unpack tool").
  *
- * Implements only the always-passed subset of the contract (--into, --wheel,
- * --python-version) for a simple pure wheel: stored or deflated zip entries,
- * no `.data/` tree, no entry points, no patching/exclusion/pyc. It writes a
+ * Installs a simple pure wheel without Python: stored or deflated zip entries,
+ * no `.data/` tree, no entry points, no patching or exclusion. Python runs
+ * only for --compile-pyc, via compileall under --python-bin. It writes a
  * distinctive dist-info INSTALLER so the test can prove this tool ran (the
- * reference unpack.py writes `aspect_rules_py` there instead). Also handles
- * --compile-pyc/--pyc-invalidation-mode, which whl_install passes by default
- * (uv/private/pyc:precompile), by running compileall under the given
- * exec-configuration interpreter.
+ * reference unpack.py writes `aspect_rules_py` there instead).
  */
 
 #include <errno.h>
@@ -78,24 +74,37 @@ static void write_file(const char *dir, const char *name, const unsigned char *d
 
 int main(int argc, char **argv) {
     const char *into = NULL, *wheel = NULL, *python_version = NULL;
-    const char *compile_pyc = NULL, *pyc_invalidation_mode = "unchecked-hash";
-    for (int i = 1; i + 1 < argc; i += 2) {
-        if (strcmp(argv[i], "--into") == 0) {
-            into = argv[i + 1];
-        } else if (strcmp(argv[i], "--wheel") == 0) {
-            wheel = argv[i + 1];
-        } else if (strcmp(argv[i], "--python-version") == 0) {
-            python_version = argv[i + 1];
-        } else if (strcmp(argv[i], "--compile-pyc") == 0) {
-            compile_pyc = argv[i + 1];
-        } else if (strcmp(argv[i], "--pyc-invalidation-mode") == 0) {
-            pyc_invalidation_mode = argv[i + 1];
+    const char *python_bin = NULL, *pyc_invalidation_mode = "unchecked-hash";
+    int compile_pyc = 0;
+    for (int i = 1; i < argc; i++) {
+        const char *flag = argv[i];
+        if (strcmp(flag, "--compile-pyc") == 0) {
+            compile_pyc = 1;
+            continue;
+        }
+        if (i + 1 >= argc) {
+            die("missing value for flag", flag);
+        }
+        const char *value = argv[++i];
+        if (strcmp(flag, "--into") == 0) {
+            into = value;
+        } else if (strcmp(flag, "--wheel") == 0) {
+            wheel = value;
+        } else if (strcmp(flag, "--python-version") == 0) {
+            python_version = value;
+        } else if (strcmp(flag, "--python-bin") == 0) {
+            python_bin = value;
+        } else if (strcmp(flag, "--pyc-invalidation-mode") == 0) {
+            pyc_invalidation_mode = value;
         } else {
-            die("unknown flag", argv[i]);
+            die("unknown flag", flag);
         }
     }
     if (!into || !wheel || !python_version) {
         die("--into, --wheel and --python-version are required", NULL);
+    }
+    if (compile_pyc && !python_bin) {
+        die("--compile-pyc requires --python-bin", NULL);
     }
 
     FILE *in = fopen(wheel, "rb");
@@ -252,14 +261,14 @@ int main(int argc, char **argv) {
         }
         if (pid == 0) {
             /* Match the reference tool's compileall invocation. */
-            execl(compile_pyc, compile_pyc, "-c", "import compileall; compileall.main()",
+            execl(python_bin, python_bin, "-c", "import compileall; compileall.main()",
                   "-q", "--invalidation-mode", pyc_invalidation_mode, "--", site_packages,
                   (char *)NULL);
-            die("exec failed", compile_pyc);
+            die("exec failed", python_bin);
         }
         int status = 0;
         if (waitpid(pid, &status, 0) < 0 || !WIFEXITED(status) || WEXITSTATUS(status) != 0) {
-            die("pyc compilation failed under", compile_pyc);
+            die("pyc compilation failed under", python_bin);
         }
     }
 
