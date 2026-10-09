@@ -12,7 +12,7 @@ load("//py/private:py_info.bzl", "PyInfo")
 load("//py/private:py_info_interop.bzl", "RulesPythonPyInfo", "get_py_info", "get_pyi_imports", "get_transitive_pyi_files", "get_transitive_sources", "has_py_info")
 load("//py/private:transitions.bzl", "reset_python_flags_transition")
 load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN")
-load("//py/private/type_check:type_check.bzl", "TYPE_CHECK_ATTRS", "TYPE_CHECK_EXEC_GROUPS", "type_check_validation")
+load("//py/private/type_check:type_check.bzl", "TYPE_CHECK_ATTRS", "TYPE_CHECK_EXEC_GROUPS", "type_check_action")
 
 def _is_type_stub(file):
     return file.extension == "pyi"
@@ -219,7 +219,7 @@ def _py_library_impl(ctx):
             wheels = wheels,
         ),
         OutputGroupInfo(
-            _validation = type_check_validation(
+            _validation = type_check_action(
                 ctx,
                 # A library's own virtual deps only resolve in the binaries
                 # that pick an implementation, so its imports of them can't
