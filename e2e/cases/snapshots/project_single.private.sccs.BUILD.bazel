@@ -10,14 +10,6 @@ py_library(
 
 
 # scc: cowsay__6_1
-# members:
-# {
-#     "@whl_install__arch_alias_marker__cowsay__6_1//:install": {
-#         "": 1,
-#     },
-# }
-# deps:
-# {}
 
 
 py_library(
@@ -30,14 +22,6 @@ py_library(
 
 
 # scc: single_project_hub__0_0_0
-# members:
-# {}
-# deps:
-# {
-#     "cowsay": {
-#         "": 1,
-#     },
-# }
 
 
 py_library(
