@@ -82,10 +82,7 @@ filegroup(
 
 """]
     for package, cfgs in dep_to_scc.items():
-        content.append("""
-# {}
-{}
-""".format(package, indent(pprint(cfgs), "# ")))
+        content.append("\n# {}\n".format(package))
         main_arms = {}
         whl_main_arms = {}
         testonly_attr = "\n    testonly = True," if package in testonly_packages else ""
@@ -172,13 +169,7 @@ exports_files(
     for scc_id, members in scc_graph.items():
         this_scc_deps = scc_deps.get(scc_id, {})
         deps = []
-        content.append("""
-# scc: {}
-# members:
-{}
-# deps:
-{}
-""".format(scc_id, indent(pprint(members), "# "), indent(pprint(this_scc_deps), "# ")))
+        content.append("\n# scc: {}\n".format(scc_id))
 
         for member, markers in members.items():
             deps.append(conditional_dep(
