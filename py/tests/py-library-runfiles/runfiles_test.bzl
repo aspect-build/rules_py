@@ -54,3 +54,30 @@ private_venv_provider_test = analysistest.make(
         "expected_sources": attr.string_list(mandatory = True),
     },
 )
+
+def _indexed_imports_layout_test_impl(ctx):
+    env = analysistest.begin(ctx)
+    target = analysistest.target_under_test(env)
+    outputs = [
+        output.short_path
+        for action in analysistest.target_actions(env)
+        for output in action.outputs.to_list()
+    ]
+    runfiles = [file.short_path for file in target[DefaultInfo].default_runfiles.files.to_list()]
+    for suffix in [
+        "/site-packages/.aspect_rules_py_import_index",
+        "/site-packages/_aspect_rules_py_import_index.py",
+    ]:
+        matches = [path for path in outputs if path.endswith(suffix)]
+        asserts.equals(env, 1 if ctx.attr.expect_index else 0, len(matches))
+        if matches:
+            asserts.true(env, matches[0] in runfiles)
+    return analysistest.end(env)
+
+indexed_imports_layout_test = analysistest.make(
+    _indexed_imports_layout_test_impl,
+    attrs = {"expect_index": attr.bool(mandatory = True)},
+    config_settings = {
+        str(Label("//py:experimental_indexed_imports")): True,
+    },
+)

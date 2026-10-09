@@ -4,6 +4,8 @@ load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
 package(default_visibility = ["//py:__subpackages__"])
 
 exports_files([
+    "import_index.py",
+    "templates/_aspect_rules_py_import_index.py",
     "templates/console_script.tmpl.sh",
     "templates/link.py",
     "templates/venv.tmpl.sh",
@@ -83,6 +85,7 @@ bzl_library(
         "//py/private/toolchain:types",
         "@bazel_lib//lib:expand_make_vars",
         "@bazel_lib//lib:paths",
+        "@bazel_skylib//rules:common_settings",
     ],
 )
 

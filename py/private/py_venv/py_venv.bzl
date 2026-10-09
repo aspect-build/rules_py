@@ -27,6 +27,7 @@ layout details.
 
 load("@bazel_lib//lib:expand_make_vars.bzl", "expand_locations", "expand_variables")
 load("@bazel_lib//lib:paths.bzl", "BASH_RLOCATION_FUNCTION", "to_rlocation_path")
+load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load("//py/private:py_library.bzl", _py_library = "py_library_utils")
 load("//py/private:py_semantics.bzl", _py_semantics = "semantics")
 load("//py/private:transitions.bzl", "python_transition")
@@ -59,6 +60,21 @@ def _assemble_venv_target(ctx, executable, console_scripts):
         ctx,
         extra_imports_depsets = virtual_resolution.imports,
     )
+    srcs_depset = _py_library.make_srcs_depset(
+        ctx,
+        extra_depsets = virtual_resolution.srcs,
+    )
+
+    indexed_runfiles = None
+    if (
+        ctx.attr.indexed_imports and
+        hasattr(ctx.attr, "_indexed_imports") and
+        ctx.attr._indexed_imports[BuildSettingInfo].value
+    ):
+        indexed_runfiles = _py_library.make_merged_runfiles(
+            ctx,
+            extra_depsets = [srcs_depset] + virtual_resolution.runfiles,
+        )
 
     default_env = {
         "BAZEL_TARGET": str(ctx.label).lstrip("@"),
@@ -84,13 +100,10 @@ def _assemble_venv_target(ctx, executable, console_scripts):
         site_merge_script_py = ctx.file._site_merge_script,
         console_script_tmpl = ctx.file._console_script_tmpl if console_scripts else None,
         venv_name = ".{}".format(venv_stem),
+        indexed_runfiles = indexed_runfiles,
     )
     venv_only = assembled.console_scripts + ([assembled.activate] if assembled.activate != None else [])
 
-    srcs_depset = _py_library.make_srcs_depset(
-        ctx,
-        extra_depsets = virtual_resolution.srcs,
-    )
     pyi_depset = _py_library.make_pyi_depset(
         ctx,
         extra_depsets = virtual_resolution.pyi_files,
@@ -240,6 +253,10 @@ does not reinsert a wheel.
         allow_single_file = True,
         default = "//py/private/py_venv:templates/console_script.tmpl.sh",
     ),
+    "indexed_imports": attr.bool(
+        default = True,
+        doc = "Whether private virtual environments may use indexed imports.",
+    ),
     # Required for py_version attribute
     "_allowlist_function_transition": attr.label(
         default = "@bazel_tools//tools/allowlists/function_transition_allowlist",
@@ -332,6 +349,17 @@ _py_venv_lib = rule(
     implementation = _py_venv_lib_rule_impl,
     attrs = _lib_attrs | {
         "include_console_scripts": attr.bool(default = False),
+        "_indexed_imports": attr.label(
+            default = "//py:experimental_indexed_imports",
+        ),
+        "_import_index_shim": attr.label(
+            allow_single_file = True,
+            default = "//py/private/py_venv:templates/_aspect_rules_py_import_index.py",
+        ),
+        "_import_index_generator": attr.label(
+            allow_single_file = True,
+            default = "//py/private/py_venv:import_index.py",
+        ),
     },
     toolchains = _venv_toolchains,
     cfg = python_transition,
@@ -365,6 +393,7 @@ _VENV_ONLY_ATTRS = [
     "virtual_deps",
     "package_collisions",
     "include_system_site_packages",
+    "indexed_imports",
     "python_version",
     "dep_group",
 ]

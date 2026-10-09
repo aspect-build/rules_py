@@ -32,5 +32,6 @@ uv.override_package(
 use_repo(
     uv,
     "pypi_uv_exclusions",
+    "whl__googleapis_common_protos__702216f78610bb51",
     "whl_install__exclusions__cowsay__6_0",
 )
