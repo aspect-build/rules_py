@@ -1,0 +1,51 @@
+load("@aspect_rules_py//uv/private/whl_install:rule.bzl", "whl_dist")
+
+whl_dist(
+    name = "whl",
+    src = "pyflakes-3.2.0-py2.py3-none-any.whl",
+    top_levels = [
+        "pyflakes",
+        "pyflakes-3.2.0.dist-info",
+    ],
+    top_level_dirs = [
+        "pyflakes",
+    ],
+    console_scripts = [
+        "pyflakes=pyflakes.api:main",
+    ],
+    record_paths = [
+        "pyflakes/__init__.py",
+        "pyflakes/__main__.py",
+        "pyflakes/api.py",
+        "pyflakes/checker.py",
+        "pyflakes/messages.py",
+        "pyflakes/reporter.py",
+        "pyflakes/scripts/__init__.py",
+        "pyflakes/scripts/pyflakes.py",
+        "pyflakes/test/__init__.py",
+        "pyflakes/test/harness.py",
+        "pyflakes/test/test_api.py",
+        "pyflakes/test/test_builtin.py",
+        "pyflakes/test/test_code_segment.py",
+        "pyflakes/test/test_dict.py",
+        "pyflakes/test/test_doctests.py",
+        "pyflakes/test/test_imports.py",
+        "pyflakes/test/test_is_literal.py",
+        "pyflakes/test/test_match.py",
+        "pyflakes/test/test_other.py",
+        "pyflakes/test/test_type_annotations.py",
+        "pyflakes/test/test_undefined_names.py",
+        "pyflakes-3.2.0.dist-info/LICENSE",
+        "pyflakes-3.2.0.dist-info/METADATA",
+        "pyflakes-3.2.0.dist-info/WHEEL",
+        "pyflakes-3.2.0.dist-info/entry_points.txt",
+        "pyflakes-3.2.0.dist-info/top_level.txt",
+        "pyflakes-3.2.0.dist-info/RECORD",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+exports_files(
+    ["BUILD.bazel"],
+    visibility = ["//visibility:public"],
+)
