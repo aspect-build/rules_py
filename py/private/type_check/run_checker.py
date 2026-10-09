@@ -1,4 +1,4 @@
-"""Run a Python type checker for rules_py's type-check validation action.
+"""Run a Python type checker over one target's sources for rules_py.
 
 Invoked by the PyTypeCheck action declared in type_check.bzl. Builds the
 checker's command line from the toolchain's conventions, runs it, and writes

@@ -1,12 +1,10 @@
-"""Type checking as a validation action.
+"""Type checking for py_library, py_binary and py_test.
 
 py_library and the venv behind each py_binary / py_test call
-`type_check_validation` to run the resolved type checker toolchain over the
+`type_check_action` to run the resolved type checker toolchain over the
 target's own sources, with its transitive dependencies visible as search
-paths. The action's log is returned in the `_validation` output group, so
-Bazel runs it whenever the target is part of a build, and a type error fails
-that build. Each target checks only its own sources, so results cache per
-target.
+paths. A type error fails the build. Each target checks only its own sources,
+so results cache per target.
 
 The search paths are the target's import roots (`PyInfo.imports` and
 `PyInfo.pyi_imports`). Those are runfiles-relative, while the checker runs in
@@ -24,9 +22,9 @@ TYPE_CHECK_ATTRS = {
         doc = """Whether to type check this target's sources.
 
         Only takes effect when `--@aspect_rules_py//py:type_check` turns type
-        checking on, which it is not by default. Type checking runs as a
-        validation action with the registered type checker toolchain (ty by
-        default), so a type error fails the build.""",
+        checking on, which it is not by default. Type checking runs the
+        registered type checker toolchain (ty by default) over this target's
+        sources, and a type error fails the build.""",
         default = True,
     ),
     "_type_check_flag": attr.label(
@@ -44,7 +42,7 @@ TYPE_CHECK_ATTRS = {
 
 # The checker and the interpreter that runs it must resolve on the same
 # execution platform, so both live in one exec group. Optional so targets
-# keep analyzing without them; type_check_validation explains what's missing.
+# keep analyzing without them; type_check_action explains what's missing.
 TYPE_CHECK_EXEC_GROUPS = {
     "type_check": exec_group(
         toolchains = [
@@ -77,7 +75,7 @@ def _uses_python_prefix(checker):
 def _dirname(file):
     return file.dirname or "."
 
-def type_check_validation(ctx, srcs, transitive_sources, transitive_pyi_files, imports, pyi_imports, srcs_on_path = False):
+def type_check_action(ctx, srcs, transitive_sources, transitive_pyi_files, imports, pyi_imports, srcs_on_path = False):
     """Declare the type check action for a target, if it should have one.
 
     Args:
@@ -94,8 +92,8 @@ def type_check_validation(ctx, srcs, transitive_sources, transitive_pyi_files, i
             under pytest.
 
     Returns:
-        depset[File] for the `_validation` output group; empty when the target
-        isn't checked.
+        depset[File] holding the check's log; empty when the target isn't
+        checked.
     """
     srcs = [f for f in srcs if _is_checkable(f)]
     if (not srcs or

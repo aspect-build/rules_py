@@ -175,7 +175,7 @@ py_library(<a href="#py_library-name">name</a>, <a href="#py_library-deps">deps<
 | <a id="py_library-imports"></a>imports |  List of import directories to be added to the PYTHONPATH.   | List of strings | optional |  `[]`  |
 | <a id="py_library-pyi_deps"></a>pyi_deps |  Dependencies needed only for type checking.<br><br>These satisfy imports guarded by `typing.TYPE_CHECKING`. Their sources, stubs and wheels are carried in `PyInfo.transitive_pyi_files` for type checkers, but never become part of a runnable program: they are left out of runfiles, `sys.path`, the venv's site-packages, image layers, and pex files.   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional |  `[]`  |
 | <a id="py_library-resolutions"></a>resolutions |  Satisfy a virtual_dep with a mapping from external package name to the label of an installed package that provides it. See virtual_deps.   | Dictionary: String -> Label | optional |  `{}`  |
-| <a id="py_library-type_check"></a>type_check |  Whether to type check this target's sources.<br><br>Only takes effect when `--@aspect_rules_py//py:type_check` turns type checking on, which it is not by default. Type checking runs as a validation action with the registered type checker toolchain (ty by default), so a type error fails the build.   | Boolean | optional |  `True`  |
+| <a id="py_library-type_check"></a>type_check |  Whether to type check this target's sources.<br><br>Only takes effect when `--@aspect_rules_py//py:type_check` turns type checking on, which it is not by default. Type checking runs the registered type checker toolchain (ty by default) over this target's sources, and a type error fails the build.   | Boolean | optional |  `True`  |
 | <a id="py_library-virtual_deps"></a>virtual_deps |  -   | List of strings | optional |  `[]`  |
 
 
@@ -222,7 +222,7 @@ py_type_checker_toolchain(<a href="#py_type_checker_toolchain-name">name</a>, <a
                           <a href="#py_type_checker_toolchain-search_path_env">search_path_env</a>, <a href="#py_type_checker_toolchain-search_path_flag">search_path_flag</a>)
 </pre>
 
-Defines a Python type checker for rules_py's type-check validation action.
+Defines a Python type checker for rules_py's type checking.
 
 For each py_library, py_binary and py_test with sources, rules_py runs
 

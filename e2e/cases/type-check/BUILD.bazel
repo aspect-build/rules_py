@@ -1,4 +1,4 @@
-# Type checking runs as a validation action, so `bazel test //...` checks the
+# Type checking runs as part of the build, so `bazel test //...` checks the
 # well-typed targets here. The ill-typed fixtures are tagged manual and test.sh
 # asserts that building them fails.
 load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_library", "py_test")

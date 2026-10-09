@@ -12,9 +12,9 @@ If using Gazelle, see the note on [using with Gazelle](/README.md#gazelle-integr
 
 ## Type checking
 
-`py_library`, `py_binary` and `py_test` can type check their sources with ty as
-a validation action, so that a type error fails the build. Type checking is off
-by default; turn it on with:
+`py_library`, `py_binary` and `py_test` can type check their sources with ty,
+so that a type error fails the build. Type checking is off by default; turn it
+on with:
 
 ```
 # .bazelrc

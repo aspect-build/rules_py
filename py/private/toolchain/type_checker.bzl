@@ -1,9 +1,9 @@
 """The `py_type_checker_toolchain` rule.
 
 A type checker toolchain tells rules_py how to invoke a checker over one
-target's sources. py_library, py_binary and py_test run it as a validation
-action (see //py/private/type_check:type_check.bzl), so a type error fails the
-build.
+target's sources. py_library, py_binary and py_test run it when type
+checking is on (see //py/private/type_check:type_check.bzl), so a type error
+fails the build.
 
 The checker's command line is assembled from declarative attributes rather
 than a fixed contract, so ty and mypy both plug in without an adapter. A
@@ -64,7 +64,7 @@ def _py_type_checker_toolchain_impl(ctx):
 py_type_checker_toolchain = rule(
     implementation = _py_type_checker_toolchain_impl,
     cfg = _type_check_off,
-    doc = """Defines a Python type checker for rules_py's type-check validation action.
+    doc = """Defines a Python type checker for rules_py's type checking.
 
 For each py_library, py_binary and py_test with sources, rules_py runs
 
