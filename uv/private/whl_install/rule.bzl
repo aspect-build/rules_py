@@ -252,15 +252,8 @@ def _whl_install(ctx):
         py_toolchain.interpreter_version_info,
     )
     if ctx.attr.compile_pyc and exec_matches_target:
-        arguments.add("--compile-pyc", exec_runtime.interpreter)
+        arguments.add("--compile-pyc")
         arguments.add("--pyc-invalidation-mode", ctx.attr.pyc_invalidation_mode)
-
-        # The unpack tool need not be Python-based; the interpreter fed to
-        # --compile-pyc is an input in its own right.
-        transitive_inputs.append(depset(
-            [exec_runtime.interpreter],
-            transitive = [exec_runtime.files],
-        ))
 
     ctx.actions.run(
         mnemonic = "WhlInstall",
