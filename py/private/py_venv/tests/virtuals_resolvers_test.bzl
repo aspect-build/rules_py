@@ -568,7 +568,42 @@ def _namespace_entry_collapse_skips_entryless_dirs_test_impl(ctx):
     asserts.equals(env, [], collisions)
     return unittest.end(env)
 
+def _metadata_duplicates_test_impl(ctx):
+    """Duplicate distribution metadata: last distinct claimant wins.
+
+    A repeated wheel keeps its first-seen position, so `a, b, c, a` resolves
+    to `c` with one collision per takeover along `a -> b -> c`.
+    """
+    env = unittest.begin(ctx)
+    mock_ctx = _mock_ctx(ctx.label)
+    dist_info = "pkg-1.0.dist-info"
+    sp_a = "external/pypi_a/site-packages"
+    sp_b = "external/pypi_b/site-packages"
+    sp_c = "external/pypi_c/site-packages"
+
+    def wheel(sp, tl):
+        return _make_wheel(
+            site_packages_rfpath = sp,
+            metadata_top_levels = [dist_info],
+            tl_claims = [(tl, _claim(sp, is_dir = True))],
+            top_levels = [tl, dist_info],
+        )
+
+    a = wheel(sp_a, "only_a")
+    wheels = [a, wheel(sp_b, "only_b"), wheel(sp_c, "only_c"), a]
+    top_level, fully_covered, _, _, _, collisions = resolve_wheel_collisions(mock_ctx, wheels, console_scripts = True)
+
+    asserts.equals(env, sp_c, top_level[dist_info])
+    asserts.equals(env, [sp_a, sp_b, sp_c], sorted([sp for sp in fully_covered]))
+    asserts.equals(
+        env,
+        [(sp_a, sp_b), (sp_b, sp_c)],
+        [(c.a, c.b) for c in collisions if c.name == dist_info],
+    )
+    return unittest.end(env)
+
 _single_wheel_test = unittest.make(_single_wheel_test_impl)
+_metadata_duplicates_test = unittest.make(_metadata_duplicates_test_impl)
 _namespace_merge_test = unittest.make(_namespace_merge_test_impl)
 _console_script_collision_test = unittest.make(_console_script_collision_test_impl)
 _regular_collision_keeps_fallback_test = unittest.make(_regular_collision_keeps_fallback_test_impl)
@@ -589,6 +624,7 @@ def virtuals_resolvers_test_suite(name):
     unittest.suite(
         name,
         _single_wheel_test,
+        _metadata_duplicates_test,
         _namespace_merge_test,
         _console_script_collision_test,
         _regular_collision_keeps_fallback_test,
