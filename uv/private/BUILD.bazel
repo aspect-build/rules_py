@@ -14,7 +14,7 @@ bzl_library(
 bzl_library(
     name = "parse_whl_name",
     srcs = ["parse_whl_name.bzl"],
-    deps = ["@bazel_skylib//lib:new_sets"],
+    deps = [],
 )
 
 bzl_library(

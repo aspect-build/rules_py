@@ -20,8 +20,6 @@
 A starlark implementation of a Wheel filename parsing.
 """
 
-load("@bazel_skylib//lib:new_sets.bzl", "sets")
-
 # Taken from https://peps.python.org/pep-0600/
 _LEGACY_ALIASES = {
     "manylinux1_i686": "manylinux_2_5_i686",
@@ -138,7 +136,7 @@ def parse_whl_name(file):
         project = distribution,
         version = version,
         build = build_tag,
-        python_tags = sorted(sets.to_list(sets.make(python_tag.split(".")))),
-        abi_tags = sorted(sets.to_list(sets.make([normalize_abi_tag(it) for it in abi_tag.split(".")]))),
-        platform_tags = sorted(sets.to_list(sets.make(normalize_platform_tag(platform_tag).split(".")))),
+        python_tags = sorted(set(python_tag.split("."))),
+        abi_tags = sorted(set([normalize_abi_tag(it) for it in abi_tag.split(".")])),
+        platform_tags = sorted(set(normalize_platform_tag(platform_tag).split("."))),
     )
