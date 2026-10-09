@@ -28,7 +28,7 @@ def _py_unpacked_wheel_impl(ctx):
         outputs = [unpack_directory],
         inputs = depset(
             [ctx.file.src, unpack_script, exec_runtime.interpreter],
-            transitive = [py_toolchain.files, exec_runtime.files],
+            transitive = [exec_runtime.files],
         ),
         executable = exec_runtime.interpreter,
         arguments = [args],
