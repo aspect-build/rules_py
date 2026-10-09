@@ -1,8 +1,6 @@
 from typing import Protocol, TypeVar
 from collections.abc import Sequence
 
-from _pytest import nodes  # for type checking only
-
 _Item = TypeVar("_Item")
 
 
@@ -16,6 +14,11 @@ class _Parser(Protocol):
 
 class _Options(Protocol):
     verbose: int
+
+
+class _Node(Protocol):
+    @property
+    def nodeid(self) -> str: ...
 
 
 class _Config(Protocol):
@@ -66,7 +69,7 @@ class ShardPlugin:
         )
 
     @staticmethod
-    def pytest_report_collectionfinish(config: _Config, items: Sequence[nodes.Node]) -> str:
+    def pytest_report_collectionfinish(config: _Config, items: Sequence[_Node]) -> str:
         """Log how many and, if verbose, which items are tested in this shard."""
         msg = f"Running {len(items)} items in this shard"
         if config.option.verbose > 0 and config.getoption("num_shards") > 1:
@@ -74,7 +77,7 @@ class ShardPlugin:
         return msg
 
     @staticmethod
-    def pytest_collection_modifyitems(config: _Config, items: list[nodes.Node]) -> None:
+    def pytest_collection_modifyitems(config: _Config, items: list[_Item]) -> None:
         """Mutate the collection to consist of just items to be tested in this shard."""
         shard_id = config.getoption("shard_id")
         shard_total = config.getoption("num_shards")
