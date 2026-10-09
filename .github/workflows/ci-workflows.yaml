@@ -38,27 +38,30 @@ jobs:
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v6
-            - uses: aspect-build/setup-aspect@2306377a61c45954ab2df7c7311698b109364352 # v2026.26.9
+            - uses: aspect-build/setup-aspect@ebca96eb49ef58c00d4226de8bd3a0813507dd87 # v2026.38.3
               with:
                 aspect-api-token: ${{ secrets.ASPECT_CLOUD_API_TOKEN }}
+                bazelrc-generate: false
             - name: Buildifier
               run: aspect buildifier $REMOTE_FLAG --task:name=buildifier
     gazelle:
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v6
-            - uses: aspect-build/setup-aspect@2306377a61c45954ab2df7c7311698b109364352 # v2026.26.9
+            - uses: aspect-build/setup-aspect@ebca96eb49ef58c00d4226de8bd3a0813507dd87 # v2026.38.3
               with:
                 aspect-api-token: ${{ secrets.ASPECT_CLOUD_API_TOKEN }}
+                bazelrc-generate: false
             - name: Gazelle
               run: aspect gazelle $REMOTE_FLAG --task:name=gazelle
     typecheck:
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v6
-            - uses: aspect-build/setup-aspect@2306377a61c45954ab2df7c7311698b109364352 # v2026.26.9
+            - uses: aspect-build/setup-aspect@ebca96eb49ef58c00d4226de8bd3a0813507dd87 # v2026.38.3
               with:
                 aspect-api-token: ${{ secrets.ASPECT_CLOUD_API_TOKEN }}
+                bazelrc-generate: false
             - name: Ruff annotations
               run: bazel run $BAZEL_ASPECT_FLAGS @uv -- run --locked --group dev -- ruff check .
             - name: Typecheck maintained Python
@@ -124,9 +127,10 @@ jobs:
             USE_BAZEL_VERSION: ${{ matrix.bazel.version }}
         steps:
             - uses: actions/checkout@v6
-            - uses: aspect-build/setup-aspect@2306377a61c45954ab2df7c7311698b109364352 # v2026.26.9
+            - uses: aspect-build/setup-aspect@ebca96eb49ef58c00d4226de8bd3a0813507dd87 # v2026.38.3
               with:
                 aspect-api-token: ${{ secrets.ASPECT_CLOUD_API_TOKEN }}
+                bazelrc-generate: false
             # Plain `bazel` in the test.sh scripts gets none of the flags `aspect test`
             # injects, so point it at the same remote cache from the machine rc. The
             # flags are spelled out because --config=aspect-cloud is defined only at the
@@ -172,9 +176,10 @@ jobs:
                   bazelisk-cache: true
                   disk-cache: test-darwin-${{ matrix.runner }}
                   repository-cache: true
-            - uses: aspect-build/setup-aspect@2306377a61c45954ab2df7c7311698b109364352 # v2026.26.9
+            - uses: aspect-build/setup-aspect@ebca96eb49ef58c00d4226de8bd3a0813507dd87 # v2026.38.3
               with:
                 aspect-api-token: ${{ secrets.ASPECT_CLOUD_API_TOKEN }}
+                bazelrc-generate: false
             - name: Test
               run: bazel test $BAZEL_ASPECT_FLAGS --test_tag_filters=-skip-on-bazel8 --lockfile_mode=error -- //...
 
@@ -198,9 +203,10 @@ jobs:
                   repository-cache: true
             # `aspect` must be on PATH here as the credential helper the
             # aspect-cloud rc section names, not as a task runner.
-            - uses: aspect-build/setup-aspect@2306377a61c45954ab2df7c7311698b109364352 # v2026.26.9
+            - uses: aspect-build/setup-aspect@ebca96eb49ef58c00d4226de8bd3a0813507dd87 # v2026.38.3
               with:
                 aspect-api-token: ${{ secrets.ASPECT_CLOUD_API_TOKEN }}
+                bazelrc-generate: false
             - name: Cross-build linux wheels from macOS
               working-directory: e2e/crossbuild
               shell: bash
@@ -264,9 +270,10 @@ jobs:
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v6
-            - uses: aspect-build/setup-aspect@2306377a61c45954ab2df7c7311698b109364352 # v2026.26.9
+            - uses: aspect-build/setup-aspect@ebca96eb49ef58c00d4226de8bd3a0813507dd87 # v2026.38.3
               with:
                 aspect-api-token: ${{ secrets.ASPECT_CLOUD_API_TOKEN }}
+                bazelrc-generate: false
             - name: Cross-build arm64 wheels
               working-directory: e2e/crossbuild
               run: |
@@ -323,9 +330,10 @@ jobs:
         runs-on: ubuntu-24.04-arm
         steps:
             - uses: actions/checkout@v6
-            - uses: aspect-build/setup-aspect@2306377a61c45954ab2df7c7311698b109364352 # v2026.26.9
+            - uses: aspect-build/setup-aspect@ebca96eb49ef58c00d4226de8bd3a0813507dd87 # v2026.38.3
               with:
                 aspect-api-token: ${{ secrets.ASPECT_CLOUD_API_TOKEN }}
+                bazelrc-generate: false
             - name: Cross-build amd64 wheels
               working-directory: e2e/crossbuild
               run: |
