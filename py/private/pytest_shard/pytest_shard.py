@@ -19,7 +19,10 @@ class _Options(Protocol):
 
 
 class _Config(Protocol):
-    option: _Options
+    # Read-only: the plugin never assigns it, and a settable member would
+    # require implementations to declare exactly `_Options`.
+    @property
+    def option(self) -> _Options: ...
 
     def getoption(self, name: str) -> int: ...
 
