@@ -27,4 +27,4 @@ print("")
 print("runfiles lookup:")
 print(" data.txt:", data_path)
 
-cowsay.cow(open(data_path).read())  # type: ignore
+cowsay.cow(open(data_path).read())  # ty: ignore[unresolved-attribute]

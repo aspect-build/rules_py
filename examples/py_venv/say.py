@@ -26,4 +26,4 @@ for it in site.PREFIXES:
 
 import cowsay
 
-cowsay.cow('hello py_venv! (built at <BUILD_TIMESTAMP>)')  # type: ignore
+cowsay.cow('hello py_venv! (built at <BUILD_TIMESTAMP>)')  # ty: ignore[unresolved-attribute]

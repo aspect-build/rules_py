@@ -1,3 +1,3 @@
 import cowsay
 
-cowsay.cow('hello py_binary!')  # type: ignore
+cowsay.cow('hello py_binary!')  # ty: ignore[unresolved-attribute]
