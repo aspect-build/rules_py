@@ -53,8 +53,7 @@ def _project_impl(repository_ctx):
     # Collect all unique cfgs first
     all_cfgs = set()
     for dep, cfgs in dep_to_scc.items():
-        for cfg in cfgs.keys():
-            all_cfgs.add(cfg)
+        all_cfgs.update(cfgs)
 
     for cfg_name in all_cfgs:
         venv_content.append(

@@ -110,7 +110,7 @@ def build_package_select_arms(scc_cfgs, scc_graph, package, marker_fn):
             if whl_for_pkg:
                 whl_cfg_arms["//conditions:default"] = whl_for_pkg
         else:
-            for marker in markers.keys():
+            for marker in markers:
                 ml = marker_fn(marker)
                 if ml in cfg_arms:
                     fail("Configuration conflict: package '{}' has two SCCs for marker '{}'".format(package, marker))

@@ -197,7 +197,7 @@ def collect_configurations(lock):
     # files but only a few dozen distinct triples, so parse and expand one
     # representative wheel per triple.
     tag_triples = {}
-    for wheel_name in wheel_files.keys():
+    for wheel_name in wheel_files:
         parts = wheel_name.rsplit("-", 3)
         tag_triples["-".join(parts[1:]) if len(parts) == 4 else wheel_name] = wheel_name
 
