@@ -9,6 +9,7 @@ Mostly exists to allow debugging.
 from __future__ import annotations
 
 from argparse import ArgumentParser
+from collections.abc import Mapping
 import importlib
 import os
 import platform as _platform
@@ -1006,7 +1007,7 @@ def _configure_cargo_cross_env(build_env: dict[str, str], tmpdir: str, target_os
     build_env["MATURIN_PEP517_ARGS"] = (interpreter_arg + " " + existing).strip()
 
 
-def _build_backend(pyproject_data: dict[str, object] | None) -> str | None:
+def _build_backend(pyproject_data: Mapping[str, object] | None) -> str | None:
     """The [build-system].build-backend value, or None when undeclared."""
     build_system = (pyproject_data or {}).get("build-system", {})
     if not isinstance(build_system, dict):

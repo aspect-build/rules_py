@@ -19,10 +19,12 @@ print(" current dir (absolute):", os.path.abspath(os.curdir))
 
 
 r = runfiles.Create()
+assert r is not None, "runfiles not found"
 data_path = r.Rlocation("_main/data.txt")
+assert data_path is not None, "data.txt not found in runfiles"
 
 print("")
 print("runfiles lookup:")
 print(" data.txt:", data_path)
 
-cowsay.cow(open(data_path).read())
+cowsay.cow(open(data_path).read())  # ty: ignore[unresolved-attribute]

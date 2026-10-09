@@ -14,4 +14,4 @@ class InternalVenvTest(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    sys.exit(unittest.main())
+    unittest.main()

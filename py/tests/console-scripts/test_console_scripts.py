@@ -10,17 +10,14 @@ calls `cowsay.__main__:cli`.
 import os
 import shutil
 import subprocess
-import sys
 import unittest
 
 
 class ConsoleScriptsTest(unittest.TestCase):
     def test_wrapper_is_on_path(self) -> None:
         path = shutil.which("cowsay")
-        self.assertIsNotNone(
-            path,
-            "cowsay wrapper not found on PATH (is <venv>/bin/ prepended?)",
-        )
+        if path is None:
+            self.fail("cowsay wrapper not found on PATH (is <venv>/bin/ prepended?)")
         self.assertTrue(
             path.endswith(os.sep + "bin" + os.sep + "cowsay"),
             "expected wrapper under a bin/ directory, got: {!r}".format(path),
@@ -46,7 +43,8 @@ class ConsoleScriptsTest(unittest.TestCase):
 
     def test_wrapper_needs_only_venv_bin_on_path(self) -> None:
         wrapper = shutil.which("cowsay")
-        self.assertIsNotNone(wrapper)
+        if wrapper is None:
+            self.fail("cowsay wrapper not found on PATH")
         result = subprocess.run(
             [wrapper, "-t", "restricted-path-worked"],
             capture_output=True,
@@ -75,4 +73,4 @@ class ConsoleScriptsTest(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    sys.exit(unittest.main())
+    unittest.main()

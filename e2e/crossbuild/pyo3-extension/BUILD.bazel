@@ -36,6 +36,7 @@ genrule(
 
 py_library(
     name = "pyo3_ext",
+    srcs = ["pyo3_ext.pyi"],
     data = [":pyo3_ext_module"],
     imports = ["."],
 )

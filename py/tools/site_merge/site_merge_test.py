@@ -45,7 +45,7 @@ class SiteMergeTest(unittest.TestCase):
 
             self.assertEqual(
                 {
-                    (path, previous.name, current.name)
+                    (path, previous.name if previous else None, current.name)
                     for path, previous, current in conflicts
                 },
                 {

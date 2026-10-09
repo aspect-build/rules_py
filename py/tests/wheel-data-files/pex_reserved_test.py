@@ -37,6 +37,7 @@ KEPT = "share/reserveddata/kept.txt"
 
 def main() -> None:
     r = runfiles.Create()
+    assert r is not None, "runfiles not found"
     leaked = []
     for relative in RESERVED:
         path = r.Rlocation(TREE + relative)

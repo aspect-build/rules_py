@@ -1,18 +1,25 @@
 from types import SimpleNamespace
+from typing import Any
 
 import pytest
 
 from pytest_shard import ShardPlugin, filter_items_by_shard, positive_int
 
 
-def fake_config(
-    shard_id: int = 0, num_shards: int = 1, verbose: int = 0
-) -> SimpleNamespace:
-    opts = {"shard_id": shard_id, "num_shards": num_shards}
-    return SimpleNamespace(
-        getoption=lambda name: opts[name],
-        option=SimpleNamespace(verbose=verbose),
-    )
+class FakeOptions:
+    def __init__(self, verbose: int) -> None:
+        self.verbose = verbose
+
+
+class FakeConfig:
+    """A stand-in for pytest's Config, with just what the plugin reads."""
+
+    def __init__(self, shard_id: int = 0, num_shards: int = 1, verbose: int = 0) -> None:
+        self.option = FakeOptions(verbose)
+        self._opts = {"shard_id": shard_id, "num_shards": num_shards}
+
+    def getoption(self, name: str) -> int:
+        return self._opts[name]
 
 
 def test_positive_int() -> None:
@@ -41,24 +48,24 @@ def test_filter_items_round_robin() -> None:
 
 
 def test_modifyitems_filters_in_place() -> None:
-    items = list(range(6))
-    ShardPlugin.pytest_collection_modifyitems(fake_config(1, 2), items)
+    items: list[Any] = list(range(6))
+    ShardPlugin.pytest_collection_modifyitems(FakeConfig(1, 2), items)
     assert items == [1, 3, 5]
 
 
 def test_modifyitems_shard_id_out_of_range() -> None:
     with pytest.raises(ValueError):
-        ShardPlugin.pytest_collection_modifyitems(fake_config(2, 2), [])
+        ShardPlugin.pytest_collection_modifyitems(FakeConfig(2, 2), [])
 
 
 def test_report_collectionfinish() -> None:
-    items = [SimpleNamespace(nodeid="t1"), SimpleNamespace(nodeid="t2")]
-    assert ShardPlugin.pytest_report_collectionfinish(fake_config(), items) == (
+    items: list[Any] = [SimpleNamespace(nodeid="t1"), SimpleNamespace(nodeid="t2")]
+    assert ShardPlugin.pytest_report_collectionfinish(FakeConfig(), items) == (
         "Running 2 items in this shard"
     )
 
     # Verbose mode with multiple shards lists the node ids.
     msg = ShardPlugin.pytest_report_collectionfinish(
-        fake_config(num_shards=2, verbose=1), items
+        FakeConfig(num_shards=2, verbose=1), items
     )
     assert msg == "Running 2 items in this shard: t1, t2"

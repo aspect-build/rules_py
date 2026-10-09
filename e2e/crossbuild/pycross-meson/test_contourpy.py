@@ -17,7 +17,7 @@ def main() -> None:
     # line x+y=1.5 from (0,1.5) to (1.5,0) — hand-verified, not just captured
     # output.
     expected = [(0.0, 1.5), (0.5, 1.0), (1.0, 0.5), (1.5, 0.0)]
-    points = [tuple(p) for p in lines[0]]
+    points = [tuple(p) for p in np.asarray(lines[0])]
     assert len(points) == len(expected), "expected {} points, got {}".format(len(expected), len(points))
     for got, want in zip(points, expected):
         assert math.isclose(got[0], want[0], abs_tol=1e-9) and math.isclose(got[1], want[1], abs_tol=1e-9), \

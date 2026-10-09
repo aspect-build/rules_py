@@ -2,4 +2,4 @@
 
 import cowsay
 
-cowsay.cow("bench")
+cowsay.cow("bench")  # ty: ignore[unresolved-attribute]
