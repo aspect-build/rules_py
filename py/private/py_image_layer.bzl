@@ -51,15 +51,13 @@ load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN", "interpreter_files_and_
 _TAR_TOOLCHAIN = "@tar.bzl//tar/toolchain:type"
 
 # whl_install repo names embed the pip package as
-# `<separator>whl_install__<hash>__<package>__<...>`. The `<separator>` differs
-# between Bazel 8 (`+`) and Bazel 9 (`~`); `whl_install__` is the stable
-# anchor we match on, which works under both.
+# `<separator>whl_install__<hash>__<package>__<...>`; `whl_install__` is the
+# anchor we match on, independent of the canonical-name separator.
 def _extract_whl_install_pkg(label_str):
     """Extract the pip package name from a whl_install repo label.
 
     Returns the canonical pip package name if `label_str` lives inside a
-    whl_install repo; otherwise returns None. Tolerates both Bazel 8
-    (`+`) and Bazel 9 (`~`) module-extension separators.
+    whl_install repo; otherwise returns None.
     """
     marker = "whl_install__"
     idx = label_str.find(marker)
@@ -80,8 +78,8 @@ def normalize_label(label_str):
 
     This function is idempotent: normalize_label(normalize_label(x)) == normalize_label(x).
 
-    Callers inside aspects pass str(target.label), whose canonical form varies by
-    Bazel version (+/~ separator). The whl_install__ anchor is stable across both.
+    Callers inside aspects pass str(target.label); its canonical repo name is
+    matched on the stable whl_install__ anchor.
 
     Args:
         label_str: str(target.label) from Bazel analysis, or a user-supplied label string.

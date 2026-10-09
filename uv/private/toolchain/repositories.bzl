@@ -54,10 +54,6 @@ def _uv_repository_impl(ctx):
     ctx.file("BUILD.bazel", '''exports_files(["{uv_binary}"])
 '''.format(uv_binary = uv_binary))
 
-    # Support bazel <v8.3 by returning None if repo_metadata is not defined
-    if not hasattr(ctx, "repo_metadata"):
-        return None
-
     return ctx.repo_metadata(reproducible = bool(ctx.attr.sha256))
 
 uv_repository = repository_rule(
@@ -94,10 +90,6 @@ alias(
 '''.format(host_repo = host_repo, host_uv_binary = host_uv_binary)
 
     rctx.file("BUILD.bazel", build)
-
-    # Support bazel <v8.3 by returning None if repo_metadata is not defined
-    if not hasattr(rctx, "repo_metadata"):
-        return None
 
     return rctx.repo_metadata(reproducible = True)
 

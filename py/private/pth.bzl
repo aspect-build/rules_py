@@ -44,7 +44,7 @@ def make_imports_depset(deps, imports, workspace_name, label = None, extra_impor
 
     - The current `workspace_name` is always appended.
     - If `label` is provided and it originates from an external workspace,
-      `label.workspace_name` is appended as well.
+      `label.repo_name` is appended as well.
 
     This means callers do not need to manually add the workspace root.
 
@@ -61,7 +61,7 @@ def make_imports_depset(deps, imports, workspace_name, label = None, extra_impor
     """
     if label:
         import_paths = [
-            _make_import_path(label, label.workspace_name or workspace_name, im)
+            _make_import_path(label, label.repo_name or workspace_name, im)
             for im in imports
         ]
     else:
@@ -69,8 +69,8 @@ def make_imports_depset(deps, imports, workspace_name, label = None, extra_impor
 
     import_paths.append(workspace_name)
 
-    if label and label.workspace_name:
-        import_paths.append(label.workspace_name)
+    if label and label.repo_name:
+        import_paths.append(label.repo_name)
 
     # `deps` may carry rules_py's PyInfo or native @rules_python's; both expose
     # `imports`. See py_info_interop.bzl.

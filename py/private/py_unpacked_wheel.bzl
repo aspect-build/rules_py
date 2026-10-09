@@ -60,7 +60,7 @@ def _py_unpacked_wheel_impl(ctx):
     # site-packages/, used by downstream rules to compute symlink targets
     # for the top-level names declared in `top_levels`.
     site_packages_rfpath = paths.join(
-        ctx.label.workspace_name if ctx.label.workspace_name else ctx.workspace_name,
+        ctx.label.repo_name or ctx.workspace_name,
         ctx.label.package,
         unpack_directory.basename,
         "lib",
