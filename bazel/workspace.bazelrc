@@ -9,9 +9,9 @@
 # so clang's PATH search hits the runner's /usr/bin/ld.
 common --incompatible_strict_action_env
 
-# Type check rules_py's own code and exercise the validation action; rules_py
-# leaves it off by default for users. Workspaces that can't type check cleanly
-# turn it back off after importing this file.
+# Type check rules_py's own code and exercise the validation action.
+# Workspaces that cannot type check cleanly can turn it back off after
+# importing this file.
 common --@aspect_rules_py//py:type_check
 
 # Build without the bytes
