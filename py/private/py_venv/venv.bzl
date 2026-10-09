@@ -370,7 +370,7 @@ def assemble_venv(
         bin_activate = ctx.actions.declare_file("{}/bin/activate".format(venv_name))
         envvar_exports = "\n".join(_dict_to_exports(default_env)).strip()
         envvar_unsets = "\n".join(
-            ["    unset {}".format(k) for k in default_env.keys()],
+            ["    unset {}".format(k) for k in default_env],
         )
         ctx.actions.expand_template(
             template = venv_activate_tmpl,

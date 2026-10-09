@@ -109,7 +109,7 @@ def dedupe_shared_installs(install_cfgs):
     """
     seen = {}
     id_remap = {}
-    for install_id in install_cfgs.keys():
+    for install_id in install_cfgs:
         key = shared_install_key(install_cfgs[install_id])
         if key == None:
             continue
@@ -732,18 +732,18 @@ def _parse_projects(module_ctx, hub_specs):
             ))
             hub_cfg.testonly_packages.update(testonly_packages)
 
-            for cfg in configuration_names.keys():
+            for cfg in configuration_names:
                 if cfg in hub_cfg.configurations:
                     fail("Conflict on configuration name {} in hub {}".format(cfg, project.hub_name))
 
             hub_cfg.configurations.update({
                 name: project_id
-                for name in configuration_names.keys()
+                for name in configuration_names
             })
 
             # Build a {requirement: {cfg: target mapping}}
             for package, cfgs in version_activations.items():
-                for cfg in cfgs.keys():
+                for cfg in cfgs:
                     hub_cfg.packages.setdefault(package, {})[cfg] = "@{}//:{}".format(project_id, package)
 
         for i, override in enumerate(mod.tags.override_package):

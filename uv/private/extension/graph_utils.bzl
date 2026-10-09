@@ -48,12 +48,11 @@ def collect_sccs(marker_graph, id_state = None):
     all_nodes = set()
     for pkg, deps in marker_graph.items():
         all_nodes.add(pkg)
-        for dep in deps.keys():
-            all_nodes.add(dep)
+        all_nodes.update(deps)
 
     simplified_graph = {node: [] for node in all_nodes}
     for pkg, deps in marker_graph.items():
-        simplified_graph[pkg] = list(deps.keys())
+        simplified_graph[pkg] = list(deps)
 
     graph_components = sccs(simplified_graph)
 
@@ -303,8 +302,8 @@ def combine_markers(lefts, rights):
         else:
             return "({}) and ({})".format(l, r)
 
-    for l in lefts.keys():
-        for r in rights.keys():
+    for l in lefts:
+        for r in rights:
             acc[_and(l, r)] = 1
 
     return acc

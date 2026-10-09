@@ -101,7 +101,7 @@ def extract_requirement_marker_pairs(projectfile, lock_id, req_string, version_m
         if pkg_vers:
             candidates = {
                 ver: (lock_id, pkg_name, ver, "__base__")
-                for ver in pkg_vers.keys()
+                for ver in pkg_vers
             }
             v = find_matching_version(specifier if specifier else ">=0", candidates)
     if v == None:
@@ -222,7 +222,7 @@ def collect_activated_extras(projectfile, lock_id, project_data, lock_data, defa
 
     lockfile_group_versions = _extract_lockfile_group_versions(lock_id, lock_data)
 
-    for group_name in dep_groups.keys():
+    for group_name in dep_groups:
         resolved_specs = resolve_dependency_group_specs(dep_groups, group_name)
 
         group_preferences = dict(lockfile_group_versions.get(group_name, {}))
@@ -295,7 +295,7 @@ def collect_activated_extras(projectfile, lock_id, project_data, lock_data, defa
                 for clause in clauses
             }
 
-    return {it: 1 for it in dep_groups.keys()}, activated_extras
+    return {it: 1 for it in dep_groups}, activated_extras
 
 def collate_versions_by_name(activated_extras):
     """Collates activated extras by package name, configuration, and version.
