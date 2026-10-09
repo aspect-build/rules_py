@@ -113,6 +113,14 @@ toolchain(
     toolchain_type = "@aspect_rules_py//py/private/toolchain:exec_tools_toolchain_type",
 )
 
+toolchain(
+    name = "python_3_12_aarch64_apple_darwin_pyc_compiler",
+    exec_compatible_with = ["@platforms//os:macos", "@platforms//cpu:aarch64"],
+    target_settings = [":python_version_is_3_12"],
+    toolchain = "@python_3_12_aarch64_apple_darwin//:pyc_compiler",
+    toolchain_type = "@aspect_rules_py//py/private/toolchain:pyc_compiler_toolchain_type",
+)
+
 
 toolchain(
     name = "python_3_12_aarch64_unknown_linux_gnu",
@@ -136,6 +144,14 @@ toolchain(
     target_settings = [":python_version_is_3_12", ":freethreaded_is_false"],
     toolchain = "@python_3_12_aarch64_unknown_linux_gnu//:runtime",
     toolchain_type = "@aspect_rules_py//py/private/toolchain:exec_tools_toolchain_type",
+)
+
+toolchain(
+    name = "python_3_12_aarch64_unknown_linux_gnu_pyc_compiler",
+    exec_compatible_with = ["@platforms//os:linux", "@platforms//cpu:aarch64"],
+    target_settings = [":python_version_is_3_12"],
+    toolchain = "@python_3_12_aarch64_unknown_linux_gnu//:pyc_compiler",
+    toolchain_type = "@aspect_rules_py//py/private/toolchain:pyc_compiler_toolchain_type",
 )
 
 
@@ -180,6 +196,14 @@ toolchain(
     toolchain_type = "@aspect_rules_py//py/private/toolchain:exec_tools_toolchain_type",
 )
 
+toolchain(
+    name = "python_3_12_x86_64_apple_darwin_pyc_compiler",
+    exec_compatible_with = ["@platforms//os:macos", "@platforms//cpu:x86_64"],
+    target_settings = [":python_version_is_3_12"],
+    toolchain = "@python_3_12_x86_64_apple_darwin//:pyc_compiler",
+    toolchain_type = "@aspect_rules_py//py/private/toolchain:pyc_compiler_toolchain_type",
+)
+
 
 toolchain(
     name = "python_3_12_x86_64_unknown_linux_gnu",
@@ -203,6 +227,14 @@ toolchain(
     target_settings = [":python_version_is_3_12", ":freethreaded_is_false"],
     toolchain = "@python_3_12_x86_64_unknown_linux_gnu//:runtime",
     toolchain_type = "@aspect_rules_py//py/private/toolchain:exec_tools_toolchain_type",
+)
+
+toolchain(
+    name = "python_3_12_x86_64_unknown_linux_gnu_pyc_compiler",
+    exec_compatible_with = ["@platforms//os:linux", "@platforms//cpu:x86_64"],
+    target_settings = [":python_version_is_3_12"],
+    toolchain = "@python_3_12_x86_64_unknown_linux_gnu//:pyc_compiler",
+    toolchain_type = "@aspect_rules_py//py/private/toolchain:pyc_compiler_toolchain_type",
 )
 
 
@@ -247,6 +279,14 @@ toolchain(
     toolchain_type = "@aspect_rules_py//py/private/toolchain:exec_tools_toolchain_type",
 )
 
+toolchain(
+    name = "python_3_12_x86_64_pc_windows_msvc_pyc_compiler",
+    exec_compatible_with = ["@platforms//os:windows", "@platforms//cpu:x86_64"],
+    target_settings = [":python_version_is_3_12"],
+    toolchain = "@python_3_12_x86_64_pc_windows_msvc//:pyc_compiler",
+    toolchain_type = "@aspect_rules_py//py/private/toolchain:pyc_compiler_toolchain_type",
+)
+
 
 toolchain(
     name = "python_3_12_aarch64_pc_windows_msvc",
@@ -270,6 +310,14 @@ toolchain(
     target_settings = [":python_version_is_3_12", ":freethreaded_is_false"],
     toolchain = "@python_3_12_aarch64_pc_windows_msvc//:runtime",
     toolchain_type = "@aspect_rules_py//py/private/toolchain:exec_tools_toolchain_type",
+)
+
+toolchain(
+    name = "python_3_12_aarch64_pc_windows_msvc_pyc_compiler",
+    exec_compatible_with = ["@platforms//os:windows", "@platforms//cpu:aarch64"],
+    target_settings = [":python_version_is_3_12"],
+    toolchain = "@python_3_12_aarch64_pc_windows_msvc//:pyc_compiler",
+    toolchain_type = "@aspect_rules_py//py/private/toolchain:pyc_compiler_toolchain_type",
 )
 
 
@@ -297,6 +345,14 @@ toolchain(
     toolchain_type = "@aspect_rules_py//py/private/toolchain:exec_tools_toolchain_type",
 )
 
+toolchain(
+    name = "python_3_12_i686_pc_windows_msvc_pyc_compiler",
+    exec_compatible_with = ["@platforms//os:windows", "@platforms//cpu:x86_32"],
+    target_settings = [":python_version_is_3_12"],
+    toolchain = "@python_3_12_i686_pc_windows_msvc//:pyc_compiler",
+    toolchain_type = "@aspect_rules_py//py/private/toolchain:pyc_compiler_toolchain_type",
+)
+
 
 toolchain(
     name = "python_3_13_aarch64_apple_darwin",
@@ -322,6 +378,14 @@ toolchain(
     toolchain_type = "@aspect_rules_py//py/private/toolchain:exec_tools_toolchain_type",
 )
 
+toolchain(
+    name = "python_3_13_aarch64_apple_darwin_pyc_compiler",
+    exec_compatible_with = ["@platforms//os:macos", "@platforms//cpu:aarch64"],
+    target_settings = [":python_version_is_3_13"],
+    toolchain = "@python_3_13_aarch64_apple_darwin//:pyc_compiler",
+    toolchain_type = "@aspect_rules_py//py/private/toolchain:pyc_compiler_toolchain_type",
+)
+
 
 toolchain(
     name = "python_3_13_aarch64_unknown_linux_gnu",
@@ -345,6 +409,14 @@ toolchain(
     target_settings = [":python_version_is_3_13", ":freethreaded_is_false"],
     toolchain = "@python_3_13_aarch64_unknown_linux_gnu//:runtime",
     toolchain_type = "@aspect_rules_py//py/private/toolchain:exec_tools_toolchain_type",
+)
+
+toolchain(
+    name = "python_3_13_aarch64_unknown_linux_gnu_pyc_compiler",
+    exec_compatible_with = ["@platforms//os:linux", "@platforms//cpu:aarch64"],
+    target_settings = [":python_version_is_3_13"],
+    toolchain = "@python_3_13_aarch64_unknown_linux_gnu//:pyc_compiler",
+    toolchain_type = "@aspect_rules_py//py/private/toolchain:pyc_compiler_toolchain_type",
 )
 
 
@@ -389,6 +461,14 @@ toolchain(
     toolchain_type = "@aspect_rules_py//py/private/toolchain:exec_tools_toolchain_type",
 )
 
+toolchain(
+    name = "python_3_13_x86_64_apple_darwin_pyc_compiler",
+    exec_compatible_with = ["@platforms//os:macos", "@platforms//cpu:x86_64"],
+    target_settings = [":python_version_is_3_13"],
+    toolchain = "@python_3_13_x86_64_apple_darwin//:pyc_compiler",
+    toolchain_type = "@aspect_rules_py//py/private/toolchain:pyc_compiler_toolchain_type",
+)
+
 
 toolchain(
     name = "python_3_13_x86_64_unknown_linux_gnu",
@@ -412,6 +492,14 @@ toolchain(
     target_settings = [":python_version_is_3_13", ":freethreaded_is_false"],
     toolchain = "@python_3_13_x86_64_unknown_linux_gnu//:runtime",
     toolchain_type = "@aspect_rules_py//py/private/toolchain:exec_tools_toolchain_type",
+)
+
+toolchain(
+    name = "python_3_13_x86_64_unknown_linux_gnu_pyc_compiler",
+    exec_compatible_with = ["@platforms//os:linux", "@platforms//cpu:x86_64"],
+    target_settings = [":python_version_is_3_13"],
+    toolchain = "@python_3_13_x86_64_unknown_linux_gnu//:pyc_compiler",
+    toolchain_type = "@aspect_rules_py//py/private/toolchain:pyc_compiler_toolchain_type",
 )
 
 
@@ -456,6 +544,14 @@ toolchain(
     toolchain_type = "@aspect_rules_py//py/private/toolchain:exec_tools_toolchain_type",
 )
 
+toolchain(
+    name = "python_3_13_x86_64_pc_windows_msvc_pyc_compiler",
+    exec_compatible_with = ["@platforms//os:windows", "@platforms//cpu:x86_64"],
+    target_settings = [":python_version_is_3_13"],
+    toolchain = "@python_3_13_x86_64_pc_windows_msvc//:pyc_compiler",
+    toolchain_type = "@aspect_rules_py//py/private/toolchain:pyc_compiler_toolchain_type",
+)
+
 
 toolchain(
     name = "python_3_13_aarch64_pc_windows_msvc",
@@ -481,6 +577,14 @@ toolchain(
     toolchain_type = "@aspect_rules_py//py/private/toolchain:exec_tools_toolchain_type",
 )
 
+toolchain(
+    name = "python_3_13_aarch64_pc_windows_msvc_pyc_compiler",
+    exec_compatible_with = ["@platforms//os:windows", "@platforms//cpu:aarch64"],
+    target_settings = [":python_version_is_3_13"],
+    toolchain = "@python_3_13_aarch64_pc_windows_msvc//:pyc_compiler",
+    toolchain_type = "@aspect_rules_py//py/private/toolchain:pyc_compiler_toolchain_type",
+)
+
 
 toolchain(
     name = "python_3_13_i686_pc_windows_msvc",
@@ -504,6 +608,14 @@ toolchain(
     target_settings = [":python_version_is_3_13", ":freethreaded_is_false"],
     toolchain = "@python_3_13_i686_pc_windows_msvc//:runtime",
     toolchain_type = "@aspect_rules_py//py/private/toolchain:exec_tools_toolchain_type",
+)
+
+toolchain(
+    name = "python_3_13_i686_pc_windows_msvc_pyc_compiler",
+    exec_compatible_with = ["@platforms//os:windows", "@platforms//cpu:x86_32"],
+    target_settings = [":python_version_is_3_13"],
+    toolchain = "@python_3_13_i686_pc_windows_msvc//:pyc_compiler",
+    toolchain_type = "@aspect_rules_py//py/private/toolchain:pyc_compiler_toolchain_type",
 )
 
 
@@ -769,6 +881,62 @@ toolchain(
     exec_compatible_with = ["@platforms//os:windows", "@platforms//cpu:x86_32"],
     toolchain = "@python_3_13_i686_pc_windows_msvc//:runtime",
     toolchain_type = "@aspect_rules_py//py/private/toolchain:exec_tools_toolchain_type",
+)
+
+
+toolchain(
+    name = "zz_python_3_13_aarch64_apple_darwin_pyc_compiler_fallback",
+    exec_compatible_with = ["@platforms//os:macos", "@platforms//cpu:aarch64"],
+    toolchain = "@python_3_13_aarch64_apple_darwin//:pyc_compiler",
+    toolchain_type = "@aspect_rules_py//py/private/toolchain:pyc_compiler_toolchain_type",
+)
+
+
+toolchain(
+    name = "zz_python_3_13_aarch64_unknown_linux_gnu_pyc_compiler_fallback",
+    exec_compatible_with = ["@platforms//os:linux", "@platforms//cpu:aarch64"],
+    toolchain = "@python_3_13_aarch64_unknown_linux_gnu//:pyc_compiler",
+    toolchain_type = "@aspect_rules_py//py/private/toolchain:pyc_compiler_toolchain_type",
+)
+
+
+toolchain(
+    name = "zz_python_3_13_x86_64_apple_darwin_pyc_compiler_fallback",
+    exec_compatible_with = ["@platforms//os:macos", "@platforms//cpu:x86_64"],
+    toolchain = "@python_3_13_x86_64_apple_darwin//:pyc_compiler",
+    toolchain_type = "@aspect_rules_py//py/private/toolchain:pyc_compiler_toolchain_type",
+)
+
+
+toolchain(
+    name = "zz_python_3_13_x86_64_unknown_linux_gnu_pyc_compiler_fallback",
+    exec_compatible_with = ["@platforms//os:linux", "@platforms//cpu:x86_64"],
+    toolchain = "@python_3_13_x86_64_unknown_linux_gnu//:pyc_compiler",
+    toolchain_type = "@aspect_rules_py//py/private/toolchain:pyc_compiler_toolchain_type",
+)
+
+
+toolchain(
+    name = "zz_python_3_13_x86_64_pc_windows_msvc_pyc_compiler_fallback",
+    exec_compatible_with = ["@platforms//os:windows", "@platforms//cpu:x86_64"],
+    toolchain = "@python_3_13_x86_64_pc_windows_msvc//:pyc_compiler",
+    toolchain_type = "@aspect_rules_py//py/private/toolchain:pyc_compiler_toolchain_type",
+)
+
+
+toolchain(
+    name = "zz_python_3_13_aarch64_pc_windows_msvc_pyc_compiler_fallback",
+    exec_compatible_with = ["@platforms//os:windows", "@platforms//cpu:aarch64"],
+    toolchain = "@python_3_13_aarch64_pc_windows_msvc//:pyc_compiler",
+    toolchain_type = "@aspect_rules_py//py/private/toolchain:pyc_compiler_toolchain_type",
+)
+
+
+toolchain(
+    name = "zz_python_3_13_i686_pc_windows_msvc_pyc_compiler_fallback",
+    exec_compatible_with = ["@platforms//os:windows", "@platforms//cpu:x86_32"],
+    toolchain = "@python_3_13_i686_pc_windows_msvc//:pyc_compiler",
+    toolchain_type = "@aspect_rules_py//py/private/toolchain:pyc_compiler_toolchain_type",
 )
 
 

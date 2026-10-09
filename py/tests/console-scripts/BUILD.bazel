@@ -1,4 +1,5 @@
 load("//py:defs.bzl", "py_test", "py_unpacked_wheel")
+load("//py/tests:pyc_testing.bzl", "shared_outputs_test")
 
 package(default_testonly = True)
 
@@ -59,4 +60,15 @@ py_test(
         ":dotted_entry",
         "@pypi//cowsay",
     ],
+)
+
+# Wheels ignore the first-party invalidation mode, so both values share one configured wheel.
+shared_outputs_test(
+    name = "wheel_shared_across_invalidation_modes_test",
+    expected = "same",
+    invalidation_modes = [
+        "checked-hash",
+        "unchecked-hash",
+    ],
+    target = ":dotted_entry",
 )

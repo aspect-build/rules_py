@@ -62,3 +62,28 @@ generated_stubs_test(
     name = "generated_stubs_test",
     target_under_test = ":native_greeting_stubs_wrapper",
 )
+
+[
+    py_test(
+        name = "{}_{}_test".format(generator, mode),
+        size = "small",
+        srcs = ["bytecode_test.py"],
+        env = {
+            "EXPECT_PYC": mode,
+            "EXPECT_RUNTIME_PYC": runtime_pyc,
+            "MODULE": module,
+            "MODULE_DIR": module_dir,
+        },
+        main = "bytecode_test.py",
+        precompile = mode,
+        deps = [dep],
+    )
+    for generator, dep, module, module_dir, runtime_pyc in [
+        ("native", ":native_greeting_py_proto", "native_greeting_pb2", "", "0"),
+        ("grpc", ":greeting_py_proto", "greeting_pb2", "greeting_py_proto_pb", "1"),
+    ]
+    for mode in [
+        "pycache",
+        "sourceless",
+    ]
+]
