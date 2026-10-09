@@ -118,7 +118,7 @@ PyLayerTierInfo = provider(
         "compression": "dict[str, list[str]] — group name → [algorithm, level], as written on the rule.",
         "compressors": "dict[str, PyLayerCompressorInfo] — group name → custom compressor.",
         "codecs": "dict[str, struct] — group name → resolved codec (bsdtar flags + file extension).",
-        "multi_member_groups": "dict[str, True] — group names with 2+ members in whole_groups.",
+        "multi_member_groups": "set[str] — group names with 2+ members in whole_groups.",
         "interpreter_group": "str — group name for the Python interpreter layer; '' disables.",
         "root": "str — root path in the image (e.g. '/app').",
         "strip_prefix": "str — prefix stripped from source file paths; empty means use binary short_path.",
@@ -159,7 +159,7 @@ def _py_layer_tier_impl(ctx):
     group_counts = {}
     for group_name in whole_groups.values():
         group_counts[group_name] = group_counts.get(group_name, 0) + 1
-    multi_member_groups = {name: True for name, count in group_counts.items() if count >= 2}
+    multi_member_groups = set([name for name, count in group_counts.items() if count >= 2])
 
     _validate_numeric_id(ctx.attr.owner, "owner")
     _validate_numeric_id(ctx.attr.group, "group")
@@ -1124,7 +1124,7 @@ def _py_image_layer_impl(ctx):
             if pkg.artifact_key not in pkg_by_key:
                 pkg_by_key[pkg.artifact_key] = pkg
     all_pkgs = pkg_by_key.values()
-    pip_labels = {pkg.label: True for pkg in all_pkgs}
+    pip_labels = set([pkg.label for pkg in all_pkgs])
 
     # `_platform_cfg` rewrites the `//py:layer_tier` flag from `attr.layer_tier`,
     # so `_layer_tier` always resolves to the effective tier.
@@ -1142,7 +1142,7 @@ def _py_image_layer_impl(ctx):
     if launcher_dir and not launcher_dir.startswith("/"):
         fail("py_image_layer.launcher_dir must be an absolute image path")
 
-    launcher_names = {}
+    launcher_names = set()
     executable_dsts = {}
     executable_owner_by_path = {}
     repo_mappings_by_path = {}
@@ -1157,12 +1157,12 @@ def _py_image_layer_impl(ctx):
         if launcher_dir:
             if launcher_name in launcher_names:
                 fail("duplicate py_image_layer launcher basename: {}".format(launcher_name))
-            launcher_names[launcher_name] = True
+            launcher_names.add(launcher_name)
             executable_dsts[executable.short_path] = "." + launcher_dir.rstrip("/") + "/" + launcher_name
         else:
             executable_dsts[executable.short_path] = ""
 
-    runfile_executable_paths = {}
+    runfile_executable_paths = set()
     if launcher_dir and len(binaries) > 1:
         for index, binary in enumerate(binaries):
             for f in binary[DefaultInfo].default_runfiles.files.to_list():
@@ -1174,7 +1174,7 @@ def _py_image_layer_impl(ctx):
                 # both its relocated entrypoint and the logical key resolved
                 # by that consumer.
                 if owning_binary != None and owning_binary != index:
-                    runfile_executable_paths[f.path] = True
+                    runfile_executable_paths.add(f.path)
 
     # Each manifest describes one launcher's runfiles closure. The image shares
     # one runfiles root, so its manifest must resolve apparent names from all of
@@ -1222,7 +1222,7 @@ def _py_image_layer_impl(ctx):
     pkg_map = lambda f, d: _pkg_file_to_mtree(f, d, owner, group)
     interpreter_map = lambda f, d: _interpreter_file_to_mtree(f, d, owner, group)
 
-    rule_group_names = {gname: True for gname in ctx.attr.groups.values()}
+    rule_group_names = set(ctx.attr.groups.values())
     rule_groups = []
     for dep, group_name in ctx.attr.groups.items():
         dep_label = normalize_label(str(dep.label))
@@ -1233,13 +1233,13 @@ def _py_image_layer_impl(ctx):
 
     # Entries of one group are packaged as a union, so build the union once.
     fp_group_files = {}
-    seen_fp_labels = {}
+    seen_fp_labels = set()
     for info in infos:
         for entry in info.first_party_layers.to_list():
             if single_binary:
                 if entry.label in seen_fp_labels:
                     continue
-                seen_fp_labels[entry.label] = True
+                seen_fp_labels.add(entry.label)
             fp_group_files.setdefault(entry.group, []).append(entry.files)
     fp_by_group = {group: [depset(transitive = files)] for group, files in fp_group_files.items()}
     first_party_reference_files = [files[0] for files in fp_by_group.values()]
@@ -1304,8 +1304,8 @@ def _py_image_layer_impl(ctx):
             prebuilt_group_tars[layer.group] = layer.tar
             fp_by_group.setdefault(layer.group, [])
 
-    layer_group_names = {group_name: True for group_name in fp_by_group}
-    layer_group_names.update({layer.group: True for layer in interpreter_layers.values()})
+    layer_group_names = set(fp_by_group)
+    layer_group_names.update([layer.group for layer in interpreter_layers.values()])
     for group_name in layer_group_names:
         if group_name in rule_group_names:
             fail(

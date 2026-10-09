@@ -375,8 +375,8 @@ def _python_toolchains_impl(rctx):
     # First pass: collect all unique flag/value pairs and version/freethreaded
     # combos so we generate each config_setting exactly once.
     seen_settings = {}  # name -> (flag, value)
-    seen_versions = {}  # major_minor -> True
-    seen_freethreaded = {}  # bool -> True
+    seen_versions = set()  # major_minor
+    seen_freethreaded = set()
     toolchain_infos = []
 
     for entry in rctx.attr.toolchains:
@@ -391,8 +391,8 @@ def _python_toolchains_impl(rctx):
 
         # Track version/freethreaded for hub-local config_settings
         python_version = info["python_version"]
-        seen_versions[python_version] = True
-        seen_freethreaded[info.get("freethreaded", False)] = True
+        seen_versions.add(python_version)
+        seen_freethreaded.add(info.get("freethreaded", False))
 
         toolchain_infos.append((info, setting_names))
 
@@ -403,7 +403,7 @@ def _python_toolchains_impl(rctx):
 # rules_python's flag as a fallback: the fallback selects only when our own
 # flag is unset, so setting our flag always wins and rpy's default can't
 # shadow it.""")
-    for major_minor in seen_versions.keys():
+    for major_minor in seen_versions:
         group_name = _version_setting_name(major_minor)
         content.append("""
 config_setting(
@@ -434,7 +434,7 @@ selects.config_setting_group(
         ))
 
     # Emit hub-local freethreaded config_settings
-    for value in seen_freethreaded.keys():
+    for value in seen_freethreaded:
         name = _freethreaded_setting_name(value)
         content.append("""
 config_setting(

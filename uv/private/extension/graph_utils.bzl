@@ -61,7 +61,7 @@ def collect_sccs(marker_graph, id_state = None):
     # one pass, merging markers per target.
     scc_info_list = []
     for scc_members in graph_components:
-        member_set = {m: True for m in scc_members}
+        member_set = set(scc_members)
         raw_scc_deps = {}
         intra_deps = {}
         for member in scc_members:
@@ -214,13 +214,13 @@ def exclude_build_dep(packages, scc_graph, excluded):
         for member in members:
             parents.setdefault(member, []).append(scc_id)
 
-    affected = {}
+    affected = set()
     frontier = parents.get(excluded, [])
     for _ in range(len(scc_graph)):
         next_frontier = []
         for scc_id in frontier:
             if scc_id not in affected:
-                affected[scc_id] = True
+                affected.add(scc_id)
                 next_frontier.extend(parents.get(scc_prefix + scc_id, []))
         if not next_frontier:
             break
@@ -259,21 +259,21 @@ def reachable_build_deps(packages, scc_graph):
         The reachable SCCs, including dependencies reached through omitted installs.
     """
     prefix = "//private/build_deps/sccs:"
-    frontier = {
-        candidate["deps"][1][len(prefix):]: True
+    frontier = set([
+        candidate["deps"][1][len(prefix):]
         for candidates in packages.values()
         for candidate in candidates
-    }
+    ])
     reachable = {}
     for _ in range(len(scc_graph)):
-        next_frontier = {}
+        next_frontier = set()
         for scc_id in frontier:
             if scc_id in reachable:
                 continue
             reachable[scc_id] = scc_graph[scc_id]
             for dep in scc_graph[scc_id]:
                 if dep.startswith(prefix):
-                    next_frontier[dep[len(prefix):]] = True
+                    next_frontier.add(dep[len(prefix):])
         if not next_frontier:
             break
         frontier = next_frontier

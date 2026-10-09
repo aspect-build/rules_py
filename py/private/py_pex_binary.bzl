@@ -79,16 +79,16 @@ def _closure_aspect_impl(target, ctx):
     # repo roots and version for the venv node below to read under its config.
     if platform_common.ToolchainInfo in target:
         files, version = interpreter_files_and_version(target)
-        roots = {}
+        roots = set()
         if files != None:
             for f in files.to_list():
                 r = _repo_root_prefix(f.short_path)
                 if r != None:
-                    roots[r] = True
+                    roots.add(r)
         return [_PexClosureInfo(
             wheels = depset(),
             venv_roots = depset(),
-            interpreter_roots = depset(roots.keys()),
+            interpreter_roots = depset(list(roots)),
             version = version,
             freethreaded = None,
         )]

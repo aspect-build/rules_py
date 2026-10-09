@@ -24,7 +24,7 @@ def resolve_dependency_group_specs(dep_groups, group_name):
 
     # Track which groups we've visited to detect cycles.
     # We expand iteratively, one level at a time, until no include-groups remain.
-    visited = {group_name: True}
+    visited = set([group_name])
 
     # Start with the specs from the requested group, tagged with their source for error messages.
     # Each item is either a string (requirement) or a tuple (included_group_name, parent_path).
@@ -60,7 +60,7 @@ def resolve_dependency_group_specs(dep_groups, group_name):
                         ", ".join(sorted(dep_groups.keys())),
                     ))
 
-                visited[included_group] = True
+                visited.add(included_group)
 
                 # Expand this include-group inline
                 for spec in dep_groups[included_group]:

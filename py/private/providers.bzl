@@ -126,9 +126,9 @@ def make_wheel_record(
     """
     _validate_data_files(data_files, site_packages_rfpath, install_tree)
 
-    ns_set = {tl: True for tl in namespace_top_levels}
-    top_level_dir_set = {tl: True for tl in top_level_dirs}
-    native_root_set = {root: True for root in native_roots}
+    ns_set = set(namespace_top_levels)
+    top_level_dir_set = set(top_level_dirs)
+    native_root_set = set(native_roots)
     ns_entries_by_tl = {}
     for entry in namespace_entries:
         ns_entries_by_tl.setdefault(entry.split("/")[0], []).append(entry)
