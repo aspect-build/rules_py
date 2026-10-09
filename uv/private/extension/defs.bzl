@@ -193,13 +193,13 @@ def _parse_hubs(module_ctx):
         module_ctx: The Bazel module context.
 
     Returns:
-        A dict whose keys are declared hub names (values are unused).
+        The set of declared hub names.
     """
-    hub_specs = {}
+    hub_specs = set()
 
     for mod in module_ctx.modules:
         for hub in mod.tags.declare_hub:
-            hub_specs[hub.hub_name] = True
+            hub_specs.add(hub.hub_name)
 
     return hub_specs
 
@@ -248,7 +248,7 @@ def _parse_projects(module_ctx, hub_specs):
 
     # FIXME: Collect build deps files/annotations
     for mod in module_ctx.modules:
-        project_locks = {project.lock: True for project in mod.tags.project}
+        project_locks = set([project.lock for project in mod.tags.project])
         for override in mod.tags.override_package:
             if override.lock == None and override.target != None:
                 fail("uv.override_package() for '{}': `target` requires `lock`.".format(override.name))

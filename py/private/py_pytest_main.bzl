@@ -25,14 +25,14 @@ def _pytest_paths_impl(ctx):
     workspace-root source would otherwise yield an empty root and make pytest
     recurse the whole runfiles tree, collecting unrelated files supplied as
     data). Support code belongs in `deps`, and conftest.py in `data`."""
-    files = {}
+    files = set()
     for src in ctx.files.srcs:
         # short_path is runfiles-relative, so external-repo sources
         # (../reponame/...) resolve from the runfiles root at collection time
         # too — keep them instead of dropping a target's only sources.
-        files[src.short_path] = True
+        files.add(src.short_path)
     out = ctx.actions.declare_file(ctx.attr.name)
-    ctx.actions.write(out, "\n".join(sorted(files.keys())))
+    ctx.actions.write(out, "\n".join(sorted(files)))
     return [DefaultInfo(
         files = depset([out]),
         runfiles = ctx.runfiles(files = [out]),

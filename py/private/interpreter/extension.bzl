@@ -252,7 +252,7 @@ def _python_interpreters_impl(module_ctx):
     # honored.
     requested_versions = []
     version_sources = {}  # major_minor -> list of module names (for error messages)
-    allow_pre_release = {}  # major_minor -> bool
+    allow_pre_release = set()  # major_minor
     root_settings = {}  # major_minor -> root-owned toolchain settings
 
     for mod in module_ctx.modules:
@@ -300,7 +300,7 @@ def _python_interpreters_impl(module_ctx):
             # requesting 3.15 needs the root to allow pre-releases for that
             # version.
             if mod.is_root and tag.pre_release:
-                allow_pre_release[major_minor] = True
+                allow_pre_release.add(major_minor)
 
     if not requested_versions:
         return module_ctx.extension_metadata(
@@ -331,7 +331,7 @@ def _python_interpreters_impl(module_ctx):
     for major_minor in sorted(requested_versions):
         version_found = False
         default_mode_found = False
-        pre_release_versions = {}  # full_version -> True, rejected by the pre_release gate
+        pre_release_versions = set()  # full_version, rejected by the pre_release gate
         settings = root_settings.get(major_minor, {
             "config_settings": [],
             "exec_compatible_with": [],
@@ -364,8 +364,8 @@ def _python_interpreters_impl(module_ctx):
                         platform_triple,
                         ", ".join(release_dates),
                     )
-                elif is_pre_release(asset_info["full_version"]) and not allow_pre_release.get(major_minor, False):
-                    pre_release_versions[asset_info["full_version"]] = True
+                elif is_pre_release(asset_info["full_version"]) and major_minor not in allow_pre_release:
+                    pre_release_versions.add(asset_info["full_version"])
                     unavailable = "CPython {} for {} is a pre-release ({}) not enabled via interpreters.toolchain(pre_release = True).".format(
                         major_minor,
                         platform_triple,

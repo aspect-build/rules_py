@@ -123,7 +123,7 @@ def _cc_toolchain_inputs_and_tools(ctx):
         # Legacy toolchains may omit action configs, while action-only providers may
         # fabricate legacy executable fields; fallbacks must therefore appear in
         # all_files. tool_paths shims may still lack driver-relative sibling tools.
-        file_paths = {file.path: True for file in files.to_list()}
+        file_paths = set([file.path for file in files.to_list()])
         legacy_tools = {
             "AR": cc_toolchain.ar_executable,
             "CC": cc_toolchain.compiler_executable,

@@ -357,7 +357,7 @@ Layer tier for py_image_layer: how pip packages are grouped and compressed.
 | <a id="PyLayerTierInfo-compression"></a>compression |  dict[str, list[str]] — group name → [algorithm, level], as written on the rule.    |
 | <a id="PyLayerTierInfo-compressors"></a>compressors |  dict[str, PyLayerCompressorInfo] — group name → custom compressor.    |
 | <a id="PyLayerTierInfo-codecs"></a>codecs |  dict[str, struct] — group name → resolved codec (bsdtar flags + file extension).    |
-| <a id="PyLayerTierInfo-multi_member_groups"></a>multi_member_groups |  dict[str, True] — group names with 2+ members in whole_groups.    |
+| <a id="PyLayerTierInfo-multi_member_groups"></a>multi_member_groups |  set[str] — group names with 2+ members in whole_groups.    |
 | <a id="PyLayerTierInfo-interpreter_group"></a>interpreter_group |  str — group name for the Python interpreter layer; '' disables.    |
 | <a id="PyLayerTierInfo-root"></a>root |  str — root path in the image (e.g. '/app').    |
 | <a id="PyLayerTierInfo-strip_prefix"></a>strip_prefix |  str — prefix stripped from source file paths; empty means use binary short_path.    |
