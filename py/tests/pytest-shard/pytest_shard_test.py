@@ -48,7 +48,6 @@ def test_filter_items_round_robin() -> None:
 
 
 def test_modifyitems_filters_in_place() -> None:
-    # Stand-ins for pytest's Items: filtering never looks inside them.
     items: list[Any] = list(range(6))
     ShardPlugin.pytest_collection_modifyitems(FakeConfig(1, 2), items)
     assert items == [1, 3, 5]
