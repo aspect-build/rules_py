@@ -87,6 +87,7 @@ def _py_venv_exec_impl(ctx):
 
     # When `isolated = False`, drop Python's `-I` flag so PYTHONPATH is
     # honored and the script directory is auto-added to sys.path.
+    _py_semantics.check_interpreter_options(ctx)
     flags = list(_py_semantics.interpreter_flags) + ctx.attr.interpreter_options
     if not ctx.attr.isolated:
         flags = [f for f in flags if f != "-I"]
@@ -235,7 +236,7 @@ consumer, in the tri-state string form of py_venv's attribute ("" inherits).
 Usually set on py_binary/py_test instead.""",
     ),
     "interpreter_options": attr.string_list(
-        doc = "Additional options to pass to the Python interpreter in addition to -B and -I passed by rules_py",
+        doc = "Additional options to pass to the Python interpreter in addition to -B and -I passed by rules_py. `-S` is rejected: the venv needs site initialization.",
         default = [],
     ),
     "isolated": attr.bool(

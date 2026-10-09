@@ -36,6 +36,7 @@ load(":types.bzl", "VirtualenvInfo", "venv_root")
 load(":venv.bzl", "assemble_venv")
 
 def _interpreter_flags(ctx):
+    _py_semantics.check_interpreter_options(ctx)
     args = _py_semantics.interpreter_flags + ctx.attr.interpreter_options
 
     # py_venv strips `-I` so the interpreter picks up PYTHONPATH and
@@ -271,7 +272,7 @@ _lib_attrs.update(**_py_library.attrs)
 # flags, env vars forwarded via RunEnvironmentInfo.
 _attrs = _lib_attrs | dict({
     "interpreter_options": attr.string_list(
-        doc = "Additional options to pass to the Python interpreter.",
+        doc = "Additional options to pass to the Python interpreter. `-S` is rejected: the venv needs site initialization.",
         default = [],
     ),
     "debug": attr.bool(
