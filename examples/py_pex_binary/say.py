@@ -27,4 +27,4 @@ print("")
 print("runfiles lookup:")
 print(" data.txt:", data_path)
 
-print(cowsay.get_output_string("cow", open(data_path).read()))
+cowsay.cow(open(data_path).read())  # type: ignore

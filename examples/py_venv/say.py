@@ -26,4 +26,4 @@ for it in site.PREFIXES:
 
 import cowsay
 
-print(cowsay.get_output_string("cow", 'hello py_venv! (built at <BUILD_TIMESTAMP>)'))
+cowsay.cow('hello py_venv! (built at <BUILD_TIMESTAMP>)')  # type: ignore

@@ -2,4 +2,4 @@
 
 import cowsay
 
-print(cowsay.get_output_string("cow", "bench"))
+cowsay.cow("bench")  # type: ignore
