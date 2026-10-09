@@ -135,10 +135,7 @@ def _py_venv_exec_impl(ctx):
         [target[DefaultInfo].default_runfiles for target in ctx.attr.data],
     )
     if ctx.attr.include_console_scripts:
-        runfiles = runfiles.merge(ctx.runfiles(
-            files = [vinfo.activate] if vinfo.activate != None else [],
-            transitive_files = vinfo.console_scripts,
-        ))
+        runfiles = runfiles.merge(ctx.runfiles(transitive_files = vinfo.console_scripts))
 
     instrumented_files_info = coverage_common.instrumented_files_info(
         ctx,
