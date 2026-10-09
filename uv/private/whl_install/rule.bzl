@@ -9,10 +9,8 @@ load("//py/private/toolchain:types.bzl", "EXEC_TOOLS_TOOLCHAIN", "PY_TOOLCHAIN")
 # the built wheel; source_built_wheel consumes it below (unless overridden).
 load("//uv/private:source_built_wheel.bzl", "SourceBuiltWheelInfo")
 
-# exclude_glob: whl_dist extraction is exclude-agnostic, so when a package
-# declares exclusions the selected wheel's retained RECORD paths are filtered
-# and the layout is RE-DERIVED here at analysis time (matching pre-derivation
-# semantics — an excluded initializer reclassifies namespace/regular).
+# Wheels shared by consumers with different exclusions require analysis-time
+# layout derivation; all other layouts are derived by the wheel repository.
 load(":metadata.bzl", "derive_layout", "parse_exclude_glob", "record_path_excluded")
 
 PyWheelMetadataInfo = provider(
@@ -38,7 +36,7 @@ PyWheelMetadataInfo = provider(
         "regular_roots": "Minimal `__init__.py`-carrying directories under the namespace top-levels.",
         "native_roots": "Collision roots containing native-library RECORD entries.",
         "console_scripts": "`[console_scripts]` entry points encoded as name=module:object.",
-        "record_paths": "Retained site-packages RECORD paths, for re-deriving the layout after exclude_glob. Empty unless a consuming package declares exclusions.",
+        "record_paths": "Unfiltered site-packages RECORD paths. Empty unless consumers of this wheel declare different exclude_glob values.",
         "data_files": "PEP 427 `.data/data/` prefix-relative install paths (e.g. `share/...`), projected into the venv prefix.",
     },
 )
@@ -175,8 +173,8 @@ def _whl_install(ctx):
     # reclassifies a package regular→namespace, and removing the last file under
     # a top-level drops it, so venv assembly never projects a dangling symlink
     # or mis-merges. console_scripts live under bin/, so exclusions never touch
-    # them. record_paths is carried only for wheels of excluding packages; a
-    # source-built wheel has none, and its layout is already empty.
+    # them. record_paths is carried only when this wheel's consumers disagree on
+    # exclusions; otherwise whl_dist already derived the filtered layout.
     layout = meta
     if ctx.attr.exclude_glob and meta.record_paths:
         patterns = [parse_exclude_glob(pattern) for pattern in ctx.attr.exclude_glob]
