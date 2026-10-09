@@ -239,6 +239,8 @@ write_source_files(
         "snapshots/venv_bin_scripts_423.exposed_bin.bin.txt": "//venv-bin-scripts-423:exposed_bin.bin.txt",
         "snapshots/venv_bin_scripts_423.exposed_bin.venv.bin.txt": "//venv-bin-scripts-423:exposed_bin.venv.bin.txt",
         "snapshots/venv_bin_scripts_423.opt_in_bin.bin.txt": "//venv-bin-scripts-423:opt_in_bin.bin.txt",
+        "snapshots/venv_bin_scripts_423.exposed_bin.venv_link.bin.txt": "//venv-bin-scripts-423:exposed_bin.venv_link.bin.txt",
+        "snapshots/venv_bin_scripts_423.exposed_bin.venv_link_no_scripts.bin.txt": "//venv-bin-scripts-423:exposed_bin.venv_link_no_scripts.bin.txt",
         "snapshots/pth_install_tree_fallback.venv.pth": "//pth-install-tree-fallback:test.venv.pth",
         "snapshots/pth_install_tree_fallback_namespace.venv.pth": "//pth-install-tree-fallback:namespace_test.venv.pth",
 
