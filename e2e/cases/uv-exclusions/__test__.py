@@ -2,6 +2,8 @@
 
 import hashlib
 import importlib.metadata
+import importlib.util
+import site
 from base64 import urlsafe_b64encode
 from pathlib import Path
 
@@ -40,6 +42,15 @@ assert http_pb2.DESCRIPTOR.name == "google/api/http.proto"
 distribution = importlib.metadata.distribution("googleapis-common-protos")
 assert distribution.files is not None
 assert not any(str(path).endswith(".proto") for path in distribution.files)
+
+# Every consumer shares the googleapis exclusions, and `google/gapic` drops a
+# whole namespace subtree: the venv must not project any of it.
+assert importlib.util.find_spec("google.gapic") is None
+assert not any(str(path).startswith("google/gapic/") for path in distribution.files)
+for site_packages in map(Path, site.getsitepackages()):
+    assert not (site_packages / "google" / "gapic").is_symlink()
+    for entry in (site_packages / "google").rglob("*") if (site_packages / "google").is_dir() else ():
+        assert entry.exists(), "dangling venv entry: {}".format(entry)
 
 # charset-normalizer is a NATIVE, multi-platform wheel. Excluding its `cli`
 # subpackage exercises exclusion on the platform-selected wheel: the sibling
