@@ -1,7 +1,7 @@
 # Type checking
 
 `py_library`, `py_binary` and `py_test` can type check their sources as part of the build. It's off
-by default; turn it on for the whole build with:
+by default; turn it on with:
 
 ```
 # .bazelrc

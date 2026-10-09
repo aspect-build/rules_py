@@ -17,7 +17,7 @@ It provides drop-in replacements for `py_binary`, `py_library`, and `py_test` th
 - **Idiomatic Python layouts** using standard `site-packages` symlink trees
 - **Seamless IDE compatibility** via virtualenv-native structures
 - **Production-ready containers** with optimized OCI image layers
-- **Built-in type checking** with [ty](https://github.com/astral-sh/ty), run as a validation action so type errors fail the build
+- **Built-in type checking** with [ty](https://github.com/astral-sh/ty)
 
 `aspect_rules_py` optimizes for modern Python development workflows, large-scale monorepos, and Remote Build Execution (
 RBE) environments.
