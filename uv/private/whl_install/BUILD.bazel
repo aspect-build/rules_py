@@ -10,6 +10,7 @@ bzl_library(
     srcs = ["rule.bzl"],
     deps = [
         "//py/private:py_info",
+        "//py/private:py_unpack_toolchain",
         "//uv/private:source_built_wheel",
     ],
 )
