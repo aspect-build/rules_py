@@ -72,6 +72,8 @@ def _distinct_ordered(keys):
     Collision precedence is "last distinct entry wins": the final
     element is the winner, everything before it is a loser.
     """
+    if len(keys) < 2:
+        return keys
     return {k: True for k in keys}.keys()
 
 def _last_per_sp(claimants):
