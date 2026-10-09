@@ -8,7 +8,8 @@ import %workspace%/../../bazel/workspace.bazelrc
 # rules_java's local_jdk emits a fail_rule when no host JDK is detected.
 common --java_runtime_version=remotejdk_11
 
-# The tests here are not set up to type check successfully (some deliberately
-# ship packages split across wheels, compile modules without stubs, etc.).
-# type-check/test.sh turns checking on for its own case.
+# Undoes workspace.bazelrc: the tests here are not set up to type check
+# successfully (some deliberately ship packages split across wheels, compile
+# modules without stubs, etc.). type-check/test.sh turns checking on for its
+# own case.
 common --@aspect_rules_py//py:type_check=false

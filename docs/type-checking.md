@@ -1,8 +1,15 @@
 # Type checking
 
-`py_library`, `py_binary` and `py_test` type check their sources as part of the build. The check is a
-[validation action](https://bazel.build/extending/rules#validation_actions), so it runs whenever a
-target is built or tested, and a type error fails the build:
+`py_library`, `py_binary` and `py_test` can type check their sources as part of the build. It's off
+by default; turn it on for the whole build with:
+
+```
+# .bazelrc
+common --@aspect_rules_py//py:type_check
+```
+
+The check is a [validation action](https://bazel.build/extending/rules#validation_actions), so it
+runs whenever a target is built or tested, and a type error fails the build:
 
 ```
 ERROR: //app:lib: Type checking //app:lib failed: ...
@@ -14,16 +21,9 @@ Each target checks only its own `srcs`, and targets in external repositories are
 The default checker is [ty](https://github.com/astral-sh/ty), downloaded as a prebuilt binary
 for the execution platform.
 
-## Turning it off
+## Opting out
 
-For the whole build:
-
-```
-# .bazelrc
-common --@aspect_rules_py//py:type_check=false
-```
-
-For one target:
+With type checking on, opt one target out:
 
 ```starlark
 py_library(

@@ -3,10 +3,10 @@ load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
 
 package(default_visibility = ["//py:__subpackages__"])
 
-# Set through the //py:type_check alias; see type_check.bzl.
+# Set through the //py:type_check alias; see type_check.bzl. Off by default.
 bool_flag(
     name = "type_check_flag",
-    build_setting_default = True,
+    build_setting_default = False,
 )
 
 # Gates the default ty toolchain, so ty is only downloaded when type checking is on.

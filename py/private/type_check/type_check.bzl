@@ -23,9 +23,10 @@ TYPE_CHECK_ATTRS = {
     "type_check": attr.bool(
         doc = """Whether to type check this target's sources.
 
-        Type checking runs as a validation action with the registered type
-        checker toolchain (ty by default), so a type error fails the build.
-        `--@aspect_rules_py//py:type_check=false` turns it off everywhere.""",
+        Only takes effect when `--@aspect_rules_py//py:type_check` turns type
+        checking on, which it is not by default. Type checking runs as a
+        validation action with the registered type checker toolchain (ty by
+        default), so a type error fails the build.""",
         default = True,
     ),
     "_type_check_flag": attr.label(
