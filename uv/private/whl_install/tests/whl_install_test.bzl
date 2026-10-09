@@ -5,7 +5,7 @@ load("@bazel_skylib//rules:write_file.bzl", "write_file")
 load("//py/private:providers.bzl", "PyWheelsInfo")
 load("//py/tools/unpack:exclude_glob_test_vectors.bzl", "CACHE_SOURCE_VECTORS", "EXCLUDE_GLOB_VECTORS", "RECORD_PATH_EXCLUDE_VECTORS")
 load("//uv/private:source_built_wheel.bzl", "SourceBuiltWheelInfo")
-load("//uv/private/whl_install:metadata.bzl", "cache_source_path", "canonical_version", "data_directory_for", "data_scheme_segments", "data_segments_contained", "exclude_glob_matches", "metadata_directory_hint", "native_roots_for_segments", "parse_console_script", "parse_exclude_glob", "parse_record", "parse_record_path", "record_path_excluded", "site_packages_segments")
+load("//uv/private/whl_install:metadata.bzl", "cache_source_path", "canonical_version", "data_directory_for", "data_scheme_segments", "data_segments_contained", "derive_layout", "exclude_glob_matches", "metadata_directory_hint", "native_roots_for_segments", "parse_console_script", "parse_exclude_glob", "parse_record", "parse_record_path", "record_path_excluded", "site_packages_segments")
 load("//uv/private/whl_install:repository.bzl", "compatible_python_tags", "select_key", "sort_select_arms", "source_specificity")
 load("//uv/private/whl_install:rule.bzl", "pyc_compile_version_compatible", "source_built_wheel", "whl_dist", "whl_install")
 
@@ -316,6 +316,47 @@ def _native_roots_test_impl(ctx):
     return unittest.end(env)
 
 native_roots_test = unittest.make(_native_roots_test_impl)
+
+def _derive_layout_test_impl(ctx):
+    env = unittest.begin(ctx)
+
+    layout = derive_layout([path.split("/") for path in [
+        "regular/__init__.py",
+        "regular/mod.py",
+        "regular/_speedups.so",
+        "single.py",
+        "google/top.py",
+        "google/cloud/storage/__init__.py",
+        "google/cloud/storage/blob.py",
+        "google/cloud/storage/_native.cpython-311-darwin.so",
+        "google/cloud/aux/helper.py",
+        "foo.libs/libbar.so",
+        "pkg-1.0.dist-info/METADATA",
+        "legacy.egg-info/PKG-INFO",
+    ]])
+    asserts.equals(env, ["foo.libs", "google", "legacy.egg-info", "pkg-1.0.dist-info", "regular", "single.py"], layout.top_levels)
+    asserts.equals(env, ["foo.libs", "google", "regular"], layout.top_level_dirs)
+    asserts.equals(env, ["foo.libs", "google"], layout.namespace_top_levels)
+
+    # Each namespace path descends to its shallowest concrete prefix: a
+    # directory with an `__init__.py`, or the file itself.
+    asserts.equals(env, [
+        "foo.libs/libbar.so",
+        "google/cloud/aux/helper.py",
+        "google/cloud/storage",
+        "google/top.py",
+    ], layout.namespace_entries)
+    asserts.equals(env, ["google/cloud", "google/cloud/aux"], layout.namespace_dirs)
+    asserts.equals(env, ["google/cloud/storage"], layout.regular_roots)
+    asserts.equals(env, ["foo.libs", "google", "google/cloud", "google/cloud/storage", "regular"], layout.native_roots)
+
+    empty = derive_layout([])
+    for field in ["top_levels", "top_level_dirs", "namespace_top_levels", "namespace_entries", "namespace_dirs", "regular_roots", "native_roots"]:
+        asserts.equals(env, [], getattr(empty, field), field)
+
+    return unittest.end(env)
+
+derive_layout_test = unittest.make(_derive_layout_test_impl)
 
 def _console_script_test_impl(ctx):
     env = unittest.begin(ctx)
@@ -1162,6 +1203,10 @@ def whl_install_suite():
     unittest.suite(
         "native_roots_tests",
         native_roots_test,
+    )
+    unittest.suite(
+        "derive_layout_tests",
+        derive_layout_test,
     )
     unittest.suite(
         "console_script_tests",
