@@ -101,7 +101,11 @@ load("//:defs.bzl", "compatible_with")
             for cfg, l in specs.items()
         }
 
-        error = "Available only in dep_groups: " + ", ".join(specs.keys())  # Simplified error string
+        # Outside its dep_groups the alias is incompatible and never built, but
+        # cquery's proto and BUILD outputs still resolve `actual` there.
+        default = specs[sorted(specs.keys())[0]]
+        select_spec["//conditions:default"] = default
+        whl_select_spec["//conditions:default"] = default + "_whl"
 
         # When the package itself is named "pkg", the `:{name}` alias below already
         # exposes a `pkg` target — emitting a separate `:pkg` alias would collide.
@@ -125,9 +129,7 @@ alias(
 )
 alias(
     name = "{name}",{testonly}
-    actual = select({lib_select},
-        no_match_error = "{error}",
-    ),
+    actual = select({lib_select}),
     target_compatible_with = select(compatible_with({compat})),
     visibility = ["//visibility:public"],
 )
@@ -142,7 +144,6 @@ exports_files(
                 lib_select = indent(pprint(select_spec), "      ").lstrip(),
                 whl_select = indent(pprint(whl_select_spec), "      ").lstrip(),
                 compat = repr(specs.keys()),
-                error = error,
                 testonly = testonly_attr,
             ),
         )
