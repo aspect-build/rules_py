@@ -18,7 +18,10 @@ uv.override_package(
 )
 uv.override_package(
     name = "googleapis-common-protos",
-    exclude_glob = ["google/**/*.proto"],
+    exclude_glob = [
+        "google/**/*.proto",
+        "google/gapic",
+    ],
 )
 
 # charset-normalizer is a native, multi-platform wheel: excluding a sibling
