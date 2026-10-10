@@ -41,22 +41,26 @@ py_binary(
 )
 
 # The library's own source is checked against the target Python version, with
-# first-party, pyi_deps and wheel import roots as search paths.
+# the directories behind its first-party, pyi_deps and wheel import roots as
+# search paths. Every root comes from rules_py targets, so none is left for the
+# runner to look for.
 checked_test(
     name = "library_test",
+    absent_fragments = ["--import="],
     argv = [
         "--src=py/tests/type-check/lib.py",
         "--python-version",
         "3.13",
         "--python-version-flag=--python-version",
         "--search-path-flag=--extra-search-path",
-        "--import=_main/py/tests/type-check/dep",
+        "--path=py/tests/type-check/dep",
+        "--path=py/tests/type-check",
     ],
-    argv_fragments = ["cowsay"],
+    argv_fragments = ["cowsay__6_1/actual_install.install/lib/python3.13/site-packages"],
     # pyi_deps roots come first, so stubs take precedence over runtime packages.
     argv_order = [
-        "cowsay",
-        "--import=_main/py/tests/type-check/dep",
+        "cowsay__6_1/actual_install.install/lib/python3.13/site-packages",
+        "--path=py/tests/type-check/dep",
     ],
     target_under_test = ":lib",
 )
