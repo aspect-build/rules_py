@@ -32,6 +32,12 @@ def _checked_test_impl(ctx):
                 any([fragment in arg for arg in argv]),
                 "no argument contains {}: {}".format(fragment, argv),
             )
+        for fragment in ctx.attr.absent_fragments:
+            asserts.false(
+                env,
+                any([fragment in arg for arg in argv]),
+                "some argument contains {}: {}".format(fragment, argv),
+            )
         positions = [_first_index(argv, fragment) for fragment in ctx.attr.argv_order]
         asserts.true(
             env,
@@ -46,6 +52,7 @@ def _checked_test_impl(ctx):
     return analysistest.end(env)
 
 _CHECKED_ATTRS = {
+    "absent_fragments": attr.string_list(doc = "Substrings no argument may contain."),
     "argv": attr.string_list(doc = "Arguments the action must contain."),
     "argv_fragments": attr.string_list(doc = "Substrings some argument must contain."),
     "argv_order": attr.string_list(doc = "Substrings whose first matching arguments must appear in this order."),
