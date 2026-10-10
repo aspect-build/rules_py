@@ -1,1 +1,5 @@
 import %workspace%/../../bazel/workspace.bazelrc
+
+# Undoes workspace.bazelrc: this workspace mixes in @rules_python targets, whose
+# imports type checking can't see, so their consumers would fail to check.
+common --@aspect_rules_py//py:type_check=false

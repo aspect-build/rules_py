@@ -36,7 +36,7 @@ toolchain(
     exec_compatible_with = {compatible_with},
     target_settings = ["@aspect_rules_py//py/private/type_check:enabled"],
     toolchain = "@{ty_repo}_{platform}//:ty_toolchain",
-    toolchain_type = "@aspect_rules_py//py:type_checker_toolchain_type",
+    toolchain_type = "@aspect_rules_py//py/private/toolchain:type_checker_toolchain_type",
 )
 
 """.format(

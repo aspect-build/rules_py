@@ -30,24 +30,6 @@ load("@aspect_rules_py//py/private/toolchain:type_checker.bzl", "py_type_checker
 py_type_checker_toolchain(
     name = "ty_toolchain",
     checker = "{binary}",
-    args = [
-        "check",
-        "--no-progress",
-        "--output-format=concise",
-        "--color=never",
-        # Only errors fail the build. Rules can be raised to errors in a
-        # configuration file.
-        "--exit-zero-on-warning",
-        # Keeps ty from discovering a pyproject.toml or .venv by walking up
-        # from the execroot, which only happens outside the sandbox.
-        "--project={{scratch}}",
-        # Without this, ty falls back to the site-packages of whichever
-        # `python` is on PATH.
-        "--python={{empty_python_prefix}}",
-    ],
-    config_flag = "--config-file",
-    python_version_flag = "--python-version",
-    search_path_flag = "--extra-search-path",
     visibility = ["//visibility:public"],
 )
 """

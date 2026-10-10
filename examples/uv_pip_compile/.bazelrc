@@ -1,1 +1,5 @@
 import %workspace%/../../bazel/workspace.bazelrc
+
+# Undoes workspace.bazelrc: the wheels here come from @rules_python's pip.parse,
+# whose imports type checking can't see.
+common --@aspect_rules_py//py:type_check=false

@@ -160,7 +160,6 @@ def _py_venv_exec_impl(ctx):
             pyi_imports = vinfo.pyi_imports,
             import_dirs = vinfo.import_dirs,
             pyi_import_dirs = vinfo.pyi_import_dirs,
-            unmapped_imports = vinfo.unmapped_imports,
             transitive_pyi_files = vinfo.transitive_pyi_files,
             transitive_sources = vinfo.transitive_sources,
             virtual_dependencies = depset(),

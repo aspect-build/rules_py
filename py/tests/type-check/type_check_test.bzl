@@ -6,7 +6,6 @@ load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
 # defined in another repo, receives it.
 _TYPE_CHECK = str(Label("//py/private/type_check:type_check_flag"))
 _TYPE_CHECK_CONFIG = str(Label("//py/private/type_check:config"))
-_ENV_CHECKER = str(Label("//py/tests/type-check:env_checker"))
 
 def _type_check_actions(env):
     return [a for a in analysistest.target_actions(env) if a.mnemonic == "PyTypeCheck"]
@@ -24,6 +23,11 @@ def _checked_test_impl(ctx):
     asserts.equals(env, 1, len(actions), "expected one PyTypeCheck action")
     if actions:
         argv = actions[0].argv
+        asserts.true(
+            env,
+            argv[0].endswith("/ty") or argv[0].endswith("/ty.exe"),
+            "expected ty to run directly, got {}".format(argv[0]),
+        )
         for expected in ctx.attr.argv:
             asserts.true(env, expected in argv, "{} is missing from {}".format(expected, argv))
         for fragment in ctx.attr.argv_fragments:
@@ -67,32 +71,9 @@ def _make_checked_test(config_settings = {}):
 
 checked_test = _make_checked_test()
 
-# Swaps in the fake checker toolchain, which passes search paths through MYPYPATH.
-env_checker_test = _make_checked_test({
-    "//command_line_option:extra_toolchains": [_ENV_CHECKER],
+config_test = _make_checked_test({
+    _TYPE_CHECK_CONFIG: str(Label("//py/tests/type-check:custom.ty.toml")),
 })
-
-# Swaps in a toolchain whose checker is a py_binary.
-binary_checker_test = _make_checked_test({
-    "//command_line_option:extra_toolchains": [str(Label("//py/tests/type-check:binary_checker_toolchain"))],
-})
-
-def _config_without_flag_test_impl(ctx):
-    env = analysistest.begin(ctx)
-    asserts.expect_failure(env, "has no `config_flag`")
-    return analysistest.end(env)
-
-# The fake checker toolchain has no config_flag, so a config set on the command
-# line has no way to reach it.
-config_without_flag_test = analysistest.make(
-    _config_without_flag_test_impl,
-    expect_failure = True,
-    config_settings = {
-        _TYPE_CHECK: True,
-        _TYPE_CHECK_CONFIG: str(Label("//py/tests/type-check:fake_checker.sh")),
-        "//command_line_option:extra_toolchains": [_ENV_CHECKER],
-    },
-)
 
 def _unchecked_test_impl(ctx):
     env = analysistest.begin(ctx)
