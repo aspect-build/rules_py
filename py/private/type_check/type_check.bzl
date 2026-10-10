@@ -6,12 +6,15 @@ target's own sources, with its transitive dependencies visible as search
 paths. A type error fails the build. Each target checks only its own sources,
 so results cache per target.
 
-The search paths are the target's import roots (`PyInfo.imports` and
-`PyInfo.pyi_imports`). Those are runfiles-relative, while the checker runs in
-the execroot, where a root's files may sit under the source tree or under any
-of the output roots its dependencies were built in. The runner script pairs
-every import root with every distinct root of the action's inputs and keeps
-the directories that exist, so nothing is flattened at analysis time.
+The search paths are the execroot directories behind the target's import
+roots (`PyInfo.import_dirs` and `PyInfo.pyi_import_dirs`), which each target
+computes for its own files. Import roots from providers that don't carry
+those (`PyInfo.unmapped_imports`) are runfiles-relative, while the checker
+runs in the execroot, where a root's files may sit under the source tree or
+under any of the output roots its dependencies were built in. For those, the
+runner script pairs the import root with every distinct root of the action's
+inputs and keeps the directories that exist. Nothing is flattened at analysis
+time.
 """
 
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
@@ -75,7 +78,7 @@ def _uses_python_prefix(checker):
 def _dirname(file):
     return file.dirname or "."
 
-def type_check_action(ctx, srcs, transitive_sources, transitive_pyi_files, imports, pyi_imports, srcs_on_path = False):
+def type_check_action(ctx, srcs, transitive_sources, transitive_pyi_files, import_dirs, pyi_import_dirs, unmapped_imports, srcs_on_path = False):
     """Declare the type check action for a target, if it should have one.
 
     Args:
@@ -85,8 +88,11 @@ def type_check_action(ctx, srcs, transitive_sources, transitive_pyi_files, impor
             files are checked.
         transitive_sources: depset[File] of the runtime closure.
         transitive_pyi_files: depset[File] of the type-check-only closure.
-        imports: depset[str] of runfiles-relative import roots.
-        pyi_imports: depset[str] of type-check-only import roots.
+        import_dirs: depset[str] of execroot directories for the import roots.
+        pyi_import_dirs: depset[str] of execroot directories for the
+            type-check-only import roots.
+        unmapped_imports: depset[str] of runfiles-relative import roots whose
+            execroot directories are unknown.
         srcs_on_path: whether each source's directory is a search path, as
             the script's directory is for `python main.py` and a test's is
             under pytest.
@@ -161,8 +167,9 @@ def type_check_action(ctx, srcs, transitive_sources, transitive_pyi_files, impor
 
     # Type-check-only roots go first, so stubs from pyi_deps take precedence
     # over the runtime package they describe.
-    args.add_all(pyi_imports, format_each = "--import=%s", uniquify = True)
-    args.add_all(imports, format_each = "--import=%s", uniquify = True)
+    args.add_all(pyi_import_dirs, format_each = "--path=%s", uniquify = True)
+    args.add_all(import_dirs, format_each = "--path=%s", uniquify = True)
+    args.add_all(unmapped_imports, format_each = "--import=%s", uniquify = True)
 
     # Tree artifacts count as one root each; expanding them would only repeat it.
     args.add_all(srcs, map_each = _input_root, format_each = "--root=%s", uniquify = True)

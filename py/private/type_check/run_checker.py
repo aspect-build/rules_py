@@ -5,10 +5,12 @@ checker's command line from the toolchain's conventions, runs it, and writes
 its output to the action's log. A failing check exits non-zero with the
 output on stderr, so it lands in the build log.
 
-Search paths arrive as runfiles-relative import roots (`--import`) plus the
-distinct roots of the action's inputs (`--root`). Each pair is mapped to an
-execroot path, and only directories that exist are passed on: checkers such
-as ty reject search paths that don't exist.
+Search paths mostly arrive as execroot directories (`--path`), computed at
+analysis time. Import roots whose directories are unknown arrive
+runfiles-relative (`--import`), alongside the distinct roots of the action's
+inputs (`--root`): each pair is mapped to an execroot path, and only
+directories that exist are passed on, since checkers such as ty reject search
+paths that don't exist.
 """
 
 from __future__ import annotations

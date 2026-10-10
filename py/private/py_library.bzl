@@ -7,9 +7,9 @@ without binding them to a particular version of that package.
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load("@rules_cc//cc/common:cc_info.bzl", "CcInfo")
 load("//py/private:providers.bzl", "PyWheelsInfo")
-load("//py/private:pth.bzl", "make_imports_depset")
+load("//py/private:pth.bzl", "make_import_dirs_depset", "make_imports_depset", "own_import_dirs", "own_import_paths")
 load("//py/private:py_info.bzl", "PyInfo")
-load("//py/private:py_info_interop.bzl", "RulesPythonPyInfo", "get_py_info", "get_pyi_imports", "get_transitive_pyi_files", "get_transitive_sources", "has_py_info")
+load("//py/private:py_info_interop.bzl", "RulesPythonPyInfo", "get_import_dirs", "get_py_info", "get_pyi_import_dirs", "get_pyi_imports", "get_transitive_pyi_files", "get_transitive_sources", "get_unmapped_imports", "has_py_info")
 load("//py/private:transitions.bzl", "reset_python_flags_transition")
 load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN")
 load("//py/private/type_check:type_check.bzl", "TYPE_CHECK_ATTRS", "TYPE_CHECK_EXEC_GROUPS", "type_check_action")
@@ -73,6 +73,30 @@ def _make_pyi_imports_depset(ctx, extra_depsets = []):
         for target in pyi_deps
     ])
 
+def _make_import_dirs_depset(ctx, extra_depsets = []):
+    import_paths = own_import_paths(getattr(ctx.attr, "imports", []), ctx.workspace_name, ctx.label)
+    return make_import_dirs_depset(
+        deps = getattr(ctx.attr, "deps", []),
+        import_dirs = own_import_dirs(import_paths, ctx.files.srcs, ctx.workspace_name),
+        extra_depsets = extra_depsets,
+    )
+
+def _make_pyi_import_dirs_depset(ctx, extra_depsets = []):
+    """The `import_dirs` counterpart of `_make_pyi_imports_depset`."""
+    return depset(transitive = extra_depsets + [
+        get_pyi_import_dirs(target)
+        for target in getattr(ctx.attr, "deps", [])
+    ] + [
+        depset(transitive = [get_import_dirs(target), get_pyi_import_dirs(target)])
+        for target in getattr(ctx.attr, "pyi_deps", [])
+    ])
+
+def _make_unmapped_imports_depset(ctx, extra_depsets = []):
+    return depset(transitive = extra_depsets + [
+        get_unmapped_imports(target)
+        for target in getattr(ctx.attr, "deps", []) + getattr(ctx.attr, "pyi_deps", [])
+    ])
+
 def _make_virtual_depset(ctx):
     return depset(
         order = "postorder",
@@ -115,6 +139,9 @@ def _resolve_virtuals(ctx):
     v_pyi_imports = []
     v_runfiles = []
     v_imports = []
+    v_import_dirs = []
+    v_pyi_import_dirs = []
+    v_unmapped_imports = []
 
     for i, resolution in enumerate(resolutions):
         if resolution.virtual in seen:
@@ -126,6 +153,9 @@ def _resolve_virtuals(ctx):
         v_srcs.append(_make_resolved_virtual_depset(resolution.target))
         v_pyi_files.append(get_transitive_pyi_files(resolution.target))
         v_pyi_imports.append(get_pyi_imports(resolution.target))
+        v_import_dirs.append(get_import_dirs(resolution.target))
+        v_pyi_import_dirs.append(get_pyi_import_dirs(resolution.target))
+        v_unmapped_imports.append(get_unmapped_imports(resolution.target))
         v_runfiles.append(resolution.target[DefaultInfo].default_runfiles.files)
 
         info = get_py_info(resolution.target)
@@ -142,6 +172,9 @@ def _resolve_virtuals(ctx):
         pyi_imports = v_pyi_imports,
         runfiles = v_runfiles,
         imports = v_imports,
+        import_dirs = v_import_dirs,
+        pyi_import_dirs = v_pyi_import_dirs,
+        unmapped_imports = v_unmapped_imports,
     )
 
 def _make_imports_depset(ctx, extra_imports_depsets = []):
@@ -196,6 +229,9 @@ def _py_library_impl(ctx):
     transitive_pyi_files = _make_pyi_depset(ctx)
     imports = _make_imports_depset(ctx)
     pyi_imports = _make_pyi_imports_depset(ctx)
+    import_dirs = _make_import_dirs_depset(ctx)
+    pyi_import_dirs = _make_pyi_import_dirs_depset(ctx)
+    unmapped_imports = _make_unmapped_imports_depset(ctx)
     virtuals = _make_virtual_depset(ctx)
     resolutions = _make_virtual_resolutions_depset(ctx)
     runfiles = _make_merged_runfiles(ctx)
@@ -210,6 +246,9 @@ def _py_library_impl(ctx):
         PyInfo(
             imports = imports,
             pyi_imports = pyi_imports,
+            import_dirs = import_dirs,
+            pyi_import_dirs = pyi_import_dirs,
+            unmapped_imports = unmapped_imports,
             transitive_sources = transitive_srcs,
             transitive_pyi_files = transitive_pyi_files,
             virtual_dependencies = virtuals,
@@ -227,8 +266,9 @@ def _py_library_impl(ctx):
                 srcs = [] if getattr(ctx.attr, "virtual_deps", None) else ctx.files.srcs,
                 transitive_sources = transitive_srcs,
                 transitive_pyi_files = transitive_pyi_files,
-                imports = imports,
-                pyi_imports = pyi_imports,
+                import_dirs = import_dirs,
+                pyi_import_dirs = pyi_import_dirs,
+                unmapped_imports = unmapped_imports,
             ),
         ),
         instrumented_files_info,
@@ -311,11 +351,14 @@ py_library_utils = struct(
     # keep-sorted
     attrs = _attrs,
     implementation = _py_library_impl,
+    make_import_dirs_depset = _make_import_dirs_depset,
     make_imports_depset = _make_imports_depset,
     make_merged_runfiles = _make_merged_runfiles,
     make_pyi_depset = _make_pyi_depset,
+    make_pyi_import_dirs_depset = _make_pyi_import_dirs_depset,
     make_pyi_imports_depset = _make_pyi_imports_depset,
     make_srcs_depset = _make_srcs_depset,
+    make_unmapped_imports_depset = _make_unmapped_imports_depset,
     make_wheels_depset = _make_wheels_depset,
     py_library_providers = _providers,
     resolve_virtuals = _resolve_virtuals,

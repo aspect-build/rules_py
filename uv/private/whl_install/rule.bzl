@@ -274,14 +274,15 @@ def _whl_install(ctx):
     # Runfiles-root-relative path to the install tree's site-packages.
     # Derived from the same label components as `install_dir` above so the
     # two can never drift apart.
+    site_packages_rel = "lib/python{}.{}/site-packages".format(
+        py_toolchain.interpreter_version_info.major,
+        py_toolchain.interpreter_version_info.minor,
+    )
     site_packages_rfpath = "/".join([
         segment
         for segment in [ctx.label.repo_name, ctx.label.package, ctx.label.name + ".install"]
         if segment
-    ] + ["lib/python{}.{}/site-packages".format(
-        py_toolchain.interpreter_version_info.major,
-        py_toolchain.interpreter_version_info.minor,
-    )])
+    ] + [site_packages_rel])
 
     providers = [
         DefaultInfo(
@@ -305,6 +306,9 @@ def _whl_install(ctx):
             ]),
             transitive_pyi_files = depset(),
             imports = depset([site_packages_rfpath]),
+            import_dirs = depset([install_dir.path + "/" + site_packages_rel]),
+            pyi_import_dirs = depset(),
+            unmapped_imports = depset(),
             virtual_dependencies = depset(),
             virtual_resolutions = depset(),
         ),
