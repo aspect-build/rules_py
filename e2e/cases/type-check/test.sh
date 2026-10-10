@@ -11,8 +11,8 @@ BAZEL="${BAZEL:-bazel}"
 PKG="//type-check"
 ON="--@aspect_rules_py//py:type_check=true"
 
-stderr_log="$(mktemp)"
-trap 'rm -f "$stderr_log"' EXIT
+output_log="$(mktemp)"
+trap 'rm -f "$output_log"' EXIT
 
 fail() {
     echo "FAIL: $*" >&2
@@ -22,28 +22,28 @@ fail() {
 expect_failure() {
     local target="$1" diagnostic="$2"
     shift 2
-    if "$BAZEL" build "$ON" "$@" "$target" >/dev/null 2>"$stderr_log"; then
-        cat "$stderr_log" >&2
+    if "$BAZEL" build "$ON" "$@" "$target" >"$output_log" 2>&1; then
+        cat "$output_log" >&2
         fail "expected build of ${target} to fail, but it succeeded"
     fi
-    if ! grep -q "$diagnostic" "$stderr_log"; then
-        cat "$stderr_log" >&2
-        fail "expected the ${diagnostic} diagnostic for ${target} on stderr"
+    if ! grep -q "$diagnostic" "$output_log"; then
+        cat "$output_log" >&2
+        fail "expected the ${diagnostic} diagnostic for ${target} in the build output"
     fi
 }
 
 expect_success() {
     local target="$1"
     shift
-    if ! "$BAZEL" build "$ON" "$@" "$target" >/dev/null 2>"$stderr_log"; then
-        cat "$stderr_log" >&2
+    if ! "$BAZEL" build "$ON" "$@" "$target" >"$output_log" 2>&1; then
+        cat "$output_log" >&2
         fail "expected build of ${target} $* to succeed"
     fi
 }
 
 echo "== well-typed targets build and test, opted-out targets are skipped =="
-if ! "$BAZEL" test "$ON" "${PKG}/..." >/dev/null 2>"$stderr_log"; then
-    cat "$stderr_log" >&2
+if ! "$BAZEL" test "$ON" "${PKG}/..." >"$output_log" 2>&1; then
+    cat "$output_log" >&2
     fail "expected bazel test ${PKG}/... to pass with type checking on"
 fi
 echo "PASS"

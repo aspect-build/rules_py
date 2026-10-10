@@ -3,6 +3,7 @@
 load("@bazel_skylib//rules:build_test.bzl", "build_test")
 load("//py:defs.bzl", "py_binary", "py_library", "py_test")
 load("//py/private:providers.bzl", "PyWheelsInfo", "make_wheel_record")
+load("//py/private:pth.bzl", "own_import_dirs")
 load("//py/private:py_info.bzl", "PyInfo")
 load("//py/private/py_venv:defs.bzl", "py_venv")
 load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN")
@@ -68,6 +69,7 @@ printf 'VALUE = "namespace"\n' > "$site/mixed_top/from_namespace.py"
         ),
         PyInfo(
             imports = depset([site_packages]),
+            import_dirs = depset(own_import_dirs([site_packages], [install_tree], ctx.workspace_name)),
             transitive_pyi_files = depset(),
             transitive_sources = depset([install_tree]),
             virtual_dependencies = depset(),
@@ -201,6 +203,7 @@ printf 'native' > "$site/collision_order/native_extension.so"
         ),
         PyInfo(
             imports = depset([site_packages]),
+            import_dirs = depset(own_import_dirs([site_packages], [install_tree], ctx.workspace_name)),
             transitive_pyi_files = depset(),
             transitive_sources = depset([install_tree]),
             virtual_dependencies = depset(),

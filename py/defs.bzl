@@ -49,7 +49,6 @@ load(
     _py_venv_exec_test = "py_venv_exec_test",
     _py_venv_link = "py_venv_link",
 )
-load("//py/private/toolchain:type_checker.bzl", _PyTypeCheckerInfo = "PyTypeCheckerInfo", _py_type_checker_toolchain = "py_type_checker_toolchain")
 
 current_py_toolchain = _current_py_toolchain
 py_wheel = _py_wheel
@@ -66,10 +65,6 @@ py_venv_link = _py_venv_link
 
 py_library = _py_library
 py_unpacked_wheel = _py_unpacked_wheel
-
-# See docs/type-checking.md.
-py_type_checker_toolchain = _py_type_checker_toolchain
-PyTypeCheckerInfo = _PyTypeCheckerInfo
 
 py_image_layer = _py_image_layer
 py_layer_tier = _py_layer_tier

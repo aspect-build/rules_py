@@ -63,14 +63,6 @@ alias(
     visibility = ["//visibility:public"],
 )
 
-# py_library, py_binary and py_test type check their sources with the checker
-# from this toolchain type (ty by default) when type checking is on. Register a
-# py_type_checker_toolchain to use a different checker.
-toolchain_type(
-    name = "type_checker_toolchain_type",
-    visibility = ["//visibility:public"],
-)
-
 # --@aspect_rules_py//py:type_check turns type checking on everywhere; it's off by default.
 alias(
     name = "type_check",
@@ -78,16 +70,7 @@ alias(
     visibility = ["//visibility:public"],
 )
 
-# Matches when type checking is on. A custom type checker toolchain() lists it in
-# `target_settings`, so the checker's own Python targets don't resolve it.
-alias(
-    name = "type_check_enabled",
-    actual = "//py/private/type_check:enabled",
-    visibility = ["//visibility:public"],
-)
-
-# --@aspect_rules_py//py:type_check_config=//:ty.toml sets the checker's
-# configuration file, overriding the toolchain's default.
+# --@aspect_rules_py//py:type_check_config=//:ty.toml sets ty's configuration file.
 alias(
     name = "type_check_config",
     actual = "//py/private/type_check:config",
@@ -128,7 +111,6 @@ bzl_library(
         "//py/private/interpreter:current_py_toolchain",
         "//py/private/interpreter:runtime",
         "//py/private/py_venv:defs",
-        "//py/private/toolchain:type_checker",
         "@bazel_lib//lib:utils",
         "@rules_python//python:packaging_bzl",
         "@rules_python//python:pip_bzl",
