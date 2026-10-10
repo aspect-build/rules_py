@@ -76,7 +76,6 @@ def _py_unpacked_wheel_impl(ctx):
             imports = depset(import_paths),
             import_dirs = depset(own_import_dirs(import_paths, [unpack_directory], ctx.workspace_name)),
             pyi_import_dirs = depset(),
-            unmapped_imports = depset(),
             transitive_pyi_files = depset(),
             transitive_sources = depset([unpack_directory]),
             virtual_dependencies = depset(),

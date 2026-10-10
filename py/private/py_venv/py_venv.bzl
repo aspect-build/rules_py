@@ -126,10 +126,6 @@ def _assemble_venv_target(ctx, executable, console_scripts):
             ctx,
             extra_depsets = virtual_resolution.pyi_import_dirs,
         ),
-        unmapped_imports = _py_library.make_unmapped_imports_depset(
-            ctx,
-            extra_depsets = virtual_resolution.unmapped_imports,
-        ),
         runtime_runfiles = runfiles,
         transitive_pyi_files = pyi_depset,
         transitive_sources = srcs_depset,
@@ -158,7 +154,6 @@ def _venv_providers(ctx, venv, venv_only, executable = None, include_sources = F
                 transitive_pyi_files = venv.transitive_pyi_files,
                 import_dirs = venv.import_dirs,
                 pyi_import_dirs = venv.pyi_import_dirs,
-                unmapped_imports = venv.unmapped_imports,
                 srcs_on_path = True,
             ),
         ),

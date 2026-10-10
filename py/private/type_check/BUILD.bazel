@@ -25,9 +25,7 @@ label_flag(
 
 filegroup(name = "no_config")
 
-# Run directly with the exec interpreter rather than as a py_binary: a
-# py_binary runner would itself be type checked, and so depend on itself.
-exports_files(["run_checker.py"])
+exports_files(["empty.ty.toml"])
 
 bzl_library(
     name = "type_check",

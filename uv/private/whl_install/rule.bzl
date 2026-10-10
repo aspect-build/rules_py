@@ -308,7 +308,6 @@ def _whl_install(ctx):
             imports = depset([site_packages_rfpath]),
             import_dirs = depset([install_dir.path + "/" + site_packages_rel]),
             pyi_import_dirs = depset(),
-            unmapped_imports = depset(),
             virtual_dependencies = depset(),
             virtual_resolutions = depset(),
         ),

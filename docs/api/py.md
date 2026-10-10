@@ -175,7 +175,7 @@ py_library(<a href="#py_library-name">name</a>, <a href="#py_library-deps">deps<
 | <a id="py_library-imports"></a>imports |  List of import directories to be added to the PYTHONPATH.   | List of strings | optional |  `[]`  |
 | <a id="py_library-pyi_deps"></a>pyi_deps |  Dependencies needed only for type checking.<br><br>These satisfy imports guarded by `typing.TYPE_CHECKING`. Their sources, stubs and wheels are carried in `PyInfo.transitive_pyi_files` for type checkers, but never become part of a runnable program: they are left out of runfiles, `sys.path`, the venv's site-packages, image layers, and pex files.   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional |  `[]`  |
 | <a id="py_library-resolutions"></a>resolutions |  Satisfy a virtual_dep with a mapping from external package name to the label of an installed package that provides it. See virtual_deps.   | Dictionary: String -> Label | optional |  `{}`  |
-| <a id="py_library-type_check"></a>type_check |  Whether to type check this target's sources.<br><br>Only takes effect when `--@aspect_rules_py//py:type_check` turns type checking on, which it is not by default. Type checking runs the registered type checker toolchain (ty by default) over this target's sources, and a type error fails the build.   | Boolean | optional |  `True`  |
+| <a id="py_library-type_check"></a>type_check |  Whether to type check this target's sources.<br><br>Only takes effect when `--@aspect_rules_py//py:type_check` turns type checking on, which it is not by default. Type checking runs ty over this target's sources, and a type error fails the build.   | Boolean | optional |  `True`  |
 | <a id="py_library-virtual_deps"></a>virtual_deps |  -   | List of strings | optional |  `[]`  |
 
 
@@ -209,75 +209,6 @@ Outside of Bazel only `inject_env` applies.
 | <a id="py_pex_binary-inject_env"></a>inject_env |  Environment variables to set when running the pex binary.   | <a href="https://bazel.build/rules/lib/core/dict">Dictionary: String -> String</a> | optional |  `{}`  |
 | <a id="py_pex_binary-python_interpreter_constraints"></a>python_interpreter_constraints |  Python interpreter versions this PEX binary is compatible with. A list of semver strings. The placeholder strings `{major}`, `{minor}`, `{patch}` are substituted with the version of the `binary`'s own interpreter, the one the PEX is built for.   | List of strings | optional |  `["CPython=={major}.{minor}.*"]`  |
 | <a id="py_pex_binary-python_shebang"></a>python_shebang |  -   | String | optional |  `"#!/usr/bin/env python3"`  |
-
-
-<a id="py_type_checker_toolchain"></a>
-
-## py_type_checker_toolchain
-
-<pre>
-load("@aspect_rules_py//py:defs.bzl", "py_type_checker_toolchain")
-
-py_type_checker_toolchain(<a href="#py_type_checker_toolchain-name">name</a>, <a href="#py_type_checker_toolchain-data">data</a>, <a href="#py_type_checker_toolchain-args">args</a>, <a href="#py_type_checker_toolchain-checker">checker</a>, <a href="#py_type_checker_toolchain-config">config</a>, <a href="#py_type_checker_toolchain-config_flag">config_flag</a>, <a href="#py_type_checker_toolchain-env">env</a>, <a href="#py_type_checker_toolchain-python_version_flag">python_version_flag</a>,
-                          <a href="#py_type_checker_toolchain-search_path_env">search_path_env</a>, <a href="#py_type_checker_toolchain-search_path_flag">search_path_flag</a>)
-</pre>
-
-Defines a Python type checker for rules_py's type checking.
-
-For each py_library, py_binary and py_test with sources, rules_py runs
-
-    <checker> <args> [<python_version_flag> X.Y] [<config_flag> <config>]
-              [<search_path_flag> <path>]... <srcs>...
-
-The checker must exit non-zero when it finds a type error. Its output appears
-in the build log on failure.
-
-Two placeholders are substituted in `args` and `env` values:
-
-* `{scratch}`: an empty directory private to this invocation.
-* `{empty_python_prefix}`: a directory laid out as a Python installation for
-  the target version, with an empty `site-packages`. Point the checker's
-  interpreter or environment option at it, so it doesn't fall back to the
-  host's site-packages.
-
-Register the toolchain with `register_toolchains` in your root MODULE.bazel,
-which takes precedence over the default ty toolchain:
-
-```starlark
-py_type_checker_toolchain(
-    name = "mypy_impl",
-    checker = ":mypy",
-    args = ["--no-error-summary", "--cache-dir={scratch}"],
-    python_version_flag = "--python-version",
-    config = "//:mypy.ini",
-    config_flag = "--config-file",
-    search_path_env = "MYPYPATH",
-)
-
-toolchain(
-    name = "mypy",
-    # Keeps the toolchain from resolving for mypy's own py_binary.
-    target_settings = ["@aspect_rules_py//py:type_check_enabled"],
-    toolchain = ":mypy_impl",
-    toolchain_type = "@aspect_rules_py//py:type_checker_toolchain_type",
-)
-```
-
-**ATTRIBUTES**
-
-
-| Name  | Description | Type | Mandatory | Default |
-| :------------- | :------------- | :------------- | :------------- | :------------- |
-| <a id="py_type_checker_toolchain-name"></a>name |  A unique name for this target.   | <a href="https://bazel.build/concepts/labels#target-names">Name</a> | required |  |
-| <a id="py_type_checker_toolchain-data"></a>data |  Extra files the checker reads at run time.   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional |  `[]`  |
-| <a id="py_type_checker_toolchain-args"></a>args |  Arguments placed before the generated ones.   | List of strings | optional |  `[]`  |
-| <a id="py_type_checker_toolchain-checker"></a>checker |  The type checker executable.   | <a href="https://bazel.build/concepts/labels">Label</a> | required |  |
-| <a id="py_type_checker_toolchain-config"></a>config |  Default configuration file.<br><br>`--@aspect_rules_py//py:type_check_config` overrides it.   | <a href="https://bazel.build/concepts/labels">Label</a> | optional |  `None`  |
-| <a id="py_type_checker_toolchain-config_flag"></a>config_flag |  Flag preceding the configuration file.   | String | optional |  `""`  |
-| <a id="py_type_checker_toolchain-env"></a>env |  Environment variables for the checker.   | <a href="https://bazel.build/rules/lib/core/dict">Dictionary: String -> String</a> | optional |  `{}`  |
-| <a id="py_type_checker_toolchain-python_version_flag"></a>python_version_flag |  Flag preceding the target `X.Y` Python version. Empty omits it.   | String | optional |  `""`  |
-| <a id="py_type_checker_toolchain-search_path_env"></a>search_path_env |  Environment variable receiving the search paths, e.g. `MYPYPATH`.   | String | optional |  `""`  |
-| <a id="py_type_checker_toolchain-search_path_flag"></a>search_path_flag |  Flag preceding each import search path, e.g. `--extra-search-path`.   | String | optional |  `""`  |
 
 
 <a id="py_unpacked_wheel"></a>
@@ -366,7 +297,7 @@ from the already extracted whl file.
 load("@aspect_rules_py//py:defs.bzl", "PyInfo")
 
 PyInfo(<a href="#PyInfo-transitive_sources">transitive_sources</a>, <a href="#PyInfo-transitive_pyi_files">transitive_pyi_files</a>, <a href="#PyInfo-imports">imports</a>, <a href="#PyInfo-pyi_imports">pyi_imports</a>, <a href="#PyInfo-import_dirs">import_dirs</a>, <a href="#PyInfo-pyi_import_dirs">pyi_import_dirs</a>,
-       <a href="#PyInfo-unmapped_imports">unmapped_imports</a>, <a href="#PyInfo-virtual_dependencies">virtual_dependencies</a>, <a href="#PyInfo-virtual_resolutions">virtual_resolutions</a>)
+       <a href="#PyInfo-virtual_dependencies">virtual_dependencies</a>, <a href="#PyInfo-virtual_resolutions">virtual_resolutions</a>)
 </pre>
 
 Python source, import-path, and virtual-dependency information for a target's dependency closure.
@@ -379,9 +310,8 @@ Python source, import-path, and virtual-dependency information for a target's de
 | <a id="PyInfo-transitive_pyi_files"></a>transitive_pyi_files |  depset[File] — postorder depset of files needed only for type checking: `.pyi` type stubs in the transitive closure, plus the sources and stubs of any `pyi_deps`.    |
 | <a id="PyInfo-imports"></a>imports |  depset[str] — import roots to place on `sys.path` (rlocation-root-relative).    |
 | <a id="PyInfo-pyi_imports"></a>pyi_imports |  depset[str] — import roots needed only for type checking, from `pyi_deps` in the transitive closure. Optional: providers built without it are read as empty.    |
-| <a id="PyInfo-import_dirs"></a>import_dirs |  depset[str] — execroot-relative directories holding the files under `imports`, for type checkers, which run in the execroot rather than in runfiles. Each target contributes the directories its own import roots occupy on the output roots where it has files. Optional: a provider built without it is read through `unmapped_imports`.    |
+| <a id="PyInfo-import_dirs"></a>import_dirs |  depset[str] — execroot-relative directories holding the files under `imports`, for type checkers, which run in the execroot rather than in runfiles. Each target contributes the directories its own import roots occupy on the output roots where it has files. Providers without it, such as `@rules_python`'s, contribute no directories, so type checkers don't see their imports. Optional: read as empty.    |
 | <a id="PyInfo-pyi_import_dirs"></a>pyi_import_dirs |  depset[str] — the same as `import_dirs`, for `pyi_imports`. Optional.    |
-| <a id="PyInfo-unmapped_imports"></a>unmapped_imports |  depset[str] — import roots in the closure whose execroot directories are unknown, because they came from a provider without `import_dirs` (e.g. `@rules_python`'s). Optional.    |
 | <a id="PyInfo-virtual_dependencies"></a>virtual_dependencies |  depset[str] — names of required virtual dependencies, independent of their resolution status.    |
 | <a id="PyInfo-virtual_resolutions"></a>virtual_resolutions |  depset[struct(virtual, target)] — virtual-dependency-name to concrete-target resolutions.    |
 
@@ -486,34 +416,6 @@ the same conventions as the standard CPython interpreter.
 | <a id="PyRuntimeInfo-abi_flags"></a>abi_flags | :type: str<br><br>The runtime's ABI flags, i.e. `sys.abiflags`.<br><br>:::{versionadded} 1.0.0 ::: | `""` |
 | <a id="PyRuntimeInfo-site_init_template"></a>site_init_template | :type: File<br><br>The template to use for the binary-specific site-init hook run by the interpreter at startup.<br><br>:::{versionadded} 1.0.0 ::: | `None` |
 | <a id="PyRuntimeInfo-supports_build_time_venv"></a>supports_build_time_venv | :type: bool<br><br>True if this toolchain supports the build-time created virtual environment. False if not or unknown. If build-time venv creation isn't supported, then binaries may fallback to non-venv solutions or creating a venv at runtime.<br><br>In order to use the build-time created virtual environment, a toolchain needs to meet two criteria: 1. Specifying the underlying executable (e.g. `/usr/bin/python3`, as reported by    `sys._base_executable`) for the venv executable (`$venv/bin/python3`, as reported    by `sys.executable`). This typically requires relative symlinking the venv    path to the underlying path at build time, or using the `PYTHONEXECUTABLE`    environment variable (Python 3.11+) at runtime. 2. Having the build-time created site-packages directory    (`<venv>/lib/python{version}/site-packages`) recognized by the runtime    interpreter. This typically requires the Python version to be known at    build-time and match at runtime.<br><br>:::{versionadded} 1.5.0 ::: | `True` |
-
-
-<a id="PyTypeCheckerInfo"></a>
-
-## PyTypeCheckerInfo
-
-<pre>
-load("@aspect_rules_py//py:defs.bzl", "PyTypeCheckerInfo")
-
-PyTypeCheckerInfo(<a href="#PyTypeCheckerInfo-checker">checker</a>, <a href="#PyTypeCheckerInfo-data">data</a>, <a href="#PyTypeCheckerInfo-config">config</a>, <a href="#PyTypeCheckerInfo-config_flag">config_flag</a>, <a href="#PyTypeCheckerInfo-args">args</a>, <a href="#PyTypeCheckerInfo-env">env</a>, <a href="#PyTypeCheckerInfo-python_version_flag">python_version_flag</a>,
-                  <a href="#PyTypeCheckerInfo-search_path_flag">search_path_flag</a>, <a href="#PyTypeCheckerInfo-search_path_env">search_path_env</a>)
-</pre>
-
-How to invoke a Python type checker. Carried as `ToolchainInfo.type_checker`.
-
-**FIELDS**
-
-| Name  | Description |
-| :------------- | :------------- |
-| <a id="PyTypeCheckerInfo-checker"></a>checker |  FilesToRunProvider: the checker executable (exec configuration).    |
-| <a id="PyTypeCheckerInfo-data"></a>data |  depset[File]: extra files the checker reads.    |
-| <a id="PyTypeCheckerInfo-config"></a>config |  File \| None: the default configuration file.    |
-| <a id="PyTypeCheckerInfo-config_flag"></a>config_flag |  str: flag preceding the configuration file, e.g. `--config-file`.    |
-| <a id="PyTypeCheckerInfo-args"></a>args |  list[str]: arguments placed before the generated ones. See the rule docs for placeholders.    |
-| <a id="PyTypeCheckerInfo-env"></a>env |  dict[str, str]: environment variables. Placeholders are substituted as in `args`.    |
-| <a id="PyTypeCheckerInfo-python_version_flag"></a>python_version_flag |  str: flag preceding the `X.Y` target Python version, or empty to omit it.    |
-| <a id="PyTypeCheckerInfo-search_path_flag"></a>search_path_flag |  str: flag preceding each import search path, or empty.    |
-| <a id="PyTypeCheckerInfo-search_path_env"></a>search_path_env |  str: environment variable receiving all search paths joined by the OS path separator, or empty.    |
 
 
 <a id="PyWheelsInfo"></a>

@@ -1,5 +1,7 @@
-load("//py:defs.bzl", "py_binary", "py_library", "py_type_checker_toolchain")
-load(":type_check_test.bzl", "binary_checker_test", "checked_test", "config_without_flag_test", "env_checker_test", "flag_off_test", "unchecked_test")
+load("//py:defs.bzl", "py_binary", "py_library")
+load(":type_check_test.bzl", "checked_test", "config_test", "flag_off_test", "unchecked_test")
+
+exports_files(["custom.ty.toml"])
 
 py_library(
     name = "dep",
@@ -40,36 +42,53 @@ py_binary(
     deps = [":lib"],
 )
 
-# The library's own source is checked against the target Python version, with
-# the directories behind its first-party, pyi_deps and wheel import roots as
-# search paths. Every root comes from rules_py targets, so none is left for the
-# runner to look for.
+# The library's own source is checked by ty against the target Python version,
+# with the directories behind its first-party, pyi_deps and wheel import roots
+# as search paths. ty always gets a configuration file, so it never discovers
+# one from the execroot.
 checked_test(
     name = "library_test",
-    absent_fragments = ["--import="],
+    absent_fragments = ["run_checker.py"],
     argv = [
-        "--src=py/tests/type-check/lib.py",
+        "check",
         "--python-version",
         "3.13",
-        "--python-version-flag=--python-version",
-        "--search-path-flag=--extra-search-path",
-        "--path=py/tests/type-check/dep",
-        "--path=py/tests/type-check",
+        "--extra-search-path=py/tests/type-check/dep",
+        "--extra-search-path=py/tests/type-check",
+        "py/tests/type-check/lib.py",
     ],
-    argv_fragments = ["cowsay__6_1/actual_install.install/lib/python3.13/site-packages"],
+    argv_fragments = [
+        "cowsay__6_1/actual_install.install/lib/python3.13/site-packages",
+        "py/private/type_check/empty.ty.toml",
+    ],
     # pyi_deps roots come first, so stubs take precedence over runtime packages.
     argv_order = [
         "cowsay__6_1/actual_install.install/lib/python3.13/site-packages",
-        "--path=py/tests/type-check/dep",
+        "--extra-search-path=py/tests/type-check/dep",
     ],
     target_under_test = ":lib",
 )
 
-# py_binary's sources are checked on its venv, which the launcher depends on.
+# py_binary's sources are checked on its venv, which the launcher depends on,
+# with each source's directory on the path as it is for `python main.py`.
 checked_test(
     name = "binary_test",
-    argv = ["--src=py/tests/type-check/main.py"],
+    argv = [
+        "--extra-search-path=py/tests/type-check",
+        "py/tests/type-check/main.py",
+    ],
     target_under_test = ":_bin.venv",
+)
+
+# --@aspect_rules_py//py:type_check_config replaces the empty default.
+config_test(
+    name = "config_test",
+    absent_fragments = ["empty.ty.toml"],
+    argv = [
+        "--config-file",
+        "py/tests/type-check/custom.ty.toml",
+    ],
+    target_under_test = ":lib",
 )
 
 unchecked_test(
@@ -89,59 +108,5 @@ unchecked_test(
 
 flag_off_test(
     name = "flag_off_test",
-    target_under_test = ":lib",
-)
-
-py_type_checker_toolchain(
-    name = "env_checker_impl",
-    checker = "fake_checker.sh",
-    search_path_env = "MYPYPATH",
-)
-
-toolchain(
-    name = "env_checker",
-    toolchain = ":env_checker_impl",
-    toolchain_type = "//py:type_checker_toolchain_type",
-)
-
-env_checker_test(
-    name = "env_checker_test",
-    argv = [
-        "--search-path-env",
-        "MYPYPATH",
-    ],
-    target_under_test = ":lib",
-)
-
-config_without_flag_test(
-    name = "config_without_flag_test",
-    target_under_test = ":lib",
-)
-
-# A checker that is itself a py_binary, as mypy from a lockfile would be. Its
-# own venv must not resolve this toolchain, or analysis cycles.
-py_binary(
-    name = "binary_checker",
-    srcs = ["main.py"],
-    main = "main.py",
-    deps = [":lib"],
-)
-
-py_type_checker_toolchain(
-    name = "binary_checker_impl",
-    checker = ":binary_checker",
-    search_path_flag = "--search-path",
-)
-
-toolchain(
-    name = "binary_checker_toolchain",
-    target_settings = ["//py:type_check_enabled"],
-    toolchain = ":binary_checker_impl",
-    toolchain_type = "//py:type_checker_toolchain_type",
-)
-
-binary_checker_test(
-    name = "binary_checker_test",
-    argv = ["--search-path-flag=--search-path"],
     target_under_test = ":lib",
 )

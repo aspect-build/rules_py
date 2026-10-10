@@ -10,3 +10,7 @@ import %workspace%/../../bazel/workspace.bazelrc
 # workspaces avoid this only by not inheriting the preset; disable the flag here
 # so the preset can still be shared. Remove once protobuf sets the parameter.
 common --incompatible_auto_exec_groups=false
+
+# Undoes workspace.bazelrc: protobuf's py_proto_library carries only
+# @rules_python's PyInfo, whose imports type checking can't see.
+common --@aspect_rules_py//py:type_check=false

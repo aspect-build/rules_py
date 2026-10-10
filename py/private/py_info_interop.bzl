@@ -57,7 +57,7 @@ def get_pyi_imports(target):
     return depset()
 
 def get_import_dirs(target):
-    """Execroot directories for the target's `imports`; empty when unknown, see `get_unmapped_imports`."""
+    """Execroot directories for the target's `imports`; empty for providers that carry none."""
     if PyInfo in target:
         return getattr(target[PyInfo], "import_dirs", None) or depset()
     return depset()
@@ -66,21 +66,6 @@ def get_pyi_import_dirs(target):
     """Execroot directories for the target's `pyi_imports`; empty when unknown."""
     if PyInfo in target:
         return getattr(target[PyInfo], "pyi_import_dirs", None) or depset()
-    return depset()
-
-def get_unmapped_imports(target):
-    """Import roots in the target's closure whose execroot directories are unknown.
-
-    A provider without `import_dirs` (`@rules_python`'s, or rules_py's built
-    by hand) leaves all of its import roots unmapped.
-    """
-    if PyInfo in target:
-        info = target[PyInfo]
-        if getattr(info, "import_dirs", None) != None:
-            return getattr(info, "unmapped_imports", None) or depset()
-        return depset(transitive = [info.imports, getattr(info, "pyi_imports", None) or depset()])
-    if RulesPythonPyInfo in target:
-        return target[RulesPythonPyInfo].imports
     return depset()
 
 def get_transitive_sources(target):
