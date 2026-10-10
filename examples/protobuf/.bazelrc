@@ -1,1 +1,5 @@
 import %workspace%/../../bazel/workspace.bazelrc
+
+# Undoes workspace.bazelrc: protobuf's py_proto_library carries only
+# @rules_python's PyInfo, whose imports type checking can't see.
+common --@aspect_rules_py//py:type_check=false

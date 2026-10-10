@@ -56,6 +56,18 @@ def get_pyi_imports(target):
         return getattr(target[PyInfo], "pyi_imports", depset())
     return depset()
 
+def get_import_dirs(target):
+    """Execroot directories for the target's `imports`; empty for providers that carry none."""
+    if PyInfo in target:
+        return getattr(target[PyInfo], "import_dirs", None) or depset()
+    return depset()
+
+def get_pyi_import_dirs(target):
+    """Execroot directories for the target's `pyi_imports`; empty when unknown."""
+    if PyInfo in target:
+        return getattr(target[PyInfo], "pyi_import_dirs", None) or depset()
+    return depset()
+
 def get_transitive_sources(target):
     """The target's transitive first-party sources, from either `PyInfo`.
 

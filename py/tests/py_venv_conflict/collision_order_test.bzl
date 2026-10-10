@@ -3,6 +3,7 @@
 load("@bazel_skylib//rules:build_test.bzl", "build_test")
 load("//py:defs.bzl", "py_binary", "py_library", "py_test")
 load("//py/private:providers.bzl", "PyWheelsInfo", "make_wheel_record")
+load("//py/private:pth.bzl", "own_import_dirs")
 load("//py/private:py_info.bzl", "PyInfo")
 load("//py/private/py_venv:defs.bzl", "py_venv")
 load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN")
@@ -68,6 +69,7 @@ printf 'VALUE = "namespace"\n' > "$site/mixed_top/from_namespace.py"
         ),
         PyInfo(
             imports = depset([site_packages]),
+            import_dirs = depset(own_import_dirs([site_packages], [install_tree], ctx.workspace_name)),
             transitive_pyi_files = depset(),
             transitive_sources = depset([install_tree]),
             virtual_dependencies = depset(),
@@ -201,6 +203,7 @@ printf 'native' > "$site/collision_order/native_extension.so"
         ),
         PyInfo(
             imports = depset([site_packages]),
+            import_dirs = depset(own_import_dirs([site_packages], [install_tree], ctx.workspace_name)),
             transitive_pyi_files = depset(),
             transitive_sources = depset([install_tree]),
             virtual_dependencies = depset(),
@@ -370,6 +373,8 @@ def collision_order_test_suite():
     )
     py_test(
         name = "mixed_ns_regular_test",
+        # The checker sees each colliding wheel's copy separately; only the venv merges them.
+        type_check = False,
         srcs = ["test_mixed_ns_regular.py"],
         main = "test_mixed_ns_regular.py",
         package_collisions = "warning",
@@ -392,6 +397,8 @@ def collision_order_test_suite():
     )
     py_test(
         name = "regular_directory_union_test",
+        # The checker sees each colliding wheel's copy separately; only the venv merges them.
+        type_check = False,
         srcs = ["test_collision_union.py"],
         main = "test_collision_union.py",
         package_collisions = "ignore",
@@ -420,6 +427,8 @@ def collision_order_test_suite():
     )
     py_test(
         name = "native_directory_collision_test",
+        # The checker sees each colliding wheel's copy separately; only the venv merges them.
+        type_check = False,
         srcs = ["test_native_collision.py"],
         main = "test_native_collision.py",
         package_collisions = "ignore",
@@ -444,6 +453,8 @@ def collision_order_test_suite():
     )
     py_test(
         name = "native_namespace_regular_first_collision_test",
+        # The checker sees each colliding wheel's copy separately; only the venv merges them.
+        type_check = False,
         srcs = ["test_native_top_level_collision.py"],
         main = "test_native_top_level_collision.py",
         package_collisions = "ignore",
@@ -481,6 +492,8 @@ def collision_order_test_suite():
     )
     py_test(
         name = "distinct_metadata_graft_test",
+        # The checker sees each colliding wheel's copy separately; only the venv merges them.
+        type_check = False,
         srcs = ["test_distinct_graft.py"],
         main = "test_distinct_graft.py",
         package_collisions = "ignore",
@@ -517,6 +530,8 @@ def collision_order_test_suite():
     )
     py_test(
         name = "extend_path_regular_collision_test",
+        # The checker sees each colliding wheel's copy separately; only the venv merges them.
+        type_check = False,
         srcs = ["test_extend_path_regular.py"],
         main = "test_extend_path_regular.py",
         package_collisions = "ignore",
@@ -544,6 +559,8 @@ def collision_order_test_suite():
     )
     py_test(
         name = "native_duplicate_graft_collision_test",
+        # The checker sees each colliding wheel's copy separately; only the venv merges them.
+        type_check = False,
         srcs = ["test_native_duplicate_graft.py"],
         main = "test_native_duplicate_graft.py",
         package_collisions = "ignore",
@@ -570,6 +587,8 @@ def collision_order_test_suite():
     )
     py_binary(
         name = "_script_collision_internal_binary",
+        # The checker sees each colliding wheel's copy separately; only the venv merges them.
+        type_check = False,
         srcs = ["test_collision_order.py"],
         main = "test_collision_order.py",
         package_collisions = "error",

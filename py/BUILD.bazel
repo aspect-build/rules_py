@@ -63,6 +63,20 @@ alias(
     visibility = ["//visibility:public"],
 )
 
+# --@aspect_rules_py//py:type_check turns type checking on everywhere; it's off by default.
+alias(
+    name = "type_check",
+    actual = "//py/private/type_check:type_check_flag",
+    visibility = ["//visibility:public"],
+)
+
+# --@aspect_rules_py//py:type_check_config=//:ty.toml sets ty's configuration file.
+alias(
+    name = "type_check_config",
+    actual = "//py/private/type_check:config",
+    visibility = ["//visibility:public"],
+)
+
 # Users can set --@aspect_rules_py//py:layer_tier=//path:custom_tier to switch
 # the pip-package grouping + compression plan consumed by py_image_layer.
 label_flag(
@@ -112,6 +126,7 @@ bzl_library(
     deps = [
         ":toolchains",
         "//py/private/interpreter:extension",
+        "//py/private/toolchain:ty",
         "@aspect_tools_telemetry_report//:defs.bzl",
     ],
 )
@@ -123,6 +138,7 @@ bzl_library(
     deps = [
         "//py/private/toolchain:repo",
         "//py/private/toolchain:tools",
+        "//py/private/toolchain:ty",
         "@bazel_lib//lib:repositories",
         "@bazel_tools//tools/build_defs/repo:http.bzl",
     ],

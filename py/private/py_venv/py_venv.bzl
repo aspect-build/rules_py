@@ -31,6 +31,7 @@ load("//py/private:py_library.bzl", _py_library = "py_library_utils")
 load("//py/private:py_semantics.bzl", _py_semantics = "semantics")
 load("//py/private:transitions.bzl", "python_transition")
 load("//py/private/toolchain:types.bzl", "EXEC_TOOLS_TOOLCHAIN", "PY_TOOLCHAIN")
+load("//py/private/type_check:type_check.bzl", "TYPE_CHECK_EXEC_GROUPS", "type_check_action")
 load(":py_venv_exec.bzl", _py_venv_exec = "py_venv_exec")
 load(":types.bzl", "VirtualenvInfo", "venv_root")
 load(":venv.bzl", "assemble_venv")
@@ -117,6 +118,14 @@ def _assemble_venv_target(ctx, executable, console_scripts):
             ctx,
             extra_depsets = virtual_resolution.pyi_imports,
         ),
+        import_dirs = _py_library.make_import_dirs_depset(
+            ctx,
+            extra_depsets = virtual_resolution.import_dirs,
+        ),
+        pyi_import_dirs = _py_library.make_pyi_import_dirs_depset(
+            ctx,
+            extra_depsets = virtual_resolution.pyi_import_dirs,
+        ),
         runtime_runfiles = runfiles,
         transitive_pyi_files = pyi_depset,
         transitive_sources = srcs_depset,
@@ -137,6 +146,17 @@ def _venv_providers(ctx, venv, venv_only, executable = None, include_sources = F
         ),
         # Deliberately no PyInfo: a venv is a terminal artifact, not a source of imports.
         venv,
+        OutputGroupInfo(
+            _validation = type_check_action(
+                ctx,
+                srcs = ctx.files.srcs,
+                transitive_sources = venv.transitive_sources,
+                transitive_pyi_files = venv.transitive_pyi_files,
+                import_dirs = venv.import_dirs,
+                pyi_import_dirs = venv.pyi_import_dirs,
+                srcs_on_path = True,
+            ),
+        ),
         # `bazel coverage` finds this by walking the consumer's `venv` attr.
         coverage_common.instrumented_files_info(
             ctx,
@@ -313,6 +333,7 @@ _py_venv = rule(
     implementation = _py_venv_rule_impl,
     attrs = _attrs,
     toolchains = _venv_toolchains,
+    exec_groups = TYPE_CHECK_EXEC_GROUPS,
     executable = True,
     cfg = python_transition,
 )
@@ -334,6 +355,7 @@ _py_venv_lib = rule(
         "include_console_scripts": attr.bool(default = False),
     },
     toolchains = _venv_toolchains,
+    exec_groups = TYPE_CHECK_EXEC_GROUPS,
     cfg = python_transition,
 )
 
@@ -361,6 +383,7 @@ py_venv = _wrap_with_debug(_py_venv)
 # the launcher rule).
 _VENV_ONLY_ATTRS = [
     "pyi_deps",
+    "type_check",
     "resolutions",
     "virtual_deps",
     "package_collisions",

@@ -158,7 +158,7 @@ Must not be testonly. `py_image_layer` transitions the `//py:layer_tier` flag to
 <pre>
 load("@aspect_rules_py//py:defs.bzl", "py_library")
 
-py_library(<a href="#py_library-name">name</a>, <a href="#py_library-deps">deps</a>, <a href="#py_library-srcs">srcs</a>, <a href="#py_library-data">data</a>, <a href="#py_library-imports">imports</a>, <a href="#py_library-pyi_deps">pyi_deps</a>, <a href="#py_library-resolutions">resolutions</a>, <a href="#py_library-virtual_deps">virtual_deps</a>)
+py_library(<a href="#py_library-name">name</a>, <a href="#py_library-deps">deps</a>, <a href="#py_library-srcs">srcs</a>, <a href="#py_library-data">data</a>, <a href="#py_library-imports">imports</a>, <a href="#py_library-pyi_deps">pyi_deps</a>, <a href="#py_library-resolutions">resolutions</a>, <a href="#py_library-type_check">type_check</a>, <a href="#py_library-virtual_deps">virtual_deps</a>)
 </pre>
 
 
@@ -175,6 +175,7 @@ py_library(<a href="#py_library-name">name</a>, <a href="#py_library-deps">deps<
 | <a id="py_library-imports"></a>imports |  List of import directories to be added to the PYTHONPATH.   | List of strings | optional |  `[]`  |
 | <a id="py_library-pyi_deps"></a>pyi_deps |  Dependencies needed only for type checking.<br><br>These satisfy imports guarded by `typing.TYPE_CHECKING`. Their sources, stubs and wheels are carried in `PyInfo.transitive_pyi_files` for type checkers, but never become part of a runnable program: they are left out of runfiles, `sys.path`, the venv's site-packages, image layers, and pex files.   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional |  `[]`  |
 | <a id="py_library-resolutions"></a>resolutions |  Satisfy a virtual_dep with a mapping from external package name to the label of an installed package that provides it. See virtual_deps.   | Dictionary: String -> Label | optional |  `{}`  |
+| <a id="py_library-type_check"></a>type_check |  Whether to type check this target's sources.<br><br>Only takes effect when `--@aspect_rules_py//py:type_check` turns type checking on, which it is not by default. Type checking runs ty over this target's sources, and a type error fails the build.   | Boolean | optional |  `True`  |
 | <a id="py_library-virtual_deps"></a>virtual_deps |  -   | List of strings | optional |  `[]`  |
 
 
@@ -295,8 +296,8 @@ from the already extracted whl file.
 <pre>
 load("@aspect_rules_py//py:defs.bzl", "PyInfo")
 
-PyInfo(<a href="#PyInfo-transitive_sources">transitive_sources</a>, <a href="#PyInfo-transitive_pyi_files">transitive_pyi_files</a>, <a href="#PyInfo-imports">imports</a>, <a href="#PyInfo-pyi_imports">pyi_imports</a>, <a href="#PyInfo-virtual_dependencies">virtual_dependencies</a>,
-       <a href="#PyInfo-virtual_resolutions">virtual_resolutions</a>)
+PyInfo(<a href="#PyInfo-transitive_sources">transitive_sources</a>, <a href="#PyInfo-transitive_pyi_files">transitive_pyi_files</a>, <a href="#PyInfo-imports">imports</a>, <a href="#PyInfo-pyi_imports">pyi_imports</a>, <a href="#PyInfo-import_dirs">import_dirs</a>, <a href="#PyInfo-pyi_import_dirs">pyi_import_dirs</a>,
+       <a href="#PyInfo-virtual_dependencies">virtual_dependencies</a>, <a href="#PyInfo-virtual_resolutions">virtual_resolutions</a>)
 </pre>
 
 Python source, import-path, and virtual-dependency information for a target's dependency closure.
@@ -309,6 +310,8 @@ Python source, import-path, and virtual-dependency information for a target's de
 | <a id="PyInfo-transitive_pyi_files"></a>transitive_pyi_files |  depset[File] — postorder depset of files needed only for type checking: `.pyi` type stubs in the transitive closure, plus the sources and stubs of any `pyi_deps`.    |
 | <a id="PyInfo-imports"></a>imports |  depset[str] — import roots to place on `sys.path` (rlocation-root-relative).    |
 | <a id="PyInfo-pyi_imports"></a>pyi_imports |  depset[str] — import roots needed only for type checking, from `pyi_deps` in the transitive closure. Optional: providers built without it are read as empty.    |
+| <a id="PyInfo-import_dirs"></a>import_dirs |  depset[str] — execroot-relative directories holding the files under `imports`, for type checkers, which run in the execroot rather than in runfiles. Each target contributes the directories its own import roots occupy on the output roots where it has files. Providers without it, such as `@rules_python`'s, contribute no directories, so type checkers don't see their imports. Optional: read as empty.    |
+| <a id="PyInfo-pyi_import_dirs"></a>pyi_import_dirs |  depset[str] — the same as `import_dirs`, for `pyi_imports`. Optional.    |
 | <a id="PyInfo-virtual_dependencies"></a>virtual_dependencies |  depset[str] — names of required virtual dependencies, independent of their resolution status.    |
 | <a id="PyInfo-virtual_resolutions"></a>virtual_resolutions |  depset[struct(virtual, target)] — virtual-dependency-name to concrete-target resolutions.    |
 

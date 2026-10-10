@@ -2,7 +2,7 @@
 
 load("@bazel_skylib//lib:paths.bzl", "paths")
 load("//py/private:providers.bzl", "PyWheelsInfo", "make_wheel_record")
-load("//py/private:pth.bzl", "make_imports_depset")
+load("//py/private:pth.bzl", "own_import_dirs", "own_import_paths")
 load("//py/private:py_info.bzl", "PyInfo")
 load("//py/private:py_semantics.bzl", _py_semantics = "semantics")
 load("//py/private/toolchain:types.bzl", "EXEC_TOOLS_TOOLCHAIN", "PY_TOOLCHAIN")
@@ -49,8 +49,7 @@ def _py_unpacked_wheel_impl(ctx):
         py_ver_dir,
         "site-packages",
     )
-    imports = make_imports_depset(
-        deps = [],
+    import_paths = own_import_paths(
         imports = [import_path],
         workspace_name = ctx.workspace_name,
         label = ctx.label,
@@ -74,7 +73,9 @@ def _py_unpacked_wheel_impl(ctx):
             default_runfiles = ctx.runfiles(files = [unpack_directory]),
         ),
         PyInfo(
-            imports = imports,
+            imports = depset(import_paths),
+            import_dirs = depset(own_import_dirs(import_paths, [unpack_directory], ctx.workspace_name)),
+            pyi_import_dirs = depset(),
             transitive_pyi_files = depset(),
             transitive_sources = depset([unpack_directory]),
             virtual_dependencies = depset(),

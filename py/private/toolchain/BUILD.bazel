@@ -14,6 +14,13 @@ toolchain_type(
     visibility = ["//visibility:public"],
 )
 
+# Resolved by exec platform to provide the ty binary that type checks
+# py_library, py_binary and py_test (see //py/private/type_check).
+toolchain_type(
+    name = "type_checker_toolchain_type",
+    visibility = ["//visibility:public"],
+)
+
 # Resolved by exec platform to provide an interpreter for build actions
 # (wheel unpacking, site-packages merging) under cross-compilation.
 toolchain_type(
@@ -26,6 +33,18 @@ bzl_library(
     srcs = ["repo.bzl"],
     visibility = ["//py:__subpackages__"],
     deps = [":tools"],
+)
+
+bzl_library(
+    name = "ty",
+    srcs = ["ty.bzl"],
+    visibility = ["//py:__subpackages__"],
+)
+
+bzl_library(
+    name = "type_checker",
+    srcs = ["type_checker.bzl"],
+    visibility = ["//py:__subpackages__"],
 )
 
 bzl_library(
