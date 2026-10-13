@@ -113,8 +113,8 @@ checked_test(
 # the source tree for checked-in files, the output tree for generated ones.
 checked_test(
     name = "foreign_test",
-    argv = ["--extra-search-path=py/tests/type-check/foreign"],
     absent_fragments = ["--extra-search-path=py/tests/type-check/generated"],
+    argv = ["--extra-search-path=py/tests/type-check/foreign"],
     argv_fragments = ["/bin/py/tests/type-check/generated"],
     target_under_test = ":uses_foreign",
 )
