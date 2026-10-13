@@ -114,6 +114,11 @@ Some imports work at runtime but cannot be resolved statically:
   `venv_symlinks` rather than import roots, so the checker doesn't see them.
 - **`virtual_deps`**: a `py_library` that declares `virtual_deps` is not checked, because the
   packages it imports only exist once a binary resolves them.
+- **Packages split between source and generated files**: when a regular (non-PEP 420) package has
+  checked-in files and generated ones, such as `_pb2.py` modules generated into it, runfiles merge
+  them into one directory, but the checker sees the source tree and the output tree as separate
+  search paths and stops at the first `__init__.py`. Imports of the generated modules are then
+  unresolved. Generate them into a package of their own, or opt the affected targets out.
 - **Packages split across wheels**: when two wheels both ship files under one regular (non-PEP 420)
   package, the venv merges them physically, but the checker sees each wheel's copy separately. Opt
   the affected targets out.
