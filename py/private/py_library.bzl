@@ -7,7 +7,7 @@ without binding them to a particular version of that package.
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load("@rules_cc//cc/common:cc_info.bzl", "CcInfo")
 load("//py/private:providers.bzl", "PyWheelsInfo")
-load("//py/private:pth.bzl", "make_import_dirs_depset", "make_imports_depset", "own_import_dirs", "own_import_paths")
+load("//py/private:pth.bzl", "make_import_dirs_depset", "make_imports_depset", "own_import_dirs", "own_import_paths", "unowned_import_dirs")
 load("//py/private:py_info.bzl", "PyInfo")
 load("//py/private:py_info_interop.bzl", "RulesPythonPyInfo", "get_import_dirs", "get_py_info", "get_pyi_import_dirs", "get_pyi_imports", "get_transitive_pyi_files", "get_transitive_sources", "has_py_info")
 load("//py/private:transitions.bzl", "reset_python_flags_transition")
@@ -75,10 +75,24 @@ def _make_pyi_imports_depset(ctx, extra_depsets = []):
     ])
 
 def _make_import_dirs_depset(ctx, extra_depsets = []):
-    import_paths = own_import_paths(getattr(ctx.attr, "imports", []), ctx.workspace_name, ctx.label)
+    imports = getattr(ctx.attr, "imports", [])
+    deps = getattr(ctx.attr, "deps", [])
+    import_paths = own_import_paths(imports, ctx.workspace_name, ctx.label)
+    import_dirs = own_import_dirs(import_paths, ctx.files.srcs, ctx.workspace_name)
+    if imports:
+        import_dirs += unowned_import_dirs(
+            import_paths[:len(imports)],
+            import_dirs,
+            depset(transitive = [
+                depset(transitive = [get_transitive_sources(target), get_transitive_pyi_files(target)])
+                for target in deps
+                if has_py_info(target)
+            ]),
+            ctx.workspace_name,
+        )
     return make_import_dirs_depset(
-        deps = getattr(ctx.attr, "deps", []),
-        import_dirs = own_import_dirs(import_paths, ctx.files.srcs, ctx.workspace_name),
+        deps = deps,
+        import_dirs = import_dirs,
         extra_depsets = extra_depsets,
     )
 

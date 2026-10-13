@@ -137,6 +137,32 @@ def own_import_dirs(import_paths, files, workspace_name):
                 dirs.append(d)
     return dirs
 
+def unowned_import_dirs(import_paths, own_dirs, dep_files, workspace_name):
+    """Directories for import roots that hold only the deps' files.
+
+    `own_import_dirs` only finds roots with one of the target's own files
+    beneath them, but an `imports` entry may be there for its deps' files
+    alone. Those roots are mapped onto the deps' files instead.
+
+    Args:
+        import_paths: the target's explicit runfiles-root-relative import roots.
+        own_dirs: the directories `own_import_dirs` found.
+        dep_files: depset[File] of the deps' sources. Only flattened when some
+            root has no own files beneath it.
+        workspace_name: the main repository's name.
+
+    Returns:
+        A list of execroot-relative directories.
+    """
+    unowned = []
+    for import_path in import_paths:
+        rel = _exec_dir("", import_path, workspace_name)
+        if not [d for d in own_dirs if d == rel or d.endswith("/" + rel)]:
+            unowned.append(import_path)
+    if not unowned:
+        return []
+    return own_import_dirs(unowned, dep_files.to_list(), workspace_name)
+
 def make_import_dirs_depset(deps, import_dirs, extra_depsets = []):
     """The `import_dirs` counterpart of `make_imports_depset`.
 

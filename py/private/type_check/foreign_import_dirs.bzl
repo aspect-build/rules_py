@@ -7,9 +7,9 @@ pip wheels, or protobuf's `py_proto_library`, from their import roots and the
 files they own.
 """
 
-load("//py/private:pth.bzl", "own_import_dirs", "own_import_paths")
+load("//py/private:pth.bzl", "own_import_dirs", "own_import_paths", "unowned_import_dirs")
 load("//py/private:py_info.bzl", "PyInfo")
-load("//py/private:py_info_interop.bzl", "ForeignImportDirsInfo", "RulesPythonPyInfo", "get_import_dirs")
+load("//py/private:py_info_interop.bzl", "ForeignImportDirsInfo", "RulesPythonPyInfo", "get_import_dirs", "get_transitive_pyi_files", "get_transitive_sources", "has_py_info")
 
 def _own_files(target):
     info = target[RulesPythonPyInfo]
@@ -28,8 +28,9 @@ def _foreign_import_dirs_aspect_impl(target, ctx):
         return []
 
     files = _own_files(target)
-    if hasattr(ctx.rule.attr, "imports"):
-        import_paths = own_import_paths(ctx.rule.attr.imports, ctx.workspace_name, ctx.label)
+    imports = getattr(ctx.rule.attr, "imports", None)
+    if imports != None:
+        import_paths = own_import_paths(imports, ctx.workspace_name, ctx.label)
     else:
         import_paths = target[RulesPythonPyInfo].imports.to_list() + [ctx.workspace_name]
 
@@ -38,10 +39,16 @@ def _foreign_import_dirs_aspect_impl(target, ctx):
     import_paths += [f.owner.repo_name for f in files if f.owner and f.owner.repo_name]
 
     deps = getattr(ctx.rule.attr, "deps", []) + getattr(ctx.rule.attr, "pyi_deps", [])
-    return [ForeignImportDirsInfo(import_dirs = depset(
-        direct = own_import_dirs(import_paths, files, ctx.workspace_name),
-        transitive = [get_import_dirs(dep) for dep in deps],
-    ))]
+    dep_dirs = depset(transitive = [get_import_dirs(dep) for dep in deps])
+    import_dirs = own_import_dirs(import_paths, files, ctx.workspace_name)
+    if imports:
+        dep_files = depset(transitive = [
+            depset(transitive = [get_transitive_sources(dep), get_transitive_pyi_files(dep)])
+            for dep in deps
+            if has_py_info(dep)
+        ])
+        import_dirs += unowned_import_dirs(import_paths[:len(imports)], import_dirs, dep_files, ctx.workspace_name)
+    return [ForeignImportDirsInfo(import_dirs = depset(direct = import_dirs, transitive = [dep_dirs]))]
 
 foreign_import_dirs_aspect = aspect(
     implementation = _foreign_import_dirs_aspect_impl,

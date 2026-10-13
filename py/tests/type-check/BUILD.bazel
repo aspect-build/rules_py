@@ -46,6 +46,30 @@ py_library(
     ],
 )
 
+# An import root holding only a dependency's files, generated ones here.
+genrule(
+    name = "unowned_dep_src",
+    outs = ["unowned/unowned_dep.py"],
+    cmd = "printf 'def name() -> str:\\n    return \"x\"\\n' > $@",
+)
+
+py_library(
+    name = "unowned_dep",
+    srcs = [":unowned_dep_src"],
+)
+
+py_library(
+    name = "unowned_root",
+    imports = ["unowned"],
+    deps = [":unowned_dep"],
+)
+
+py_library(
+    name = "uses_unowned",
+    srcs = ["uses_unowned.py"],
+    deps = [":unowned_root"],
+)
+
 py_library(
     name = "opted_out",
     srcs = ["lib.py"],
@@ -117,6 +141,14 @@ checked_test(
     argv = ["--extra-search-path=py/tests/type-check/foreign"],
     argv_fragments = ["/bin/py/tests/type-check/generated"],
     target_under_test = ":uses_foreign",
+)
+
+# An import root is found from the dependencies' files when the target has
+# none beneath it.
+checked_test(
+    name = "unowned_test",
+    argv_fragments = ["/bin/py/tests/type-check/unowned"],
+    target_under_test = ":uses_unowned",
 )
 
 # --@aspect_rules_py//py:type_check_config replaces the empty default.
