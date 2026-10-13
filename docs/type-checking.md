@@ -105,12 +105,13 @@ A stub directory stands in for the whole package, so declare every module and na
 A target's search paths mirror its runtime `sys.path`: its import roots (`imports`) and those of
 its `deps` and `pyi_deps`, and each wheel's `site-packages`. For `py_binary` and `py_test`, each
 source's own directory is also on the path, as the script's directory is for `python main.py`.
+Dependencies that carry only `@rules_python`'s `PyInfo`, such as a rules_python `py_library` or
+wheel, or protobuf's `py_proto_library`, contribute their import roots too.
 
 Some imports work at runtime but cannot be resolved statically:
 
-- **Dependencies built by other rule sets**: a dep that carries only `@rules_python`'s `PyInfo`,
-  such as a rules_python `py_library` or wheel, or protobuf's `py_proto_library`, contributes no
-  search paths, so imports from it are unresolved. Opt its consumers out.
+- **rules_python's `venvs_site_packages` layout**: wheels installed with it reach the venv through
+  `venv_symlinks` rather than import roots, so the checker doesn't see them.
 - **`virtual_deps`**: a `py_library` that declares `virtual_deps` is not checked, because the
   packages it imports only exist once a binary resolves them.
 - **Packages split across wheels**: when two wheels both ship files under one regular (non-PEP 420)

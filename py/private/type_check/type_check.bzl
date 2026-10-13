@@ -8,9 +8,9 @@ so results cache per target.
 
 The search paths are the execroot directories behind the target's import
 roots (`PyInfo.import_dirs` and `PyInfo.pyi_import_dirs`), which each target
-computes for its own files, so nothing is flattened at analysis time. Imports
-from dependencies that carry only `@rules_python`'s `PyInfo` have no such
-directories, so ty doesn't see them.
+computes for its own files, so nothing is flattened at analysis time. For
+dependencies that carry only `@rules_python`'s `PyInfo`, an aspect computes
+them (see foreign_import_dirs.bzl).
 """
 
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")

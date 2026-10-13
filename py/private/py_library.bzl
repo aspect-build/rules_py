@@ -12,6 +12,7 @@ load("//py/private:py_info.bzl", "PyInfo")
 load("//py/private:py_info_interop.bzl", "RulesPythonPyInfo", "get_import_dirs", "get_py_info", "get_pyi_import_dirs", "get_pyi_imports", "get_transitive_pyi_files", "get_transitive_sources", "has_py_info")
 load("//py/private:transitions.bzl", "reset_python_flags_transition")
 load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN")
+load("//py/private/type_check:foreign_import_dirs.bzl", "foreign_import_dirs_aspect")
 load("//py/private/type_check:type_check.bzl", "TYPE_CHECK_ATTRS", "TYPE_CHECK_EXEC_GROUPS", "type_check_action")
 
 def _is_type_stub(file):
@@ -295,6 +296,7 @@ _attrs = dict({
         # rules_py emits @rules_python providers only under the
         # migration-only //py:emit_rules_python_providers flag.
         providers = [[PyInfo], [RulesPythonPyInfo], [CcInfo]],
+        aspects = [foreign_import_dirs_aspect],
     ),
     "pyi_deps": attr.label_list(
         doc = """Dependencies needed only for type checking.
@@ -305,6 +307,7 @@ _attrs = dict({
         out of runfiles, `sys.path`, the venv's site-packages, image layers, and
         pex files.""",
         providers = [[PyInfo], [RulesPythonPyInfo]],
+        aspects = [foreign_import_dirs_aspect],
     ),
     "data": attr.label_list(
         doc = """Runtime dependencies of the program.
@@ -327,6 +330,7 @@ _attrs = dict({
         See virtual_deps.
         """,
         providers = [[PyInfo], [RulesPythonPyInfo]],
+        aspects = [foreign_import_dirs_aspect],
     ),
 }, **TYPE_CHECK_ATTRS)
 

@@ -28,6 +28,16 @@ filegroup(name = "no_config")
 exports_files(["empty.ty.toml"])
 
 bzl_library(
+    name = "foreign_import_dirs",
+    srcs = ["foreign_import_dirs.bzl"],
+    deps = [
+        "//py/private:pth",
+        "//py/private:py_info",
+        "//py/private:py_info_interop",
+    ],
+)
+
+bzl_library(
     name = "type_check",
     srcs = ["type_check.bzl"],
     deps = [

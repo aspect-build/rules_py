@@ -1,3 +1,4 @@
+load("@rules_python//python:py_library.bzl", rules_python_library = "py_library")
 load("//py:defs.bzl", "py_binary", "py_library")
 load(":type_check_test.bzl", "checked_test", "config_test", "flag_off_test", "unchecked_test")
 
@@ -15,6 +16,34 @@ py_library(
     imports = ["."],
     pyi_deps = ["@pypi//cowsay"],
     deps = [":dep"],
+)
+
+# Dependencies carrying only @rules_python's PyInfo, one of them generated.
+rules_python_library(
+    name = "foreign_dep",
+    srcs = ["foreign/foreign_dep.py"],
+    imports = ["foreign"],
+)
+
+genrule(
+    name = "generated_dep_src",
+    outs = ["generated/generated_dep.py"],
+    cmd = "printf 'def number() -> int:\\n    return 1\\n' > $@",
+)
+
+rules_python_library(
+    name = "generated_dep",
+    srcs = [":generated_dep_src"],
+    imports = ["generated"],
+)
+
+py_library(
+    name = "uses_foreign",
+    srcs = ["uses_foreign.py"],
+    deps = [
+        ":foreign_dep",
+        ":generated_dep",
+    ],
 )
 
 py_library(
@@ -78,6 +107,16 @@ checked_test(
         "py/tests/type-check/main.py",
     ],
     target_under_test = ":_bin.venv",
+)
+
+# An aspect finds the directories behind @rules_python targets' import roots:
+# the source tree for checked-in files, the output tree for generated ones.
+checked_test(
+    name = "foreign_test",
+    argv = ["--extra-search-path=py/tests/type-check/foreign"],
+    absent_fragments = ["--extra-search-path=py/tests/type-check/generated"],
+    argv_fragments = ["/bin/py/tests/type-check/generated"],
+    target_under_test = ":uses_foreign",
 )
 
 # --@aspect_rules_py//py:type_check_config replaces the empty default.
