@@ -17,8 +17,7 @@ py_test(
     srcs = ["test_pyo3_ext_rs.py"],
     main = "test_pyo3_ext_rs.py",
     python_version = "3.12",
-    # pyo3_extension carries only @rules_python's PyInfo, whose imports type
-    # checking can't see.
+    # The extension is a compiled module without stubs, which ty can't read.
     type_check = False,
     deps = [":pyo3_ext_rs"],
 )

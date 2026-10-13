@@ -96,6 +96,7 @@ bzl_library(
         ":transitions",
         "//py/private/toolchain:types",
         "//py/private/type_check",
+        "//py/private/type_check:foreign_import_dirs",
         "@bazel_skylib//lib:types",
         "@bazel_skylib//rules:common_settings",
     ],

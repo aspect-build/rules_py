@@ -56,10 +56,19 @@ def get_pyi_imports(target):
         return getattr(target[PyInfo], "pyi_imports", depset())
     return depset()
 
+ForeignImportDirsInfo = provider(
+    doc = "`PyInfo.import_dirs` for a target carrying only `@rules_python`'s `PyInfo`, computed by an aspect.",
+    fields = {
+        "import_dirs": "depset[str] — see `PyInfo.import_dirs`.",
+    },
+)
+
 def get_import_dirs(target):
-    """Execroot directories for the target's `imports`; empty for providers that carry none."""
+    """Execroot directories for the target's `imports`; empty when unknown."""
     if PyInfo in target:
         return getattr(target[PyInfo], "import_dirs", None) or depset()
+    if ForeignImportDirsInfo in target:
+        return target[ForeignImportDirsInfo].import_dirs
     return depset()
 
 def get_pyi_import_dirs(target):
