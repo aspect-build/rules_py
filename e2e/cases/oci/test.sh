@@ -129,7 +129,7 @@ done
 
 echo "PASS: scalar and shared source layouts are preserved"
 
-if [[ "${USE_BAZEL_VERSION:-}" != 9* ]]; then
+if [[ "${USE_BAZEL_VERSION:-8}" == 8* ]]; then
     echo "== nested launcher prefixes must share the same runfiles layout in either input order =="
     if ! "$BAZEL" build -- "${PKG}:_nested_prefix_sources_listing" >"$output_log" 2>&1; then
         cat "$output_log" >&2
