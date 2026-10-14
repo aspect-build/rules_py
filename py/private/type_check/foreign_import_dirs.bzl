@@ -7,9 +7,9 @@ pip wheels, or protobuf's `py_proto_library`, from their import roots and the
 files they own.
 """
 
-load("//py/private:pth.bzl", "own_import_dirs", "own_import_paths", "unowned_import_dirs")
+load("//py/private:pth.bzl", "dep_import_dirs", "own_import_dirs", "own_import_paths")
 load("//py/private:py_info.bzl", "PyInfo")
-load("//py/private:py_info_interop.bzl", "ForeignImportDirsInfo", "RulesPythonPyInfo", "get_import_dirs", "get_transitive_pyi_files", "get_transitive_sources", "has_py_info")
+load("//py/private:py_info_interop.bzl", "ForeignImportDirsInfo", "RulesPythonPyInfo", "get_import_dirs")
 
 def _own_files(target):
     info = target[RulesPythonPyInfo]
@@ -42,12 +42,7 @@ def _foreign_import_dirs_aspect_impl(target, ctx):
     dep_dirs = depset(transitive = [get_import_dirs(dep) for dep in deps])
     import_dirs = own_import_dirs(import_paths, files, ctx.workspace_name)
     if imports:
-        dep_files = depset(transitive = [
-            depset(transitive = [get_transitive_sources(dep), get_transitive_pyi_files(dep)])
-            for dep in deps
-            if has_py_info(dep)
-        ])
-        import_dirs += unowned_import_dirs(import_paths[:len(imports)], import_dirs, dep_files, ctx.workspace_name)
+        import_dirs += dep_import_dirs(import_paths[:len(imports)], deps, ctx.workspace_name)
     return [ForeignImportDirsInfo(import_dirs = depset(direct = import_dirs, transitive = [dep_dirs]))]
 
 foreign_import_dirs_aspect = aspect(

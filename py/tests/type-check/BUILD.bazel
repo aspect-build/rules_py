@@ -70,6 +70,32 @@ py_library(
     deps = [":unowned_root"],
 )
 
+# An import root holding the target's own checked-in file and a dependency's
+# generated one, so it occupies both the source and the output tree.
+genrule(
+    name = "mixed_generated_src",
+    outs = ["mixed/mixed_generated.py"],
+    cmd = "printf 'def generated() -> str:\\n    return \"gen\"\\n' > $@",
+)
+
+py_library(
+    name = "mixed_generated",
+    srcs = [":mixed_generated_src"],
+)
+
+py_library(
+    name = "mixed_root",
+    srcs = ["mixed/mixed_own.py"],
+    imports = ["mixed"],
+    deps = [":mixed_generated"],
+)
+
+py_library(
+    name = "uses_mixed",
+    srcs = ["uses_mixed.py"],
+    deps = [":mixed_root"],
+)
+
 py_library(
     name = "opted_out",
     srcs = ["lib.py"],
@@ -149,6 +175,15 @@ checked_test(
     name = "unowned_test",
     argv_fragments = ["/bin/py/tests/type-check/unowned"],
     target_under_test = ":uses_unowned",
+)
+
+# An import root is found on every tree where it holds files, the target's own
+# or its dependencies'.
+checked_test(
+    name = "mixed_test",
+    argv = ["--extra-search-path=py/tests/type-check/mixed"],
+    argv_fragments = ["/bin/py/tests/type-check/mixed"],
+    target_under_test = ":uses_mixed",
 )
 
 # --@aspect_rules_py//py:type_check_config replaces the empty default.
