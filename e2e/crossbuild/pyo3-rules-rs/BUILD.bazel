@@ -17,7 +17,7 @@ py_test(
     srcs = ["test_pyo3_ext_rs.py"],
     main = "test_pyo3_ext_rs.py",
     python_version = "3.12",
-    # The extension is a compiled module without stubs, which ty can't read.
+    # The extension is a compiled module without stubs, so it cannot be type-checked..
     type_check = False,
     deps = [":pyo3_ext_rs"],
 )

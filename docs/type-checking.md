@@ -19,8 +19,7 @@ app/lib.py:3:14: error[invalid-assignment] Object of type `int` is not assignabl
 Each target checks only its own `srcs`, and targets in external repositories are not checked.
 
 The checker is [ty](https://github.com/astral-sh/ty), downloaded as a prebuilt binary for the
-execution platform only when type checking is on. Bazel shows the output of every check that runs,
-so a passing check prints ty's `All checks passed!`, along with any warnings.
+execution platform only when type checking is on.
 
 ## Opting out
 
