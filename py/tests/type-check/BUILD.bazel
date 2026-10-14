@@ -96,6 +96,25 @@ py_library(
     deps = [":mixed_root"],
 )
 
+# A dependency's launcher is its only file under the import root, and isn't
+# staged for the check, so the root's output-tree directory isn't a search path.
+py_binary(
+    name = "launcher_only/tool",
+    srcs = ["main.py"],
+    main = "main.py",
+    deps = [":lib"],
+)
+
+py_library(
+    name = "launcher_root",
+    srcs = ["lib.py"],
+    imports = ["launcher_only"],
+    deps = [
+        ":dep",
+        ":launcher_only/tool",
+    ],
+)
+
 py_library(
     name = "opted_out",
     srcs = ["lib.py"],
@@ -184,6 +203,12 @@ checked_test(
     argv = ["--extra-search-path=py/tests/type-check/mixed"],
     argv_fragments = ["/bin/py/tests/type-check/mixed"],
     target_under_test = ":uses_mixed",
+)
+
+checked_test(
+    name = "launcher_root_test",
+    absent_fragments = ["launcher_only"],
+    target_under_test = ":launcher_root",
 )
 
 # --@aspect_rules_py//py:type_check_config replaces the empty default.

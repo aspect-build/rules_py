@@ -156,7 +156,17 @@ def dep_import_dirs(import_paths, deps, workspace_name):
     """
     if not import_paths:
         return []
-    files = [f for dep in deps for f in dep[DefaultInfo].files.to_list()]
+
+    # Only Python sources, stubs and tree artifacts are sure to be among a
+    # type check's inputs, so only their directories exist in its sandbox; a
+    # binary's launcher or a C++ library's archive need not be.
+    files = [
+        f
+        for dep in deps
+        if has_py_info(dep)
+        for f in dep[DefaultInfo].files.to_list()
+        if f.is_directory or f.extension in ("py", "pyi")
+    ]
     return own_import_dirs(import_paths, files, workspace_name)
 
 def make_import_dirs_depset(deps, import_dirs, extra_depsets = []):
