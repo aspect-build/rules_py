@@ -1,15 +1,15 @@
 """Import directories for targets carrying only `@rules_python`'s `PyInfo`.
 
 Type checks need the execroot directories behind each import root (see
-`PyInfo.import_dirs`). rules_py targets compute their own; this aspect does the
-same for `@rules_python` targets, such as rules_python's `py_library` and its
+`ImportDirsInfo`). rules_py targets return their own; this aspect computes it
+for `@rules_python` targets, such as rules_python's `py_library` and its
 pip wheels, or protobuf's `py_proto_library`, from their import roots and the
 files they own.
 """
 
+load("//py/private:import_dirs_info.bzl", "ImportDirsInfo", "get_import_dirs")
 load("//py/private:pth.bzl", "dep_import_dirs", "own_import_dirs", "own_import_paths")
-load("//py/private:py_info.bzl", "PyInfo")
-load("//py/private:py_info_interop.bzl", "ForeignImportDirsInfo", "RulesPythonPyInfo", "get_import_dirs")
+load("//py/private:py_info_interop.bzl", "RulesPythonPyInfo")
 
 def _own_files(target):
     info = target[RulesPythonPyInfo]
@@ -24,7 +24,9 @@ def _own_files(target):
     return files or target[DefaultInfo].files.to_list()
 
 def _foreign_import_dirs_aspect_impl(target, ctx):
-    if PyInfo in target:
+    # A rules_py target that also emits `@rules_python`'s `PyInfo` (under
+    # --emit_rules_python_providers) already returns its own.
+    if ImportDirsInfo in target:
         return []
 
     files = _own_files(target)
@@ -43,13 +45,17 @@ def _foreign_import_dirs_aspect_impl(target, ctx):
     import_dirs = own_import_dirs(import_paths, files, ctx.workspace_name)
     if imports:
         import_dirs += dep_import_dirs(import_paths[:len(imports)], deps, ctx.workspace_name)
-    return [ForeignImportDirsInfo(import_dirs = depset(direct = import_dirs, transitive = [dep_dirs]))]
+    return [ImportDirsInfo(
+        import_dirs = depset(direct = import_dirs, transitive = [dep_dirs]),
+        # @rules_python merges pyi_deps' import roots into `imports`.
+        pyi_import_dirs = depset(),
+    )]
 
 foreign_import_dirs_aspect = aspect(
     implementation = _foreign_import_dirs_aspect_impl,
-    doc = "Computes `ForeignImportDirsInfo` for targets carrying only `@rules_python`'s `PyInfo`.",
+    doc = "Computes `ImportDirsInfo` for targets carrying only `@rules_python`'s `PyInfo`.",
     attr_aspects = ["deps", "pyi_deps"],
-    # rules_py targets carry their own import_dirs, and their deps attributes
-    # apply this aspect themselves.
+    # rules_py targets return their own ImportDirsInfo, and their deps
+    # attributes apply this aspect themselves.
     required_providers = [[RulesPythonPyInfo]],
 )
