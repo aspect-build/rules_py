@@ -1,8 +1,8 @@
 """Unpacks a Python wheel into a directory and returns a PyInfo provider that represents that wheel"""
 
 load("@bazel_skylib//lib:paths.bzl", "paths")
-load("//py/private:providers.bzl", "PyWheelsInfo", "make_wheel_record")
 load("//py/private:import_dirs_info.bzl", "ImportDirsInfo")
+load("//py/private:providers.bzl", "PyWheelsInfo", "make_wheel_record")
 load("//py/private:pth.bzl", "own_import_dirs", "own_import_paths")
 load("//py/private:py_info.bzl", "PyInfo")
 load("//py/private:py_semantics.bzl", _py_semantics = "semantics")
