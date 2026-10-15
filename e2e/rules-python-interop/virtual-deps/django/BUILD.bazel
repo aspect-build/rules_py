@@ -79,6 +79,8 @@ py_binary(
         # Replace the resolution of django with an empty folder
         "django": ":empty",
     },
+    # django is gone, so its imports can't type check.
+    type_check = False,
     deps = [":proj"],
 )
 
@@ -115,5 +117,7 @@ py_test(
     resolutions = django_resolutions | {
         "django": ":empty",
     },
+    # django is gone, so its imports can't type check.
+    type_check = False,
     deps = [":proj"],
 )

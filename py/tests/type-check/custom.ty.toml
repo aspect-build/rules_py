@@ -1,0 +1,2 @@
+# A stand-in for a project ty.toml, passed with
+# --@aspect_rules_py//py:type_check_config in config_test.

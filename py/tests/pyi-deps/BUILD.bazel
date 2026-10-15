@@ -73,6 +73,8 @@ py_binary(
     srcs = ["main.py"],
     main = "main.py",
     resolutions = {"resolved": ":resolved_impl"},
+    # Only analyzed: main.py's imports aren't this binary's deps.
+    type_check = False,
     deps = [":needs_resolved"],
 )
 

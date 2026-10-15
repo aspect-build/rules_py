@@ -28,6 +28,9 @@ py_test(
     size = "small",
     srcs = ["test.py"],
     main = "test.py",
+    # rules_proto_grpc_python does not generate .pyi stubs, and protobuf builds
+    # its message classes at runtime.
+    type_check = False,
     deps = [":greeting_py_proto"],
 )
 

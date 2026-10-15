@@ -1,0 +1,2 @@
+# Intentionally empty. rules_py always passes ty a configuration file, so that
+# ty does not discover one from the execroot or its parents.
