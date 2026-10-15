@@ -2,7 +2,8 @@
 
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
 load("//py/private/toolchain:repo.bzl", "toolchains_repo")
-load("//py/private/toolchain:ty.bzl", "DEFAULT_TY_VERSION", "TY_PLATFORMS", "TY_VERSIONS", "ty_repository")
+load("//py/private/toolchain:ty.bzl", "TY_PLATFORMS", "ty_repository")
+load("//py/private/toolchain:ty_versions.bzl", "DEFAULT_TY_VERSION", "TY_VERSIONS")
 
 DEFAULT_TOOLS_REPOSITORY = "rules_py_tools"
 
