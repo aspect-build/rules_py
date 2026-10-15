@@ -182,6 +182,7 @@ bzl_library(
     visibility = ["//visibility:public"],
 )
 
+# keep
 bzl_library(
     name = "import_dirs_info",
     srcs = ["import_dirs_info.bzl"],
