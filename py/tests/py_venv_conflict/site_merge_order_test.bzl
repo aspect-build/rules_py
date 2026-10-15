@@ -1,6 +1,7 @@
 """End-to-end coverage for regular-package physical merge order."""
 
 load("//py:defs.bzl", "py_test")
+load("//py/private:import_dirs_info.bzl", "ImportDirsInfo")
 load("//py/private:providers.bzl", "PyWheelsInfo", "make_wheel_record")
 load("//py/private:pth.bzl", "own_import_dirs")
 load("//py/private:py_info.bzl", "PyInfo")
@@ -122,11 +123,14 @@ printf 'VALUE = %s\n' "$4" > "$site/other/from_final.py"
         ),
         PyInfo(
             imports = depset(site_packages_paths),
-            import_dirs = depset(own_import_dirs(site_packages_paths, install_trees, ctx.workspace_name)),
             transitive_pyi_files = depset(),
             transitive_sources = depset(install_trees),
             virtual_dependencies = depset(),
             virtual_resolutions = depset(),
+        ),
+        ImportDirsInfo(
+            import_dirs = depset(own_import_dirs(site_packages_paths, install_trees, ctx.workspace_name)),
+            pyi_import_dirs = depset(),
         ),
         PyWheelsInfo(wheels = depset(direct = wheels, order = "postorder")),
     ]
@@ -233,11 +237,14 @@ printf 'VALUE = %s\n' "$4" > "$site/mixed/sibling.py"
         ),
         PyInfo(
             imports = depset(site_packages_paths),
-            import_dirs = depset(own_import_dirs(site_packages_paths, install_trees, ctx.workspace_name)),
             transitive_pyi_files = depset(),
             transitive_sources = depset(install_trees),
             virtual_dependencies = depset(),
             virtual_resolutions = depset(),
+        ),
+        ImportDirsInfo(
+            import_dirs = depset(own_import_dirs(site_packages_paths, install_trees, ctx.workspace_name)),
+            pyi_import_dirs = depset(),
         ),
         PyWheelsInfo(wheels = depset(direct = wheels, order = "postorder")),
     ]

@@ -2,6 +2,7 @@
 
 load("@bazel_skylib//lib:paths.bzl", "paths")
 load("//py/private:providers.bzl", "PyWheelsInfo", "make_wheel_record")
+load("//py/private:import_dirs_info.bzl", "ImportDirsInfo")
 load("//py/private:pth.bzl", "own_import_dirs", "own_import_paths")
 load("//py/private:py_info.bzl", "PyInfo")
 load("//py/private:py_semantics.bzl", _py_semantics = "semantics")
@@ -74,12 +75,14 @@ def _py_unpacked_wheel_impl(ctx):
         ),
         PyInfo(
             imports = depset(import_paths),
-            import_dirs = depset(own_import_dirs(import_paths, [unpack_directory], ctx.workspace_name)),
-            pyi_import_dirs = depset(),
             transitive_pyi_files = depset(),
             transitive_sources = depset([unpack_directory]),
             virtual_dependencies = depset(),
             virtual_resolutions = depset(),
+        ),
+        ImportDirsInfo(
+            import_dirs = depset(own_import_dirs(import_paths, [unpack_directory], ctx.workspace_name)),
+            pyi_import_dirs = depset(),
         ),
     ]
 
@@ -175,7 +178,7 @@ directly see the package. When empty, namespace merging falls back to
 py_unpacked_wheel = rule(
     implementation = _py_unpacked_wheel_impl,
     attrs = _attrs,
-    provides = [PyInfo],
+    provides = [ImportDirsInfo, PyInfo],
     toolchains = [
         PY_TOOLCHAIN,
         EXEC_TOOLS_TOOLCHAIN,

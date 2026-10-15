@@ -31,8 +31,8 @@ bzl_library(
     name = "foreign_import_dirs",
     srcs = ["foreign_import_dirs.bzl"],
     deps = [
+        "//py/private:import_dirs_info",
         "//py/private:pth",
-        "//py/private:py_info",
         "//py/private:py_info_interop",
     ],
 )

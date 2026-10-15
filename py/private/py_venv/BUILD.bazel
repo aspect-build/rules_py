@@ -60,6 +60,7 @@ bzl_library(
     srcs = ["py_venv_exec.bzl"],
     deps = [
         ":types",
+        "//py/private:import_dirs_info",
         "//py/private:py_info",
         "//py/private:py_library",
         "//py/private:py_semantics",
@@ -77,6 +78,7 @@ bzl_library(
         ":py_venv_exec",
         ":types",
         ":venv",
+        "//py/private:import_dirs_info",
         "//py/private:py_library",
         "//py/private:py_semantics",
         "//py/private:transitions",

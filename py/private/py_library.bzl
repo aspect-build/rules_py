@@ -6,10 +6,11 @@ without binding them to a particular version of that package.
 
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load("@rules_cc//cc/common:cc_info.bzl", "CcInfo")
+load("//py/private:import_dirs_info.bzl", "ImportDirsInfo", "get_import_dirs", "get_pyi_import_dirs")
 load("//py/private:providers.bzl", "PyWheelsInfo")
 load("//py/private:pth.bzl", "dep_import_dirs", "make_import_dirs_depset", "make_imports_depset", "own_import_dirs", "own_import_paths")
 load("//py/private:py_info.bzl", "PyInfo")
-load("//py/private:py_info_interop.bzl", "RulesPythonPyInfo", "get_import_dirs", "get_py_info", "get_pyi_import_dirs", "get_pyi_imports", "get_transitive_pyi_files", "get_transitive_sources", "has_py_info")
+load("//py/private:py_info_interop.bzl", "RulesPythonPyInfo", "get_py_info", "get_pyi_imports", "get_transitive_pyi_files", "get_transitive_sources", "has_py_info")
 load("//py/private:transitions.bzl", "reset_python_flags_transition")
 load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN")
 load("//py/private/type_check:foreign_import_dirs.bzl", "foreign_import_dirs_aspect")
@@ -241,12 +242,14 @@ def _py_library_impl(ctx):
         PyInfo(
             imports = imports,
             pyi_imports = pyi_imports,
-            import_dirs = import_dirs,
-            pyi_import_dirs = pyi_import_dirs,
             transitive_sources = transitive_srcs,
             transitive_pyi_files = transitive_pyi_files,
             virtual_dependencies = virtuals,
             virtual_resolutions = resolutions,
+        ),
+        ImportDirsInfo(
+            import_dirs = import_dirs,
+            pyi_import_dirs = pyi_import_dirs,
         ),
         PyWheelsInfo(
             wheels = wheels,
@@ -340,6 +343,7 @@ _attrs = dict({
 
 _providers = [
     DefaultInfo,
+    ImportDirsInfo,
     PyInfo,
 ]
 

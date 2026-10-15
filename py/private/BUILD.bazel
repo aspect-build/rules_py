@@ -78,6 +78,7 @@ bzl_library(
     name = "pth",
     srcs = ["pth.bzl"],
     deps = [
+        ":import_dirs_info",
         ":py_info_interop",
         "@bazel_skylib//lib:paths",
     ],
@@ -87,6 +88,7 @@ bzl_library(
     name = "py_library",
     srcs = ["py_library.bzl"],
     deps = [
+        ":import_dirs_info",
         ":providers",
         ":pth",
         ":py_info",
@@ -149,6 +151,7 @@ bzl_library(
     name = "py_unpacked_wheel",
     srcs = ["py_unpacked_wheel.bzl"],
     deps = [
+        ":import_dirs_info",
         ":pth",
         ":py_info",
         ":py_library",
@@ -177,6 +180,15 @@ bzl_library(
     # PyInfo is re-exported as public API from //py:defs.bzl, so its bzl_library
     # is public too, allowing sibling trees (e.g. //uv) to depend on it.
     visibility = ["//visibility:public"],
+)
+
+bzl_library(
+    name = "import_dirs_info",
+    srcs = ["import_dirs_info.bzl"],
+    visibility = [
+        "//py:__subpackages__",
+        "//uv:__subpackages__",
+    ],
 )
 
 bzl_library(

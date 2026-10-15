@@ -1,7 +1,8 @@
 """Helper functions for building imports depsets."""
 
 load("@bazel_skylib//lib:paths.bzl", "paths")
-load("//py/private:py_info_interop.bzl", "get_import_dirs", "get_py_info", "has_py_info")
+load("//py/private:import_dirs_info.bzl", "get_import_dirs")
+load("//py/private:py_info_interop.bzl", "get_py_info", "has_py_info")
 
 def _make_import_path(label, workspace, imp):
     if imp.startswith("/"):

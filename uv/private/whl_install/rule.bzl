@@ -1,6 +1,7 @@
 """
 """
 
+load("//py/private:import_dirs_info.bzl", "ImportDirsInfo")
 load("//py/private:providers.bzl", "PyWheelsInfo", "make_wheel_record")
 load("//py/private:py_info.bzl", "PyInfo")
 load("//py/private/toolchain:types.bzl", "EXEC_TOOLS_TOOLCHAIN", "PY_TOOLCHAIN")
@@ -291,10 +292,12 @@ def _whl_install(ctx):
             ]),
             transitive_pyi_files = depset(),
             imports = depset([site_packages_rfpath]),
-            import_dirs = depset([install_dir.path + "/" + site_packages_rel]),
-            pyi_import_dirs = depset(),
             virtual_dependencies = depset(),
             virtual_resolutions = depset(),
+        ),
+        ImportDirsInfo(
+            import_dirs = depset([install_dir.path + "/" + site_packages_rel]),
+            pyi_import_dirs = depset(),
         ),
     ]
 
@@ -377,6 +380,7 @@ lighter weight since the toolchain's files aren't inputs.
     ],
     provides = [
         DefaultInfo,
+        ImportDirsInfo,
         OutputGroupInfo,
         PyInfo,
     ],
