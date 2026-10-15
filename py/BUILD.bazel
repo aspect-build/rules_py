@@ -126,7 +126,7 @@ bzl_library(
     deps = [
         ":toolchains",
         "//py/private/interpreter:extension",
-        "//py/private/toolchain:ty",
+        "//py/private/toolchain:ty_versions",
         "@aspect_tools_telemetry_report//:defs.bzl",
     ],
 )
@@ -139,6 +139,7 @@ bzl_library(
         "//py/private/toolchain:repo",
         "//py/private/toolchain:tools",
         "//py/private/toolchain:ty",
+        "//py/private/toolchain:ty_versions",
         "@bazel_lib//lib:repositories",
         "@bazel_tools//tools/build_defs/repo:http.bzl",
     ],

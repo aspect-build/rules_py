@@ -2,7 +2,7 @@
 
 load("@aspect_tools_telemetry_report//:defs.bzl", "TELEMETRY")  # buildifier: disable=load
 load("//py/private/interpreter:extension.bzl", _python_interpreters = "python_interpreters")
-load("//py/private/toolchain:ty.bzl", "DEFAULT_TY_VERSION")
+load("//py/private/toolchain:ty_versions.bzl", "DEFAULT_TY_VERSION")
 load(":toolchains.bzl", "DEFAULT_TOOLS_REPOSITORY", "rules_py_toolchains")
 
 python_interpreters = _python_interpreters
