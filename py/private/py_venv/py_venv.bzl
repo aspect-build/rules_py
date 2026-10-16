@@ -148,7 +148,7 @@ def _venv_providers(ctx, venv, import_dirs_info, venv_only, executable = None, i
         ),
         # Deliberately no PyInfo: a venv is a terminal artifact, not a source of imports.
         venv,
-        # Forwarded by the launcher, so a py_binary in deps contributes it.
+        # Pass this along so that the launcher can emit it alongside PyInfo.
         import_dirs_info,
         OutputGroupInfo(
             _validation = type_check_action(
