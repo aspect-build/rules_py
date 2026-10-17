@@ -250,6 +250,30 @@ py_library(
     if not prebuilds and not default_target:
         fail("Cannot identify a wheel or sbuild of {} to analyze\n{}".format(repository_ctx.name, pprint(repository_ctx.attr)))
 
+    # Only when no wheel matches does indexing take another wheel instead: the
+    # chain would otherwise end at `whl_missing`, making the whole manifest
+    # incompatible (pywin32 off Windows), or at an sdist build the indexing
+    # platform may not be able to run (pywinpty). Module names do not depend on
+    # the wheel's platform tag.
+    chain_default = default_target
+    if select_arms:
+        chain_default = ":whl_default"
+        content.append(
+            """
+alias(
+    name = "whl_default",
+    actual = select({{
+        "@aspect_rules_py//uv/private/gazelle_manifest:is_indexing": {indexing},
+        "//conditions:default": {default_target},
+    }}),
+    visibility = ["//visibility:private"],
+)
+""".format(
+                indexing = repr(select_arms.values()[0]),
+                default_target = repr(default_target),
+            ),
+        )
+
     content.append(
         """
 select_chain(
@@ -260,7 +284,7 @@ select_chain(
 )
 """.format(
             arms = indent(pprint(select_arms), "   ").lstrip(),
-            default_target = repr(default_target),
+            default_target = repr(chain_default),
         ),
     )
 

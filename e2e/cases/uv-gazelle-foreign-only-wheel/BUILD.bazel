@@ -1,0 +1,20 @@
+load("@aspect_rules_py//py:defs.bzl", "py_test")
+load("@aspect_rules_py//uv:defs.bzl", "gazelle_python_manifest")
+
+# pywin32 and pywinpty ship wheels only for Windows (pywinpty also an sdist),
+# so off Windows neither has a wheel for the indexing platform. Building the
+# manifest at all is the regression check; the test pins that both packages
+# are still indexed, from a fallback wheel rather than an sdist build.
+gazelle_python_manifest(
+    name = "gazelle_manifest",
+    hub = "pypi_foreign_only_wheel",
+    venvs = ["uv_gazelle_foreign_only_wheel"],
+)
+
+py_test(
+    name = "test",
+    srcs = ["__test__.py"],
+    args = ["$(location :gazelle_manifest)"],
+    data = [":gazelle_manifest"],
+    main = "__test__.py",
+)
