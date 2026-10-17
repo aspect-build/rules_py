@@ -97,6 +97,7 @@ def gazelle_python_manifest(
             parents = [platform_parent],
             flags = [
                 "--@{}//dep_group={}".format(hub, venv),
+                "--{}=true".format(Label("//uv/private/gazelle_manifest:indexing")),
             ],
         )
         platform_transition_filegroup(
