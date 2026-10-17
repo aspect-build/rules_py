@@ -10,6 +10,12 @@ EXPECTED = {
     "test_python_313": ((3, 13), False),
     "test_python_313_freethreaded": ((3, 13), True),
     "test_python_312_gil_pinned": ((3, 12), False),
+    "test_pyc_python_312": ((3, 12), False),
+    "test_pyc_python_313": ((3, 13), False),
+    "test_pyc_source_python_312": ((3, 12), False),
+    "test_pyc_source_python_313": ((3, 13), False),
+    "test_pyc_only_python_312": ((3, 12), False),
+    "test_pyc_only_python_313": ((3, 13), False),
 }
 
 version, freethreaded = EXPECTED[os.environ["BAZEL_TARGET_NAME"]]
