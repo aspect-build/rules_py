@@ -36,6 +36,10 @@ TYPE_CHECK_ATTRS = {
         allow_single_file = True,
         default = "//py/private/type_check:empty.ty.toml",
     ),
+    "_type_check_empty_python": attr.label(
+        allow_single_file = True,
+        default = "//py/private/type_check:empty_python/lib/python3.12/site-packages/README.md",
+    ),
 }
 
 # Optional so targets keep analyzing without a checker; they go unchecked.
@@ -94,7 +98,6 @@ def type_check_action(ctx, srcs, transitive_sources, transitive_pyi_files, impor
     if toolchain == None:
         return depset()
     checker = toolchain.type_checker
-    ty = checker.checker.executable
 
     config_files = ctx.files._type_check_config
     if len(config_files) > 1:
@@ -122,10 +125,18 @@ def type_check_action(ctx, srcs, transitive_sources, transitive_pyi_files, impor
         "--exit-zero-on-warning",
     ])
 
-    # ty uses a .venv in the project directory as its environment. The
-    # execroot, the default, can mirror one from the workspace, while ty's
-    # own directory never has one.
-    args.add("--project", ty.dirname)
+    # The project is the execroot, the default, so relative paths in the
+    # configuration file resolve as they do from the workspace root. Other
+    # project settings are pinned so the execroot's contents don't leak in:
+    # - ty uses a .venv in the project as its environment, and the execroot
+    #   can mirror one from the workspace, so point it at an empty one.
+    # - ty adds first-party roots of its own under the project, such as
+    #   `src`; only the search paths below should resolve imports.
+    # - Explicit paths are checked even when the configuration excludes them.
+    empty_python = ctx.file._type_check_empty_python
+    args.add("--python", empty_python.dirname.rsplit("/", 3)[0])
+    args.add("--config", "environment.root=[]")
+    args.add("--force-exclude")
     python_version = _python_version(ctx)
     if python_version:
         args.add("--python-version", python_version)
@@ -147,7 +158,7 @@ def type_check_action(ctx, srcs, transitive_sources, transitive_pyi_files, impor
         arguments = [args],
         # ty reads per-user configuration from here; point it nowhere.
         env = {"XDG_CONFIG_HOME": "/nonexistent"},
-        inputs = depset(direct = srcs + [config], transitive = [deps_inputs]),
+        inputs = depset(direct = srcs + [config, empty_python], transitive = [deps_inputs]),
         outputs = [out],
     )
     return depset([out])

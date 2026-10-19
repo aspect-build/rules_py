@@ -25,7 +25,10 @@ label_flag(
 
 filegroup(name = "no_config")
 
-exports_files(["empty.ty.toml"])
+exports_files([
+    "empty.ty.toml",
+    "empty_python/lib/python3.12/site-packages/README.md",
+])
 
 bzl_library(
     name = "foreign_import_dirs",

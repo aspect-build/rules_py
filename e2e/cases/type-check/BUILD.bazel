@@ -3,7 +3,11 @@
 # asserts that building them fails.
 load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_library", "py_test")
 
-exports_files(["ignore_invalid_assignment.ty.toml"])
+exports_files([
+    "exclude_ill_typed.ty.toml",
+    "ignore_invalid_assignment.ty.toml",
+    "override_ill_typed.ty.toml",
+])
 
 py_library(
     name = "stubs_only",

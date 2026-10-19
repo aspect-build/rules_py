@@ -48,6 +48,16 @@ ty does not discover a `pyproject.toml` or `ty.toml` on its own inside the build
 per-user configuration, so set this flag to apply project settings. The target Python version comes
 from the resolved interpreter toolchain.
 
+Relative paths in the configuration resolve against the workspace root, as they do when ty runs
+there, so one file can serve both the build and your editor. A few differences remain:
+
+- `[[overrides]] include` and `[src] exclude` patterns match the paths Bazel passes to ty, which for
+  generated files start with `bazel-out/<config>/bin/`.
+- A directory in `[environment] extra-paths` exists in the sandbox only if one of the target's
+  inputs is inside it. Prefer `deps` or `pyi_deps` for anything a check should see.
+- The build ignores `[environment] python` and `root`: imports resolve only against the target's
+  dependencies.
+
 Only error-level diagnostics fail the build; warnings do not. To make a rule fail the build, raise
 it to an error in the configuration file:
 

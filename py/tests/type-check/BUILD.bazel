@@ -143,12 +143,21 @@ py_binary(
 # The library's own source is checked by ty against the target Python version,
 # with the directories behind its first-party, pyi_deps and wheel import roots
 # as search paths. ty always gets a configuration file, so it never discovers
-# one from the execroot.
+# one from the execroot, and an empty environment, so it never uses a .venv
+# there. The execroot is the project, but not a first-party root.
 checked_test(
     name = "library_test",
-    absent_fragments = ["run_checker.py"],
+    absent_fragments = [
+        "--project",
+        "run_checker.py",
+    ],
     argv = [
         "check",
+        "--python",
+        "py/private/type_check/empty_python",
+        "--config",
+        "environment.root=[]",
+        "--force-exclude",
         "--python-version",
         "3.13",
         "--extra-search-path=py/tests/type-check/dep",

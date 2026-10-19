@@ -68,4 +68,9 @@ echo "== --@aspect_rules_py//py:type_check_config reaches the checker =="
 expect_success "${PKG}:ill_typed" "--@aspect_rules_py//py:type_check_config=${PKG}:ignore_invalid_assignment.ty.toml"
 echo "PASS"
 
+echo "== paths in the configuration resolve against the workspace root =="
+expect_success "${PKG}:ill_typed" "--@aspect_rules_py//py:type_check_config=${PKG}:override_ill_typed.ty.toml"
+expect_success "${PKG}:ill_typed" "--@aspect_rules_py//py:type_check_config=${PKG}:exclude_ill_typed.ty.toml"
+echo "PASS"
+
 echo "ALL PASS: type errors fail the build"
