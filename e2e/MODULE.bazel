@@ -122,7 +122,7 @@ use_repo(importer, "myrepo")
 # For cases/uv-toolchain
 # {{{
 uv_bin = use_extension("@aspect_rules_py//uv/unstable:extension.bzl", "uv_bin")
-uv_bin.toolchain(version = "0.11.6")
+uv_bin.toolchain(version = "0.13.4")
 
 # A second hub, pinned to an older version.
 uv_bin.toolchain(
@@ -147,7 +147,7 @@ uv_bin.toolchain(
 uv_bin.toolchain(
     name = "uv_mirror",
     urls = ["https://github.com/astral-sh/uv/releases/download/{version}/uv-{platform}.{ext}"],
-    version = "0.11.6",
+    version = "0.13.4",
 )
 
 # A hub exercising the `strip_prefix` attribute against a fork whose archive
