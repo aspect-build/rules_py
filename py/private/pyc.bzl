@@ -458,14 +458,14 @@ def target_pyc_info(ctx):
     Returns:
         PycInfo
     """
+    if not _precompile_active(ctx):
+        return INACTIVE_PYC_INFO
     deps = ctx.attr.deps + getattr(ctx.attr, "resolutions", {}).values()
 
     # A launcher is not code: its runfiles keep its own mode's files, so no consumer can package it as a library.
     for dep in deps:
         if PycModeInfo in dep:
             fail("{}: {} is a py_binary or py_test, which is not supported in deps; depend on its py_library instead".format(ctx.label, dep.label))
-    if not _precompile_active(ctx):
-        return INACTIVE_PYC_INFO
     return make_pyc_info(
         ctx,
         compile_pycs(ctx, own_compile_sources(ctx.attr.srcs)),

@@ -323,11 +323,12 @@ py_binary(
     deps = [":pex_lib"],
 )
 
-# A launcher is not code, so deps reject it.
+# A launcher is not code, so deps reject it once bytecode is requested.
 py_test(
     name = "_launcher_dep_test",
     srcs = ["noop.py"],
     main = "noop.py",
+    precompile = "pycache",
     tags = ["manual"],
     deps = [":inner_bin"],
 )
@@ -336,6 +337,21 @@ analysis_failure_test(
     name = "launcher_dep_failure_test",
     expected_error = "//pyc:inner_bin is a py_binary or py_test, which is not supported in deps",
     target_under_test = ":_launcher_dep_test",
+)
+
+# Without bytecode a launcher in deps keeps working as it did before precompile existed.
+py_binary(
+    name = "_launcher_dep_off_bin",
+    srcs = ["noop.py"],
+    main = "noop.py",
+    precompile = "off",
+    tags = ["manual"],
+    deps = [":inner_bin"],
+)
+
+build_test(
+    name = "launcher_dep_off_test",
+    targets = [":_launcher_dep_off_bin"],
 )
 
 # An explicit attribute pins a data child's mode.
