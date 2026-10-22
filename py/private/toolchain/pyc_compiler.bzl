@@ -62,6 +62,7 @@ selects itself.""",
         "runtime": attr.label(
             doc = "File-based Python runtime that executes the reference compiler.",
             providers = [PyRuntimeInfo],
+            cfg = "exec",
         ),
         "tool": attr.label(
             doc = "Self-contained compiler executable.",
