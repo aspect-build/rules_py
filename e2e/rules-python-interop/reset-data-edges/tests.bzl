@@ -10,9 +10,10 @@ _PYTHON_VERSION_FLAG = "@aspect_rules_py//py/private/interpreter:python_version"
 _RPY_VERSION_FLAG = "@rules_python//python/config_settings:python_version"
 _FREETHREADED_FLAG = "@aspect_rules_py//py/private/interpreter:freethreaded"
 _RPY_FREETHREADED_FLAG = "@rules_python//python/config_settings:py_freethreaded"
+_PYC_FLAG = "@aspect_rules_py//py:precompile"
 
 _ProbeInfo = provider(fields = ["file"])
-_ProbeFilesInfo = provider(fields = ["files", "modes", "versions", "bin_dirs"])
+_ProbeFilesInfo = provider(fields = ["files", "modes", "versions", "pyc_modes", "bin_dirs"])
 
 def _probe_impl(ctx):
     out = ctx.actions.declare_file(ctx.label.name + ".txt")
@@ -35,6 +36,7 @@ def _probe_aspect_impl(target, ctx):
     transitive = []
     transitive_modes = []
     transitive_versions = []
+    transitive_pyc_modes = []
     transitive_bin_dirs = []
     deps = []
     for attr_name in ["data", "deps"]:
@@ -50,6 +52,7 @@ def _probe_aspect_impl(target, ctx):
             transitive.append(dep[_ProbeFilesInfo].files)
             transitive_modes.append(dep[_ProbeFilesInfo].modes)
             transitive_versions.append(dep[_ProbeFilesInfo].versions)
+            transitive_pyc_modes.append(dep[_ProbeFilesInfo].pyc_modes)
             transitive_bin_dirs.append(dep[_ProbeFilesInfo].bin_dirs)
 
     # Record every visited target; the test impl filters to the names it
@@ -73,6 +76,10 @@ def _probe_aspect_impl(target, ctx):
         files = depset(direct = direct, transitive = transitive),
         modes = depset(direct = modes, transitive = transitive_modes),
         versions = depset(direct = versions, transitive = transitive_versions),
+        pyc_modes = depset(
+            direct = [(ctx.label.name, ctx.attr._pyc[BuildSettingInfo].value)],
+            transitive = transitive_pyc_modes,
+        ),
         bin_dirs = depset(direct = bin_dirs, transitive = transitive_bin_dirs),
     )]
 
@@ -82,6 +89,7 @@ _probe_aspect = aspect(
     attrs = {
         "_freethreaded": attr.label(default = _FREETHREADED_FLAG),
         "_python_version": attr.label(default = _PYTHON_VERSION_FLAG),
+        "_pyc": attr.label(default = _PYC_FLAG),
         "_rpy_freethreaded": attr.label(default = _RPY_FREETHREADED_FLAG),
         "_rpy_version": attr.label(default = _RPY_VERSION_FLAG),
     },
@@ -124,6 +132,7 @@ def _root_impl(ctx):
         files = depset(transitive = transitive),
         modes = depset(transitive = [dep[_ProbeFilesInfo].modes for dep in ctx.attr.deps]),
         versions = depset(transitive = [dep[_ProbeFilesInfo].versions for dep in ctx.attr.deps]),
+        pyc_modes = depset(transitive = [dep[_ProbeFilesInfo].pyc_modes for dep in ctx.attr.deps]),
         bin_dirs = depset(transitive = [dep[_ProbeFilesInfo].bin_dirs for dep in ctx.attr.deps]),
     )]
 
@@ -181,6 +190,55 @@ root = rule(
         # Both flag pairs already agree, so a terminal that keeps their values
         # has nothing to synchronize.
         "synced": attr.bool(default = False),
+        "_allowlist_function_transition": attr.label(
+            default = "@bazel_tools//tools/allowlists/function_transition_allowlist",
+        ),
+    },
+)
+
+def _pyc_split_transition_impl(_settings, _attr):
+    return {
+        "off": {_PYC_FLAG: "off"},
+        "sourceless": {_PYC_FLAG: "sourceless"},
+    }
+
+_pyc_split_transition = transition(
+    implementation = _pyc_split_transition_impl,
+    inputs = [],
+    outputs = [_PYC_FLAG],
+)
+
+def _pyc_fanout_report_impl(ctx):
+    info = _root_impl(ctx)[0]
+    modes = {}
+    for name, mode in info.pyc_modes.to_list():
+        modes.setdefault(name, {})[mode] = True
+    bin_dirs = {}
+    for name, path in info.bin_dirs.to_list():
+        bin_dirs.setdefault(name, {})[path] = True
+    lines = [
+        "{}: pyc={} configurations={}".format(name, ",".join(sorted(modes.get(name, {}).keys())), len(bin_dirs.get(name, {})))
+        for name in ctx.attr.names
+    ]
+    lines += [
+        "{}: artifacts={}".format(basename, len([f for f in info.files.to_list() if f.basename == basename]))
+        for basename in ctx.attr.artifacts
+    ]
+    out = ctx.actions.declare_file(ctx.label.name + ".txt")
+    ctx.actions.write(out, "\n".join(lines) + "\n")
+    return [DefaultInfo(files = depset([out]))]
+
+pyc_fanout_report = rule(
+    doc = "Per-target pyc modes and configuration counts of `deps` analyzed under source and pyc_only.",
+    implementation = _pyc_fanout_report_impl,
+    attrs = {
+        "artifacts": attr.string_list(doc = "Probe output basenames to count."),
+        "deps": attr.label_list(
+            allow_empty = False,
+            aspects = [_probe_aspect],
+            cfg = _pyc_split_transition,
+        ),
+        "names": attr.string_list(doc = "Target names to report."),
         "_allowlist_function_transition": attr.label(
             default = "@bazel_tools//tools/allowlists/function_transition_allowlist",
         ),

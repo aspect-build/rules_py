@@ -33,6 +33,8 @@ Bazel's action cache treats each piece independently (no tree-artifact
 + remote-exec materialisation surprises).
 """
 
+load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
+load("//py/private:pyc.bzl", "SOURCELESS_XOPTION")
 load("//py/private/toolchain:types.bzl", "EXEC_TOOLS_TOOLCHAIN")
 load(":toolchains_resolver.bzl", "resolve_venv_toolchain")
 load(":virtuals_resolvers.bzl", "enforce_collision_policy", "resolve_wheel_collisions")
@@ -308,6 +310,14 @@ def assemble_venv(
         "os.environ[\"PATH\"] = _path if _venv_bin in _path.split(os.pathsep) " +
         "else _venv_bin + os.pathsep + _path; del _venv_bin, _path",
     )
+
+    # A sourceless main runs as `.pyc`; its level-0 bytecode must not mix with optimized sources.
+    # -S skips .pth processing; launchers reject it (#1568).
+    if getattr(ctx.attr, "_pyc_flag", None) and ctx.attr._pyc_flag[BuildSettingInfo].value != "off":
+        pth_lines.add(
+            "import os, sys; sys.flags.optimize and \"{}\" in sys._xoptions and ".format(SOURCELESS_XOPTION) +
+            "(sys.stderr.write(\"sourceless bytecode is level 0; unset PYTHONOPTIMIZE or use precompile = \\\"pycache\\\"\\n\"), os._exit(1))",
+        )
 
     # allow_closure lets _format_imp capture fully_covered_site_pkgs /
     # known_layout_site_pkgs so we don't have to materialise imports_depset

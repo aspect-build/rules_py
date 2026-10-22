@@ -12,7 +12,7 @@
 #
 # gazelle:ignore
 
-load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_library", "py_unittest_test")
+load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_library", "py_test", "py_unittest_test")
 load("@rules_shell//shell:sh_test.bzl", "sh_test")
 
 py_library(
@@ -55,3 +55,35 @@ sh_test(
     local = True,
     deps = ["@bazel_tools//tools/bash/runfiles"],
 )
+
+# Bytecode under manifest-only runfiles: pycache lists `__pycache__` beside the
+# sources, and sourceless only the colocated .pyc, which the driver's lookup falls back to.
+[
+    py_unittest_test(
+        name = "manifest_unittest_" + mode,
+        srcs = ["manifest_unittest_test.py"],
+        precompile = mode,
+        tags = ["manual"],
+        deps = [":firstparty"],
+    )
+    for mode in [
+        "pycache",
+        "sourceless",
+    ]
+]
+
+[
+    py_test(
+        name = "manifest_{}_test".format(mode),
+        srcs = ["manifest_bytecode_test.py"],
+        data = [":manifest_unittest_" + mode],
+        env = {"EXPECT_PYC": mode},
+        # The tree's MANIFEST symlink is only materialized in an unsandboxed runfiles tree.
+        local = True,
+        main = "manifest_bytecode_test.py",
+    )
+    for mode in [
+        "pycache",
+        "sourceless",
+    ]
+]
