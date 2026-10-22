@@ -36,7 +36,7 @@ write_source_files(
         # used by the requirement() helper.
         "snapshots/pypi.requirements.bzl": "@pypi//:requirements.bzl",
         # uv_hub: per-package alias to a project repo's target. Pins the
-        # `lib`/`dist_info`/select-with-no_match_error layout used by every
+        # `lib`/`dist_info`/select-with-default layout used by every
         # package alias in the hub.
         "snapshots/pypi.cowsay.BUILD.bazel": "@pypi//cowsay:BUILD.bazel",
         # uv_hub: regression — a real PyPI distribution literally named "pkg"
