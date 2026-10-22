@@ -3,6 +3,14 @@
 # pex cli does the same here;
 # https://github.com/pex-tool/pex/blob/252459bdd879fc1e3446a6221571875d46fad1bd/pex/commands/command.py#L362-L382
 import os
+import re
+import warnings
+
+# Importing pex probes for musl libc by running `ldd`, which is not on an action's
+# PATH, so it warns on every build and assumes glibc. Building a PEX does not
+# depend on the answer.
+warnings.filterwarnings("ignore", message="Failed to detect if this interpreter is running under musl libc")
+
 from pex.common import safe_mkdtemp, safe_rmtree
 TMP_PEX_ROOT=safe_mkdtemp()
 os.environ["PEX_ROOT"] = TMP_PEX_ROOT
@@ -13,6 +21,8 @@ from pex.inherit_path import InheritPath
 from pex.interpreter_constraints import InterpreterConstraints
 from pex.layout import Layout
 from pex.dist_metadata import Distribution
+from pex.installed_wheel import InstalledWheel
+from pex.wheel import Wheel, WheelMetadataLoadError
 from argparse import Action, ArgumentError, ArgumentParser, Namespace
 
 class InjectEnvAction(Action):
@@ -118,48 +128,19 @@ parser.add_argument(
 
 options = parser.parse_args(args = sys.argv[1:])
 
-# Monkey patch bootstrap template to inject some templated environment variables.
-# Unfortunately we can't use `preamble` feature because it runs before any initialization code.
-import pex.pex_builder
-BE=pex.pex_builder.BOOTSTRAP_ENVIRONMENT 
-
-INJECT_TEMPLATE=["os.environ['RUNFILES_DIR'] = __entry_point__"]
-
-for path in options.sys_path:
-    INJECT_TEMPLATE.append("sys.path.append(os.path.abspath(os.path.join(__entry_point__, '%s')))" % path)
-
-import_idx =  BE.index("from pex.pex_bootstrapper import bootstrap_pex")
-# This is here to catch potential future bugs where pex package is updated here but the bootstrap 
-# script was not checked again to see if we are still injecting values in the right place.
-assert import_idx == 3703, "Check bootstrap template monkey patching."
-
-setattr(pex.pex_builder, "BOOTSTRAP_ENVIRONMENT", BE[:import_idx] + "\n".join(INJECT_TEMPLATE) + "\n" + BE[import_idx:])
-
 # pex stamps each zip entry with the mode of the file it zips, but Bazel does not
 # track file modes: an action's key covers its inputs' contents only, remote
 # execution hands the action every input marked executable, and a local build sees
 # a source file with whatever mode the checkout's umask gave it. The PEX's bytes
 # would then depend on which executor built it. Give every entry one mode instead,
-# executable so that no file needing the bit can lose it. Rewriting the ZipInfo
-# leaves the files themselves alone; pex hard-links sources into its chroot, so a
-# chmod there would reach back into the execroot.
-import stat
-import time
-from pex.common import PermPreservingZipFile
+# executable so that no file needing the bit can lose it. pex >= 2.60 already
+# normalizes the other bits, but keys the executable bit on the file on disk.
+from pex.common import ZipFileType
 
-_zip_entry_from_file = PermPreservingZipFile.zip_entry_from_file
+def _fixed_zip_file_type(path: str) -> ZipFileType.Value:
+    return ZipFileType.DIRECTORY if os.path.isdir(path) else ZipFileType.EXECUTABLE
 
-def _zip_entry_with_fixed_mode(
-    filename: str,
-    arcname: str | None = None,
-    date_time: time.struct_time | None = None,
-) -> PermPreservingZipFile.ZipEntry:
-    entry = _zip_entry_from_file(filename, arcname=arcname, date_time=date_time)
-    file_type = stat.S_IFMT(entry.info.external_attr >> 16)
-    entry.info.external_attr = (file_type | 0o755) << 16 | (entry.info.external_attr & 0xFFFF)
-    return entry
-
-setattr(PermPreservingZipFile, "zip_entry_from_file", staticmethod(_zip_entry_with_fixed_mode))
+setattr(ZipFileType, "from_path", staticmethod(_fixed_zip_file_type))
 
 
 pex_builder = PEXBuilder(
@@ -185,11 +166,36 @@ if options.inherit_path is not None:
 for dep in options.dependencies:
     dist = Distribution.load(dep)
 
-    key = "%s-%s" % (dist.key, dist.version)
+    # The PEX's boot code reads each `.deps/` entry's project and version from its
+    # name, which must therefore be the wheel's file name. A wheel without the
+    # WHEEL file PEP 427 requires, as some hand-built ones are, is taken to be pure
+    # Python for any Python 3.
+    try:
+        wheel = Wheel.from_distribution(dist)
+        key = wheel.wheel_file_name
+        metadata_dir = wheel.metadata_dir
+        root_is_purelib = wheel.metadata.root_is_purelib
+    except WheelMetadataLoadError:
+        key = "%s-%s-py3-none-any.whl" % (re.sub(r"[-_.]+", "_", dist.project_name), dist.version.replace("-", "_"))
+        metadata_dir = os.path.dirname(dist.metadata.files.metadata.rel_path)
+        root_is_purelib = True
     dist_hash = pex_builder._add_dist(
         path= dist.location,
         dist_name = key
     )
+
+    # The boot code also loads each entry as an installed wheel, from the layout
+    # file pex writes when it installs one itself. A site-packages tree is that
+    # wheel installed with everything at its root, as pex lays out a chroot.
+    layout_relpath = os.path.join(pex_info.internal_cache, key, ".layout.json")
+    InstalledWheel.save(
+        prefix_dir=os.path.dirname(os.path.join(pex_builder.path(), layout_relpath)),
+        stash_dir=".prefix",
+        record_relpath=os.path.join(metadata_dir, "RECORD"),
+        root_is_purelib=root_is_purelib,
+        sys_path_entries=(".",),
+    )
+    pex_builder._chroot.touch(layout_relpath, label=key)
     pex_info.add_distribution(key, dist_hash)
     pex_builder.add_requirement(dist.as_requirement())
 
@@ -212,9 +218,27 @@ if not executable_was_set:
 
 pex_builder.freeze(bytecode_compile=False)
 
+# Point RUNFILES_DIR and the binary's import paths at the directory the PEX runs
+# from, once pex's boot code has installed it there. The preamble cannot do this:
+# it runs before the boot code resolves that directory. freeze() writes the boot
+# code into the chroot, so splice the setup in there before build() zips it.
+BOOT_ANCHOR = "    from pex.globals import Globals\n"
+runfiles_setup = ["    os.environ['RUNFILES_DIR'] = entry_point\n"]
+for path in options.sys_path:
+    runfiles_setup.append("    sys.path.append(os.path.abspath(os.path.join(entry_point, %r)))\n" % path)
+
+for boot_file in ("__main__.py", os.path.join("__pex__", "__init__.py")):
+    boot_path = os.path.join(pex_builder.path(), boot_file)
+    with open(boot_path) as fp:
+        boot = fp.read()
+    # Catches a pex upgrade that moves the boot code this splices into.
+    assert boot.count(BOOT_ANCHOR) == 1, "Check the boot code splice in %s." % boot_file
+    with open(boot_path, "w") as fp:
+        fp.write(boot.replace(BOOT_ANCHOR, "".join(runfiles_setup) + BOOT_ANCHOR))
+
 pex_builder.build(
     options.pex_name,
-    deterministic_timestamp=True,
+    deterministic=True,
     layout=Layout.ZIPAPP,
     check=Check.WARN,
 )
