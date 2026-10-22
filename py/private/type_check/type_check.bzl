@@ -79,8 +79,7 @@ def type_check_action(ctx, srcs, transitive_sources, transitive_pyi_files, impor
         pyi_import_dirs: depset[str] of execroot directories for the
             type-check-only import roots.
         srcs_on_path: whether each source's directory is a search path, as
-            the script's directory is for `python main.py` and a test's is
-            under pytest.
+            the script's directory is for `python main.py` without `-I`.
 
     Returns:
         depset[File] holding the check's output, an empty directory; empty

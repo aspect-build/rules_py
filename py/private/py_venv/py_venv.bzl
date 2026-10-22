@@ -158,7 +158,7 @@ def _venv_providers(ctx, venv, import_dirs_info, venv_only, executable = None, i
                 transitive_pyi_files = venv.transitive_pyi_files,
                 import_dirs = import_dirs_info.import_dirs,
                 pyi_import_dirs = import_dirs_info.pyi_import_dirs,
-                srcs_on_path = True,
+                srcs_on_path = not ctx.attr.isolated,
             ),
         ),
         # `bazel coverage` finds this by walking the consumer's `venv` attr.
@@ -259,6 +259,14 @@ does not reinsert a wheel.
     "include_system_site_packages": attr.bool(
         default = False,
         doc = """`pyvenv.cfg` feature flag for the `include-system-site-packages` key.""",
+    ),
+    "isolated": attr.bool(
+        default = False,
+        doc = """Whether the binary that runs this venv invokes Python with `-I`.
+
+py_binary and py_test set it from their own `isolated`. Under `-I` the main's
+directory is not on `sys.path`, so type checking leaves it off the search path
+too.""",
     ),
     "_console_script_tmpl": attr.label(
         allow_single_file = True,
@@ -467,6 +475,7 @@ def py_binary_with_venv(py_rule, name, main, srcs = [], deps = [], data = [], im
     venv_kwargs["deps"] = deps
     venv_kwargs["imports"] = imports
     venv_kwargs["data"] = data
+    venv_kwargs["isolated"] = isolated
 
     # Target names can contain `/` (Bazel allows it), but venv labels
     # and the on-disk venv basename must be slash-free.

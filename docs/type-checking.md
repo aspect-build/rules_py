@@ -112,8 +112,10 @@ A stub directory stands in for the whole package, so declare every module and na
 ## What the checker sees
 
 A target's search paths mirror its runtime `sys.path`: its import roots (`imports`) and those of
-its `deps` and `pyi_deps`, and each wheel's `site-packages`. For `py_binary` and `py_test`, each
-source's own directory is also on the path, as the script's directory is for `python main.py`.
+its `deps` and `pyi_deps`, and each wheel's `site-packages`. A `py_binary` or `py_test` runs Python
+with `-I`, which keeps the main's directory off `sys.path`, so a module beside it is importable only
+through an import root. With `isolated = False` each source's own directory is on the path too, as
+the script's directory is for `python main.py`.
 Dependencies that carry only `@rules_python`'s `PyInfo`, such as a rules_python `py_library` or
 wheel, or protobuf's `py_proto_library`, contribute their import roots too.
 
