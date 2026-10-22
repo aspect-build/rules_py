@@ -56,6 +56,8 @@ def _py_runtime_toolchain_impl(ctx):
             # Read by py_image_layer, which packages these as symlinks even
             # where the action's inputs arrive resolved (remote execution).
             interpreter_symlinks = ctx.attr.symlinks,
+            # The PBS archive `files` came from, for py_pex_binary scies.
+            pbs_archive = ctx.file.pbs_archive,
         ),
         DefaultInfo(files = depset([ctx.file.interpreter], transitive = [runtime.files])),
     ]
@@ -93,6 +95,10 @@ build host regardless of the target platform being built for).""",
             doc = "Windows only: the DLLs beside the interpreter that a venv links into its `bin/`, " +
                   "so that a process started from there finds them.",
             allow_files = [".dll"],
+        ),
+        "pbs_archive": attr.label(
+            doc = "The python-build-standalone archive the runtime was extracted from.",
+            allow_single_file = True,
         ),
         "_bootstrap_template": attr.label(
             allow_single_file = True,
