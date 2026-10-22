@@ -58,6 +58,18 @@ class FreethreadedTest(unittest.TestCase):
         )
         self.assertEqual(out.stdout.strip(), "1", out.stderr)
 
+    def test_stdlib_test_suite_is_excluded(self) -> None:
+        """CPython's own test suite under lib/python3.<m>t must not be an
+        interpreter input."""
+        # The stdlib path resolves to the fetched repository, which has every
+        # file, so look at the interpreter's files in the runfiles instead.
+        stdlib = sysconfig.get_path("stdlib")
+        repo = os.path.basename(os.path.dirname(os.path.dirname(stdlib)))
+        minor = sys.version_info.minor
+        runfiles_stdlib = os.path.join(os.environ["TEST_SRCDIR"], repo, "lib", f"python3.{minor}t")
+        self.assertTrue(os.path.isfile(os.path.join(runfiles_stdlib, "os.py")), runfiles_stdlib)
+        self.assertFalse(os.path.lexists(os.path.join(runfiles_stdlib, "test")), runfiles_stdlib)
+
     def test_regex_native_extension_is_freethreaded(self) -> None:
         """The regex C extension .so must be the freethreaded variant."""
         import regex

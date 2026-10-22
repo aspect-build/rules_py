@@ -57,7 +57,7 @@ def _python_interpreter_impl(rctx):
 
     return rctx.repo_metadata(reproducible = True)
 
-def _feature_filegroups(major, minor, is_windows):
+def _feature_filegroups(stdlib, is_windows):
     """Generate per-feature filegroup targets and config_settings.
 
     Returns a tuple of (feature_targets_str, all_feature_exclude_patterns).
@@ -71,7 +71,7 @@ def _feature_filegroups(major, minor, is_windows):
 
     for feature_name, feature_info in INTERPRETER_FEATURES.items():
         patterns = [
-            p.format(major = major, minor = minor)
+            p.format(stdlib = stdlib)
             for p in feature_info["include"]
         ]
         all_excludes.extend(patterns)
@@ -95,7 +95,10 @@ filegroup(
 def _build_file_content(major, minor, micro, python_bin, is_macos, is_windows, abi_flags, releaselevel, serial):
     """Generate the full BUILD.bazel content for an interpreter repo."""
 
-    feature_targets, feature_excludes = _feature_filegroups(major, minor, is_windows)
+    # A free-threaded build's standard library is lib/python3.14t, not
+    # lib/python3.14.
+    stdlib = "lib/python{}.{}{}".format(major, minor, abi_flags)
+    feature_targets, feature_excludes = _feature_filegroups(stdlib, is_windows)
 
     include_dirs = ["include"]
     if not is_windows:
@@ -180,8 +183,8 @@ cc_library(
         core_exclude = repr(
             [
                 "lib/**/*.a",
-                "lib/python{}.{}/**/test/**".format(major, minor),
-                "lib/python{}.{}/**/tests/**".format(major, minor),
+                stdlib + "/**/test/**",
+                stdlib + "/**/tests/**",
                 "**/__pycache__/*.pyc*",
             ] +
             feature_excludes,
@@ -559,5 +562,6 @@ python_toolchains = repository_rule(
 
 # Exposed for unit tests only.
 repository_testlib = struct(
+    build_file_content = _build_file_content,
     feature_filegroups = _feature_filegroups,
 )

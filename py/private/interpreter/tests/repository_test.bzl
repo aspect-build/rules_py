@@ -9,7 +9,7 @@ _PYCACHE_EXCLUDE = 'exclude = ["**/__pycache__/*.pyc*"]'
 def _feature_filegroups_exclude_pycache_test_impl(ctx):
     env = unittest.begin(ctx)
 
-    targets, excludes = repository_testlib.feature_filegroups("3", "13", False)
+    targets, excludes = repository_testlib.feature_filegroups("lib/python3.13", False)
 
     # One glob per feature, and every one of them ignores bytecode: the
     # distribution ships none, so a pyc under a feature directory was written
@@ -23,14 +23,53 @@ def _feature_filegroups_exclude_pycache_test_impl(ctx):
     asserts.true(env, "lib/python3.13/pydoc_data/**" in excludes)
 
     # Windows generates no feature filegroups.
-    asserts.equals(env, ("", []), repository_testlib.feature_filegroups("3", "13", True))
+    asserts.equals(env, ("", []), repository_testlib.feature_filegroups("lib/python3.13", True))
 
     return unittest.end(env)
 
 feature_filegroups_exclude_pycache_test = unittest.make(_feature_filegroups_exclude_pycache_test_impl)
 
+def _build_file(abi_flags):
+    return repository_testlib.build_file_content(
+        major = "3",
+        minor = "14",
+        micro = "0",
+        python_bin = "bin/python3",
+        is_macos = False,
+        is_windows = False,
+        abi_flags = abi_flags,
+        releaselevel = "final",
+        serial = "0",
+    )
+
+def _freethreaded_stdlib_excludes_test_impl(ctx):
+    env = unittest.begin(ctx)
+
+    # A free-threaded build's standard library is lib/python3.14t, so the
+    # test-suite and feature patterns must name that directory, or CPython's
+    # own tests and every optional feature stay in _core.
+    content = _build_file("t")
+    for pattern in [
+        "lib/python3.14t/**/test/**",
+        "lib/python3.14t/**/tests/**",
+        "lib/python3.14t/pydoc_data/**",
+        "lib/python3.14t/tkinter/**",
+    ]:
+        asserts.true(env, repr(pattern) in content, pattern)
+    asserts.false(env, "lib/python3.14/" in content)
+
+    content = _build_file("")
+    asserts.true(env, repr("lib/python3.14/**/test/**") in content)
+    asserts.true(env, repr("lib/python3.14/pydoc_data/**") in content)
+    asserts.false(env, "lib/python3.14t/" in content)
+
+    return unittest.end(env)
+
+freethreaded_stdlib_excludes_test = unittest.make(_freethreaded_stdlib_excludes_test_impl)
+
 def repository_test_suite():
     unittest.suite(
         "repository_tests",
         feature_filegroups_exclude_pycache_test,
+        freethreaded_stdlib_excludes_test,
     )
