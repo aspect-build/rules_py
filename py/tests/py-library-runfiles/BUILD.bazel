@@ -78,4 +78,6 @@ py_test(
     data = [":data_plugin"],
     imports = ["."],
     main = "data_main.py",
+    # data_plugin reaches the test only as runfiles, which the checker does not search.
+    type_check = False,
 )

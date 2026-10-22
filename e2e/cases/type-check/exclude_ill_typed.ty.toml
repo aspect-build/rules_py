@@ -1,0 +1,3 @@
+# Paths resolve against the workspace root, as they do for ty outside Bazel.
+[src]
+exclude = ["type-check/ill_typed.py"]

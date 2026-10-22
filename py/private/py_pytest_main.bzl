@@ -142,4 +142,6 @@ def py_pytest_main(name, py_library = default_py_library, deps = [], data = [], 
             Label("//py/private/pytest_shard"),
         ],
         data = data,
+        # This code was generated from our own template and does not need to be type checked.
+        type_check = False,
     )

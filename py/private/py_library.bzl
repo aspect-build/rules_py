@@ -6,11 +6,15 @@ without binding them to a particular version of that package.
 
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load("@rules_cc//cc/common:cc_info.bzl", "CcInfo")
+load("//py/private:import_dirs_info.bzl", "ImportDirsInfo", "get_import_dirs", "get_pyi_import_dirs")
 load("//py/private:providers.bzl", "PyWheelsInfo")
-load("//py/private:pth.bzl", "make_imports_depset")
+load("//py/private:pth.bzl", "dep_import_dirs", "make_import_dirs_depset", "make_imports_depset", "own_import_dirs", "own_import_paths")
 load("//py/private:py_info.bzl", "PyInfo")
 load("//py/private:py_info_interop.bzl", "RulesPythonPyInfo", "get_py_info", "get_pyi_imports", "get_transitive_pyi_files", "get_transitive_sources", "has_py_info")
 load("//py/private:transitions.bzl", "reset_python_flags_transition")
+load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN")
+load("//py/private/type_check:foreign_import_dirs.bzl", "foreign_import_dirs_aspect")
+load("//py/private/type_check:type_check.bzl", "TYPE_CHECK_ATTRS", "TYPE_CHECK_EXEC_GROUPS", "type_check_action")
 
 def _is_type_stub(file):
     return file.extension == "pyi"
@@ -71,6 +75,28 @@ def _make_pyi_imports_depset(ctx, extra_depsets = []):
         for target in pyi_deps
     ])
 
+def _make_import_dirs_depset(ctx, extra_depsets = []):
+    imports = getattr(ctx.attr, "imports", [])
+    deps = getattr(ctx.attr, "deps", [])
+    import_paths = own_import_paths(imports, ctx.workspace_name, ctx.label)
+    import_dirs = own_import_dirs(import_paths, ctx.files.srcs, ctx.workspace_name)
+    import_dirs += dep_import_dirs(import_paths[:len(imports)], deps, ctx.workspace_name)
+    return make_import_dirs_depset(
+        deps = deps,
+        import_dirs = import_dirs,
+        extra_depsets = extra_depsets,
+    )
+
+def _make_pyi_import_dirs_depset(ctx, extra_depsets = []):
+    """The `import_dirs` counterpart of `_make_pyi_imports_depset`."""
+    return depset(transitive = extra_depsets + [
+        get_pyi_import_dirs(target)
+        for target in getattr(ctx.attr, "deps", [])
+    ] + [
+        depset(transitive = [get_import_dirs(target), get_pyi_import_dirs(target)])
+        for target in getattr(ctx.attr, "pyi_deps", [])
+    ])
+
 def _make_virtual_depset(ctx):
     return depset(
         order = "postorder",
@@ -113,6 +139,8 @@ def _resolve_virtuals(ctx):
     v_pyi_imports = []
     v_runfiles = []
     v_imports = []
+    v_import_dirs = []
+    v_pyi_import_dirs = []
 
     for i, resolution in enumerate(resolutions):
         if resolution.virtual in seen:
@@ -124,6 +152,8 @@ def _resolve_virtuals(ctx):
         v_srcs.append(_make_resolved_virtual_depset(resolution.target))
         v_pyi_files.append(get_transitive_pyi_files(resolution.target))
         v_pyi_imports.append(get_pyi_imports(resolution.target))
+        v_import_dirs.append(get_import_dirs(resolution.target))
+        v_pyi_import_dirs.append(get_pyi_import_dirs(resolution.target))
         v_runfiles.append(resolution.target[DefaultInfo].default_runfiles.files)
 
         info = get_py_info(resolution.target)
@@ -140,6 +170,8 @@ def _resolve_virtuals(ctx):
         pyi_imports = v_pyi_imports,
         runfiles = v_runfiles,
         imports = v_imports,
+        import_dirs = v_import_dirs,
+        pyi_import_dirs = v_pyi_import_dirs,
     )
 
 def _make_imports_depset(ctx, extra_imports_depsets = []):
@@ -194,6 +226,8 @@ def _py_library_impl(ctx):
     transitive_pyi_files = _make_pyi_depset(ctx)
     imports = _make_imports_depset(ctx)
     pyi_imports = _make_pyi_imports_depset(ctx)
+    import_dirs = _make_import_dirs_depset(ctx)
+    pyi_import_dirs = _make_pyi_import_dirs_depset(ctx)
     virtuals = _make_virtual_depset(ctx)
     resolutions = _make_virtual_resolutions_depset(ctx)
     runfiles = _make_merged_runfiles(ctx)
@@ -213,8 +247,25 @@ def _py_library_impl(ctx):
             virtual_dependencies = virtuals,
             virtual_resolutions = resolutions,
         ),
+        ImportDirsInfo(
+            import_dirs = import_dirs,
+            pyi_import_dirs = pyi_import_dirs,
+        ),
         PyWheelsInfo(
             wheels = wheels,
+        ),
+        OutputGroupInfo(
+            _validation = type_check_action(
+                ctx,
+                # A library's own virtual deps only resolve in the binaries
+                # that pick an implementation, so its imports of them can't
+                # be checked here.
+                srcs = [] if getattr(ctx.attr, "virtual_deps", None) else ctx.files.srcs,
+                transitive_sources = transitive_srcs,
+                transitive_pyi_files = transitive_pyi_files,
+                import_dirs = import_dirs,
+                pyi_import_dirs = pyi_import_dirs,
+            ),
         ),
         instrumented_files_info,
     ]
@@ -252,6 +303,7 @@ _attrs = dict({
         # rules_py emits @rules_python providers only under the
         # migration-only //py:emit_rules_python_providers flag.
         providers = [[PyInfo], [RulesPythonPyInfo], [CcInfo]],
+        aspects = [foreign_import_dirs_aspect],
     ),
     "pyi_deps": attr.label_list(
         doc = """Dependencies needed only for type checking.
@@ -262,6 +314,7 @@ _attrs = dict({
         out of runfiles, `sys.path`, the venv's site-packages, image layers, and
         pex files.""",
         providers = [[PyInfo], [RulesPythonPyInfo]],
+        aspects = [foreign_import_dirs_aspect],
     ),
     "data": attr.label_list(
         doc = """Runtime dependencies of the program.
@@ -284,11 +337,13 @@ _attrs = dict({
         See virtual_deps.
         """,
         providers = [[PyInfo], [RulesPythonPyInfo]],
+        aspects = [foreign_import_dirs_aspect],
     ),
-})
+}, **TYPE_CHECK_ATTRS)
 
 _providers = [
     DefaultInfo,
+    ImportDirsInfo,
     PyInfo,
 ]
 
@@ -296,9 +351,11 @@ py_library_utils = struct(
     # keep-sorted
     attrs = _attrs,
     implementation = _py_library_impl,
+    make_import_dirs_depset = _make_import_dirs_depset,
     make_imports_depset = _make_imports_depset,
     make_merged_runfiles = _make_merged_runfiles,
     make_pyi_depset = _make_pyi_depset,
+    make_pyi_import_dirs_depset = _make_pyi_import_dirs_depset,
     make_pyi_imports_depset = _make_pyi_imports_depset,
     make_srcs_depset = _make_srcs_depset,
     make_wheels_depset = _make_wheels_depset,
@@ -313,4 +370,8 @@ py_library = rule(
         "_emit_rules_python_providers": attr.label(default = "//py/private:emit_rules_python_providers"),
     }, **py_library_utils.attrs),
     provides = py_library_utils.py_library_providers,
+    # The interpreter toolchain gives the type check its target Python
+    # version. Optional so libraries keep analyzing without one.
+    toolchains = [config_common.toolchain_type(PY_TOOLCHAIN, mandatory = False)],
+    exec_groups = TYPE_CHECK_EXEC_GROUPS,
 )

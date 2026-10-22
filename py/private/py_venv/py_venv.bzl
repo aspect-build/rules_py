@@ -27,10 +27,12 @@ layout details.
 
 load("@bazel_lib//lib:expand_make_vars.bzl", "expand_locations", "expand_variables")
 load("@bazel_lib//lib:paths.bzl", "BASH_RLOCATION_FUNCTION", "to_rlocation_path")
+load("//py/private:import_dirs_info.bzl", "ImportDirsInfo")
 load("//py/private:py_library.bzl", _py_library = "py_library_utils")
 load("//py/private:py_semantics.bzl", _py_semantics = "semantics")
 load("//py/private:transitions.bzl", "python_transition")
 load("//py/private/toolchain:types.bzl", "EXEC_TOOLS_TOOLCHAIN", "PY_TOOLCHAIN")
+load("//py/private/type_check:type_check.bzl", "TYPE_CHECK_EXEC_GROUPS", "type_check_action")
 load(":py_venv_exec.bzl", _py_venv_exec = "py_venv_exec")
 load(":types.bzl", "VirtualenvInfo", "venv_root")
 load(":venv.bzl", "assemble_venv")
@@ -49,9 +51,9 @@ def _interpreter_flags(ctx):
 def _assemble_venv_target(ctx, executable, console_scripts):
     """Assemble a venv and its provider-facing runtime metadata.
 
-    Returns (VirtualenvInfo, venv_only): `venv_only` lists the `bin/` entries
-    kept out of `runtime_runfiles` — present for `bazel run` on the venv
-    itself, opt-in for consuming launchers.
+    Returns (VirtualenvInfo, ImportDirsInfo, venv_only): `venv_only` lists the
+    `bin/` entries kept out of `runtime_runfiles` — present for `bazel run` on
+    the venv itself, opt-in for consuming launchers.
     """
     py_toolchain = _py_semantics.resolve_toolchain(ctx)
     virtual_resolution = _py_library.resolve_virtuals(ctx)
@@ -122,9 +124,18 @@ def _assemble_venv_target(ctx, executable, console_scripts):
         transitive_sources = srcs_depset,
         runtime_files = runtime_files,
         console_scripts = depset(venv_only),
+    ), ImportDirsInfo(
+        import_dirs = _py_library.make_import_dirs_depset(
+            ctx,
+            extra_depsets = virtual_resolution.import_dirs,
+        ),
+        pyi_import_dirs = _py_library.make_pyi_import_dirs_depset(
+            ctx,
+            extra_depsets = virtual_resolution.pyi_import_dirs,
+        ),
     ), venv_only
 
-def _venv_providers(ctx, venv, venv_only, executable = None, include_sources = False):
+def _venv_providers(ctx, venv, import_dirs_info, venv_only, executable = None, include_sources = False):
     """Providers emitted by both the executable and lib variants."""
     runfiles = venv.runtime_runfiles.merge(ctx.runfiles(files = venv_only))
     if include_sources:
@@ -137,6 +148,19 @@ def _venv_providers(ctx, venv, venv_only, executable = None, include_sources = F
         ),
         # Deliberately no PyInfo: a venv is a terminal artifact, not a source of imports.
         venv,
+        # Pass this along so that the launcher can emit it alongside PyInfo.
+        import_dirs_info,
+        OutputGroupInfo(
+            _validation = type_check_action(
+                ctx,
+                srcs = ctx.files.srcs,
+                transitive_sources = venv.transitive_sources,
+                transitive_pyi_files = venv.transitive_pyi_files,
+                import_dirs = import_dirs_info.import_dirs,
+                pyi_import_dirs = import_dirs_info.pyi_import_dirs,
+                srcs_on_path = not ctx.attr.isolated,
+            ),
+        ),
         # `bazel coverage` finds this by walking the consumer's `venv` attr.
         coverage_common.instrumented_files_info(
             ctx,
@@ -150,7 +174,7 @@ def _py_venv_rule_impl(ctx):
     """A virtualenv target whose own executable activates the venv and
     exec's the interpreter — a `bazel run :name`-able venv."""
 
-    venv, venv_only = _assemble_venv_target(ctx, executable = True, console_scripts = True)
+    venv, import_dirs_info, venv_only = _assemble_venv_target(ctx, executable = True, console_scripts = True)
 
     ctx.actions.expand_template(
         template = ctx.file._run_tmpl,
@@ -179,7 +203,7 @@ def _py_venv_rule_impl(ctx):
     # overrides with its own absolute value when invoked directly.
     passed_env["VIRTUAL_ENV"] = venv_root(venv.bin_python)
 
-    return _venv_providers(ctx, venv, venv_only, executable = ctx.outputs.executable, include_sources = True) + [
+    return _venv_providers(ctx, venv, import_dirs_info, venv_only, executable = ctx.outputs.executable, include_sources = True) + [
         # Read by the sibling `expose_venv = True` py_binary/py_test;
         # the binary's own `env` wins on key conflicts (py_venv_exec.bzl).
         RunEnvironmentInfo(
@@ -235,6 +259,14 @@ does not reinsert a wheel.
     "include_system_site_packages": attr.bool(
         default = False,
         doc = """`pyvenv.cfg` feature flag for the `include-system-site-packages` key.""",
+    ),
+    "isolated": attr.bool(
+        default = False,
+        doc = """Whether the binary that runs this venv invokes Python with `-I`.
+
+py_binary and py_test set it from their own `isolated`. Under `-I` the main's
+directory is not on `sys.path`, so type checking leaves it off the search path
+too.""",
     ),
     "_console_script_tmpl": attr.label(
         allow_single_file = True,
@@ -313,6 +345,7 @@ _py_venv = rule(
     implementation = _py_venv_rule_impl,
     attrs = _attrs,
     toolchains = _venv_toolchains,
+    exec_groups = TYPE_CHECK_EXEC_GROUPS,
     executable = True,
     cfg = python_transition,
 )
@@ -322,8 +355,8 @@ def _py_venv_lib_rule_impl(ctx):
     launcher and no RunEnvironmentInfo (Bazel rejects it on
     non-executable targets; py_venv_exec.bzl gates its read on
     `if RunEnvironmentInfo in venv`)."""
-    venv, venv_only = _assemble_venv_target(ctx, executable = False, console_scripts = ctx.attr.include_console_scripts)
-    return _venv_providers(ctx, venv, venv_only)
+    venv, import_dirs_info, venv_only = _assemble_venv_target(ctx, executable = False, console_scripts = ctx.attr.include_console_scripts)
+    return _venv_providers(ctx, venv, import_dirs_info, venv_only)
 
 # Internal-only non-executable variant. Uses `_lib_attrs` — the
 # launcher-only attrs (`debug`, `interpreter_options`, `_run_tmpl`,
@@ -334,6 +367,7 @@ _py_venv_lib = rule(
         "include_console_scripts": attr.bool(default = False),
     },
     toolchains = _venv_toolchains,
+    exec_groups = TYPE_CHECK_EXEC_GROUPS,
     cfg = python_transition,
 )
 
@@ -361,6 +395,7 @@ py_venv = _wrap_with_debug(_py_venv)
 # the launcher rule).
 _VENV_ONLY_ATTRS = [
     "pyi_deps",
+    "type_check",
     "resolutions",
     "virtual_deps",
     "package_collisions",
@@ -440,6 +475,7 @@ def py_binary_with_venv(py_rule, name, main, srcs = [], deps = [], data = [], im
     venv_kwargs["deps"] = deps
     venv_kwargs["imports"] = imports
     venv_kwargs["data"] = data
+    venv_kwargs["isolated"] = isolated
 
     # Target names can contain `/` (Bazel allows it), but venv labels
     # and the on-disk venv basename must be slash-free.

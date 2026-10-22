@@ -1,0 +1,252 @@
+load("@rules_python//python:py_library.bzl", rules_python_library = "py_library")
+load("//py:defs.bzl", "py_binary", "py_library")
+load(":type_check_test.bzl", "checked_test", "config_test", "flag_off_test", "unchecked_test")
+
+exports_files(["custom.ty.toml"])
+
+py_library(
+    name = "dep",
+    srcs = ["dep/dep.py"],
+    imports = ["dep"],
+)
+
+py_library(
+    name = "lib",
+    srcs = ["lib.py"],
+    imports = ["."],
+    pyi_deps = ["@pypi//cowsay"],
+    deps = [":dep"],
+)
+
+# Dependencies carrying only @rules_python's PyInfo, one of them generated.
+rules_python_library(
+    name = "foreign_dep",
+    srcs = ["foreign/foreign_dep.py"],
+    imports = ["foreign"],
+)
+
+genrule(
+    name = "generated_dep_src",
+    outs = ["generated/generated_dep.py"],
+    cmd = "printf 'def number() -> int:\\n    return 1\\n' > $@",
+)
+
+rules_python_library(
+    name = "generated_dep",
+    srcs = [":generated_dep_src"],
+    imports = ["generated"],
+)
+
+py_library(
+    name = "uses_foreign",
+    srcs = ["uses_foreign.py"],
+    deps = [
+        ":foreign_dep",
+        ":generated_dep",
+    ],
+)
+
+# An import root holding only a dependency's files, generated ones here.
+genrule(
+    name = "unowned_dep_src",
+    outs = ["unowned/unowned_dep.py"],
+    cmd = "printf 'def name() -> str:\\n    return \"x\"\\n' > $@",
+)
+
+py_library(
+    name = "unowned_dep",
+    srcs = [":unowned_dep_src"],
+)
+
+py_library(
+    name = "unowned_root",
+    imports = ["unowned"],
+    deps = [":unowned_dep"],
+)
+
+py_library(
+    name = "uses_unowned",
+    srcs = ["uses_unowned.py"],
+    deps = [":unowned_root"],
+)
+
+# An import root holding the target's own checked-in file and a dependency's
+# generated one, so it occupies both the source and the output tree.
+genrule(
+    name = "mixed_generated_src",
+    outs = ["mixed/mixed_generated.py"],
+    cmd = "printf 'def generated() -> str:\\n    return \"gen\"\\n' > $@",
+)
+
+py_library(
+    name = "mixed_generated",
+    srcs = [":mixed_generated_src"],
+)
+
+py_library(
+    name = "mixed_root",
+    srcs = ["mixed/mixed_own.py"],
+    imports = ["mixed"],
+    deps = [":mixed_generated"],
+)
+
+py_library(
+    name = "uses_mixed",
+    srcs = ["uses_mixed.py"],
+    deps = [":mixed_root"],
+)
+
+# A dependency's launcher is its only file under the import root, and isn't
+# staged for the check, so the root's output-tree directory isn't a search path.
+py_binary(
+    name = "launcher_only/tool",
+    srcs = ["main.py"],
+    main = "main.py",
+    deps = [":lib"],
+)
+
+py_library(
+    name = "launcher_root",
+    srcs = ["lib.py"],
+    imports = ["launcher_only"],
+    deps = [
+        ":dep",
+        ":launcher_only/tool",
+    ],
+)
+
+py_library(
+    name = "opted_out",
+    srcs = ["lib.py"],
+    type_check = False,
+    deps = [":dep"],
+)
+
+py_library(
+    name = "no_srcs",
+    deps = [":lib"],
+)
+
+py_binary(
+    name = "bin",
+    srcs = ["main.py"],
+    deps = [":lib"],
+)
+
+py_binary(
+    name = "bin_opted_out",
+    srcs = ["main.py"],
+    type_check = False,
+    deps = [":lib"],
+)
+
+# The library's own source is checked by ty against the target Python version,
+# with the directories behind its first-party, pyi_deps and wheel import roots
+# as search paths. ty always gets a configuration file, so it never discovers
+# one from the execroot, and an empty environment, so it never uses a .venv
+# there. The execroot is the project, but not a first-party root.
+checked_test(
+    name = "library_test",
+    absent_fragments = [
+        "--project",
+        "run_checker.py",
+    ],
+    argv = [
+        "check",
+        "--python",
+        "py/private/type_check/empty_python",
+        "--config",
+        "environment.root=[]",
+        "--force-exclude",
+        "--python-version",
+        "3.13",
+        "--extra-search-path=py/tests/type-check/dep",
+        "--extra-search-path=py/tests/type-check",
+        "py/tests/type-check/lib.py",
+    ],
+    argv_fragments = [
+        "cowsay__6_1/actual_install.install/lib/python3.13/site-packages",
+        "py/private/type_check/empty.ty.toml",
+    ],
+    # pyi_deps roots come first, so stubs take precedence over runtime packages.
+    argv_order = [
+        "cowsay__6_1/actual_install.install/lib/python3.13/site-packages",
+        "--extra-search-path=py/tests/type-check/dep",
+    ],
+    target_under_test = ":lib",
+)
+
+# py_binary's sources are checked on its venv, which the launcher depends on,
+# with each source's directory on the path as it is for `python main.py`.
+checked_test(
+    name = "binary_test",
+    argv = [
+        "--extra-search-path=py/tests/type-check",
+        "py/tests/type-check/main.py",
+    ],
+    target_under_test = ":_bin.venv",
+)
+
+# An aspect finds the directories behind @rules_python targets' import roots:
+# the source tree for checked-in files, the output tree for generated ones.
+checked_test(
+    name = "foreign_test",
+    absent_fragments = ["--extra-search-path=py/tests/type-check/generated"],
+    argv = ["--extra-search-path=py/tests/type-check/foreign"],
+    argv_fragments = ["/bin/py/tests/type-check/generated"],
+    target_under_test = ":uses_foreign",
+)
+
+# An import root is found from the dependencies' files when the target has
+# none beneath it.
+checked_test(
+    name = "unowned_test",
+    argv_fragments = ["/bin/py/tests/type-check/unowned"],
+    target_under_test = ":uses_unowned",
+)
+
+# An import root is found on every tree where it holds files, the target's own
+# or its dependencies'.
+checked_test(
+    name = "mixed_test",
+    argv = ["--extra-search-path=py/tests/type-check/mixed"],
+    argv_fragments = ["/bin/py/tests/type-check/mixed"],
+    target_under_test = ":uses_mixed",
+)
+
+checked_test(
+    name = "launcher_root_test",
+    absent_fragments = ["launcher_only"],
+    target_under_test = ":launcher_root",
+)
+
+# --@aspect_rules_py//py:type_check_config replaces the empty default.
+config_test(
+    name = "config_test",
+    absent_fragments = ["empty.ty.toml"],
+    argv = [
+        "--config-file",
+        "py/tests/type-check/custom.ty.toml",
+    ],
+    target_under_test = ":lib",
+)
+
+unchecked_test(
+    name = "opted_out_test",
+    target_under_test = ":opted_out",
+)
+
+unchecked_test(
+    name = "binary_opted_out_test",
+    target_under_test = ":_bin_opted_out.venv",
+)
+
+unchecked_test(
+    name = "no_srcs_test",
+    target_under_test = ":no_srcs",
+)
+
+flag_off_test(
+    name = "flag_off_test",
+    target_under_test = ":lib",
+)

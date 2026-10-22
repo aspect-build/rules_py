@@ -9,6 +9,7 @@ bzl_library(
     name = "rule",
     srcs = ["rule.bzl"],
     deps = [
+        "//py/private:import_dirs_info",
         "//py/private:py_info",
         "//uv/private:source_built_wheel",
     ],
