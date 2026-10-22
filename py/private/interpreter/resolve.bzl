@@ -12,7 +12,7 @@ load(":sanitize.bzl", "sanitize")
 # python_interpreters extension in the root MODULE.bazel.
 _PBS_PYTHON_VERSION = "3.13"
 
-def _host_platform_triple(ctx):
+def host_platform_triple(ctx):
     """Determine the PBS platform triple for the current host.
 
     Args:
@@ -63,7 +63,7 @@ def resolve_host_interpreter_label(ctx):
         or None if the host platform cannot be determined.
     """.format(version = _PBS_PYTHON_VERSION)
 
-    triple = _host_platform_triple(ctx)
+    triple = host_platform_triple(ctx)
     if not triple:
         return None
 
