@@ -324,6 +324,86 @@ compiled_source_count_test(
     lib = ":fork_lib",
 )
 
+# The compiler's runtime executes the action, so it resolves for the exec
+# platform even when it selects on the target platform.
+constraint_setting(name = "compiler_side")
+
+constraint_value(
+    name = "foreign_target",
+    constraint_setting = ":compiler_side",
+)
+
+platform(
+    name = "foreign_target_platform",
+    constraint_values = [":foreign_target"],
+    parents = ["@platforms//host"],
+)
+
+config_setting(
+    name = "on_foreign_target",
+    constraint_values = [":foreign_target"],
+)
+
+[
+    py_runtime(
+        name = side + "_side_runtime",
+        interpreter = side + "_side_python.sh",
+        interpreter_version_info = {
+            "major": "3",
+            "minor": "9",
+            "micro": "0",
+        },
+        pyc_tag = "cpython-39",
+        python_version = "PY3",
+    )
+    for side in [
+        "exec",
+        "target",
+    ]
+]
+
+py_runtime_pair(
+    name = "side_runtime_pair",
+    py3_runtime = ":target_side_runtime",
+)
+
+toolchain(
+    name = "side_py_toolchain",
+    toolchain = ":side_runtime_pair",
+    toolchain_type = "@bazel_tools//tools/python:toolchain_type",
+)
+
+alias(
+    name = "side_runtime",
+    actual = select({
+        ":on_foreign_target": ":target_side_runtime",
+        "//conditions:default": ":exec_side_runtime",
+    }),
+)
+
+py_pyc_compiler_toolchain(
+    name = "side_pyc_compiler",
+    runtime = ":side_runtime",
+)
+
+toolchain(
+    name = "side_pyc_compiler_toolchain",
+    toolchain = ":side_pyc_compiler",
+    toolchain_type = "//py:pyc_compiler_toolchain_type",
+)
+
+compile_tools_test(
+    name = "compiler_runtime_exec_configured_test",
+    expected = ["exec_side_python.sh"],
+    extra_toolchains = [
+        ":side_py_toolchain",
+        ":side_pyc_compiler_toolchain",
+    ],
+    modes = ["pycache"],
+    platforms = [":foreign_target_platform"],
+    targets = [":fork_lib"],
+)
+
 # The invalidation flag reaches the compiler: PEP 552 flags word 1 (unchecked) or 3 (checked).
 [
     [

@@ -15,7 +15,8 @@ _PRECOMPILE = str(Label("@rules_python//python/config_settings:precompile"))
 _RETENTION = str(Label("@rules_python//python/config_settings:precompile_source_retention"))
 _COVERAGE = "//command_line_option:collect_code_coverage"
 _EXTRA_TOOLCHAINS = "//command_line_option:extra_toolchains"
-_FLAGS = [PYC_FLAG, _PYC_SHARDS, _INVALIDATION_MODE, _PRECOMPILE, _RETENTION, _COVERAGE, _EXTRA_TOOLCHAINS]
+_PLATFORMS = "//command_line_option:platforms"
+_FLAGS = [PYC_FLAG, _PYC_SHARDS, _INVALIDATION_MODE, _PRECOMPILE, _RETENTION, _COVERAGE, _EXTRA_TOOLCHAINS, _PLATFORMS]
 
 _CONFIG_ATTRS = {
     "precompile": attr.string(doc = "`--@aspect_rules_py//py:precompile` value; empty keeps the current one."),
@@ -25,6 +26,7 @@ _CONFIG_ATTRS = {
     "rules_python_precompile_source_retention": attr.string(doc = "rules_python `precompile_source_retention` value; empty keeps the current one."),
     "collect_code_coverage": attr.bool(doc = "Whether to instrument for coverage."),
     "extra_toolchains": attr.label_list(doc = "Toolchains registered ahead of the current ones."),
+    "platforms": attr.label_list(doc = "Target platforms; empty keeps the current ones."),
 }
 
 def _config(settings, attr, mode):
@@ -43,6 +45,8 @@ def _config(settings, attr, mode):
         out[_COVERAGE] = True
     if attr.extra_toolchains:
         out[_EXTRA_TOOLCHAINS] = [str(t) for t in attr.extra_toolchains] + settings[_EXTRA_TOOLCHAINS]
+    if attr.platforms:
+        out[_PLATFORMS] = [str(p) for p in attr.platforms]
     return out
 
 def _config_transition_impl(settings, attr):
