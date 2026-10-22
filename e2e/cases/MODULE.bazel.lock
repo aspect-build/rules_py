@@ -512,7 +512,7 @@
     "@@rules_oci+//oci:extensions.bzl%oci": {
       "general": {
         "bzlTransitiveDigest": "jW3m6/g1MkuVCrNHyiZ4EJQOvAUToDirFFftOvDpfYs=",
-        "usagesDigest": "9ABtbohz+3s6dpNBjutox5VF5aRBXAiiB40cBGEQvYM=",
+        "usagesDigest": "6k+q/OORKPie7yW7vlh6e6v+afxlNEeGfR2nM1o/y8o=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
         "envVariables": {},
@@ -522,8 +522,8 @@
             "attributes": {
               "www_authenticate_challenges": {},
               "scheme": "https",
-              "registry": "public.ecr.aws",
-              "repository": "docker/library/ubuntu",
+              "registry": "mirror.gcr.io",
+              "repository": "library/ubuntu",
               "identifier": "sha256:c35e29c9450151419d9448b0fd75374fec4fff364a27f176fb458d472dfc9e54",
               "platform": "linux/arm64/v8",
               "target_name": "ubuntu_linux_arm64_v8",
@@ -535,8 +535,8 @@
             "attributes": {
               "www_authenticate_challenges": {},
               "scheme": "https",
-              "registry": "public.ecr.aws",
-              "repository": "docker/library/ubuntu",
+              "registry": "mirror.gcr.io",
+              "repository": "library/ubuntu",
               "identifier": "sha256:c35e29c9450151419d9448b0fd75374fec4fff364a27f176fb458d472dfc9e54",
               "platform": "linux/amd64",
               "target_name": "ubuntu_linux_amd64",
@@ -549,8 +549,8 @@
               "target_name": "ubuntu",
               "www_authenticate_challenges": {},
               "scheme": "https",
-              "registry": "public.ecr.aws",
-              "repository": "docker/library/ubuntu",
+              "registry": "mirror.gcr.io",
+              "repository": "library/ubuntu",
               "identifier": "sha256:c35e29c9450151419d9448b0fd75374fec4fff364a27f176fb458d472dfc9e54",
               "platforms": {
                 "@@platforms//cpu:arm64": "@ubuntu_linux_arm64_v8",
