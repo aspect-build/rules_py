@@ -1,0 +1,28 @@
+load("@aspect_rules_py//py:defs.bzl", "py_binary")
+load("@bazel_skylib//rules:build_test.bzl", "build_test")
+
+# Analysis of this target is what test.sh drives against an empty client: it
+# needs every sdist_build repository and both cache probes, but no action.
+py_binary(
+    name = "consumer",
+    srcs = ["main.py"],
+    data = [
+        "@cache_probe_nonreproducible//:probe",
+        "@cache_probe_reproducible//:probe",
+    ],
+    dep_group = "remote_repo_contents_cache",
+    main = "main.py",
+    python_version = "3.11",
+    deps = [
+        "@pypi//docopt",
+        "@pypi//hurry_filesize",
+        "@pypi//sgmllib3k",
+    ],
+)
+
+# Smoke test so `bazel test //...` has a target here. The real checks are in
+# test.sh, which needs fresh nested clients sharing one remote cache.
+build_test(
+    name = "smoke_test",
+    targets = [":BUILD.bazel"],
+)
