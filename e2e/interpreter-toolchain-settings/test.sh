@@ -114,12 +114,12 @@ if ! grep -q "Conflicting root toolchain settings for Python 3.11" "$failure_log
     fail "conflicting duplicate root declarations lacked a clear diagnostic"
 fi
 
-# Bytecode written into a fetched interpreter after the fact (Python running
-# against the hermetic interpreter outside a write-blocking sandbox) must not
-# become an input of the interpreter filegroups, or every consumer's action key
-# changes the first time some module happens to be imported locally. Plant a pyc
-# next to every shipped .py so the check holds for whichever glob (core or any
-# feature, present or future) claims that directory.
+# Python run outside a sandbox can write bytecode into the fetched interpreter,
+# and that bytecode must not become one of the interpreter's files, or actions
+# that use the interpreter would get new cache keys. The standard library is
+# precompiled, so Python writes new bytecode only when run with -O or -OO.
+# Plant such a file in every directory with a .py file, so the check covers
+# every glob that claims one.
 repo=python_3_12_x86_64_unknown_linux_gnu
 "$BAZEL" fetch --lockfile_mode=off --repo="@${repo}" \
     || fail "fetching ${repo} failed"
@@ -152,7 +152,7 @@ grep -E '/[^/]*\.py$' "$failure_log" | sed -E 's|^@[^/]*//:||; s|/[^/]*$||' | so
         if [ ! -d "$pycache" ]; then
             mkdir -p "$pycache" && echo "D ${pycache}" >>"$planted"
         fi
-        : >"${pycache}/stray.cpython-312.pyc" && echo "F ${pycache}/stray.cpython-312.pyc" >>"$planted"
+        : >"${pycache}/stray.cpython-312.opt-1.pyc" && echo "F ${pycache}/stray.cpython-312.opt-1.pyc" >>"$planted"
     done
 [ "$(grep -c '^F ' "$planted")" -ge 50 ] \
     || fail "planted too few pycs to be meaningful: $(grep -c '^F ' "$planted")"
@@ -161,8 +161,8 @@ if ! "$BAZEL" query --lockfile_mode=off \
     cat "$failure_log" >&2
     fail "querying the ${repo} sources failed"
 fi
-if grep -q "__pycache__" "$failure_log"; then
-    grep "__pycache__" "$failure_log" | head -n 20 >&2
+if grep -q "__pycache__/stray\." "$failure_log"; then
+    grep "__pycache__/stray\." "$failure_log" | head -n 20 >&2
     fail "bytecode written after fetch leaked into @${repo}//:files"
 fi
 

@@ -440,6 +440,11 @@ def _layer_aspect_impl(target, ctx):
         interp_depset, _ = interpreter_files_and_version(target)
         if interp_depset == None:
             return []
+
+        # Images leave out bytecode, as they do for packages
+        # (_should_skip_pkg_path), including the interpreter's precompiled
+        # standard library.
+        interp_depset = depset([f for f in interp_depset.to_list() if "/__pycache__/" not in f.path])
         plan = ctx.attr._layer_tier[PyLayerTierInfo]
         interp_group = plan.interpreter_group
 
