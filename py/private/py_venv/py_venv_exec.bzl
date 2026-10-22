@@ -13,7 +13,7 @@ load("//py/private:providers.bzl", "PycInfo")
 load("//py/private:py_info.bzl", "PyInfo")
 load("//py/private:py_info_interop.bzl", "RulesPythonPyInfo", "get_transitive_sources", "has_py_info")
 load("//py/private:py_semantics.bzl", _py_semantics = "semantics")
-load("//py/private:pyc.bzl", "PYC_MODES", "PYC_MODE_ATTRS", "PycModeInfo", "SOURCELESS_XOPTION", "layout_runfiles")
+load("//py/private:pyc.bzl", "PYC_MODES", "PYC_MODE_ATTRS", "PycModeInfo", "SOURCELESS_XOPTION", "bytecode_conflicts", "layout_runfiles")
 load("//py/private:transitions.bzl", "reset_python_flags_transition", "venv_python_transition")
 load(":types.bzl", "VirtualenvInfo", "venv_root")
 
@@ -147,6 +147,30 @@ def _resolve_pyc(ctx, venv, main, passed_env, inherited_env):
         venv_files = venv_files,
     )
 
+def _bytecode_path(entry, mode):
+    return entry.pyc_path if mode == "sourceless" else entry.pycache_path
+
+def _check_data_bytecode(ctx, pyc):
+    """Fails when a data binary ships other bytecode at one of the launcher's runfiles paths."""
+    children = [
+        target
+        for target in ctx.attr.data
+        if PycModeInfo in target and PycInfo in target and target[PycModeInfo].mode != "off"
+    ]
+    if pyc.mode == "off" or pyc.info == None or not children:
+        return
+    own = {_bytecode_path(entry, pyc.mode): entry for entry in pyc.info.entries.to_list()}
+    for child in children:
+        mode = child[PycModeInfo].mode
+        for entry in child[PycInfo].entries.to_list():
+            mine = own.get(_bytecode_path(entry, mode))
+            if mine != None and bytecode_conflicts(mine, entry, pyc.mode):
+                fail("{}: {} compiles conflicting bytecode for {} (different Python runtimes or configurations); align their python_version or use precompile = \"off\"".format(
+                    ctx.label,
+                    child.label,
+                    entry.source.short_path,
+                ))
+
 def _package_markers(info, retained):
     """The `__init__.py` sources above retained files; pytest names test modules by them."""
     wanted = {}
@@ -192,6 +216,7 @@ def _py_venv_exec_impl(ctx):
         inherited_env = list(venv_env.inherited_environment)
 
     pyc = _resolve_pyc(ctx, venv, main, passed_env, inherited_env)
+    _check_data_bytecode(ctx, pyc)
 
     # Owned by the rule. The lib venv variant carries no `env` to guard,
     # so guard here to match the executable variant's check.
