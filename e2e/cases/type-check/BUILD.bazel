@@ -35,6 +35,30 @@ py_test(
     ],
 )
 
+# The launcher runs Python with -I, so the main's directory is not on sys.path:
+# the wheel wins over the sibling isolated/cowsay.py.
+py_test(
+    name = "isolated_test",
+    srcs = [
+        "isolated/__test__.py",
+        "isolated/cowsay.py",
+    ],
+    dep_group = "single_project_hub",
+    main = "isolated/__test__.py",
+    python_version = "3.11",
+    deps = ["@pypi_single//cowsay"],
+)
+
+py_binary(
+    name = "isolated_sibling_bin",
+    srcs = [
+        "isolated/sibling.py",
+        "isolated/sibling_main.py",
+    ],
+    main = "isolated/sibling_main.py",
+    tags = ["manual"],
+)
+
 py_library(
     name = "opted_out",
     srcs = ["ill_typed.py"],

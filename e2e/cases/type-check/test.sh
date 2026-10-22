@@ -56,6 +56,10 @@ echo "== an ill-typed py_binary fails the build, checked against its wheels =="
 expect_failure "${PKG}:ill_typed_bin" "ill_typed_main.py:3:.*error\[invalid-argument-type\]"
 echo "PASS"
 
+echo "== a py_binary's sibling import fails as it does at runtime, where -I keeps its directory off sys.path =="
+expect_failure "${PKG}:isolated_sibling_bin" "isolated/sibling_main.py:1:.*error\[unresolved-import\]"
+echo "PASS"
+
 echo "== the global flag turns type checking off =="
 expect_success "${PKG}:ill_typed" --@aspect_rules_py//py:type_check=false
 echo "PASS"
