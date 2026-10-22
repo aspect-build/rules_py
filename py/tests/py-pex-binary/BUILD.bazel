@@ -39,6 +39,28 @@ assert_contains(
     expected = "Mooo!,cowsay-6.1-py3-none-any.whl/cowsay/__init__.py,six-1.16.0-py2.py3-none-any.whl/six.py",
 )
 
+# A scie bundles the binary's interpreter, so it runs with no environment at all
+# (no PATH, hence no Python), and still finds its wheels and runfiles.
+py_pex_binary(
+    name = "print_modules_scie",
+    binary = ":print_modules_bin",
+    python_interpreter_constraints = [],
+    scie = "eager",
+)
+
+genrule(
+    name = "run_print_modules_scie",
+    outs = ["print_modules_scie.out"],
+    cmd = "env -i HOME=$$PWD/home $(execpath print_modules_scie) >$@",
+    tools = ["print_modules_scie"],
+)
+
+assert_contains(
+    name = "test__print_modules_scie",
+    actual = "print_modules_scie.out",
+    expected = "Mooo!,cowsay-6.1-py3-none-any.whl/cowsay/__init__.py,six-1.16.0-py2.py3-none-any.whl/six.py",
+)
+
 # Assert py_pex_binary attrs land in the built artifact: the shebang line,
 # PEX-INFO inherit_path, and interpreter_constraints (including the default
 # constraint's {major}/{minor}/{patch} placeholder substitution from the
