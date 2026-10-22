@@ -354,6 +354,31 @@ build_test(
     targets = [":_launcher_dep_off_bin"],
 )
 
+# Colocated bytecode carries no cache tag, so a data binary on another Python
+# cannot share the launcher's runfiles paths.
+py_binary(
+    name = "_data_other_python_child",
+    srcs = ["noop.py"],
+    precompile = "sourceless",
+    python_version = "3.11",
+    tags = ["manual"],
+)
+
+py_binary(
+    name = "_data_other_python_parent",
+    srcs = ["noop.py"],
+    data = [":_data_other_python_child"],
+    precompile = "sourceless",
+    python_version = "3.12",
+    tags = ["manual"],
+)
+
+analysis_failure_test(
+    name = "data_other_python_failure_test",
+    expected_error = "//pyc:_data_other_python_child compiles conflicting bytecode for pyc/noop.py",
+    target_under_test = ":_data_other_python_parent",
+)
+
 # An explicit attribute pins a data child's mode.
 py_binary(
     name = "data_child_bin",
