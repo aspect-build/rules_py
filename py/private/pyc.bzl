@@ -203,11 +203,6 @@ def _shard(path, shards):
     h = ((h ^ (h >> 16)) * 0x45D9F3B) & 0xFFFFFFFF
     return (h ^ (h >> 16)) % shards
 
-def _package_prefix(label):
-    """The short_path prefix of files in `label`'s package."""
-    prefix = "../{}/".format(label.workspace_name) if label.workspace_name else ""
-    return prefix + label.package + "/" if label.package else prefix
-
 def layout_runfiles(ctx, mappings, files = [], transitive = []):
     """Runfiles placing bytecode at its natural paths.
 
@@ -329,7 +324,6 @@ def compile_pycs(ctx, srcs, existing = {}):
     if shards < -1:
         fail("--@aspect_rules_py//py:pyc_shards must be -1 (automatic), 0 (per source) or a shard count, got {}".format(shards))
     key = bytecode_key(target_runtime)
-    package_prefix = _package_prefix(ctx.label)
     jobs = []
     for src in srcs:
         if src.extension != "py":
@@ -341,8 +335,8 @@ def compile_pycs(ctx, srcs, existing = {}):
         pyc = existing.get(pyc_short_path)
         pycache = existing.get(pycache_short_path)
         if pyc == None or pycache == None:
-            # Sources from other packages keep their full path below this target's directory.
-            rel = stem[len(package_prefix):] if stem.startswith(package_prefix) else stem.removeprefix("../")
+            # One runfiles path per source: no repository is named `_main`, so no two sources share an output.
+            rel = stem[len("../"):] if stem.startswith("../") else "_main/" + stem
             compiled = ctx.actions.declare_file("_{}.pyc/{}.pyc".format(ctx.label.name, rel))
             jobs.append((src, compiled))
             pyc = pyc or compiled
