@@ -186,7 +186,7 @@ py_library(<a href="#py_library-name">name</a>, <a href="#py_library-deps">deps<
 load("@aspect_rules_py//py:defs.bzl", "py_pex_binary")
 
 py_pex_binary(<a href="#py_pex_binary-name">name</a>, <a href="#py_pex_binary-binary">binary</a>, <a href="#py_pex_binary-inherit_path">inherit_path</a>, <a href="#py_pex_binary-inject_env">inject_env</a>, <a href="#py_pex_binary-python_interpreter_constraints">python_interpreter_constraints</a>,
-              <a href="#py_pex_binary-python_shebang">python_shebang</a>)
+              <a href="#py_pex_binary-python_shebang">python_shebang</a>, <a href="#py_pex_binary-scie">scie</a>)
 </pre>
 
 Build a pex executable from a py_binary.
@@ -208,6 +208,7 @@ Outside of Bazel only `inject_env` applies.
 | <a id="py_pex_binary-inject_env"></a>inject_env |  Environment variables to set when running the pex binary.   | <a href="https://bazel.build/rules/lib/core/dict">Dictionary: String -> String</a> | optional |  `{}`  |
 | <a id="py_pex_binary-python_interpreter_constraints"></a>python_interpreter_constraints |  Python interpreter versions this PEX binary is compatible with. A list of semver strings. The placeholder strings `{major}`, `{minor}`, `{patch}` are substituted with the version of the `binary`'s own interpreter, the one the PEX is built for.   | List of strings | optional |  `["CPython=={major}.{minor}.*"]`  |
 | <a id="py_pex_binary-python_shebang"></a>python_shebang |  -   | String | optional |  `"#!/usr/bin/env python3"`  |
+| <a id="py_pex_binary-scie"></a>scie |  Build a [scie](https://docs.pex-tool.org/scie.html): a native executable that bundles the PEX with the python-build-standalone interpreter the `binary` runs on, so that it runs without any Python installed. `eager` embeds the interpreter. The scie is the target's executable, named after the target; the PEX itself is in the `pex` output group.<br><br>The binary's interpreter must come from rules_py's `python_interpreters` extension, and the scie can only be built for the platform that builds it (Linux or macOS, x86_64 or aarch64).   | String | optional |  `""`  |
 
 
 <a id="py_unpacked_wheel"></a>

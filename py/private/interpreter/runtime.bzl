@@ -50,6 +50,8 @@ def _py_runtime_toolchain_impl(ctx):
             py3_runtime = runtime,
             # The //py/private/toolchain:exec_tools_toolchain_type contract.
             exec_runtime = runtime,
+            # The PBS archive `files` came from, for py_pex_binary scies.
+            pbs_archive = ctx.file.pbs_archive,
         ),
         DefaultInfo(files = depset([ctx.file.interpreter], transitive = [runtime.files])),
     ]
@@ -78,6 +80,10 @@ build host regardless of the target platform being built for).""",
         ),
         "abi_flags": attr.string(
             doc = "CPython ABI flag suffix, e.g. \"t\" for freethreaded.",
+        ),
+        "pbs_archive": attr.label(
+            doc = "The python-build-standalone archive the runtime was extracted from.",
+            allow_single_file = True,
         ),
         "_bootstrap_template": attr.label(
             allow_single_file = True,

@@ -19,6 +19,7 @@ bzl_library(
         ":sanitize",
         ":version_util",
         ":versions",
+        "@bazel_tools//tools/build_defs/repo:http.bzl",
     ],
 )
 
@@ -104,6 +105,20 @@ bool_flag(
 bool_flag(
     name = "wide_unicode",
     build_setting_default = False,
+)
+
+# Set by py_pex_binary(scie = ...) on its own configuration. Only then does a
+# provisioned runtime toolchain expose its interpreter's PBS archive, and only
+# then are the archive and the science tools fetched.
+bool_flag(
+    name = "pex_scie",
+    build_setting_default = False,
+    visibility = ["//py:__subpackages__"],
+)
+
+config_setting(
+    name = "pex_scie_enabled",
+    flag_values = {":pex_scie": "True"},
 )
 
 # keep
