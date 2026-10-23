@@ -27,14 +27,23 @@ def _py_versions(py_toolchain):
     )
     return base, base + ("t" if py_toolchain.freethreaded else "")
 
-def _site_packages_escape(package_depth):
-    """Relative path from ``<venv>/lib/pythonX.Y/site-packages/`` to the
-    runfiles root.
+def _site_packages_dir(venv_py_ver, is_windows):
+    """The venv-relative site-packages directory that CPython's ``site`` reads.
+
+    ``Lib/site-packages`` on Windows and ``lib/pythonX.Y/site-packages``
+    elsewhere.
+    """
+    if is_windows:
+        return "Lib/site-packages"
+    return "lib/{}/site-packages".format(venv_py_ver)
+
+def _site_packages_escape(package_depth, site_packages_dir):
+    """Relative path from ``<venv>/<site_packages_dir>/`` to the runfiles root.
 
     Ascends: workspace (1) + package segments (N) + venv dir (1) +
-    lib/pythonX.Y/site-packages (3) = 5 + N.
+    ``site_packages_dir`` segments.
     """
-    return _relative_up(5 + package_depth)
+    return _relative_up(2 + package_depth + len(site_packages_dir.split("/")))
 
 def _venv_root_escape(package_depth):
     """Relative path from the venv root (``sys.prefix``) to the runfiles
@@ -75,10 +84,15 @@ def _pyvenv_home(ctx, py_toolchain, is_windows, venv_root_escape):
 
     Two branches:
 
-    - Empty for qualifying CPython 3.11/3.12 (see ``_uses_empty_venv_home``).
+    - Empty on Windows and for qualifying CPython 3.11/3.12 (see
+      ``_uses_empty_venv_home``).
     - A venv-root-relative path to the interpreter's ``bin/`` otherwise.
     """
-    if _uses_empty_venv_home(py_toolchain, is_windows):
+
+    # Windows CPython resolves a relative ``home`` against the startup cwd
+    # rather than the venv. With ``home`` empty, it finds its stdlib from the
+    # interpreter's real path instead.
+    if is_windows or _uses_empty_venv_home(py_toolchain, is_windows):
         return ""
     interpreter_rlocation = to_rlocation_path(ctx, py_toolchain.python)
     interpreter_bin_dir = "/".join(interpreter_rlocation.split("/")[:-1])
@@ -136,13 +150,14 @@ def resolve_venv_toolchain(ctx, *, py_toolchain, is_windows, venv_name):
     wheel_py_ver, venv_py_ver = _py_versions(py_toolchain)
     depth = _package_depth(ctx)
     venv_to_runfiles_escape = _venv_root_escape(depth)
+    site_packages_dir = _site_packages_dir(venv_py_ver, is_windows)
 
     return struct(
         wheel_py_ver = wheel_py_ver,
         venv_py_ver = venv_py_ver,
-        escape = _site_packages_escape(depth),
+        escape = _site_packages_escape(depth, site_packages_dir),
         venv_to_runfiles_escape = venv_to_runfiles_escape,
-        site_packages_rel = "{}/lib/{}/site-packages".format(venv_name, venv_py_ver),
+        site_packages_rel = "{}/{}".format(venv_name, site_packages_dir),
         pyvenv_home = _pyvenv_home(ctx, py_toolchain, is_windows, venv_to_runfiles_escape),
         versioned_python_names = _versioned_python_names(py_toolchain),
         bin_python_target_path = _bin_python_target_path(ctx, py_toolchain, depth),
