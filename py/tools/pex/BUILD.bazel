@@ -14,8 +14,9 @@ py_binary(
 )
 
 # The science and scie-jump binaries a scie build runs, empty unless the target
-# builds a scie, so that no other build fetches them. Selected by target platform:
-# a scie can only be built for the platform that builds it (see py_pex_binary).
+# builds a scie, so that no other build fetches them. Selected by the platform of
+# the configuration that names them: py_pex_binary takes science and one scie-jump
+# for the build host, and another scie-jump for the target.
 _SCIE_PLATFORMS = {
     "linux_aarch64": ("linux", "aarch64"),
     "linux_x86_64": ("linux", "x86_64"),
