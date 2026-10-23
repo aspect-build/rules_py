@@ -285,14 +285,23 @@ def assemble_venv(
     # `site.addsitedir` so their site-packages joins sys.path and root `.pth`
     # shims run at all; the path is sys.prefix-relative to survive RBE sandbox
     # layouts.
+    #
+    # Static analyzers (pyright, ty) read `.pth` files without executing
+    # `import` lines, so each `addsitedir` line is preceded by the same
+    # directory as a plain path line. At runtime the plain line appends the
+    # directory and records it in `known_paths`, so the `addsitedir` line that
+    # follows only scans it for `.pth` files.
     def _format_imp(imp):
         if imp in fully_covered_site_pkgs:
             return None
         if imp.endswith("site-packages") and imp not in known_layout_site_pkgs:
-            return _ADDSITEDIR_LINE.format(
-                venv_escape = venv_to_runfiles_escape,
-                imp = imp,
-            )
+            return [
+                "{}/{}".format(escape, imp),
+                _ADDSITEDIR_LINE.format(
+                    venv_escape = venv_to_runfiles_escape,
+                    imp = imp,
+                ),
+            ]
         return "{}/{}".format(escape, imp)
 
     pth_lines = ctx.actions.args()
