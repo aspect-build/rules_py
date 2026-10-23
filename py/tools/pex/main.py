@@ -129,6 +129,7 @@ parser.add_argument(
 parser.add_argument("--scie", dest="scie", default=None, choices=["eager"])
 parser.add_argument("--scie-pbs-archive", dest="scie_pbs_archive", default=None)
 parser.add_argument("--scie-science", dest="scie_science", default=None)
+parser.add_argument("--scie-host-jump", dest="scie_host_jump", default=None)
 parser.add_argument("--scie-jump", dest="scie_jump", default=None)
 parser.add_argument("--scie-output-file", dest="scie_output_file", default=None)
 
@@ -256,6 +257,7 @@ if options.scie:
     import shlex
     import shutil
     from pex import scie
+    from pex.scie.science import SCIE_JUMP_VERSION
     from pex.sysconfig import SysPlatform
     from pex.targets import Targets
 
@@ -279,14 +281,29 @@ if options.scie:
         "x86_64-unknown-linux-musl": SysPlatform.MUSL_LINUX_X86_64,
     }
     scie_platform = platforms_by_triple.get(triple)
-    # science assembles a scie with a scie-jump for the platform it runs on, which
-    # it otherwise downloads; it takes ours only as the scie's own scie-jump too.
-    if scie_platform is None or scie_platform.os_arch != SysPlatform.CURRENT.os_arch:
-        sys.exit("A scie for %s can only be built on that platform, not on %s." % (triple, SysPlatform.CURRENT.os_arch))
+    if scie_platform is None:
+        sys.exit("A scie cannot be built for %s." % triple)
 
-    # science fetches the interpreter from a python-build-standalone mirror, so
-    # serve it one holding just this archive.
+    # science fetches the interpreter and two scie-jumps, one to assemble the scie
+    # with on this host and one for the scie to embed, from a mirror. Serve it one
+    # holding just those.
     mirror = safe_mkdtemp()
+    jump_dir = os.path.join(mirror, "jump", "download", "v%s" % SCIE_JUMP_VERSION)
+    os.makedirs(jump_dir)
+    jumps = {SysPlatform.CURRENT.os_arch: options.scie_host_jump, scie_platform.os_arch: options.scie_jump}
+    for os_arch, jump in jumps.items():
+        # science names a Linux scie-jump for the libc it knows of, if any. The
+        # static binaries run under either.
+        names = ["scie-jump-%s" % os_arch]
+        if os_arch.startswith("linux-"):
+            names += ["scie-jump-gnu-%s" % os_arch, "scie-jump-musl-%s" % os_arch]
+        with open(jump, "rb") as fp:
+            jump_digest = hashlib.sha256(fp.read()).hexdigest()
+        for name in names:
+            os.symlink(os.path.abspath(jump), os.path.join(jump_dir, name))
+            with open(os.path.join(jump_dir, name + ".sha256"), "w") as fp:
+                fp.write("%s *%s\n" % (jump_digest, name))
+
     release_dir = os.path.join(mirror, "providers", "PythonBuildStandalone", "download", match.group("release"))
     os.makedirs(release_dir)
     os.symlink(os.path.abspath(options.scie_pbs_archive), os.path.join(release_dir, archive_name))
@@ -340,7 +357,6 @@ if options.scie:
             fp.write("#!/bin/sh\nexec %s -c 'import platform, sys; print(platform.libc_ver(sys.argv[1])[0] or \"musl\")' \"$1\"\n" % shlex.quote(sys.executable))
         os.chmod(ldd, 0o755)
         os.environ["PATH"] = os.pathsep.join(filter(None, (ldd_dir, os.environ.get("PATH"))))
-    os.environ["SCIENCE_LIFT_BUILD_USE_JUMP"] = os.path.abspath(options.scie_jump)
     for scie_info in scie.build(scie_configuration, options.pex_name):
         if os.path.abspath(scie_info.file) != os.path.abspath(options.scie_output_file):
             shutil.move(scie_info.file, options.scie_output_file)
