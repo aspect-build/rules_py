@@ -83,7 +83,7 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "pex", specifier = "==2.3.1" },
+    { name = "pex", specifier = "==2.104.1" },
     { name = "pyright", specifier = "==1.1.411" },
     { name = "ruff", specifier = "==0.15.22" },
     { name = "ty", specifier = "==0.0.61" },
@@ -727,11 +727,12 @@ wheels = [
 
 [[package]]
 name = "pex"
-version = "2.3.1"
+version = "2.104.1"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/83/4b/1855a9cd872a5eca4cd385e0f66078845f3561d359fb976be52a2a68b9d1/pex-2.3.1.tar.gz", hash = "sha256:d1264c91161c21139b454744c8053e25b8aad2d15da89232181b4f38f3f54575", size = 4163193, upload-time = "2024-04-12T14:44:14.588Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/bf/28/0e724aa5ad6aff7a1aee73a7f2555a9ab5d157164a1bd29f1cc9ed3e256b/pex-2.104.1.tar.gz", hash = "sha256:0e4b025d7a771381dd9f05d788a83a099b20cdb5408037c6d82909ed06c0373b", size = 5459469, upload-time = "2026-10-21T01:36:30.13Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/e7/d0/fbda2a4d41d62d86ce53f5ae4fbaaee8c34070f75bb7ca009090510ae874/pex-2.3.1-py2.py3-none-any.whl", hash = "sha256:64692a5bf6f298403aab930d22f0d836ae4736c5bc820e262e9092fe8c56f830", size = 3375419, upload-time = "2024-04-12T14:44:09.346Z" },
+    { url = "https://files.pythonhosted.org/packages/9b/32/ab381348ced196511f690987916f2eddea2a950199deb7ffed9ffd423cdd/pex-2.104.1-py2.py35.py36.py37.py38.py39.py310.py311-none-any.whl", hash = "sha256:450d193a316b099de899e0c3c7b7bfaa0513fd91df6442c73efc7563f66f51b0", size = 4132186, upload-time = "2026-10-21T01:36:24.894Z" },
+    { url = "https://files.pythonhosted.org/packages/ed/91/015d90559ac5e3e7f0ef0cd9bdb1556d2617ea6ea05c2d4fce653e624484/pex-2.104.1-py3.py312-none-any.whl", hash = "sha256:2e4006752f61de052e45d9dad2e8e3fc59b56cc41372d53618fa412f164870f4", size = 1949584, upload-time = "2026-10-21T01:36:27.086Z" },
 ]
 
 [[package]]

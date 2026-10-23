@@ -36,7 +36,7 @@ genrule(
 assert_contains(
     name = "test__print_modules_pex",
     actual = "print_modules_pex.out",
-    expected = "Mooo!,cowsay-6.1/cowsay/__init__.py,six-1.16.0/six.py",
+    expected = "Mooo!,cowsay-6.1-py3-none-any.whl/cowsay/__init__.py,six-1.16.0-py2.py3-none-any.whl/six.py",
 )
 
 # Assert py_pex_binary attrs land in the built artifact: the shebang line,
