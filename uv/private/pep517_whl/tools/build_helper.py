@@ -582,6 +582,7 @@ def _compiler_env(
     cross: bool = False,
     target_os: str = "",
     target_cpu: str = "",
+    toolchain_flags: bool = False,
 ) -> dict[str, str]:
     env = dict(os.environ)
     if execroot_marker:
@@ -634,8 +635,9 @@ def _compiler_env(
         cxx_path = _local_cxx_companion(env.get("CXX"), cxx_path)
 
     sysroot = _darwin_sysroot()
+    toolchain_flags = toolchain_flags or cross
 
-    if cross:
+    if toolchain_flags:
         # Toolchain flag strings (from cc_layer.bzl) contain execroot-relative
         # sysroots; absolutize while still in the execroot, before the backend
         # chdirs into the unpacked sdist.
@@ -650,14 +652,15 @@ def _compiler_env(
         # runtime's: distutils still injects the running interpreter's
         # include path, but CFLAGS-supplied -I directories are searched
         # first.
-        target_include = env.pop("RULES_PY_TARGET_INCLUDE", "")
+        target_include = env.pop("RULES_PY_TARGET_INCLUDE", "") if cross else ""
         if target_include:
             include_flag = "-I" + _absolutize_path(target_include)
             for key in ("CFLAGS", "CXXFLAGS"):
                 env[key] = (include_flag + " " + env.get(key, "")).strip()
 
         wrapper_flags = _get_wrapper_flags(env.get("CFLAGS", ""))
-        is_darwin_target = target_os == "darwin"
+        # A native build targets the exec host's own OS.
+        is_darwin_target = target_os == "darwin" if cross else _platform.system() == "Darwin"
 
         # An LLVM-style toolchain (BCR `llvm` module) reaches its crt objects
         # and runtime libraries only through the link action's flags; detect
@@ -691,11 +694,12 @@ def _compiler_env(
     env.setdefault("CC", cc)
     env.setdefault("CXX", cxx)
 
-    if cross:
+    if toolchain_flags:
         ldshared_flags = env.get("LDSHAREDFLAGS", "")
         env["LDSHARED"] = cc + ((" " + ldshared_flags) if ldshared_flags else "")
         env["LDCXXSHARED"] = cxx + ((" " + ldshared_flags) if ldshared_flags else "")
 
+    if cross:
         deployment_target = None
         target_sysconfig = env.get("RULES_PY_TARGET_SYSCONFIGDATA")
         if target_sysconfig and path.exists(target_sysconfig):
@@ -1135,6 +1139,7 @@ PARSER.add_argument("--patch-strip", type=int, default=1, help="Strip count for 
 PARSER.add_argument("--patch", action="append", default=[], dest="patches", help="Patch file to apply (repeatable)")
 PARSER.add_argument("--execroot-marker", help="Token in env values to replace with the absolute execroot")
 PARSER.add_argument("--cross", action="store_true", help="Cross-compilation mode: target platform != exec platform")
+PARSER.add_argument("--toolchain-flags", action="store_true", help="CFLAGS/CXXFLAGS/LDFLAGS/LDSHAREDFLAGS carry the C++ toolchain's action flags")
 PARSER.add_argument("--target-os", default="", help="Target platform OS the wheel must be tagged for (linux, darwin, windows)")
 PARSER.add_argument("--target-libc", default="", help="Target platform C library the wheel must link against (glibc, musl, libsystem)")
 PARSER.add_argument("--target-cpu", default="", help="Target platform CPU the wheel must be tagged for (x86_64, aarch64, ...)")
@@ -1191,6 +1196,7 @@ def main() -> None:
         cross=opts.cross,
         target_os=opts.target_os,
         target_cpu=opts.target_cpu,
+        toolchain_flags=opts.toolchain_flags,
     )
 
     if _legacy_metadata_conflicts_with_pyproject(t):
