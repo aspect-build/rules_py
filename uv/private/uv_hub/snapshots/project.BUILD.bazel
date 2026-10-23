@@ -9,13 +9,6 @@ filegroup(
 
 
 # arrow
-# {
-#     "aspect_rules_py": {
-#         "arrow__1_3_0": {
-#             "": 1,
-#         },
-#     },
-# }
 
 
 alias(
@@ -55,13 +48,6 @@ alias(
 
 
 # asgiref
-# {
-#     "aspect_rules_py": {
-#         "asgiref__3_8_1": {
-#             "": 1,
-#         },
-#     },
-# }
 
 
 alias(
@@ -101,13 +87,6 @@ alias(
 
 
 # aspect_rules_py
-# {
-#     "aspect_rules_py": {
-#         "aspect_rules_py__0_0_0": {
-#             "": 1,
-#         },
-#     },
-# }
 
 
 alias(
@@ -147,13 +126,6 @@ alias(
 
 
 # attrs
-# {
-#     "aspect_rules_py": {
-#         "attrs__23_2_0": {
-#             "": 1,
-#         },
-#     },
-# }
 
 
 alias(
@@ -193,13 +165,6 @@ alias(
 
 
 # bazel_runfiles
-# {
-#     "aspect_rules_py": {
-#         "bazel_runfiles__1_1_0": {
-#             "": 1,
-#         },
-#     },
-# }
 
 
 alias(
@@ -239,13 +204,6 @@ alias(
 
 
 # boto3
-# {
-#     "aspect_rules_py": {
-#         "boto3__1_34_93": {
-#             "": 1,
-#         },
-#     },
-# }
 
 
 alias(
@@ -285,13 +243,6 @@ alias(
 
 
 # botocore
-# {
-#     "aspect_rules_py": {
-#         "botocore__1_34_93": {
-#             "": 1,
-#         },
-#     },
-# }
 
 
 alias(
@@ -331,13 +282,6 @@ alias(
 
 
 # bravado
-# {
-#     "aspect_rules_py": {
-#         "bravado__11_0_3": {
-#             "": 1,
-#         },
-#     },
-# }
 
 
 alias(
@@ -377,13 +321,6 @@ alias(
 
 
 # bravado_core
-# {
-#     "aspect_rules_py": {
-#         "bravado_core__6_1_1": {
-#             "": 1,
-#         },
-#     },
-# }
 
 
 alias(
@@ -423,13 +360,6 @@ alias(
 
 
 # build
-# {
-#     "aspect_rules_py": {
-#         "build__1_3_0": {
-#             "": 1,
-#         },
-#     },
-# }
 
 
 alias(
@@ -469,13 +399,6 @@ alias(
 
 
 # certifi
-# {
-#     "aspect_rules_py": {
-#         "certifi__2024_7_4": {
-#             "": 1,
-#         },
-#     },
-# }
 
 
 alias(
@@ -515,13 +438,6 @@ alias(
 
 
 # charset_normalizer
-# {
-#     "aspect_rules_py": {
-#         "charset_normalizer__3_3_2": {
-#             "": 1,
-#         },
-#     },
-# }
 
 
 alias(
@@ -561,13 +477,6 @@ alias(
 
 
 # click
-# {
-#     "aspect_rules_py": {
-#         "click__8_1_7": {
-#             "": 1,
-#         },
-#     },
-# }
 
 
 alias(
@@ -607,13 +516,6 @@ alias(
 
 
 # colorama
-# {
-#     "aspect_rules_py": {
-#         "colorama__0_4_6": {
-#             "": 1,
-#         },
-#     },
-# }
 
 
 alias(
@@ -653,13 +555,6 @@ alias(
 
 
 # coverage
-# {
-#     "aspect_rules_py": {
-#         "coverage__7_6_10": {
-#             "": 1,
-#         },
-#     },
-# }
 
 
 alias(
@@ -699,13 +594,6 @@ alias(
 
 
 # cowsay
-# {
-#     "aspect_rules_py": {
-#         "cowsay__6_1": {
-#             "": 1,
-#         },
-#     },
-# }
 
 
 alias(
@@ -745,13 +633,6 @@ alias(
 
 
 # django
-# {
-#     "aspect_rules_py": {
-#         "django__4_2_15": {
-#             "": 1,
-#         },
-#     },
-# }
 
 
 alias(
@@ -791,13 +672,6 @@ alias(
 
 
 # exceptiongroup
-# {
-#     "aspect_rules_py": {
-#         "exceptiongroup__1_3_1": {
-#             "python_full_version < '3.11'": 1,
-#         },
-#     },
-# }
 
 
 alias(
@@ -839,13 +713,6 @@ alias(
 
 
 # fqdn
-# {
-#     "aspect_rules_py": {
-#         "fqdn__1_5_1": {
-#             "": 1,
-#         },
-#     },
-# }
 
 
 alias(
@@ -885,13 +752,6 @@ alias(
 
 
 # ftfy
-# {
-#     "aspect_rules_py": {
-#         "ftfy__6_2_0": {
-#             "": 1,
-#         },
-#     },
-# }
 
 
 alias(
@@ -931,13 +791,6 @@ alias(
 
 
 # future
-# {
-#     "aspect_rules_py": {
-#         "future__1_0_0": {
-#             "": 1,
-#         },
-#     },
-# }
 
 
 alias(
@@ -977,13 +830,6 @@ alias(
 
 
 # gitdb
-# {
-#     "aspect_rules_py": {
-#         "gitdb__4_0_12": {
-#             "": 1,
-#         },
-#     },
-# }
 
 
 alias(
@@ -1023,13 +869,6 @@ alias(
 
 
 # gitpython
-# {
-#     "aspect_rules_py": {
-#         "gitpython__3_1_43": {
-#             "": 1,
-#         },
-#     },
-# }
 
 
 alias(
@@ -1069,13 +908,6 @@ alias(
 
 
 # idna
-# {
-#     "aspect_rules_py": {
-#         "idna__3_7": {
-#             "": 1,
-#         },
-#     },
-# }
 
 
 alias(
@@ -1115,13 +947,6 @@ alias(
 
 
 # importlib_metadata
-# {
-#     "aspect_rules_py": {
-#         "importlib_metadata__8_7_1": {
-#             "python_full_version < '3.10.2'": 1,
-#         },
-#     },
-# }
 
 
 alias(
@@ -1163,13 +988,6 @@ alias(
 
 
 # iniconfig
-# {
-#     "aspect_rules_py": {
-#         "iniconfig__2_0_0": {
-#             "": 1,
-#         },
-#     },
-# }
 
 
 alias(
@@ -1209,13 +1027,6 @@ alias(
 
 
 # isoduration
-# {
-#     "aspect_rules_py": {
-#         "isoduration__20_11_0": {
-#             "": 1,
-#         },
-#     },
-# }
 
 
 alias(
@@ -1255,13 +1066,6 @@ alias(
 
 
 # jmespath
-# {
-#     "aspect_rules_py": {
-#         "jmespath__1_0_1": {
-#             "": 1,
-#         },
-#     },
-# }
 
 
 alias(
@@ -1301,13 +1105,6 @@ alias(
 
 
 # jsonpointer
-# {
-#     "aspect_rules_py": {
-#         "jsonpointer__2_4": {
-#             "": 1,
-#         },
-#     },
-# }
 
 
 alias(
@@ -1347,13 +1144,6 @@ alias(
 
 
 # jsonref
-# {
-#     "aspect_rules_py": {
-#         "jsonref__1_1_0": {
-#             "": 1,
-#         },
-#     },
-# }
 
 
 alias(
@@ -1393,13 +1183,6 @@ alias(
 
 
 # jsonschema
-# {
-#     "aspect_rules_py": {
-#         "jsonschema__4_21_1": {
-#             "": 1,
-#         },
-#     },
-# }
 
 
 alias(
@@ -1439,13 +1222,6 @@ alias(
 
 
 # jsonschema_specifications
-# {
-#     "aspect_rules_py": {
-#         "jsonschema_specifications__2023_12_1": {
-#             "": 1,
-#         },
-#     },
-# }
 
 
 alias(
@@ -1485,13 +1261,6 @@ alias(
 
 
 # maturin
-# {
-#     "aspect_rules_py": {
-#         "maturin__1_11_5": {
-#             "": 1,
-#         },
-#     },
-# }
 
 
 alias(
@@ -1531,13 +1300,6 @@ alias(
 
 
 # monotonic
-# {
-#     "aspect_rules_py": {
-#         "monotonic__1_6": {
-#             "": 1,
-#         },
-#     },
-# }
 
 
 alias(
@@ -1577,13 +1339,6 @@ alias(
 
 
 # msgpack
-# {
-#     "aspect_rules_py": {
-#         "msgpack__1_0_8": {
-#             "": 1,
-#         },
-#     },
-# }
 
 
 alias(
@@ -1623,13 +1378,6 @@ alias(
 
 
 # neptune
-# {
-#     "aspect_rules_py": {
-#         "neptune__1_10_2": {
-#             "": 1,
-#         },
-#     },
-# }
 
 
 alias(
@@ -1669,13 +1417,6 @@ alias(
 
 
 # numpy
-# {
-#     "aspect_rules_py": {
-#         "numpy__1_26_4": {
-#             "": 1,
-#         },
-#     },
-# }
 
 
 alias(
@@ -1715,13 +1456,6 @@ alias(
 
 
 # oauthlib
-# {
-#     "aspect_rules_py": {
-#         "oauthlib__3_2_2": {
-#             "": 1,
-#         },
-#     },
-# }
 
 
 alias(
@@ -1761,13 +1495,6 @@ alias(
 
 
 # packaging
-# {
-#     "aspect_rules_py": {
-#         "packaging__24_0": {
-#             "": 1,
-#         },
-#     },
-# }
 
 
 alias(
@@ -1807,13 +1534,6 @@ alias(
 
 
 # pandas
-# {
-#     "aspect_rules_py": {
-#         "pandas__2_2_2": {
-#             "": 1,
-#         },
-#     },
-# }
 
 
 alias(
@@ -1853,13 +1573,6 @@ alias(
 
 
 # pillow
-# {
-#     "aspect_rules_py": {
-#         "pillow__10_3_0": {
-#             "": 1,
-#         },
-#     },
-# }
 
 
 alias(
@@ -1899,13 +1612,6 @@ alias(
 
 
 # pkg
-# {
-#     "aspect_rules_py": {
-#         "pkg__0_2": {
-#             "": 1,
-#         },
-#     },
-# }
 
 
 alias(
@@ -1945,13 +1651,6 @@ alias(
 
 
 # pluggy
-# {
-#     "aspect_rules_py": {
-#         "pluggy__1_4_0": {
-#             "": 1,
-#         },
-#     },
-# }
 
 
 alias(
@@ -1991,13 +1690,6 @@ alias(
 
 
 # psutil
-# {
-#     "aspect_rules_py": {
-#         "psutil__5_9_8": {
-#             "": 1,
-#         },
-#     },
-# }
 
 
 alias(
@@ -2037,13 +1729,6 @@ alias(
 
 
 # pyjwt
-# {
-#     "aspect_rules_py": {
-#         "pyjwt__2_8_0": {
-#             "": 1,
-#         },
-#     },
-# }
 
 
 alias(
@@ -2083,13 +1768,6 @@ alias(
 
 
 # pyproject_hooks
-# {
-#     "aspect_rules_py": {
-#         "pyproject_hooks__1_2_0": {
-#             "": 1,
-#         },
-#     },
-# }
 
 
 alias(
@@ -2129,13 +1807,6 @@ alias(
 
 
 # pytest
-# {
-#     "aspect_rules_py": {
-#         "pytest__8_1_1": {
-#             "": 1,
-#         },
-#     },
-# }
 
 
 alias(
@@ -2175,13 +1846,6 @@ alias(
 
 
 # python_dateutil
-# {
-#     "aspect_rules_py": {
-#         "python_dateutil__2_9_0_post0": {
-#             "": 1,
-#         },
-#     },
-# }
 
 
 alias(
@@ -2221,13 +1885,6 @@ alias(
 
 
 # pytz
-# {
-#     "aspect_rules_py": {
-#         "pytz__2024_1": {
-#             "": 1,
-#         },
-#     },
-# }
 
 
 alias(
@@ -2267,13 +1924,6 @@ alias(
 
 
 # pyyaml
-# {
-#     "aspect_rules_py": {
-#         "pyyaml__6_0_1": {
-#             "": 1,
-#         },
-#     },
-# }
 
 
 alias(
@@ -2313,13 +1963,6 @@ alias(
 
 
 # referencing
-# {
-#     "aspect_rules_py": {
-#         "referencing__0_35_0": {
-#             "": 1,
-#         },
-#     },
-# }
 
 
 alias(
@@ -2359,13 +2002,6 @@ alias(
 
 
 # requests
-# {
-#     "aspect_rules_py": {
-#         "requests__2_31_0": {
-#             "": 1,
-#         },
-#     },
-# }
 
 
 alias(
@@ -2405,13 +2041,6 @@ alias(
 
 
 # requests_oauthlib
-# {
-#     "aspect_rules_py": {
-#         "requests_oauthlib__2_0_0": {
-#             "": 1,
-#         },
-#     },
-# }
 
 
 alias(
@@ -2451,13 +2080,6 @@ alias(
 
 
 # rfc3339_validator
-# {
-#     "aspect_rules_py": {
-#         "rfc3339_validator__0_1_4": {
-#             "": 1,
-#         },
-#     },
-# }
 
 
 alias(
@@ -2497,13 +2119,6 @@ alias(
 
 
 # rfc3986_validator
-# {
-#     "aspect_rules_py": {
-#         "rfc3986_validator__0_1_1": {
-#             "": 1,
-#         },
-#     },
-# }
 
 
 alias(
@@ -2543,13 +2158,6 @@ alias(
 
 
 # rpds_py
-# {
-#     "aspect_rules_py": {
-#         "rpds_py__0_19_1": {
-#             "": 1,
-#         },
-#     },
-# }
 
 
 alias(
@@ -2589,13 +2197,6 @@ alias(
 
 
 # s3transfer
-# {
-#     "aspect_rules_py": {
-#         "s3transfer__0_10_1": {
-#             "": 1,
-#         },
-#     },
-# }
 
 
 alias(
@@ -2635,13 +2236,6 @@ alias(
 
 
 # setuptools
-# {
-#     "aspect_rules_py": {
-#         "setuptools__80_9_0": {
-#             "": 1,
-#         },
-#     },
-# }
 
 
 alias(
@@ -2681,13 +2275,6 @@ alias(
 
 
 # simplejson
-# {
-#     "aspect_rules_py": {
-#         "simplejson__3_19_2": {
-#             "": 1,
-#         },
-#     },
-# }
 
 
 alias(
@@ -2727,13 +2314,6 @@ alias(
 
 
 # six
-# {
-#     "aspect_rules_py": {
-#         "six__1_16_0": {
-#             "": 1,
-#         },
-#     },
-# }
 
 
 alias(
@@ -2773,13 +2353,6 @@ alias(
 
 
 # smmap
-# {
-#     "aspect_rules_py": {
-#         "smmap__5_0_1": {
-#             "": 1,
-#         },
-#     },
-# }
 
 
 alias(
@@ -2819,13 +2392,6 @@ alias(
 
 
 # snakesay
-# {
-#     "aspect_rules_py": {
-#         "snakesay__0_10_3": {
-#             "": 1,
-#         },
-#     },
-# }
 
 
 alias(
@@ -2865,13 +2431,6 @@ alias(
 
 
 # sqlparse
-# {
-#     "aspect_rules_py": {
-#         "sqlparse__0_5_1": {
-#             "": 1,
-#         },
-#     },
-# }
 
 
 alias(
@@ -2911,13 +2470,6 @@ alias(
 
 
 # swagger_spec_validator
-# {
-#     "aspect_rules_py": {
-#         "swagger_spec_validator__3_0_3": {
-#             "": 1,
-#         },
-#     },
-# }
 
 
 alias(
@@ -2957,13 +2509,6 @@ alias(
 
 
 # tomli
-# {
-#     "aspect_rules_py": {
-#         "tomli__2_4_0": {
-#             "python_full_version < '3.11'": 1,
-#         },
-#     },
-# }
 
 
 alias(
@@ -3005,13 +2550,6 @@ alias(
 
 
 # types_python_dateutil
-# {
-#     "aspect_rules_py": {
-#         "types_python_dateutil__2_9_0_20240316": {
-#             "": 1,
-#         },
-#     },
-# }
 
 
 alias(
@@ -3051,13 +2589,6 @@ alias(
 
 
 # typing_extensions
-# {
-#     "aspect_rules_py": {
-#         "typing_extensions__4_12_2": {
-#             "": 1,
-#         },
-#     },
-# }
 
 
 alias(
@@ -3097,13 +2628,6 @@ alias(
 
 
 # tzdata
-# {
-#     "aspect_rules_py": {
-#         "tzdata__2024_1": {
-#             "": 1,
-#         },
-#     },
-# }
 
 
 alias(
@@ -3143,13 +2667,6 @@ alias(
 
 
 # uri_template
-# {
-#     "aspect_rules_py": {
-#         "uri_template__1_3_0": {
-#             "": 1,
-#         },
-#     },
-# }
 
 
 alias(
@@ -3189,13 +2706,6 @@ alias(
 
 
 # urllib3
-# {
-#     "aspect_rules_py": {
-#         "urllib3__1_26_19": {
-#             "": 1,
-#         },
-#     },
-# }
 
 
 alias(
@@ -3235,13 +2745,6 @@ alias(
 
 
 # wcwidth
-# {
-#     "aspect_rules_py": {
-#         "wcwidth__0_2_13": {
-#             "": 1,
-#         },
-#     },
-# }
 
 
 alias(
@@ -3281,13 +2784,6 @@ alias(
 
 
 # webcolors
-# {
-#     "aspect_rules_py": {
-#         "webcolors__1_13": {
-#             "": 1,
-#         },
-#     },
-# }
 
 
 alias(
@@ -3327,13 +2823,6 @@ alias(
 
 
 # websocket_client
-# {
-#     "aspect_rules_py": {
-#         "websocket_client__1_8_0": {
-#             "": 1,
-#         },
-#     },
-# }
 
 
 alias(
@@ -3373,13 +2862,6 @@ alias(
 
 
 # zipp
-# {
-#     "aspect_rules_py": {
-#         "zipp__3_23_0": {
-#             "(python_full_version < '3.10.2') and (python_full_version < '3.12')": 1,
-#         },
-#     },
-# }
 
 
 alias(
