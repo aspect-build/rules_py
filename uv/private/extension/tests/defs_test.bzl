@@ -3,7 +3,7 @@
 load("@bazel_skylib//lib:unittest.bzl", "asserts", "unittest")
 load("//uv/private/extension:defs.bzl", "dedupe_shared_installs", "map_scc_installs", "parse_declared_console_script", "shared_install_key")
 load("//uv/private/extension:graph_utils.bzl", "collect_build_deps")
-load("//uv/private/extension:lockfile.bzl", "url_basename")
+load("//uv/private/extension:lockfile.bzl", "DYNAMIC_VERSION", "build_marker_graph", "normalize_deps", "url_basename")
 
 def _url_basename_test_impl(ctx):
     env = unittest.begin(ctx)
@@ -53,6 +53,32 @@ def _url_basename_test_impl(ctx):
     return unittest.end(env)
 
 url_basename_test = unittest.make(_url_basename_test_impl)
+
+def _dynamic_version_test_impl(ctx):
+    env = unittest.begin(ctx)
+
+    # uv.lock records of source trees with `dynamic = ["version"]` have no `version`.
+    lock = {"package": [
+        {"name": "app", "source": {"editable": "."}, "dependencies": [{"name": "lib"}]},
+        {"name": "lib", "source": {"editable": "lib"}, "dependencies": [{"name": "six"}]},
+        {"name": "six", "version": "1.17.0", "source": {"registry": "https://pypi.org/simple"}},
+    ]}
+
+    default_versions, package_versions, lock = normalize_deps("lock", lock)
+    asserts.equals(env, ("lock", "lib", DYNAMIC_VERSION, "__base__"), default_versions["lib"])
+    asserts.equals(env, {DYNAMIC_VERSION: 1}, package_versions["app"])
+    asserts.equals(env, DYNAMIC_VERSION, lock["package"][0]["dependencies"][0]["version"])
+
+    graph = build_marker_graph("lock", lock)
+    asserts.equals(env, {
+        ("lock", "app", DYNAMIC_VERSION, "__base__"): {("lock", "lib", DYNAMIC_VERSION, "__base__"): {"": 1}},
+        ("lock", "lib", DYNAMIC_VERSION, "__base__"): {("lock", "six", "1.17.0", "__base__"): {"": 1}},
+        ("lock", "six", "1.17.0", "__base__"): {},
+    }, graph)
+
+    return unittest.end(env)
+
+dynamic_version_test = unittest.make(_dynamic_version_test_impl)
 
 def _declared_console_script_test_impl(ctx):
     env = unittest.begin(ctx)
@@ -214,6 +240,10 @@ def defs_test_suite():
     unittest.suite(
         "url_basename_tests",
         url_basename_test,
+    )
+    unittest.suite(
+        "dynamic_version_tests",
+        dynamic_version_test,
     )
     unittest.suite(
         "declared_console_script_tests",
