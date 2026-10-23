@@ -159,6 +159,43 @@ platform_transition_binary(
     target_platform = ":amd64_linux",
 )
 
+# A scie for another platform than the build host's: science assembles it with
+# the host's scie-jump and embeds the target's.
+platform(
+    name = "arm64_macos",
+    constraint_values = [
+        "@platforms//os:macos",
+        "@platforms//cpu:aarch64",
+    ],
+)
+
+platform_transition_binary(
+    name = "print_modules_scie_arm64_macos",
+    binary = ":print_modules_scie",
+    target_platform = ":arm64_macos",
+)
+
+platform_transition_binary(
+    name = "print_modules_scie_amd64_linux",
+    binary = ":print_modules_scie",
+    target_platform = ":amd64_linux",
+)
+
+py_test(
+    name = "scie_platforms_test",
+    srcs = ["scie_platforms_test.py"],
+    data = [
+        ":print_modules_scie_amd64_linux",
+        ":print_modules_scie_arm64_macos",
+    ],
+    env = {
+        "SCIE_AMD64_LINUX": "$(rlocationpath :print_modules_scie_amd64_linux)",
+        "SCIE_ARM64_MACOS": "$(rlocationpath :print_modules_scie_arm64_macos)",
+    },
+    main = "scie_platforms_test.py",
+    deps = ["@pypi//bazel_runfiles"],
+)
+
 build_test(
     name = "cross_builds",
     targets = [
