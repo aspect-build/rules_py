@@ -6,10 +6,10 @@ load("//py/private/toolchain:repo.bzl", "toolchains_repo")
 DEFAULT_TOOLS_REPOSITORY = "rules_py_tools"
 
 SCIENCE_SHA256S = {
-    "linux-aarch64": "17cac59a72820f7c45d3fb06018e5197d21377e09be4368d176f7892e68c123d",
-    "linux-x86_64": "2070de7f823033a3b0e8a2ceb56e9fdfa8375fda1762a0d71ba11cd36d5c730f",
-    "macos-aarch64": "e3c4fda8bb8f59f8916a53c03cfa6c03ceaeab6cf2b653660f2a2c16dafc3e0c",
-    "macos-x86_64": "1aefbc81ef32668d0a0654a1b677243f1cfa128334a92064e00cf8f1dfc7797a",
+    "linux-aarch64": "15d275395fd38357e36fd28be966bf536ad6797a43f36c0a4714847bcd81917f",
+    "linux-x86_64": "db9eca979bbafa67d5498ca2a5b969fffc74a09088f1fac072a060552fc19f6d",
+    "macos-aarch64": "17742d8c077339ac32479850e94d7195c2b5028415eecfbd8e076d761652c27b",
+    "macos-x86_64": "f826be0d1f7e53f49d86cd33c90724ec00eaf6c8454b551826f761c43ff1b414",
 }
 
 SCIE_JUMP_SHA256S = {
@@ -35,12 +35,13 @@ def rules_py_toolchains(name = DEFAULT_TOOLS_REPOSITORY):
     )
 
     # science and scie-jump build a py_pex_binary's scie. pex 2.104.1 requires
-    # science ~=0.21.0 and embeds scie-jump 1.13.0. The scie-jump binaries are the
+    # science ~=0.21.0 and embeds scie-jump 1.13.0; science 0.21.1 is the first to
+    # fetch the build host's scie-jump from a mirror. The scie-jump binaries are the
     # static ones, which run on any Linux libc.
     for platform, sha256 in SCIENCE_SHA256S.items():
         http_file(
             name = "rules_py_science_" + platform.replace("-", "_"),
-            urls = ["https://github.com/a-scie/lift/releases/download/v0.21.0/science-fat-" + platform],
+            urls = ["https://github.com/a-scie/lift/releases/download/v0.21.1/science-fat-" + platform],
             sha256 = sha256,
             downloaded_file_path = "science",
             executable = True,

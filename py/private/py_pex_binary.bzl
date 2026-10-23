@@ -311,14 +311,15 @@ def _py_python_pex_impl(ctx):
     if ctx.attr.scie:
         if closure.pbs_archive == None:
             fail("py_pex_binary {}: `scie` needs the binary's interpreter to come from rules_py's python_interpreters extension, which provides its python-build-standalone archive.".format(ctx.label))
-        if not ctx.files._science or not ctx.files._scie_jump:
-            fail("py_pex_binary {}: `scie` is supported only on Linux and macOS, on x86_64 and aarch64.".format(ctx.label))
+        if not ctx.files._science or not ctx.files._host_scie_jump or not ctx.files._scie_jump:
+            fail("py_pex_binary {}: `scie` is supported only on Linux and macOS, on x86_64 and aarch64, for both the target and the build host.".format(ctx.label))
         scie = ctx.actions.declare_file(ctx.attr.name)
         outputs.append(scie)
-        tools = [closure.pbs_archive, ctx.files._science[0], ctx.files._scie_jump[0]]
+        tools = [closure.pbs_archive, ctx.files._science[0], ctx.files._host_scie_jump[0], ctx.files._scie_jump[0]]
         args.add(ctx.attr.scie, format = "--scie=%s")
         args.add(closure.pbs_archive, format = "--scie-pbs-archive=%s")
         args.add(ctx.files._science[0], format = "--scie-science=%s")
+        args.add(ctx.files._host_scie_jump[0], format = "--scie-host-jump=%s")
         args.add(ctx.files._scie_jump[0], format = "--scie-jump=%s")
         args.add(scie, format = "--scie-output-file=%s")
 
@@ -389,15 +390,18 @@ the python-build-standalone interpreter the `binary` runs on, so that it runs wi
 installed. `eager` embeds the interpreter. The scie is the target's executable, named after the
 target; the PEX itself is in the `pex` output group.
 
-The binary's interpreter must come from rules_py's `python_interpreters` extension, and the scie
-can only be built for the platform that builds it (Linux or macOS, x86_64 or aarch64).
+The binary's interpreter must come from rules_py's `python_interpreters` extension. The target
+and the build host must each be Linux or macOS, on x86_64 or aarch64; they need not match.
 """,
         values = ["", "eager"],
         default = "",
     ),
     "_pex": attr.label(executable = True, cfg = "exec", default = "//py/tools/pex"),
-    # Empty unless `scie` is set; see //py/tools/pex:science.
-    "_science": attr.label(default = "//py/tools/pex:science", allow_files = True),
+    # Empty unless `scie` is set; see //py/tools/pex:science. science runs on the
+    # build host, and assembles the scie with that host's scie-jump; the scie embeds
+    # the target's.
+    "_science": attr.label(default = "//py/tools/pex:science", allow_files = True, cfg = "exec"),
+    "_host_scie_jump": attr.label(default = "//py/tools/pex:scie_jump", allow_files = True, cfg = "exec"),
     "_scie_jump": attr.label(default = "//py/tools/pex:scie_jump", allow_files = True),
     "_allowlist_function_transition": attr.label(
         default = "@bazel_tools//tools/allowlists/function_transition_allowlist",
