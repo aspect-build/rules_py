@@ -16,6 +16,9 @@ distutils, etc.) treat it as a real venv:
         python                                  symlink -> py_toolchain.python
         python3                                 symlink -> python
         python3.<MAJ>.<MIN>                     symlink -> python
+        python.exe                              Windows only: symlink -> python
+        python*.dll, vcruntime*.dll             Windows only: symlinks to the
+                                                interpreter's DLLs
         activate                                bash/zsh activation script
         <console_script>                        one per wheel-declared entry point
       lib/python<MAJ>.<MIN>/site-packages/
@@ -362,6 +365,14 @@ def assemble_venv(
         ctx.actions.symlink(
             output = sym,
             target_path = "python",
+        )
+        declared.append(sym)
+
+    for name, target_path in tc.windows_bin_links.items():
+        sym = ctx.actions.declare_symlink("{}/bin/{}".format(venv_name, name))
+        ctx.actions.symlink(
+            output = sym,
+            target_path = target_path,
         )
         declared.append(sym)
 
