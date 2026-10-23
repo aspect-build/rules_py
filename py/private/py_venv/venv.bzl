@@ -64,6 +64,8 @@ _ADDSITEDIR_LINE = (
     "vars().get(\"known_paths\"))"
 )
 
+_WINDOWS_LONG_PATHS_MODULE = "_aspect_rules_py_windows_long_paths"
+
 def _dict_to_exports(env):
     return ["export %s=\"%s\"" % (k, v) for (k, v) in env.items()]
 
@@ -81,6 +83,7 @@ def assemble_venv(
         venv_activate_tmpl,
         site_merge_script_py,
         console_script_tmpl,
+        windows_long_paths_py,
         venv_name):
     """Declare every file + symlink that makes up a venv for a target.
 
@@ -110,6 +113,9 @@ def assemble_venv(
         EXEC_TOOLS_TOOLCHAIN for an exec-configuration interpreter.
       console_script_tmpl: File or None — the console-script wrapper template
         (usually `ctx.file._console_script_tmpl`); `None` skips wrappers.
+      windows_long_paths_py: File — the module that lets Windows load
+        extension modules from paths longer than MAX_PATH (usually
+        `ctx.file._windows_long_paths`). Only installed when `is_windows`.
       venv_name: str — the venv dir basename (e.g. "." + venv_stem).
 
     Returns:
@@ -299,6 +305,21 @@ def assemble_venv(
     pth_lines.use_param_file("%s", use_always = True)
     pth_lines.set_param_file_format("multiline")
     pth_lines.add(escape)
+
+    # Windows can't load an extension module whose path exceeds MAX_PATH, as
+    # a venv's long runfiles paths often do, unless the loader gets an
+    # extended-length path.
+    if is_windows:
+        windows_long_paths_module = ctx.actions.declare_file(
+            "{}/{}.py".format(site_packages_rel, _WINDOWS_LONG_PATHS_MODULE),
+        )
+        ctx.actions.expand_template(
+            template = windows_long_paths_py,
+            output = windows_long_paths_module,
+            substitutions = {},
+        )
+        declared.append(windows_long_paths_module)
+        pth_lines.add("import {name}; {name}.install()".format(name = _WINDOWS_LONG_PATHS_MODULE))
 
     # Make wheel-declared console scripts reachable via `subprocess.run("name", ...)`
     # without loading the distutils shim on every interpreter startup.
