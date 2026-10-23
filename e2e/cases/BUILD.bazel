@@ -253,6 +253,11 @@ write_source_files(
         # Pins post-install exclusions and the retained RECORD-derived topology.
         "snapshots/whl_install.exclusions.cowsay.BUILD.bazel": "@whl_install__exclusions__cowsay__6_0//:BUILD.bazel",
 
+        # whl_dist applies an exclude_glob shared by every consumer and drops
+        # record_paths; consumers that disagree keep record_paths instead.
+        "snapshots/uv_exclusions.whl_dist.googleapis_common_protos.BUILD.bazel": "@whl__googleapis_common_protos__702216f78610bb51//:BUILD.bazel",
+        "snapshots/dedup_installs.whl_dist.pyflakes.BUILD.bazel": "@whl__pyflakes__84b5be138a2dfbb4//:BUILD.bazel",
+
         # Gazelle manifest built by //uv-gazelle-778: multi-venv merge over
         # the @pypi_uv_deps_650 hub plus include_stub_packages. Pins the full
         # modules_mapping so generator drift (module additions, stub
