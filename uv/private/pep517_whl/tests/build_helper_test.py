@@ -527,6 +527,15 @@ class CrossCompilerWrapperTest(unittest.TestCase):
             argv = _run_wrapper(wrapper, ["main.o", "-lgcc_s", "-o", "probe"])
             self.assertEqual(["main.o", "-lunwind", "-o", "probe", "-B/sys/lib"], argv)
 
+    def test_lgcc_s_kept_when_toolchain_links_it(self) -> None:
+        # A libstdc++ toolchain links libgcc_s itself and ships no libunwind.
+        with tempfile.TemporaryDirectory() as tmp:
+            link_flags = ["-nostdlib++", "-lstdc++", "-lgcc_s", "--unwindlib=none"]
+            wrapper = self._wrapper(tmp, exe_link_flags=link_flags)
+            argv = _run_wrapper(wrapper, ["a.o", "-shared", "-lgcc_s", "-o", "ext.so"])
+            self.assertNotIn("-lunwind", argv)
+            self.assertEqual(["a.o", "-shared", "-lgcc_s", "-o", "ext.so"] + link_flags, argv)
+
     def test_shared_link_lists_static_runtime_once(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             wrapper = self._wrapper(tmp, static_runtime_archives=["/tc/libunwind.a"], exe_link_flags=["-B/sys/lib"])
