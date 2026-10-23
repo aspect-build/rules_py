@@ -3,6 +3,14 @@
 # pex cli does the same here;
 # https://github.com/pex-tool/pex/blob/252459bdd879fc1e3446a6221571875d46fad1bd/pex/commands/command.py#L362-L382
 import os
+import re
+import warnings
+
+# Importing pex probes for musl libc by running `ldd`, which is not on an action's
+# PATH, so it warns on every build and assumes glibc. Building a PEX does not
+# depend on the answer.
+warnings.filterwarnings("ignore", message="Failed to detect if this interpreter is running under musl libc")
+
 from pex.common import safe_mkdtemp, safe_rmtree
 TMP_PEX_ROOT=safe_mkdtemp()
 os.environ["PEX_ROOT"] = TMP_PEX_ROOT
@@ -13,6 +21,8 @@ from pex.inherit_path import InheritPath
 from pex.interpreter_constraints import InterpreterConstraints
 from pex.layout import Layout
 from pex.dist_metadata import Distribution
+from pex.installed_wheel import InstalledWheel
+from pex.wheel import Wheel, WheelMetadataLoadError
 from argparse import Action, ArgumentError, ArgumentParser, Namespace
 
 class InjectEnvAction(Action):
@@ -116,24 +126,28 @@ parser.add_argument(
     action=InheritPathAction,
 )
 
+parser.add_argument("--scie", dest="scie", default=None, choices=["eager"])
+parser.add_argument("--scie-pbs-archive", dest="scie_pbs_archive", default=None)
+parser.add_argument("--scie-science", dest="scie_science", default=None)
+parser.add_argument("--scie-host-jump", dest="scie_host_jump", default=None)
+parser.add_argument("--scie-jump", dest="scie_jump", default=None)
+parser.add_argument("--scie-output-file", dest="scie_output_file", default=None)
+
 options = parser.parse_args(args = sys.argv[1:])
 
-# Monkey patch bootstrap template to inject some templated environment variables.
-# Unfortunately we can't use `preamble` feature because it runs before any initialization code.
-import pex.pex_builder
-BE=pex.pex_builder.BOOTSTRAP_ENVIRONMENT 
+# pex stamps each zip entry with the mode of the file it zips, but Bazel does not
+# track file modes: an action's key covers its inputs' contents only, remote
+# execution hands the action every input marked executable, and a local build sees
+# a source file with whatever mode the checkout's umask gave it. The PEX's bytes
+# would then depend on which executor built it. Give every entry one mode instead,
+# executable so that no file needing the bit can lose it. pex >= 2.60 already
+# normalizes the other bits, but keys the executable bit on the file on disk.
+from pex.common import ZipFileType
 
-INJECT_TEMPLATE=["os.environ['RUNFILES_DIR'] = __entry_point__"]
+def _fixed_zip_file_type(path: str) -> ZipFileType.Value:
+    return ZipFileType.DIRECTORY if os.path.isdir(path) else ZipFileType.EXECUTABLE
 
-for path in options.sys_path:
-    INJECT_TEMPLATE.append("sys.path.append(os.path.abspath(os.path.join(__entry_point__, '%s')))" % path)
-
-import_idx =  BE.index("from pex.pex_bootstrapper import bootstrap_pex")
-# This is here to catch potential future bugs where pex package is updated here but the bootstrap 
-# script was not checked again to see if we are still injecting values in the right place.
-assert import_idx == 3703, "Check bootstrap template monkey patching."
-
-setattr(pex.pex_builder, "BOOTSTRAP_ENVIRONMENT", BE[:import_idx] + "\n".join(INJECT_TEMPLATE) + "\n" + BE[import_idx:])
+setattr(ZipFileType, "from_path", staticmethod(_fixed_zip_file_type))
 
 
 pex_builder = PEXBuilder(
@@ -159,11 +173,36 @@ if options.inherit_path is not None:
 for dep in options.dependencies:
     dist = Distribution.load(dep)
 
-    key = "%s-%s" % (dist.key, dist.version)
+    # The PEX's boot code reads each `.deps/` entry's project and version from its
+    # name, which must therefore be the wheel's file name. A wheel without the
+    # WHEEL file PEP 427 requires, as some hand-built ones are, is taken to be pure
+    # Python for any Python 3.
+    try:
+        wheel = Wheel.from_distribution(dist)
+        key = wheel.wheel_file_name
+        metadata_dir = wheel.metadata_dir
+        root_is_purelib = wheel.metadata.root_is_purelib
+    except WheelMetadataLoadError:
+        key = "%s-%s-py3-none-any.whl" % (re.sub(r"[-_.]+", "_", dist.project_name), dist.version.replace("-", "_"))
+        metadata_dir = os.path.dirname(dist.metadata.files.metadata.rel_path)
+        root_is_purelib = True
     dist_hash = pex_builder._add_dist(
         path= dist.location,
         dist_name = key
     )
+
+    # The boot code also loads each entry as an installed wheel, from the layout
+    # file pex writes when it installs one itself. A site-packages tree is that
+    # wheel installed with everything at its root, as pex lays out a chroot.
+    layout_relpath = os.path.join(pex_info.internal_cache, key, ".layout.json")
+    InstalledWheel.save(
+        prefix_dir=os.path.dirname(os.path.join(pex_builder.path(), layout_relpath)),
+        stash_dir=".prefix",
+        record_relpath=os.path.join(metadata_dir, "RECORD"),
+        root_is_purelib=root_is_purelib,
+        sys_path_entries=(".",),
+    )
+    pex_builder._chroot.touch(layout_relpath, label=key)
     pex_info.add_distribution(key, dist_hash)
     pex_builder.add_requirement(dist.as_requirement())
 
@@ -186,13 +225,141 @@ if not executable_was_set:
 
 pex_builder.freeze(bytecode_compile=False)
 
+# Point RUNFILES_DIR and the binary's import paths at the directory the PEX runs
+# from, once pex's boot code has installed it there. The preamble cannot do this:
+# it runs before the boot code resolves that directory. freeze() writes the boot
+# code into the chroot, so splice the setup in there before build() zips it.
+BOOT_ANCHOR = "    from pex.globals import Globals\n"
+runfiles_setup = ["    os.environ['RUNFILES_DIR'] = entry_point\n"]
+for path in options.sys_path:
+    runfiles_setup.append("    sys.path.append(os.path.abspath(os.path.join(entry_point, %r)))\n" % path)
+
+for boot_file in ("__main__.py", os.path.join("__pex__", "__init__.py")):
+    boot_path = os.path.join(pex_builder.path(), boot_file)
+    with open(boot_path) as fp:
+        boot = fp.read()
+    # Catches a pex upgrade that moves the boot code this splices into.
+    assert boot.count(BOOT_ANCHOR) == 1, "Check the boot code splice in %s." % boot_file
+    with open(boot_path, "w") as fp:
+        fp.write(boot.replace(BOOT_ANCHOR, "".join(runfiles_setup) + BOOT_ANCHOR))
+
 pex_builder.build(
     options.pex_name,
-    deterministic_timestamp=True,
+    deterministic=True,
     layout=Layout.ZIPAPP,
     check=Check.WARN,
 )
 
+
+if options.scie:
+    import hashlib
+    import json
+    import shlex
+    import shutil
+    from pex import scie
+    from pex.scie.science import SCIE_JUMP_VERSION
+    from pex.sysconfig import SysPlatform
+    from pex.targets import Targets
+
+    # python-build-standalone names its archives
+    # cpython-<version>+<release>-<target triple>-<flavor>.<extension>.
+    archive_name = os.path.basename(options.scie_pbs_archive)
+    match = re.match(
+        r"^cpython-(?P<version>\d+\.\d+\.\d+)\+(?P<release>\d{8})-(?P<triple>.+)-(?P<flavor>install_only(?:_stripped)?)\.(?P<extension>tar\.(?:gz|zst))$",
+        archive_name,
+    )
+    if match is None:
+        sys.exit("A scie needs an install_only or install_only_stripped python-build-standalone archive, not %s." % archive_name)
+
+    triple = match.group("triple")
+    platforms_by_triple = {
+        "aarch64-apple-darwin": SysPlatform.MACOS_AARCH64,
+        "aarch64-unknown-linux-gnu": SysPlatform.LINUX_AARCH64,
+        "aarch64-unknown-linux-musl": SysPlatform.MUSL_LINUX_AARCH64,
+        "x86_64-apple-darwin": SysPlatform.MACOS_X86_64,
+        "x86_64-unknown-linux-gnu": SysPlatform.LINUX_X86_64,
+        "x86_64-unknown-linux-musl": SysPlatform.MUSL_LINUX_X86_64,
+    }
+    scie_platform = platforms_by_triple.get(triple)
+    if scie_platform is None:
+        sys.exit("A scie cannot be built for %s." % triple)
+
+    # science fetches the interpreter and two scie-jumps, one to assemble the scie
+    # with on this host and one for the scie to embed, from a mirror. Serve it one
+    # holding just those.
+    mirror = safe_mkdtemp()
+    jump_dir = os.path.join(mirror, "jump", "download", "v%s" % SCIE_JUMP_VERSION)
+    os.makedirs(jump_dir)
+    jumps = {SysPlatform.CURRENT.os_arch: options.scie_host_jump, scie_platform.os_arch: options.scie_jump}
+    for os_arch, jump in jumps.items():
+        # science names a Linux scie-jump for the libc it knows of, if any. The
+        # static binaries run under either.
+        names = ["scie-jump-%s" % os_arch]
+        if os_arch.startswith("linux-"):
+            names += ["scie-jump-gnu-%s" % os_arch, "scie-jump-musl-%s" % os_arch]
+        with open(jump, "rb") as fp:
+            jump_digest = hashlib.sha256(fp.read()).hexdigest()
+        for name in names:
+            os.symlink(os.path.abspath(jump), os.path.join(jump_dir, name))
+            with open(os.path.join(jump_dir, name + ".sha256"), "w") as fp:
+                fp.write("%s *%s\n" % (jump_digest, name))
+
+    release_dir = os.path.join(mirror, "providers", "PythonBuildStandalone", "download", match.group("release"))
+    os.makedirs(release_dir)
+    os.symlink(os.path.abspath(options.scie_pbs_archive), os.path.join(release_dir, archive_name))
+    digest = hashlib.sha256()
+    with open(options.scie_pbs_archive, "rb") as fp:
+        while chunk := fp.read(1024 * 1024):
+            digest.update(chunk)
+    index = {
+        "release": match.group("release"),
+        "assets": [{
+            "digest": {"fingerprint": digest.hexdigest(), "size": os.path.getsize(options.scie_pbs_archive)},
+            "file_type": match.group("extension"),
+            "name": archive_name,
+            "rel_path": "download/%s/%s" % (match.group("release"), archive_name),
+            "target_triple": triple,
+            "version": match.group("version"),
+        }],
+    }
+    with open(os.path.join(release_dir, "distributions-%s-%s.json" % (match.group("version"), match.group("flavor"))), "w") as fp:
+        json.dump(index, fp)
+
+    scie_parser = ArgumentParser()
+    scie.register_options(scie_parser)
+    scie_args = [
+        "--scie", "eager",
+        "--scie-only",
+        "--scie-platform", scie_platform.value,
+        "--scie-pbs-release", match.group("release"),
+        "--scie-python-version", match.group("version"),
+        "--scie-science-binary", os.path.abspath(options.scie_science),
+        "--scie-assets-base-url", "file://" + os.path.abspath(mirror),
+    ]
+    if match.group("flavor") == "install_only_stripped":
+        scie_args.append("--scie-pbs-stripped")
+    scie_options = scie.extract_options(scie_parser.parse_args(scie_args))
+    assert scie_options is not None
+    # The scie is for this platform, whose interpreter is the default target.
+    scie_configuration = scie_options.create_configuration(targets=Targets())
+
+    # science is itself a scie, which unpacks under SCIE_BASE when it runs, and it
+    # keeps temporary files in the user's cache directory. Both default under HOME,
+    # which an action cannot write to.
+    os.environ["SCIE_BASE"] = safe_mkdtemp()
+    os.environ["HOME"] = os.environ["XDG_CACHE_HOME"] = safe_mkdtemp()
+    if sys.platform.startswith("linux"):
+        # On Linux science runs `ldd` on its interpreter to tell musl from glibc,
+        # and an action has no PATH. Answer from the binary, as ldd would.
+        ldd_dir = safe_mkdtemp()
+        ldd = os.path.join(ldd_dir, "ldd")
+        with open(ldd, "w") as fp:
+            fp.write("#!/bin/sh\nexec %s -c 'import platform, sys; print(platform.libc_ver(sys.argv[1])[0] or \"musl\")' \"$1\"\n" % shlex.quote(sys.executable))
+        os.chmod(ldd, 0o755)
+        os.environ["PATH"] = os.pathsep.join(filter(None, (ldd_dir, os.environ.get("PATH"))))
+    for scie_info in scie.build(scie_configuration, options.pex_name):
+        if os.path.abspath(scie_info.file) != os.path.abspath(options.scie_output_file):
+            shutil.move(scie_info.file, options.scie_output_file)
 
 # Cleanup temporary pex root
 safe_rmtree(TMP_PEX_ROOT)

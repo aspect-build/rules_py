@@ -26,3 +26,15 @@ def interpreter_files_and_version(toolchain):
     vi = getattr(py3, "interpreter_version_info", None)
     version = struct(major = vi.major, minor = vi.minor, micro = vi.micro) if vi != None else None
     return files, version
+
+def interpreter_pbs_archive(toolchain):
+    """The python-build-standalone archive of a resolved PY_TOOLCHAIN target.
+
+    Args:
+        toolchain: a resolved PY_TOOLCHAIN target carrying `ToolchainInfo`.
+
+    Returns:
+        `File | None`: None unless the toolchain is a provisioned interpreter
+        analyzed under py_pex_binary(scie = ...).
+    """
+    return getattr(toolchain[platform_common.ToolchainInfo], "pbs_archive", None)

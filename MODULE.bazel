@@ -25,7 +25,18 @@ bazel_dep(name = "hermetic_launcher", version = "0.0.16")
 tools = use_extension("//py:extensions.bzl", "py_tools")
 tools.rules_py_tools()
 use_repo(tools, "rules_py_tools")
-use_repo(tools, "rules_py_pex_2_3_1")
+use_repo(tools, "rules_py_pex_2_104_1")
+use_repo(
+    tools,
+    "rules_py_scie_jump_linux_aarch64",
+    "rules_py_scie_jump_linux_x86_64",
+    "rules_py_scie_jump_macos_aarch64",
+    "rules_py_scie_jump_macos_x86_64",
+    "rules_py_science_linux_aarch64",
+    "rules_py_science_linux_x86_64",
+    "rules_py_science_macos_aarch64",
+    "rules_py_science_macos_x86_64",
+)
 
 register_toolchains(
     "@rules_py_tools//:all",
