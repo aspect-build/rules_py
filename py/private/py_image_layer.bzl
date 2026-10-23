@@ -760,7 +760,9 @@ def _file_to_mtree_entry(
             _encode_mtree_path(f.path),
         )
     marker = "content" if maybe_symlink else "contents"
-    return "{} type=file mode={} uid={} gid={} time=1672560000 {}={}".format(
+
+    # Do not let bsdtar inherit hardlinks from the input filesystem.
+    return "{} type=file nlink=1 mode={} uid={} gid={} time=1672560000 {}={}".format(
         _encode_mtree_path(dst),
         mode,
         owner,
