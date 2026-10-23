@@ -10,3 +10,17 @@ py_pytest_test(
         "@pypi//pytest",
     ],
 )
+
+# Regression: sharding must split the tests left after pytest's own -k / -m /
+# --deselect filtering. The keep/drop cases alternate, so splitting first would
+# put every match in shard 0 and leave shard 1 with no tests (exit code 5).
+py_pytest_test(
+    name = "filter_then_shard_test",
+    srcs = ["filter_then_shard_test.py"],
+    pytest_args = [
+        "-k",
+        "keep",
+    ],
+    shard_count = 2,
+    deps = ["@pypi//pytest"],
+)

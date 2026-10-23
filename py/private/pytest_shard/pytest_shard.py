@@ -1,6 +1,7 @@
 from typing import Protocol, TypeVar
 from collections.abc import Sequence
 
+import pytest
 from _pytest import nodes  # for type checking only
 
 _Item = TypeVar("_Item")
@@ -73,7 +74,9 @@ class ShardPlugin:
             msg += ": " + ", ".join([item.nodeid for item in items])
         return msg
 
+    # trylast: split only the tests left after pytest's -k / -m / --deselect filtering.
     @staticmethod
+    @pytest.hookimpl(trylast=True)
     def pytest_collection_modifyitems(config: _Config, items: list[nodes.Node]) -> None:
         """Mutate the collection to consist of just items to be tested in this shard."""
         shard_id = config.getoption("shard_id")
