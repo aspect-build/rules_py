@@ -70,6 +70,7 @@ jobs:
                   py/private/launcher_env/aspect_rules_py_launcher_env.py
                   py/private/py_image_layer_validator.py
                   py/private/py_venv/templates/link.py
+                  py/private/py_venv/templates/windows_long_paths.py
                   py/private/pytest_main.py
                   py/private/pytest_shard/pytest_shard.py
                   py/private/unittest_main.py

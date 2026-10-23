@@ -120,4 +120,14 @@ py_test(
     main = "//py/private/py_venv/tests:test_link.py",
 )
 
+py_test(
+    name = "test_windows_long_paths",
+    srcs = [
+        "//py/private/py_venv:templates/windows_long_paths.py",
+        "//py/private/py_venv/tests:test_windows_long_paths.py",
+    ],
+    imports = ["../templates"],
+    main = "//py/private/py_venv/tests:test_windows_long_paths.py",
+)
+
 virtuals_resolvers_test_suite(name = "virtuals_resolvers_tests")
