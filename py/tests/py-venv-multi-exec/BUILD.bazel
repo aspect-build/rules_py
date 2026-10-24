@@ -2,6 +2,7 @@ load("@rules_python//python:defs.bzl", "py_library")
 load("//py:defs.bzl", "py_library", "py_venv")
 load("//py/private/py_venv:defs.bzl", "py_venv_exec_test")
 load(":env_inherit_test.bzl", "contextual_keys_not_inherited_test", "env_inherit_test")
+load(":executable_name_test.bzl", "windows_executable_name_test")
 load(":freethreaded_flag_test.bzl", "freethreaded_flag_test")
 load(":runfiles_mapping.bzl", "runfiles_mapping")
 
@@ -427,6 +428,27 @@ py_venv_exec_test(
 contextual_keys_not_inherited_test(
     name = "test_contextual_keys_not_inherited",
     target_under_test = ":_env_inherit_contextual_inner",
+)
+
+# A launcher built for Windows carries the `.exe` that Windows needs to start it.
+platform(
+    name = "windows_x86_64",
+    constraint_values = [
+        "@platforms//os:windows",
+        "@platforms//cpu:x86_64",
+    ],
+)
+
+py_venv_exec_test(
+    name = "_windows_executable_name_inner",
+    main = "entry_a.py",
+    tags = ["manual"],
+    venv = ":shared_venv",
+)
+
+windows_executable_name_test(
+    name = "test_windows_executable_name",
+    target_under_test = ":_windows_executable_name_inner",
 )
 
 # `main` is decoupled from the venv's `srcs` — the launcher attaches
