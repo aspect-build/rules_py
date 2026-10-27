@@ -1,0 +1,28 @@
+load("@aspect_rules_py//py:defs.bzl", "py_test")
+load("@bazel_lib//lib:transitions.bzl", "platform_transition_test")
+
+py_test(
+    name = "test",
+    srcs = ["test.py"],
+    main = "test.py",
+)
+
+platform(
+    name = "no_precompile",
+    flags = ["--@aspect_rules_py//uv/private/pyc:precompile=False"],
+    parents = ["@platforms//host"],
+)
+
+py_test(
+    name = "no_precompile_test_bin",
+    srcs = ["test.py"],
+    env = {"PRECOMPILE": "False"},
+    main = "test.py",
+    tags = ["manual"],
+)
+
+platform_transition_test(
+    name = "no_precompile_test",
+    binary = ":no_precompile_test_bin",
+    target_platform = ":no_precompile",
+)

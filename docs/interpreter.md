@@ -29,6 +29,15 @@ import libraries. Regular runtimes also expose stable-ABI headers.
 Free-threaded runtimes expose only the full ABI; the `abi3t` ABI introduced
 by [PEP 803](https://peps.python.org/pep-0803/) is not yet modeled.
 
+**Precompiled standard library.** When the host can run the interpreter, the
+interpreter repository compiles the standard library to unchecked-hash
+bytecode ([PEP 552](https://peps.python.org/pep-0552/)), so Python actions do
+not compile it from source in every sandbox or on every remote executor.
+CPython's own test suite is not precompiled, and images built with
+`py_image_layer` leave the bytecode out. Setting
+`--@aspect_rules_py//uv/private/pyc:precompile=False`, which also turns off
+wheel precompilation, leaves the bytecode out of the interpreter's files.
+
 ## Quickstart
 
 ```starlark

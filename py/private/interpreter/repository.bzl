@@ -1,6 +1,7 @@
 """Repository rules for Python interpreter toolchains."""
 
 load(":exclude_feature.bzl", "INTERPRETER_FEATURES")
+load(":resolve.bzl", "host_platform_triple")
 
 _PYTHON_VERSION_FLAG = "@aspect_rules_py//py/private/interpreter:python_version"
 _RPY_VERSION_FLAG = "@rules_python//python/config_settings:python_version"
@@ -43,8 +44,18 @@ def _python_interpreter_impl(rctx):
     if "linux" in platform:
         rctx.delete("share/terminfo")
 
+    # Every Python process imports the standard library, and bytecode written
+    # at runtime never persists in a sandbox or on a remote executor, so
+    # without precompiled bytecode every action compiles the standard library
+    # from source. Only a host that can run this interpreter can compile it.
+    precompiled = host_platform_triple(rctx) == platform
+    if precompiled:
+        stdlib = "Lib" if is_windows else "lib/python{}.{}{}".format(major, minor, rctx.attr.abi_flags)
+        _precompile_stdlib(rctx, python_bin, stdlib)
+
     rctx.file("BUILD.bazel", content = _build_file_content(
         abi_flags = rctx.attr.abi_flags,
+        precompiled = precompiled,
         major = major,
         minor = minor,
         micro = micro,
@@ -57,7 +68,61 @@ def _python_interpreter_impl(rctx):
 
     return rctx.repo_metadata(reproducible = True)
 
-def _feature_filegroups(major, minor, is_windows):
+def _precompile_stdlib(rctx, python_bin, stdlib):
+    """Compiles the standard library to bytecode that is never rewritten."""
+    result = rctx.execute([
+        rctx.path(python_bin),
+        # Otherwise the interpreter writes timestamp-based bytecode for the
+        # modules compileall imports, and compileall keeps it.
+        "-B",
+        "-I",
+        "-m",
+        "compileall",
+        # The archives ship timestamp-based bytecode, which compileall would
+        # otherwise keep.
+        "-f",
+        "-q",
+        # Remote inputs do not keep file times, and the toolchain's files must
+        # not change at runtime. No -j: bytecode compiled by parallel workers
+        # depends on which worker compiled which file.
+        "--invalidation-mode",
+        "unchecked-hash",
+        # Some test files are deliberately invalid Python. The test suites'
+        # bytecode is left out of the toolchain's files to match.
+        "-x",
+        r"[/\\]tests?[/\\]",
+        stdlib,
+    ])
+    if result.return_code != 0:
+        fail("Precompiling the Python standard library failed:\n" + result.stdout + result.stderr)
+
+# Bytecode written after the fetch would change the toolchain's files, so only
+# the precompiled bytecode is kept: optimized bytecode and the test suites are
+# never precompiled.
+_PYCACHE_EXCLUDES = ["**/__pycache__/*.pyc*"]
+_PRECOMPILED_PYCACHE_EXCLUDES = [
+    "**/__pycache__/*.opt-*.pyc*",
+    "**/test/**/__pycache__/**",
+    "**/tests/**/__pycache__/**",
+]
+
+_PRECOMPILE_SETTING = "@aspect_rules_py//uv/private/pyc:is_precompile"
+
+def _files_glob(include, exclude, precompiled, allow_empty = False):
+    """A glob of interpreter files that keeps precompiled bytecode when the precompile flag is set."""
+    template = "glob({}, exclude = {{}}{})".format(repr(include), ", allow_empty = True" if allow_empty else "")
+    if not precompiled:
+        return template.format(repr(exclude + _PYCACHE_EXCLUDES))
+    return """select({{
+        "{setting}": {precompiled},
+        "//conditions:default": {plain},
+    }})""".format(
+        setting = _PRECOMPILE_SETTING,
+        precompiled = template.format(repr(exclude + _PRECOMPILED_PYCACHE_EXCLUDES)),
+        plain = template.format(repr(exclude + _PYCACHE_EXCLUDES)),
+    )
+
+def _feature_filegroups(major, minor, is_windows, precompiled):
     """Generate per-feature filegroup targets and config_settings.
 
     Returns a tuple of (feature_targets_str, all_feature_exclude_patterns).
@@ -86,16 +151,16 @@ config_setting(
         lines.append("""\
 filegroup(
     name = "_feature_{feature}",
-    srcs = glob({patterns}, exclude = ["**/__pycache__/*.pyc*"], allow_empty = True),
+    srcs = {srcs},
 )
-""".format(feature = feature_name, patterns = repr(patterns)))
+""".format(feature = feature_name, srcs = _files_glob(patterns, [], precompiled, allow_empty = True)))
 
     return "\n".join(lines), all_excludes
 
-def _build_file_content(major, minor, micro, python_bin, is_macos, is_windows, abi_flags, releaselevel, serial):
+def _build_file_content(major, minor, micro, python_bin, is_macos, is_windows, abi_flags, releaselevel, serial, precompiled):
     """Generate the full BUILD.bazel content for an interpreter repo."""
 
-    feature_targets, feature_excludes = _feature_filegroups(major, minor, is_windows)
+    feature_targets, feature_excludes = _feature_filegroups(major, minor, is_windows, precompiled)
 
     include_dirs = ["include"]
     if not is_windows:
@@ -173,19 +238,15 @@ cc_library(
             headers_abi3_attr = "    headers_abi3 = \":python_headers\",\n"
 
     if is_windows:
-        core_include = '["**/*.py", "**/*.pyd", "**/*.dll", "**/*.exe", "include/**", "Lib/**"]'
-        core_exclude = '["Lib/**/test/**", "Lib/**/tests/**", "**/__pycache__/*.pyc*"]'
+        core_include = ["**/*.py", "**/*.pyd", "**/*.dll", "**/*.exe", "include/**", "Lib/**"]
+        core_exclude = ["Lib/**/test/**", "Lib/**/tests/**"]
     else:
-        core_include = '["bin/**", "lib/**"]'
-        core_exclude = repr(
-            [
-                "lib/**/*.a",
-                "lib/python{}.{}/**/test/**".format(major, minor),
-                "lib/python{}.{}/**/tests/**".format(major, minor),
-                "**/__pycache__/*.pyc*",
-            ] +
-            feature_excludes,
-        )
+        core_include = ["bin/**", "lib/**"]
+        core_exclude = [
+            "lib/**/*.a",
+            "lib/python{}.{}/**/test/**".format(major, minor),
+            "lib/python{}.{}/**/tests/**".format(major, minor),
+        ] + feature_excludes
 
     # Build the select() expressions for optional features
     feature_selects = ""
@@ -214,10 +275,7 @@ package(default_visibility = ["//visibility:public"])
 
 filegroup(
     name = "_core",
-    srcs = glob(
-        include = {core_include},
-        exclude = {core_exclude},
-    ),
+    srcs = {core_srcs},
 )
 
 filegroup(
@@ -277,8 +335,7 @@ py_cc_toolchain(
         serial = serial,
         feature_targets = feature_targets,
         feature_selects = feature_selects,
-        core_include = core_include,
-        core_exclude = core_exclude,
+        core_srcs = _files_glob(core_include, core_exclude, precompiled),
     )
 
 python_interpreter = repository_rule(
@@ -559,5 +616,6 @@ python_toolchains = repository_rule(
 
 # Exposed for unit tests only.
 repository_testlib = struct(
+    build_file_content = _build_file_content,
     feature_filegroups = _feature_filegroups,
 )
