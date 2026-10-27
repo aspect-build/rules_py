@@ -1,0 +1,24 @@
+load("@aspect_rules_py//py:defs.bzl", "py_library", "py_test")
+
+# A source from another package whose path repeats one below this package keeps its own bytecode.
+py_library(
+    name = "both",
+    srcs = [
+        "pyc/collide_peer/mod.py",
+        "//pyc/collide_peer:mod.py",
+    ],
+)
+
+[
+    py_test(
+        name = "collide_{}_test".format(mode),
+        srcs = ["collide_test.py"],
+        main = "collide_test.py",
+        precompile = mode,
+        deps = [":both"],
+    )
+    for mode in [
+        "pycache",
+        "sourceless",
+    ]
+]

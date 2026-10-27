@@ -21,6 +21,12 @@ toolchain_type(
     visibility = ["//visibility:public"],
 )
 
+# Resolved by exec platform and Python version; GIL modes share bytecode.
+toolchain_type(
+    name = "pyc_compiler_toolchain_type",
+    visibility = ["//visibility:public"],
+)
+
 bzl_library(
     name = "repo",
     srcs = ["repo.bzl"],
@@ -32,6 +38,13 @@ bzl_library(
     name = "tools",
     srcs = ["tools.bzl"],
     visibility = ["//py:__subpackages__"],
+)
+
+bzl_library(
+    name = "pyc_compiler",
+    srcs = ["pyc_compiler.bzl"],
+    visibility = ["//py:__subpackages__"],
+    deps = ["//py/private/interpreter:runtime"],
 )
 
 # gazelle:ignore
