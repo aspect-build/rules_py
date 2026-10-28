@@ -8,6 +8,7 @@ toolchain this test runs under, so expectations come from sys.version_info.
 """
 
 import json
+import stat
 import sys
 import zipfile
 
@@ -97,5 +98,21 @@ assert not install_tree_dupes, install_tree_dupes[:10]
 
 # Plain data files travel with the sources (transitive_sources is .py-only).
 assert any(n.endswith("/data.txt") for n in names), "data.txt missing from pex"
+
+
+# Every entry has the same mode, whatever modes its files had on disk: Bazel does
+# not track those, so they differ between executors for the same inputs. Locally
+# the wheels arrive as 0o555 outputs and data.txt with the checkout's mode.
+def pex_modes(name: str) -> dict[str, int]:
+    assert r is not None, "runfiles not found"
+    path = r.Rlocation("{}/{}.pex".format(PKG, name), source_repo="")
+    assert path is not None, "{}.pex not found in runfiles".format(name)
+    with zipfile.ZipFile(path) as zf:
+        return {i.filename: i.external_attr >> 16 for i in zf.infolist()}
+
+
+for name, mode in pex_modes("print_modules_pex").items():
+    expected = (stat.S_IFDIR if name.endswith("/") else stat.S_IFREG) | 0o755
+    assert mode == expected, (name, oct(mode))
 
 print("PASS")

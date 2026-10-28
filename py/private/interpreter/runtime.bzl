@@ -53,6 +53,8 @@ def _py_runtime_toolchain_impl(ctx):
             # Read by rules_py's venv assembly, which links these into a
             # Windows venv's `bin/`.
             venv_dlls = ctx.files.venv_dlls,
+            # The PBS archive `files` came from, for py_pex_binary scies.
+            pbs_archive = ctx.file.pbs_archive,
         ),
         DefaultInfo(files = depset([ctx.file.interpreter], transitive = [runtime.files])),
     ]
@@ -86,6 +88,10 @@ build host regardless of the target platform being built for).""",
             doc = "Windows only: the DLLs beside the interpreter that a venv links into its `bin/`, " +
                   "so that a process started from there finds them.",
             allow_files = [".dll"],
+        ),
+        "pbs_archive": attr.label(
+            doc = "The python-build-standalone archive the runtime was extracted from.",
+            allow_single_file = True,
         ),
         "_bootstrap_template": attr.label(
             allow_single_file = True,

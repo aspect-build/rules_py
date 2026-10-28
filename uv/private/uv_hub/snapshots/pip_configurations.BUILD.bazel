@@ -1167,6 +1167,94 @@ selects.config_setting_group(
 
 
 selects.config_setting_group(
+    name = "py310-any-none",
+    match_all = [
+    "@aspect_rules_py//uv/private/constraints/platform:any",
+    "@aspect_rules_py//uv/private/constraints/abi:none",
+    "@aspect_rules_py//uv/private/constraints/python:py310",
+],
+    visibility = ["//visibility:public"],
+)
+
+
+selects.config_setting_group(
+    name = "py311-any-none",
+    match_all = [
+    "@aspect_rules_py//uv/private/constraints/platform:any",
+    "@aspect_rules_py//uv/private/constraints/abi:none",
+    "@aspect_rules_py//uv/private/constraints/python:py311",
+],
+    visibility = ["//visibility:public"],
+)
+
+
+selects.config_setting_group(
+    name = "py35-any-none",
+    match_all = [
+    "@aspect_rules_py//uv/private/constraints/platform:any",
+    "@aspect_rules_py//uv/private/constraints/abi:none",
+    "@aspect_rules_py//uv/private/constraints/python:py35",
+],
+    visibility = ["//visibility:public"],
+)
+
+
+selects.config_setting_group(
+    name = "py36-any-none",
+    match_all = [
+    "@aspect_rules_py//uv/private/constraints/platform:any",
+    "@aspect_rules_py//uv/private/constraints/abi:none",
+    "@aspect_rules_py//uv/private/constraints/python:py36",
+],
+    visibility = ["//visibility:public"],
+)
+
+
+selects.config_setting_group(
+    name = "py37-any-none",
+    match_all = [
+    "@aspect_rules_py//uv/private/constraints/platform:any",
+    "@aspect_rules_py//uv/private/constraints/abi:none",
+    "@aspect_rules_py//uv/private/constraints/python:py37",
+],
+    visibility = ["//visibility:public"],
+)
+
+
+selects.config_setting_group(
+    name = "py38-any-none",
+    match_all = [
+    "@aspect_rules_py//uv/private/constraints/platform:any",
+    "@aspect_rules_py//uv/private/constraints/abi:none",
+    "@aspect_rules_py//uv/private/constraints/python:py38",
+],
+    visibility = ["//visibility:public"],
+)
+
+
+selects.config_setting_group(
+    name = "py39-any-none",
+    match_all = [
+    "@aspect_rules_py//uv/private/constraints/platform:any",
+    "@aspect_rules_py//uv/private/constraints/abi:none",
+    "@aspect_rules_py//uv/private/constraints/python:py39",
+],
+    visibility = ["//visibility:public"],
+)
+
+
+selects.config_setting_group(
+    name = "py312-any-none",
+    match_all = [
+    "@aspect_rules_py//uv/private/constraints/platform:any",
+    "@aspect_rules_py//uv/private/constraints/abi:none",
+    "@aspect_rules_py//uv/private/constraints/python:py312",
+],
+    visibility = ["//visibility:public"],
+)
+
+
+selects.config_setting_group(
     name = "cp310-macosx_10_10_x86_64-cp310",
     match_all = [
     "@aspect_rules_py//uv/private/constraints/platform:macosx_10_10_x86_64",
