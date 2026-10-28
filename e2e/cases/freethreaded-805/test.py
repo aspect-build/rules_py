@@ -1,5 +1,6 @@
 """Test that a freethreaded interpreter can import native extensions built for the 't' ABI."""
 
+import glob
 import os
 import subprocess
 import sys
@@ -57,6 +58,19 @@ class FreethreadedTest(unittest.TestCase):
             text=True,
         )
         self.assertEqual(out.stdout.strip(), "1", out.stderr)
+
+    def test_stdlib_test_suite_is_excluded(self) -> None:
+        """CPython's own test suite under lib/python3.<m>t must not be an
+        interpreter input."""
+        # sysconfig's stdlib resolves to the fetched repository (on Bazel 9, a
+        # repo contents cache entry named by a UUID), which has every file, so
+        # look at the interpreter's files in the runfiles instead.
+        minor = sys.version_info.minor
+        srcdir = os.environ["TEST_SRCDIR"]
+        os_pys = glob.glob(os.path.join(srcdir, "*", "lib", f"python3.{minor}t", "os.py"))
+        self.assertTrue(os_pys, srcdir)
+        for os_py in os_pys:
+            self.assertFalse(os.path.lexists(os.path.join(os.path.dirname(os_py), "test")), os_py)
 
     def test_regex_native_extension_is_freethreaded(self) -> None:
         """The regex C extension .so must be the freethreaded variant."""
