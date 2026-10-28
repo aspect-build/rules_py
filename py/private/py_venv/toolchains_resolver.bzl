@@ -56,8 +56,14 @@ def _venv_root_escape(package_depth):
 def _uses_empty_venv_home(py_toolchain, is_windows):
     """Whether to leave ``home`` empty in ``pyvenv.cfg``.
 
+    Always on Windows: CPython resolves a relative ``home`` against the
+    startup cwd rather than the venv, while an empty ``home`` makes it
+    search for the stdlib from the real path of the venv's ``bin/python``
+    symlink:
+    https://github.com/python/cpython/blob/v3.14.3/Modules/getpath.py#L448-L449
+
     CPython 3.11/3.12 runfiles interpreters with build-time venv support
-    on non-Windows resolve a relocatable ``bin/python`` symlink correctly
+    elsewhere resolve a relocatable ``bin/python`` symlink correctly
     only when ``home`` is empty and ``relocatable = true``. With a
     non-empty relative ``home``, ``getpath.py`` resolves from the startup
     cwd, which breaks under sandbox/RBE where the cwd is not the
@@ -71,8 +77,9 @@ def _uses_empty_venv_home(py_toolchain, is_windows):
     L158-166:
     https://github.com/python/cpython/blob/3bb231a6/Modules/getpath.py#L362-L365
     """
+    if is_windows:
+        return True
     return (
-        not is_windows and
         getattr(py_toolchain.toolchain, "implementation_name", None) == "cpython" and
         getattr(py_toolchain.toolchain, "supports_build_time_venv", False) and
         py_toolchain.interpreter_version_info.major == 3 and
@@ -88,11 +95,7 @@ def _pyvenv_home(ctx, py_toolchain, is_windows, venv_root_escape):
       ``_uses_empty_venv_home``).
     - A venv-root-relative path to the interpreter's ``bin/`` otherwise.
     """
-
-    # Windows CPython resolves a relative ``home`` against the startup cwd
-    # rather than the venv. With ``home`` empty, it finds its stdlib from the
-    # interpreter's real path instead.
-    if is_windows or _uses_empty_venv_home(py_toolchain, is_windows):
+    if _uses_empty_venv_home(py_toolchain, is_windows):
         return ""
     interpreter_rlocation = to_rlocation_path(ctx, py_toolchain.python)
     interpreter_bin_dir = "/".join(interpreter_rlocation.split("/")[:-1])
