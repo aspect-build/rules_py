@@ -21,7 +21,7 @@ distutils, etc.) treat it as a real venv:
                                                 interpreter's DLLs
         activate                                bash/zsh activation script
         <console_script>                        one per wheel-declared entry point
-      lib/python<MAJ>.<MIN>/site-packages/
+      lib/python<MAJ>.<MIN>/site-packages/      Lib/site-packages/ on Windows
         <name>.pth                              first-party + fallback .pth
         <top_level>                             symlink to a wheel's subdir
         <ns_pkg>/<entry>                        merged PEP 420 namespace: real

@@ -27,14 +27,23 @@ def _py_versions(py_toolchain):
     )
     return base, base + ("t" if py_toolchain.freethreaded else "")
 
-def _site_packages_escape(package_depth):
-    """Relative path from ``<venv>/lib/pythonX.Y/site-packages/`` to the
-    runfiles root.
+def _site_packages_dir(venv_py_ver, is_windows):
+    """The venv-relative site-packages directory that CPython's ``site`` reads.
+
+    ``Lib/site-packages`` on Windows and ``lib/pythonX.Y/site-packages``
+    elsewhere.
+    """
+    if is_windows:
+        return "Lib/site-packages"
+    return "lib/{}/site-packages".format(venv_py_ver)
+
+def _site_packages_escape(package_depth, site_packages_dir):
+    """Relative path from ``<venv>/<site_packages_dir>/`` to the runfiles root.
 
     Ascends: workspace (1) + package segments (N) + venv dir (1) +
-    lib/pythonX.Y/site-packages (3) = 5 + N.
+    ``site_packages_dir`` segments.
     """
-    return _relative_up(5 + package_depth)
+    return _relative_up(2 + package_depth + len(site_packages_dir.split("/")))
 
 def _venv_root_escape(package_depth):
     """Relative path from the venv root (``sys.prefix``) to the runfiles
@@ -47,8 +56,14 @@ def _venv_root_escape(package_depth):
 def _uses_empty_venv_home(py_toolchain, is_windows):
     """Whether to leave ``home`` empty in ``pyvenv.cfg``.
 
+    Always on Windows: CPython resolves a relative ``home`` against the
+    startup cwd rather than the venv, while an empty ``home`` makes it
+    search for the stdlib from the real path of the venv's ``bin/python``
+    symlink:
+    https://github.com/python/cpython/blob/v3.14.3/Modules/getpath.py#L448-L449
+
     CPython 3.11/3.12 runfiles interpreters with build-time venv support
-    on non-Windows resolve a relocatable ``bin/python`` symlink correctly
+    elsewhere resolve a relocatable ``bin/python`` symlink correctly
     only when ``home`` is empty and ``relocatable = true``. With a
     non-empty relative ``home``, ``getpath.py`` resolves from the startup
     cwd, which breaks under sandbox/RBE where the cwd is not the
@@ -62,8 +77,9 @@ def _uses_empty_venv_home(py_toolchain, is_windows):
     L158-166:
     https://github.com/python/cpython/blob/3bb231a6/Modules/getpath.py#L362-L365
     """
+    if is_windows:
+        return True
     return (
-        not is_windows and
         getattr(py_toolchain.toolchain, "implementation_name", None) == "cpython" and
         getattr(py_toolchain.toolchain, "supports_build_time_venv", False) and
         py_toolchain.interpreter_version_info.major == 3 and
@@ -75,7 +91,8 @@ def _pyvenv_home(ctx, py_toolchain, is_windows, venv_root_escape):
 
     Two branches:
 
-    - Empty for qualifying CPython 3.11/3.12 (see ``_uses_empty_venv_home``).
+    - Empty on Windows and for qualifying CPython 3.11/3.12 (see
+      ``_uses_empty_venv_home``).
     - A venv-root-relative path to the interpreter's ``bin/`` otherwise.
     """
     if _uses_empty_venv_home(py_toolchain, is_windows):
@@ -182,13 +199,14 @@ def resolve_venv_toolchain(ctx, *, py_toolchain, is_windows, venv_name):
     wheel_py_ver, venv_py_ver = _py_versions(py_toolchain)
     depth = _package_depth(ctx)
     venv_to_runfiles_escape = _venv_root_escape(depth)
+    site_packages_dir = _site_packages_dir(venv_py_ver, is_windows)
 
     return struct(
         wheel_py_ver = wheel_py_ver,
         venv_py_ver = venv_py_ver,
-        escape = _site_packages_escape(depth),
+        escape = _site_packages_escape(depth, site_packages_dir),
         venv_to_runfiles_escape = venv_to_runfiles_escape,
-        site_packages_rel = "{}/lib/{}/site-packages".format(venv_name, venv_py_ver),
+        site_packages_rel = "{}/{}".format(venv_name, site_packages_dir),
         pyvenv_home = _pyvenv_home(ctx, py_toolchain, is_windows, venv_to_runfiles_escape),
         versioned_python_names = _versioned_python_names(py_toolchain),
         bin_python_target_path = _bin_python_target_path(ctx, py_toolchain, depth),
