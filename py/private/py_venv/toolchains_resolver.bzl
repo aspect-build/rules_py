@@ -62,12 +62,15 @@ def _uses_empty_venv_home(py_toolchain, is_windows):
     symlink:
     https://github.com/python/cpython/blob/v3.14.3/Modules/getpath.py#L448-L449
 
-    CPython 3.11/3.12 runfiles interpreters with build-time venv support
+    CPython 3.11+ runfiles interpreters with build-time venv support
     elsewhere resolve a relocatable ``bin/python`` symlink correctly
     only when ``home`` is empty and ``relocatable = true``. With a
     non-empty relative ``home``, ``getpath.py`` resolves from the startup
     cwd, which breaks under sandbox/RBE where the cwd is not the
-    execroot.
+    execroot. python-build-standalone releases since 20251205 (3.14) and
+    20251217 (3.11-3.13) patch ``getpath`` to locate the stdlib from the
+    real path of libpython first, which hides this; earlier releases fail
+    to import ``encodings``.
 
     Omitting the key entirely leaves ``sys._base_executable`` at the
     outer venv symlink, so a stdlib-created nested venv writes the outer
@@ -83,7 +86,7 @@ def _uses_empty_venv_home(py_toolchain, is_windows):
         getattr(py_toolchain.toolchain, "implementation_name", None) == "cpython" and
         getattr(py_toolchain.toolchain, "supports_build_time_venv", False) and
         py_toolchain.interpreter_version_info.major == 3 and
-        py_toolchain.interpreter_version_info.minor in [11, 12]
+        py_toolchain.interpreter_version_info.minor >= 11
     )
 
 def _pyvenv_home(ctx, py_toolchain, is_windows, venv_root_escape):
@@ -91,7 +94,7 @@ def _pyvenv_home(ctx, py_toolchain, is_windows, venv_root_escape):
 
     Two branches:
 
-    - Empty on Windows and for qualifying CPython 3.11/3.12 (see
+    - Empty on Windows and for qualifying CPython 3.11+ (see
       ``_uses_empty_venv_home``).
     - A venv-root-relative path to the interpreter's ``bin/`` otherwise.
     """
