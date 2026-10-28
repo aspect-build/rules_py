@@ -3,12 +3,40 @@
 See docs/python-version-project-scope.md for setup and ownership requirements.
 """
 
+# Aliased by //py/private/interpreter under project scope; see version_flags.bzl.
+_PROJECT_FLAGS_BUILD = """\
+load("@bazel_skylib//rules:common_settings.bzl", "string_flag")
+
+exports_files(["config.bzl"])
+
+string_flag(
+    name = "python_version",
+    build_setting_default = "",
+    scope = "project",
+    visibility = ["//visibility:public"],
+)
+
+[
+    string_flag(
+        name = name,
+        build_setting_default = "<unset>",
+        scope = "project",
+        visibility = ["@aspect_rules_py//py:__subpackages__"],
+    )
+    for name in ["baseline_python_version", "baseline_rules_python_version"]
+]
+"""
+
 def _config_repo_impl(rctx):
     if rctx.attr.python_version_scope == "project" and native.bazel_version:
         version = native.bazel_version.split(".")
         if (int(version[0]), int(version[1])) < (9, 2):
             fail("Python version project scope requires Bazel 9.2 or later")
-    rctx.file("BUILD.bazel", 'exports_files(["config.bzl"])\n')
+    build = 'exports_files(["config.bzl"])\n'
+    if rctx.attr.python_version_scope == "project":
+        build = _PROJECT_FLAGS_BUILD
+        rctx.file("PROJECT.scl", 'project = {"actual": "//:PROJECT.scl"}\n')
+    rctx.file("BUILD.bazel", build)
     rctx.file("config.bzl", "PYTHON_VERSION_SCOPE = %r\n" % rctx.attr.python_version_scope)
 
 _config_repo = repository_rule(

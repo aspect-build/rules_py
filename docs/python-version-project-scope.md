@@ -36,10 +36,12 @@ The extension fails on older versions.
 
 ## Ownership
 
-`@aspect_rules_py//py/private/interpreter:PROJECT.scl` forwards to the root
-module's `//:PROJECT.scl` with Bazel's `actual` field. That file may itself
-redirect with `actual`. List every package that must see the selected version
-in `active_directories`:
+Under project scope, the version flag is an alias to a flag in rules_py's
+generated configuration repository. That repository's `PROJECT.scl` forwards to
+the root module's `//:PROJECT.scl` with Bazel's `actual` field, which may itself
+redirect with `actual`. Without the tag nothing forwards there, so other builds
+don't need a root `PROJECT.scl`. List every package that must see the selected
+version in `active_directories`:
 
 ```starlark
 # PROJECT.scl
