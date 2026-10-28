@@ -63,12 +63,13 @@ register_toolchains("@rules_py_tools//:all")
 # CC toolchain for native sdist builds (e.g. cdifflib, pyahocorasick).
 register_toolchains("@llvm//toolchain:all")
 
-# For the OCI tests
+# For the OCI tests. Anonymous pulls from public.ecr.aws hit 429s on shared CI
+# runner IPs; mirror.gcr.io serves the same digest-pinned index.
 oci = use_extension("@rules_oci//oci:extensions.bzl", "oci")
 oci.pull(
     name = "ubuntu",
     digest = "sha256:c35e29c9450151419d9448b0fd75374fec4fff364a27f176fb458d472dfc9e54",
-    image = "public.ecr.aws/docker/library/ubuntu",
+    image = "mirror.gcr.io/library/ubuntu",
     platforms = [
         "linux/arm64/v8",
         "linux/amd64",
@@ -84,7 +85,7 @@ use_repo(bazel_lib_toolchains, "bsd_tar_toolchains")
 
 # Default uv toolchain used by every uv-based case.
 uv_bin = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv_bin")
-uv_bin.toolchain(version = "0.11.21")
+uv_bin.toolchain(version = "0.13.4")
 use_repo(uv_bin, "uv")
 
 uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")

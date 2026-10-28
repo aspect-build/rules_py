@@ -57,7 +57,7 @@ def _python_interpreter_impl(rctx):
 
     return rctx.repo_metadata(reproducible = True)
 
-def _feature_filegroups(major, minor, is_windows):
+def _feature_filegroups(stdlib, is_windows):
     """Generate per-feature filegroup targets and config_settings.
 
     Returns a tuple of (feature_targets_str, all_feature_exclude_patterns).
@@ -71,7 +71,7 @@ def _feature_filegroups(major, minor, is_windows):
 
     for feature_name, feature_info in INTERPRETER_FEATURES.items():
         patterns = [
-            p.format(major = major, minor = minor)
+            p.format(stdlib = stdlib)
             for p in feature_info["include"]
         ]
         all_excludes.extend(patterns)
@@ -95,7 +95,10 @@ filegroup(
 def _build_file_content(major, minor, micro, python_bin, is_macos, is_windows, abi_flags, releaselevel, serial):
     """Generate the full BUILD.bazel content for an interpreter repo."""
 
-    feature_targets, feature_excludes = _feature_filegroups(major, minor, is_windows)
+    # A free-threaded build's standard library is lib/python3.14t, not
+    # lib/python3.14.
+    stdlib = "lib/python{}.{}{}".format(major, minor, "t" if "t" in abi_flags else "")
+    feature_targets, feature_excludes = _feature_filegroups(stdlib, is_windows)
 
     include_dirs = ["include"]
     if not is_windows:
@@ -180,7 +183,20 @@ cc_library(
         if abi_flags == "":
             headers_abi3_attr = "    headers_abi3 = \":python_headers\",\n"
 
+    venv_dlls_target = ""
+    venv_dlls_attr = ""
     if is_windows:
+        # The DLLs that `python -m venv --symlinks` links beside a venv's
+        # interpreter on Windows.
+        venv_dlls_target = """\
+filegroup(
+    name = "venv_dlls",
+    srcs = glob(["python*.dll", "vcruntime*.dll"]),
+    visibility = ["//visibility:private"],
+)
+
+"""
+        venv_dlls_attr = "    venv_dlls = [\":venv_dlls\"],\n"
         core_include = '["**/*.py", "**/*.pyd", "**/*.dll", "**/*.exe", "include/**", "Lib/**"]'
         core_exclude = '["Lib/**/test/**", "Lib/**/tests/**", "**/__pycache__/*.pyc*"]'
     else:
@@ -188,8 +204,8 @@ cc_library(
         core_exclude = repr(
             [
                 "lib/**/*.a",
-                "lib/python{}.{}/**/test/**".format(major, minor),
-                "lib/python{}.{}/**/tests/**".format(major, minor),
+                stdlib + "/**/test/**",
+                stdlib + "/**/tests/**",
                 "**/__pycache__/*.pyc*",
             ] +
             feature_excludes,
@@ -251,7 +267,7 @@ filegroup(
     deps = {header_interface_deps},
 )
 
-py_runtime_toolchain(
+{venv_dlls_target}py_runtime_toolchain(
     name = "runtime",
     abi_flags = "{abi_flags}",
     files = [":files"],
@@ -263,7 +279,7 @@ py_runtime_toolchain(
         "releaselevel": "{releaselevel}",
         "serial": "{serial}",
     }},
-)
+{venv_dlls_attr})
 
 py_cc_toolchain(
     name = "py_cc_toolchain",
@@ -289,6 +305,8 @@ py_cc_toolchain(
         feature_selects = feature_selects,
         core_include = core_include,
         core_exclude = core_exclude,
+        venv_dlls_target = venv_dlls_target,
+        venv_dlls_attr = venv_dlls_attr,
     )
 
 python_interpreter = repository_rule(

@@ -83,6 +83,7 @@ def _assemble_venv_target(ctx, executable, console_scripts):
         venv_activate_tmpl = ctx.file._venv_activate_tmpl if executable else None,
         site_merge_script_py = ctx.file._site_merge_script,
         console_script_tmpl = ctx.file._console_script_tmpl if console_scripts else None,
+        windows_long_paths_py = ctx.file._windows_long_paths,
         venv_name = ".{}".format(venv_stem),
     )
     venv_only = assembled.console_scripts + ([assembled.activate] if assembled.activate != None else [])
@@ -262,6 +263,10 @@ does not reinsert a wheel.
     "_site_merge_script": attr.label(
         allow_single_file = True,
         default = "//py/tools/site_merge:site_merge.py",
+    ),
+    "_windows_long_paths": attr.label(
+        allow_single_file = True,
+        default = "//py/private/py_venv:templates/windows_long_paths.py",
     ),
 })
 

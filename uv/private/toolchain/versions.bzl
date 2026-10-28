@@ -20,4 +20,12 @@ UV_VERSIONS = {
         "x86_64-pc-windows-msvc": "ace861f360c6de2babedc1607d0f454b6b09a820dbc8182dc15af927e4df9589",
         "x86_64-unknown-linux-musl": "9dadff5b9e7b1d2d011e41852a1cbca713d9d5d88194f2eb6bd240fa4fb0a719",
     },
+    "0.13.4": {
+        "aarch64-apple-darwin": "e0b1d4743ce64c55d9f0f4a444afa6b81125680070ee04e853fcd0f6c1ebf8f1",
+        "aarch64-pc-windows-msvc": "c4bc5a9534b2bb6a12fe29ea748445e1a6f9cb7bb275211c4fb74c52ecf317a5",
+        "aarch64-unknown-linux-musl": "253a17cadcb659ae77a0fe3b9a2f1c14297528d480c421899e61e64d64f24e8f",
+        "x86_64-apple-darwin": "7be2dcd316122f4b3e5a0a7889f6248266c14425374e105ff7dc9779184603a6",
+        "x86_64-pc-windows-msvc": "ccec7508a07d9933d7cb1261880633efcf1f30d6e6eddab21823f1dae6f23225",
+        "x86_64-unknown-linux-musl": "28d4385f9f9d1d1c7654d85b3855e0e2615b2f6cc13136a2edff858bbdc16ff1",
+    },
 }
