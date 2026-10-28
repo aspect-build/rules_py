@@ -10,6 +10,15 @@ exports_files(["probe_interpreter.py"])
 string_flag(
     name = "python_version",
     build_setting_default = "",
+    # "universal" causes this flag to propagate through exec transitions so
+    # that tools built in exec configuration (e.g. sdist build_tool venvs and
+    # the PEP 508 marker environment derived from this flag) keep the python
+    # version selected for the target instead of falling back to the flag
+    # default. Required when
+    # --incompatible_exclude_starlark_flags_from_exec_config is active (will
+    # be default in Bazel 10; bazelbuild/bazel#26909). Same rationale as
+    # //uv/private/constraints/venv:venv (PR #917).
+    scope = "universal",
 )
 
 # Interpreter feature exclusions. Pass one or more --exclude_feature flags to
@@ -39,6 +48,10 @@ exclude_feature_flag(
 bool_flag(
     name = "freethreaded",
     build_setting_default = False,
+    # Propagated by the python_transition alongside :python_version and
+    # consumed by interpreter toolchain target_settings; must survive exec
+    # transitions for the same reason as :python_version above.
+    scope = "universal",
 )
 
 bool_flag(

@@ -1,0 +1,13 @@
+--- a/setup.py
++++ b/setup.py
+@@ -1,4 +1,10 @@
+ from setuptools import setup
+ 
++# Models the numcodecs field failure: setuptools loads the entry points of
++# every dist installed in the build venv (setuptools-scm -> vcs-versioning),
++# whose import chain needs the marker-gated typing-extensions on the
++# interpreter the build tool actually runs.
++from typing_extensions import Self as _Self  # noqa: F401
++
+ from docopt import __version__
+ 
