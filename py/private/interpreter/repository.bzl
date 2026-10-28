@@ -97,7 +97,7 @@ def _build_file_content(major, minor, micro, python_bin, is_macos, is_windows, a
 
     # A free-threaded build's standard library is lib/python3.14t, not
     # lib/python3.14.
-    stdlib = "lib/python{}.{}{}".format(major, minor, abi_flags)
+    stdlib = "lib/python{}.{}{}".format(major, minor, "t" if "t" in abi_flags else "")
     feature_targets, feature_excludes = _feature_filegroups(stdlib, is_windows)
 
     include_dirs = ["include"]

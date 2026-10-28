@@ -58,10 +58,17 @@ def _freethreaded_stdlib_excludes_test_impl(ctx):
         asserts.true(env, repr(pattern) in content, pattern)
     asserts.false(env, "lib/python3.14/" in content)
 
-    content = _build_file("")
-    asserts.true(env, repr("lib/python3.14/**/test/**") in content)
-    asserts.true(env, repr("lib/python3.14/pydoc_data/**") in content)
-    asserts.false(env, "lib/python3.14t/" in content)
+    # Only the free-threading flag names the stdlib directory: a debug
+    # build's is lib/python3.14 and a free-threaded debug build's is
+    # lib/python3.14t.
+    for abi_flags, stdlib in [("", "lib/python3.14"), ("d", "lib/python3.14"), ("td", "lib/python3.14t")]:
+        content = _build_file(abi_flags)
+        asserts.true(env, repr(stdlib + "/**/test/**") in content, abi_flags)
+        asserts.true(env, repr(stdlib + "/pydoc_data/**") in content, abi_flags)
+        asserts.false(env, "lib/python3.14d" in content, abi_flags)
+        asserts.false(env, "lib/python3.14td" in content, abi_flags)
+        other = "lib/python3.14/" if stdlib.endswith("t") else "lib/python3.14t/"
+        asserts.false(env, other in content, abi_flags)
 
     return unittest.end(env)
 
