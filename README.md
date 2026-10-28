@@ -568,6 +568,7 @@ For detailed migration guidance, see [docs/migrating.md](docs/migrating.md).
 - [Dependency resolution with `uv`](docs/uv.md)
 - [Virtual dependencies](docs/virtual_deps.md)
 - [Interpreter configuration](docs/interpreter.md)
+- [Python version project scoping](docs/python-version-project-scope.md)
 - [Migration guide](docs/migrating.md)
 - [Contributing](CONTRIBUTING.md)
 
