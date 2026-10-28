@@ -107,6 +107,7 @@ def _build_file_content(major, minor, micro, python_bin, is_macos, is_windows, a
     library_targets = ""
     header_interface_deps = []
     abi3_header_target = ""
+    header_defines_attr = ""
     headers_abi3_attr = ""
     libs_attr = ""
 
@@ -133,6 +134,11 @@ cc_import(
         )
         libs_attr = "    libs = \":interface\",\n"
         header_interface_deps = [":interface"]
+
+        # 3.14's shared pyconfig.h links python3XXt.lib only if extensions define this:
+        # https://docs.python.org/3/howto/free-threading-extensions.html#identifying-the-free-threaded-build-in-c
+        if "t" in abi_flags:
+            header_defines_attr = "    defines = [\"Py_GIL_DISABLED\"],\n"
         if abi_flags == "":
             library_targets += """
 cc_import(
@@ -253,7 +259,7 @@ filegroup(
 {abi3_header_target}cc_library(
     name = "python_headers",
     hdrs = [":includes"],
-    includes = {include_dirs},
+{header_defines_attr}    includes = {include_dirs},
     visibility = ["//visibility:private"],
     deps = {header_interface_deps},
 )
@@ -280,6 +286,7 @@ py_cc_toolchain(
 """.format(
         abi_flags = abi_flags,
         abi3_header_target = abi3_header_target,
+        header_defines_attr = header_defines_attr,
         header_interface_deps = repr(header_interface_deps),
         headers_abi3_attr = headers_abi3_attr,
         include_dirs = repr(include_dirs),
