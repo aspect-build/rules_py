@@ -10,6 +10,7 @@ package(default_visibility = ["//py:__subpackages__"])
 bool_flag(
     name = "emit_rules_python_providers",
     build_setting_default = False,
+    scope = "universal",
 )
 
 exports_files(
