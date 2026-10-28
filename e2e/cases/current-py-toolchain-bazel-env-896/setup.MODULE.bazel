@@ -1,1 +1,6 @@
 bazel_dep(name = "bazel_env.bzl", version = "0.7.2", dev_dependency = True)
+bazel_dep(name = "ape", version = "1.0.1", dev_dependency = True)
+
+# cosmo.zip outages break every fetch of bazel_env's coreutils; ape's own mirror serves the same pinned binaries.
+ape_cosmos = use_extension("@ape//ape/cosmos:defs.bzl", "ape_cosmos", dev_dependency = True)
+ape_cosmos.url(template = "https://gitlab.arm.com/api/v4/projects/bazel%2Fape/packages/generic/cosmos.zip/{version}/{name}")

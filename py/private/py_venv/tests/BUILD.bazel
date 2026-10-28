@@ -55,6 +55,21 @@ venv_tree(
     venv = ":venv",
 )
 
+platform(
+    name = "snapshot_platform_windows",
+    constraint_values = [
+        "@platforms//os:windows",
+        "@platforms//cpu:x86_64",
+    ],
+)
+
+venv_tree(
+    name = "venv_windows_tree_snap",
+    platform = ":snapshot_platform_windows",
+    tags = ["manual"],
+    venv = ":venv",
+)
+
 _MANY_SCRIPTS_DEPS = [
     "@pypi//build",
     "@pypi//coverage",
@@ -107,6 +122,7 @@ write_source_files(
         "snapshots/many_scripts.venv.tree.snap": ":many_scripts_venv_tree_snap",
         "snapshots/venv.launcher.snap": ":venv_launcher_snap",
         "snapshots/venv.tree.snap": ":venv_tree_snap",
+        "snapshots/venv.windows.tree.snap": ":venv_windows_tree_snap",
     },
 )
 
@@ -118,6 +134,16 @@ py_test(
     ],
     imports = ["../templates"],
     main = "//py/private/py_venv/tests:test_link.py",
+)
+
+py_test(
+    name = "test_windows_long_paths",
+    srcs = [
+        "//py/private/py_venv:templates/windows_long_paths.py",
+        "//py/private/py_venv/tests:test_windows_long_paths.py",
+    ],
+    imports = ["../templates"],
+    main = "//py/private/py_venv/tests:test_windows_long_paths.py",
 )
 
 virtuals_resolvers_test_suite(name = "virtuals_resolvers_tests")
