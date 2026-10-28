@@ -1,0 +1,58 @@
+load("//:probe.bzl", "check", "probe")
+
+config_setting(
+    name = "py311",
+    flag_values = {"@aspect_rules_py//py/private/interpreter:python_version": "3.11"},
+)
+
+config_setting(
+    name = "py312",
+    flag_values = {"@aspect_rules_py//py/private/interpreter:python_version": "3.12"},
+)
+
+probe(
+    name = "tool",
+    value = select({
+        ":py311": "3.11",
+        ":py312": "3.12",
+        ":py310": "3.10",
+        "//conditions:default": "unexpected",
+    }),
+)
+
+probe(
+    name = "binding",
+    tool = ":tool",
+    value = select({
+        ":py311": "3.11",
+        ":py312": "3.12",
+        ":py310": "3.10",
+        "//conditions:default": "unexpected",
+    }),
+    deps = ["//native:core"],
+)
+
+# Reaches the native dependency without a version transition.
+probe(
+    name = "direct",
+    deps = ["//native:core"],
+)
+
+check(
+    name = "check311",
+    native_version = "inherit",
+    python_version = "3.11",
+    target = ":binding",
+)
+
+check(
+    name = "check312",
+    native_version = "inherit",
+    python_version = "3.12",
+    target = ":binding",
+)
+
+config_setting(
+    name = "py310",
+    flag_values = {"@aspect_rules_py//py/private/interpreter:python_version": "3.10"},
+)

@@ -1,6 +1,7 @@
 load("@bazel_lib//:bzl_library.bzl", "bzl_library")
 load("@bazel_skylib//rules:common_settings.bzl", "bool_flag", "string_flag")
 load(":exclude_feature.bzl", "exclude_feature_flag")
+load(":version_flags.bzl", "python_version_flags")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -22,25 +23,7 @@ bzl_library(
     ],
 )
 
-string_flag(
-    name = "python_version",
-    build_setting_default = "",
-)
-
-# Internal transition scratch state. Python terminals capture the version
-# settings they inherited before applying their own python_version attr, then
-# data edges use them to return runtime files to the caller's configuration.
-string_flag(
-    name = "baseline_python_version",
-    build_setting_default = "<unset>",
-    visibility = ["//py:__subpackages__"],
-)
-
-string_flag(
-    name = "baseline_rules_python_version",
-    build_setting_default = "<unset>",
-    visibility = ["//py:__subpackages__"],
-)
+python_version_flags()
 
 # Preserve the caller's GIL mode across nested terminal overrides.
 string_flag(
@@ -150,6 +133,12 @@ bzl_library(
 bzl_library(
     name = "sanitize",
     srcs = ["sanitize.bzl"],
+)
+
+bzl_library(
+    name = "version_flags",
+    srcs = ["version_flags.bzl"],
+    deps = ["@bazel_skylib//rules:common_settings"],
 )
 
 bzl_library(
