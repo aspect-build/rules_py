@@ -97,7 +97,12 @@ def _py_venv_exec_impl(ctx):
     #   [N]  main module path (runfiles-resolved)
     # The launcher runtime resolves transformed-arg positions through
     # the Bazel runfiles manifest, then `execve`s the venv python.
-    executable_launcher = ctx.actions.declare_file(ctx.attr.name)
+    # Windows finds and starts programs by their extension, so the
+    # Windows stub needs `.exe`.
+    executable_name = ctx.attr.name
+    if ctx.target_platform_has_constraint(ctx.attr._windows_constraint[platform_common.ConstraintValueInfo]):
+        executable_name += ".exe"
+    executable_launcher = ctx.actions.declare_file(executable_name)
     embedded_args, transformed_args = launcher.args_from_entrypoint(vinfo.bin_python)
     for flag in flags:
         embedded_args, transformed_args = launcher.append_embedded_arg(
@@ -279,6 +284,9 @@ that must match the terminal's Python environment in `deps`.
     ),
     "_emit_rules_python_providers": attr.label(
         default = "//py/private:emit_rules_python_providers",
+    ),
+    "_windows_constraint": attr.label(
+        default = "@platforms//os:windows",
     ),
 })
 
