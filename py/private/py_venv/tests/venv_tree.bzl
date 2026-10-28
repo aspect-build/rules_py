@@ -5,15 +5,15 @@ and text file (with content) inside a ``py_venv`` target's output tree.
 Used via ``write_source_files`` so changes to the venv assembly surface
 as a reviewable diff.
 
-The venv is transitioned to a fixed platform so interpreter repo names
-and pyvenv.cfg contents are identical on every host.
+The venv is transitioned to a fixed platform (``platform``) so interpreter
+repo names and pyvenv.cfg contents are identical on every host.
 """
 
 load("//py/private/py_venv:defs.bzl", "VirtualenvInfo")
 
-def _snapshot_platform_transition_impl(_settings, _attr):
+def _snapshot_platform_transition_impl(_settings, attr):
     return {
-        "//command_line_option:platforms": "//py/private/py_venv/tests:snapshot_platform",
+        "//command_line_option:platforms": str(attr.platform),
     }
 
 _snapshot_platform_transition = transition(
@@ -73,6 +73,10 @@ venv_tree = rule(
             mandatory = True,
             cfg = _snapshot_platform_transition,
             doc = "A `py_venv` target whose venv tree to snapshot.",
+        ),
+        "platform": attr.label(
+            default = "//py/private/py_venv/tests:snapshot_platform",
+            doc = "The platform to assemble the venv for.",
         ),
         "runtime": attr.bool(
             doc = "Snapshot what a consuming launcher sees (`VirtualenvInfo.runtime_files`) instead of the venv's own runfiles.",

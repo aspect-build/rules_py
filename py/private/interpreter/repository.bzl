@@ -172,7 +172,20 @@ cc_library(
         if abi_flags == "":
             headers_abi3_attr = "    headers_abi3 = \":python_headers\",\n"
 
+    venv_dlls_target = ""
+    venv_dlls_attr = ""
     if is_windows:
+        # The DLLs that `python -m venv --symlinks` links beside a venv's
+        # interpreter on Windows.
+        venv_dlls_target = """\
+filegroup(
+    name = "venv_dlls",
+    srcs = glob(["python*.dll", "vcruntime*.dll"]),
+    visibility = ["//visibility:private"],
+)
+
+"""
+        venv_dlls_attr = "    venv_dlls = [\":venv_dlls\"],\n"
         core_include = '["**/*.py", "**/*.pyd", "**/*.dll", "**/*.exe", "include/**", "Lib/**"]'
         core_exclude = '["Lib/**/test/**", "Lib/**/tests/**", "**/__pycache__/*.pyc*"]'
     else:
@@ -242,7 +255,7 @@ filegroup(
     deps = {header_interface_deps},
 )
 
-py_runtime_toolchain(
+{venv_dlls_target}py_runtime_toolchain(
     name = "runtime",
     abi_flags = "{abi_flags}",
     files = [":files"],
@@ -254,7 +267,7 @@ py_runtime_toolchain(
         "releaselevel": "{releaselevel}",
         "serial": "{serial}",
     }},
-)
+{venv_dlls_attr})
 
 py_cc_toolchain(
     name = "py_cc_toolchain",
@@ -279,6 +292,8 @@ py_cc_toolchain(
         feature_selects = feature_selects,
         core_include = core_include,
         core_exclude = core_exclude,
+        venv_dlls_target = venv_dlls_target,
+        venv_dlls_attr = venv_dlls_attr,
     )
 
 python_interpreter = repository_rule(
