@@ -23,7 +23,7 @@ dependencies = [
 
 [tool.uv]
 dev-dependencies = [
-   "pex==2.3.1",
+   "pex==2.104.1",
    "pyright==1.1.411",
    "ruff==0.15.22",
    "ty==0.0.61",
