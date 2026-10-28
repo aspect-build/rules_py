@@ -32,15 +32,19 @@ string_flag(
 # Internal transition scratch state. Python terminals capture the version
 # settings they inherited before applying their own python_version attr, then
 # data edges use them to return runtime files to the caller's configuration.
+# Under project scope the version baselines must reset with python_version, or
+# targets outside the project split by baseline alone.
 string_flag(
     name = "baseline_python_version",
     build_setting_default = "<unset>",
+    scope = "project" if PYTHON_VERSION_SCOPE == "project" else None,
     visibility = ["//py:__subpackages__"],
 )
 
 string_flag(
     name = "baseline_rules_python_version",
     build_setting_default = "<unset>",
+    scope = "project" if PYTHON_VERSION_SCOPE == "project" else None,
     visibility = ["//py:__subpackages__"],
 )
 

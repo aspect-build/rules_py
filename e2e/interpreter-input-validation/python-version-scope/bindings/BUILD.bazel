@@ -32,18 +32,24 @@ probe(
     deps = ["//native:core"],
 )
 
+# Reaches the native dependency without a version transition.
+probe(
+    name = "direct",
+    deps = ["//native:core"],
+)
+
 check(
     name = "check311",
     native_version = "inherit",
+    python_version = "3.11",
     target = ":binding",
-    version = "3.11",
 )
 
 check(
     name = "check312",
     native_version = "inherit",
+    python_version = "3.12",
     target = ":binding",
-    version = "3.12",
 )
 
 config_setting(

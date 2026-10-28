@@ -1,5 +1,8 @@
 """Analysis assertions for target and exec configuration propagation."""
 
+# buildifier: disable=bzl-visibility
+load("@aspect_rules_py//py/private:transitions.bzl", "python_transition")
+
 VersionInfo = provider("Observed version propagation through the fixture graph.", fields = ["value", "native", "tool"])
 
 def _probe_impl(ctx):
@@ -15,21 +18,22 @@ probe = rule(implementation = _probe_impl, attrs = {
     "tool": attr.label(cfg = "exec"),
 })
 
-def _transition_impl(_settings, attr):
-    return {"@aspect_rules_py//py/private/interpreter:python_version": attr.version}
-
-_version_transition = transition(implementation = _transition_impl, inputs = [], outputs = ["@aspect_rules_py//py/private/interpreter:python_version"])
-
 def _check_impl(ctx):
     info = ctx.attr.target[0][VersionInfo]
-    expected_native = ctx.attr.version if ctx.attr.native_version == "inherit" else ctx.attr.native_version
-    if info.value != ctx.attr.version or info.native != [expected_native] or info.tool != ctx.attr.version:
-        fail("Expected binding/tool %s, native %s; got %s" % (ctx.attr.version, expected_native, info))
+    expected_native = ctx.attr.python_version if ctx.attr.native_version == "inherit" else ctx.attr.native_version
+
+    # Outside project scope, whether exec tools keep the version depends on the
+    # Bazel version (bazelbuild/bazel#26909), so only project mode asserts it.
+    tool_ok = ctx.attr.native_version == "inherit" or info.tool == ctx.attr.python_version
+    if info.value != ctx.attr.python_version or info.native != [expected_native] or not tool_ok:
+        fail("Expected binding/tool %s, native %s; got %s" % (ctx.attr.python_version, expected_native, info))
     return [DefaultInfo()]
 
+# Uses the terminals' transition, which also sets rules_python's flag and the
+# internal baseline flags.
 check = rule(implementation = _check_impl, attrs = {
-    "target": attr.label(cfg = _version_transition),
-    "version": attr.string(),
+    "target": attr.label(cfg = python_transition),
+    "python_version": attr.string(),
     "native_version": attr.string(default = "inherit"),
     "_allowlist_function_transition": attr.label(default = "@bazel_tools//tools/allowlists/function_transition_allowlist"),
 })
