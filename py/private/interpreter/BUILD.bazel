@@ -1,3 +1,4 @@
+load("@aspect_rules_py_config//:config.bzl", "PYTHON_VERSION_SCOPE")
 load("@bazel_lib//:bzl_library.bzl", "bzl_library")
 load("@bazel_skylib//rules:common_settings.bzl", "bool_flag", "string_flag")
 load(":exclude_feature.bzl", "exclude_feature_flag")
@@ -25,6 +26,7 @@ bzl_library(
 string_flag(
     name = "python_version",
     build_setting_default = "",
+    scope = PYTHON_VERSION_SCOPE or None,
 )
 
 # Internal transition scratch state. Python terminals capture the version
