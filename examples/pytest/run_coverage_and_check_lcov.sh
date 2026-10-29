@@ -63,3 +63,25 @@ if grep -qE '^FN:[0-9]+,[0-9]+,' "$LCOV"; then
 fi
 
 echo "OK: coverage LCOV has expected SF/DA records and the FN fixup is applied."
+
+# Under `bazel coverage` (LCOV_MERGER set), the report goes into COVERAGE_DIR
+# for Bazel's merger to combine with native coverage, not to the output file.
+COV_DIR="$(mktemp -d)"
+MERGED="$COV_DIR/coverage.dat"
+COVERAGE_MANIFEST="$MANIFEST" \
+  COVERAGE_DIR="$COV_DIR" \
+  COVERAGE_OUTPUT_FILE="$MERGED" \
+  LCOV_MERGER=lcov_merger \
+  "$LAUNCHER"
+
+grep -qE '^SF:.*foo\.py$' "$COV_DIR/pylcov.dat" || {
+  echo "Expected SF: record for foo.py in $COV_DIR/pylcov.dat." >&2
+  ls -la "$COV_DIR" >&2
+  exit 1
+}
+[[ ! -e "$MERGED" ]] || {
+  echo "COVERAGE_OUTPUT_FILE must be left to Bazel's LCOV merger." >&2
+  exit 1
+}
+
+echo "OK: with LCOV_MERGER set, the LCOV is written into COVERAGE_DIR."
