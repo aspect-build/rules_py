@@ -7,7 +7,7 @@ load("@rules_oci//oci:defs.bzl", "oci_image", "oci_load")
 load("//tools:asserts.bzl", "assert_tar_listing", "assert_tar_ownership")
 load(":image_layer_analysis_tests.bzl", "image_layer_analysis_test_suite")
 load(":runtime_wrapper.bzl", "runtime_wrapper")
-load(":tree_artifact.bzl", "dir_and_symlink", "relative_symlink", "symlink_target", "symlink_to_target", "tree_artifact")
+load(":tree_artifact.bzl", "dir_and_symlink", "hardlinked_files", "relative_symlink", "symlink_target", "symlink_to_target", "tree_artifact")
 
 exports_files(
     ["assert_tar_paths.py"],
@@ -128,6 +128,27 @@ py_test(
     ],
     data = [":dir_symlink_layers"],
     main = "assert_layer_symlink.py",
+)
+
+hardlinked_files(name = "hardlinked_data")
+
+py_binary(
+    name = "hardlinked_bin",
+    srcs = ["server.py"],
+    data = [":hardlinked_data"],
+)
+
+py_image_layer(
+    name = "hardlinked_layers",
+    binary = ":hardlinked_bin",
+)
+
+py_test(
+    name = "hardlinked_layers_test",
+    srcs = ["assert_hardlinked_files.py"],
+    args = ["$(rootpaths :hardlinked_layers)"],
+    data = [":hardlinked_layers"],
+    main = "assert_hardlinked_files.py",
 )
 
 # A source-layer directory symlink whose target tree ships in a grouped
