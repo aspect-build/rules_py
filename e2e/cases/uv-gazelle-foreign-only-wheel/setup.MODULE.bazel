@@ -1,0 +1,13 @@
+"""Gazelle indexing of packages with no wheel for the indexing platform.
+
+Uses its own hub so the Windows-only packages stay out of the shared hubs.
+"""
+
+uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv.declare_hub(hub_name = "pypi_foreign_only_wheel")
+uv.project(
+    hub_name = "pypi_foreign_only_wheel",
+    lock = "//uv-gazelle-foreign-only-wheel:uv.lock",
+    pyproject = "//uv-gazelle-foreign-only-wheel:pyproject.toml",
+)
+use_repo(uv, "pypi_foreign_only_wheel")
