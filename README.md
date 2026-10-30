@@ -123,7 +123,7 @@ Built-in rules for creating optimized container images:
 
 - [`py_image_layer`](py/defs.bzl): Creates layered tar files compatible with `rules_oci`
 - Cross-platform builds with automatic platform transitions
-- Optimized layer caching—dependencies and application code are separated
+- Optimized layer caching—the interpreter, dependencies and application code are separated
 
 ### Native Pytest Integration
 

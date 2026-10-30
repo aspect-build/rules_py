@@ -1,6 +1,9 @@
 ---
 layer: 0
 files:
+---
+layer: 1
+files:
   - -rwxr-xr-x  0 0      0       19080 Jan  1  2023 ./app
   - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/_main/oci/py_image_layer/.__scalar_strip_collision.venv/bin/python3 -> python
   - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/_main/oci/py_image_layer/.__scalar_strip_collision.venv/bin/python3.11 -> python
