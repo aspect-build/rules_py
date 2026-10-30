@@ -256,6 +256,33 @@ py_test(
     main = "assert_tar_paths.py",
 )
 
+# Same link with the interpreter in its own layer, which lets the source layer
+# skip the readlink pass for its own files.
+py_layer_tier(
+    name = "source_symlink_interpreter_tier",
+    interpreter_group = "interpreter",
+)
+
+py_image_layer(
+    name = "source_symlink_interpreter_layers",
+    binary = ":source_symlink_bin",
+    groups = {":peeled_symlink_target": "peeled_target"},
+    layer_tier = ":source_symlink_interpreter_tier",
+)
+
+py_test(
+    name = "source_symlink_interpreter_layers_test",
+    srcs = ["assert_layer_symlink.py"],
+    args = [
+        "--link-tar=_default.tar.gz",
+        "--link-suffix=source_layer_symlink",
+        "--target-tar=_peeled_target.tar.gz",
+        "$(rootpaths :source_symlink_interpreter_layers)",
+    ],
+    data = [":source_symlink_interpreter_layers"],
+    main = "assert_layer_symlink.py",
+)
+
 # Launcher-local `data` on py_venv_exec consumers sharing one venv. The
 # launcher's `data` slot is independent of the venv's, so the source layer
 # must collect it from the exec target itself: alpha ships a raw source
