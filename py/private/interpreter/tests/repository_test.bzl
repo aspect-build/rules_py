@@ -74,9 +74,96 @@ def _freethreaded_stdlib_excludes_test_impl(ctx):
 
 freethreaded_stdlib_excludes_test = unittest.make(_freethreaded_stdlib_excludes_test_impl)
 
+def _fake_path(path, real = None, children = None, exists = True):
+    """A repository_ctx path: `real` set means a symlink resolving there."""
+    return struct(
+        basename = path.rsplit("/", 1)[-1],
+        exists = exists,
+        is_dir = children != None,
+        realpath = real or path,
+        readdir = lambda: children or [],
+    )
+
+def _find_symlinks_test_impl(ctx):
+    env = unittest.begin(ctx)
+
+    # /r is reached through /var -> /private/var, as on macOS: links are
+    # judged against the canonical root, not the path the walk started from.
+    root_real = "/private/var/r"
+    root = _fake_path("/var/r", real = root_real, children = [
+        _fake_path("/var/r/bin", real = root_real + "/bin", children = [
+            _fake_path("/var/r/bin/python3.11", real = root_real + "/bin/python3.11"),
+            _fake_path("/var/r/bin/python", real = root_real + "/bin/python3.11"),
+            _fake_path("/var/r/bin/python3-config", real = root_real + "/lib/config/python-config"),
+            _fake_path("/var/r/bin/gone", exists = False),
+            _fake_path("/var/r/bin/host", real = "/usr/bin/env"),
+        ]),
+        _fake_path("/var/r/lib", real = root_real + "/lib", children = [
+            _fake_path("/var/r/lib/config", real = root_real + "/lib/config", children = [
+                _fake_path("/var/r/lib/config/python-config", real = root_real + "/lib/config/python-config"),
+            ]),
+            # A linked directory is recorded as one link and not walked.
+            _fake_path("/var/r/lib/current", real = root_real + "/lib/config", children = [
+                _fake_path("/var/r/lib/current/python-config", real = root_real + "/lib/config/python-config"),
+            ]),
+        ]),
+    ])
+
+    asserts.equals(
+        env,
+        {
+            "bin/python": "python3.11",
+            "bin/python3-config": "../lib/config/python-config",
+            "lib/current": "config",
+        },
+        repository_testlib.find_symlinks(root),
+    )
+
+    return unittest.end(env)
+
+find_symlinks_test = unittest.make(_find_symlinks_test_impl)
+
+def _relative_link_test_impl(ctx):
+    env = unittest.begin(ctx)
+    asserts.equals(env, "python3.11", repository_testlib.relative_link("bin/", "bin/python3.11"))
+    asserts.equals(env, "../lib/libpython3.11.so", repository_testlib.relative_link("bin/", "lib/libpython3.11.so"))
+    asserts.equals(env, "lib/x", repository_testlib.relative_link("", "lib/x"))
+    asserts.equals(env, "../../a", repository_testlib.relative_link("x/y/", "a"))
+    return unittest.end(env)
+
+relative_link_test = unittest.make(_relative_link_test_impl)
+
+def _build_file_records_symlinks_test_impl(ctx):
+    env = unittest.begin(ctx)
+    content = repository_testlib.build_file_content(
+        major = "3",
+        minor = "14",
+        micro = "0",
+        python_bin = "bin/python3",
+        is_macos = False,
+        is_windows = False,
+        abi_flags = "",
+        releaselevel = "final",
+        serial = "0",
+        symlinks = {"lib/libpython3.14.so": "libpython3.14.so.1.0", "bin/python3": "python3.14"},
+    )
+
+    # Sorted, so the generated BUILD does not depend on readdir order.
+    asserts.true(
+        env,
+        'symlinks = {"bin/python3": "python3.14", "lib/libpython3.14.so": "libpython3.14.so.1.0"},' in content,
+        content,
+    )
+    return unittest.end(env)
+
+build_file_records_symlinks_test = unittest.make(_build_file_records_symlinks_test_impl)
+
 def repository_test_suite():
     unittest.suite(
         "repository_tests",
         feature_filegroups_exclude_pycache_test,
         freethreaded_stdlib_excludes_test,
+        find_symlinks_test,
+        relative_link_test,
+        build_file_records_symlinks_test,
     )

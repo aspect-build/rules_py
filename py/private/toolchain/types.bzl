@@ -4,6 +4,18 @@ PY_TOOLCHAIN = "@bazel_tools//tools/python:toolchain_type"
 EXEC_TOOLS_TOOLCHAIN = "@aspect_rules_py//py/private/toolchain:exec_tools_toolchain_type"
 NATIVE_BUILD_TOOLCHAIN = "@aspect_rules_py//py/private/toolchain:native_build_toolchain_type"
 
+def interpreter_symlinks(toolchain):
+    """Symlinks of the runtime tree a resolved PY_TOOLCHAIN target recorded.
+
+    Args:
+        toolchain: a resolved PY_TOOLCHAIN target carrying `ToolchainInfo`.
+
+    Returns:
+        dict of repo-relative path → link target relative to the link's
+        directory; empty for toolchains that do not record them.
+    """
+    return getattr(toolchain[platform_common.ToolchainInfo], "interpreter_symlinks", None) or {}
+
 def interpreter_files_and_version(toolchain):
     """Interpreter files and version from a resolved PY_TOOLCHAIN target.
 

@@ -152,6 +152,13 @@ function replace_metadata_field(row, pattern, replacement) {
         next
     }
 
+    # A link Starlark already knows (an interpreter symlink its repository
+    # rule recorded): the target is literal, not an exec path to readlink.
+    if (match($0, /[[:space:]]rules_py_literal_link=1/)) {
+        line_array[++source_line_count] = substr($0, 1, RSTART - 1) substr($0, RSTART + RLENGTH)
+        next
+    }
+
     if (skip_argind && source_path != "" && path_in_set(source_path, skip_set, skip_dirs)) {
         next
     }

@@ -7,6 +7,7 @@ load("@rules_oci//oci:defs.bzl", "oci_image", "oci_load")
 load("//tools:asserts.bzl", "assert_tar_listing", "assert_tar_ownership")
 load(":image_layer_analysis_tests.bzl", "image_layer_analysis_test_suite")
 load(":runtime_wrapper.bzl", "runtime_wrapper")
+load(":toolchain_symlinks.bzl", "toolchain_symlinks")
 load(":tree_artifact.bzl", "dir_and_symlink", "relative_symlink", "symlink_target", "symlink_to_target", "tree_artifact")
 
 exports_files(
@@ -556,6 +557,36 @@ py_image_layer(
     binary = ":my_app_owner_bin",
     groups = {":my_app_owner_assets": "assets"},
     layer_tier = ":my_app_owner_tier",
+)
+
+# The interpreter repository records its symlinks, so the interpreter layer
+# keeps them even where remote execution hands the action resolved copies.
+toolchain_symlinks(
+    name = "toolchain_symlinks",
+)
+
+py_test(
+    name = "toolchain_symlinks_test",
+    srcs = ["assert_file_contains.py"],
+    args = [
+        "'--expect=\"bin/python3\":\"python3.'",
+        "$(rootpath :toolchain_symlinks)",
+    ],
+    data = [":toolchain_symlinks"],
+    main = "assert_file_contains.py",
+)
+
+py_test(
+    name = "interpreter_layer_symlink_test",
+    srcs = ["assert_layer_symlink.py"],
+    args = [
+        "--link-tar=_interpreter_layer_interpreter.tar.gz",
+        "--link-suffix=/bin/python3",
+        "--target-tar=_interpreter_layer_interpreter.tar.gz",
+        "$(rootpaths :my_app_owner_layers)",
+    ],
+    data = [":my_app_owner_layers"],
+    main = "assert_layer_symlink.py",
 )
 
 # A grouped generated directory must be excluded from the default source tar
