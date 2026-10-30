@@ -108,6 +108,7 @@ jobs:
                 - { path: "e2e/rules-python-provider-compat", slug: "e2e-rules-python-provider-compat" }
                 - { path: "e2e/rules-python-protobuf", slug: "e2e-rules-python-protobuf" }
                 - { path: "e2e/rules-lint-ty", slug: "e2e-rules-lint-ty" }
+                - { path: "e2e/remote-repo-contents-cache", slug: "e2e-remote-repo-contents-cache" }
                 - { path: "examples/debugger", slug: "examples-debugger" }
                 - { path: "examples/dev_deps", slug: "examples-dev_deps" }
                 - { path: "examples/django", slug: "examples-django" }
