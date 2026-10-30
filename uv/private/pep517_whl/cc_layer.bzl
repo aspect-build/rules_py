@@ -73,8 +73,9 @@ def get_target_platform(ctx):
 def extract_cc_layer(ctx, cc_toolchain):
     """Extract CC toolchain tools, flags, and target platform info.
 
-    Called only in cross-compilation mode. The native path relies on the
-    existing _cc_toolchain_inputs_and_tools + backend self-discovery.
+    Called for cross builds and for native builds whose toolchain carries a
+    feature configuration: a hermetic toolchain supplies its libc headers,
+    crt objects and runtime only through these flags.
 
     Args:
         ctx: The rule context. Must include CC_LAYER_ATTRS and
