@@ -438,8 +438,8 @@ class _Args:
         self.patch_tool = Path("patch")
         self.preserve_path: list[str] = []
         self.exclude_glob: list[tuple[str, ...]] = []
-        # Interpreter that compiles the bytecode; presence enables compilation.
-        self.compile_pyc: Path | None = None
+        self.python_bin: Path | None = None
+        self.compile_pyc = False
         self.pyc_invalidation_mode = "unchecked-hash"
 
 
@@ -449,6 +449,9 @@ def _parse_args(argv: Sequence[str]) -> _Args:
     args = _Args()
     flags = iter(argv)
     for flag in flags:
+        if flag == "--compile-pyc":
+            args.compile_pyc = True
+            continue
         value = next(flags, None)
         if value is None:
             raise SystemExit("Missing value for flag: {}".format(flag))
@@ -470,8 +473,8 @@ def _parse_args(argv: Sequence[str]) -> _Args:
             from exclude_glob import parse
 
             args.exclude_glob.append(parse(value))
-        elif flag == "--compile-pyc":
-            args.compile_pyc = Path(value)
+        elif flag == "--python-bin":
+            args.python_bin = Path(value)
         elif flag == "--pyc-invalidation-mode":
             args.pyc_invalidation_mode = value
         else:
@@ -481,6 +484,8 @@ def _parse_args(argv: Sequence[str]) -> _Args:
             raise SystemExit(
                 "Missing required flag: --{}".format(required.replace("_", "-"))
             )
+    if args.compile_pyc and args.python_bin is None:
+        raise SystemExit("--compile-pyc requires --python-bin")
     return args
 
 
@@ -630,7 +635,7 @@ def main() -> None:
         # https://github.com/pypa/pip/blob/c8651d86d2d080c1936974873ab162f9c2507666/src/pip/_internal/operations/install/wheel.py#L623-L639
         subprocess.run(
             [
-                str(args.compile_pyc),
+                str(args.python_bin),
                 "-c",
                 "import compileall; compileall.main()",
                 "-q",
