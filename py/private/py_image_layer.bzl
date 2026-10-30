@@ -46,7 +46,7 @@ load("//py/private:providers.bzl", "PyWheelsInfo")
 load("//py/private:py_info.bzl", "PyInfo")
 load("//py/private:py_info_interop.bzl", "has_py_info")
 load("//py/private/py_venv:types.bzl", "VirtualenvInfo")
-load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN", "interpreter_files_and_version")
+load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN", "interpreter_files_and_version", "interpreter_symlinks")
 
 _TAR_TOOLCHAIN = "@tar.bzl//tar/toolchain:type"
 
@@ -440,6 +440,7 @@ def _layer_aspect_impl(target, ctx):
         interp_depset, _ = interpreter_files_and_version(target)
         if interp_depset == None:
             return []
+        interp_symlinks = interpreter_symlinks(target)
         plan = ctx.attr._layer_tier[PyLayerTierInfo]
         interp_group = plan.interpreter_group
 
@@ -455,7 +456,7 @@ def _layer_aspect_impl(target, ctx):
                 bsdtar_files,
                 interp_tar,
                 interp_depset,
-                lambda f, d: _interpreter_file_to_mtree(f, d, plan.owner, plan.group),
+                lambda f, d: _interpreter_file_to_mtree(f, d, plan.owner, plan.group, interp_symlinks),
                 codec,
                 {},
                 "PyImagePkgLayer",
@@ -734,6 +735,10 @@ def _source_destination(sp, strip_prefix, root, executable_dsts):
 
 # mtree escapes spaces as \040; must stay byte-identical between row emitters
 # and the skip/chmod path sets or awk's set matching silently misses.
+# modify_mtree.awk keeps a `type=link` row carrying this keyword as it is and
+# drops the keyword, instead of resolving its `link=` as an exec path.
+_LITERAL_LINK_MARKER = "rules_py_literal_link=1"
+
 def _encode_mtree_path(path):
     return path.replace(" ", "\\040")
 
@@ -840,9 +845,27 @@ def _pkg_file_to_mtree(f, dir_expander, owner = "0", group = "0"):
         return lines
     return [_file_to_mtree_entry(f, "0755", owner = owner, group = group)]
 
-def _interpreter_file_to_mtree(f, dir_expander, owner = "0", group = "0"):
+def _repo_relative_path(f):
+    parts = f.short_path.split("/", 2)
+    return parts[2] if parts[0] == ".." and len(parts) == 3 else f.short_path
+
+def _interpreter_file_to_mtree(f, dir_expander, owner = "0", group = "0", symlinks = {}):
     # Interpreter repo stages `bin/python -> python3.11` symlinks `f.is_symlink`
-    # doesn't catch, so opt into awk's readlink scan.
+    # doesn't catch. A toolchain that recorded them (`symlinks`, repo-relative)
+    # gets them as literal links; an action's inputs arrive with those links
+    # resolved under remote execution, so readlink cannot be trusted there.
+    # Toolchains without the record fall back to awk's readlink scan.
+    if symlinks and not f.is_directory:
+        target = symlinks.get(_repo_relative_path(f))
+        if target != None:
+            return ["{} type=link mode=0755 uid={} gid={} time=1672560000 link={} {}".format(
+                _encode_mtree_path(_source_destination(f.short_path, "", "/", {})),
+                owner,
+                group,
+                _encode_mtree_path(target),
+                _LITERAL_LINK_MARKER,
+            )]
+        return [_file_to_mtree_entry(f, "0755", owner = owner, group = group)]
     if f.is_directory:
         lines = []
         for child in dir_expander.expand(f):
