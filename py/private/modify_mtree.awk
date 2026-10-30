@@ -205,6 +205,12 @@ function replace_metadata_field(row, pattern, replacement) {
             }
         }
 
+        # Not a symlink: pass the row through without the `readlink -f` probe.
+        if (raw_readlink == "") {
+            line_array[++source_line_count] = $0
+            next
+        }
+
         resolved_path = ""
         if (raw_readlink != "" && raw_readlink !~ /^\//) {
             resolved_path = raw_readlink
