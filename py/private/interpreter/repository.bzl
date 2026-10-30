@@ -222,6 +222,8 @@ load("@rules_python//python/cc:py_cc_toolchain.bzl", "py_cc_toolchain")
 
 package(default_visibility = ["//visibility:public"])
 
+exports_files(["{python_bin}"])
+
 # --- Optional interpreter features ---
 
 {feature_targets}

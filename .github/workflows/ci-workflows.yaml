@@ -124,6 +124,7 @@ jobs:
                 # the committed MODULE.bazel.lock; alternate versions may regenerate it instead.
                 - { id: "bazel-8", version: "", flags: "--bazel-flag=--test_tag_filters=-skip-on-bazel8 --bazel-flag=--lockfile_mode=error" }
                 - { id: "bazel-9", version: "9.x", flags: "--bazel-flag=--test_tag_filters=-skip-on-bazel9 --bazel-flag=--lockfile_mode=update" }
+                - { id: "bazel-10", version: "10.0.0rc1", flags: "--bazel-flag=--test_tag_filters=-skip-on-bazel9 --bazel-flag=--lockfile_mode=update" }
         env:
             USE_BAZEL_VERSION: ${{ matrix.bazel.version }}
         steps:
