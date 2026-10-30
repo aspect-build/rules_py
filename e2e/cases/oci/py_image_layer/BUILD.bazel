@@ -733,7 +733,7 @@ py_test(
     name = "validator_wiring_test",
     srcs = ["assert_file_contains.py"],
     args = [
-        "'--expect=WARNING: image has 2 layers (warn threshold: 1, hard limit: 127).'",
+        "'--expect=WARNING: image has 3 layers (warn threshold: 1, hard limit: 127).'",
         "$(rootpaths :validator_warn_report)",
     ],
     data = [":validator_warn_report"],
