@@ -456,7 +456,7 @@ def _layer_aspect_impl(target, ctx):
                 bsdtar_files,
                 interp_tar,
                 interp_depset,
-                lambda f, d: _interpreter_file_to_mtree(f, d, interp_symlinks, plan.owner, plan.group),
+                lambda f, d: _interpreter_file_to_mtree(f, d, plan.owner, plan.group, interp_symlinks),
                 codec,
                 {},
                 "PyImagePkgLayer",
@@ -849,7 +849,7 @@ def _repo_relative_path(f):
     parts = f.short_path.split("/", 2)
     return parts[2] if parts[0] == ".." and len(parts) == 3 else f.short_path
 
-def _interpreter_file_to_mtree(f, dir_expander, symlinks, owner = "0", group = "0"):
+def _interpreter_file_to_mtree(f, dir_expander, owner = "0", group = "0", symlinks = {}):
     # Interpreter repo stages `bin/python -> python3.11` symlinks `f.is_symlink`
     # doesn't catch. A toolchain that recorded them (`symlinks`, repo-relative)
     # gets them as literal links; an action's inputs arrive with those links
@@ -1235,7 +1235,7 @@ def _py_image_layer_impl(ctx):
         group,
     )
     pkg_map = lambda f, d: _pkg_file_to_mtree(f, d, owner, group)
-    interpreter_map = lambda f, d: _interpreter_file_to_mtree(f, d, {}, owner, group)
+    interpreter_map = lambda f, d: _interpreter_file_to_mtree(f, d, owner, group)
 
     rule_group_names = set(ctx.attr.groups.values())
     rule_groups = []
