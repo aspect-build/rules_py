@@ -9,6 +9,7 @@ attrs to the auto-generated sibling.
 load("@bazel_lib//lib:expand_make_vars.bzl", "expand_locations", "expand_variables")
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load("@hermetic_launcher//launcher:lib.bzl", "launcher")
+load("//py/private:import_dirs_info.bzl", "ImportDirsInfo")
 load("//py/private:py_info.bzl", "PyInfo")
 load("//py/private:py_info_interop.bzl", "RulesPythonPyInfo", "get_transitive_sources", "has_py_info")
 load("//py/private:py_semantics.bzl", _py_semantics = "semantics")
@@ -168,6 +169,7 @@ def _py_venv_exec_impl(ctx):
             virtual_dependencies = depset(),
             virtual_resolutions = depset(),
         ),
+        venv[ImportDirsInfo],
         instrumented_files_info,
         RunEnvironmentInfo(
             environment = passed_env,

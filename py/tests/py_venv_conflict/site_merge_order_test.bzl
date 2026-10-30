@@ -1,7 +1,9 @@
 """End-to-end coverage for regular-package physical merge order."""
 
 load("//py:defs.bzl", "py_test")
+load("//py/private:import_dirs_info.bzl", "ImportDirsInfo")
 load("//py/private:providers.bzl", "PyWheelsInfo", "make_wheel_record")
+load("//py/private:pth.bzl", "own_import_dirs")
 load("//py/private:py_info.bzl", "PyInfo")
 load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN")
 
@@ -126,6 +128,10 @@ printf 'VALUE = %s\n' "$4" > "$site/other/from_final.py"
             virtual_dependencies = depset(),
             virtual_resolutions = depset(),
         ),
+        ImportDirsInfo(
+            import_dirs = depset(own_import_dirs(site_packages_paths, install_trees, ctx.workspace_name)),
+            pyi_import_dirs = depset(),
+        ),
         PyWheelsInfo(wheels = depset(direct = wheels, order = "postorder")),
     ]
 
@@ -236,6 +242,10 @@ printf 'VALUE = %s\n' "$4" > "$site/mixed/sibling.py"
             virtual_dependencies = depset(),
             virtual_resolutions = depset(),
         ),
+        ImportDirsInfo(
+            import_dirs = depset(own_import_dirs(site_packages_paths, install_trees, ctx.workspace_name)),
+            pyi_import_dirs = depset(),
+        ),
         PyWheelsInfo(wheels = depset(direct = wheels, order = "postorder")),
     ]
 
@@ -255,6 +265,8 @@ def site_merge_order_test_suite():
 
     py_test(
         name = "site_merge_order_test",
+        # The checker sees each colliding wheel's copy separately; only the venv merges them.
+        type_check = False,
         srcs = ["test_site_merge_order.py"],
         package_collisions = "ignore",
         deps = [":_site_merge_wheels"],
@@ -267,6 +279,8 @@ def site_merge_order_test_suite():
 
     py_test(
         name = "native_nested_collision_test",
+        # The checker sees each colliding wheel's copy separately; only the venv merges them.
+        type_check = False,
         srcs = ["test_native_nested_collision.py"],
         package_collisions = "ignore",
         deps = [":_native_nested_wheels"],
@@ -280,6 +294,8 @@ def site_merge_order_test_suite():
 
     py_test(
         name = "native_nested_regular_first_collision_test",
+        # The checker sees each colliding wheel's copy separately; only the venv merges them.
+        type_check = False,
         srcs = ["test_native_nested_collision.py"],
         package_collisions = "ignore",
         deps = [":_native_nested_regular_first_wheels"],

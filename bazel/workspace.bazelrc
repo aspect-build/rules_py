@@ -9,6 +9,11 @@
 # so clang's PATH search hits the runner's /usr/bin/ld.
 common --incompatible_strict_action_env
 
+# Type check rules_py's own code and exercise the type checking action.
+# Workspaces that cannot type check cleanly can turn it back off after
+# importing this file.
+common --@aspect_rules_py//py:type_check
+
 # Build without the bytes
 common:ci --remote_download_outputs=minimal
 common:ci --nobuild_runfile_links
