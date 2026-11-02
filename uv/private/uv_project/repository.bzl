@@ -2,6 +2,24 @@ load("//uv/private/pprint:defs.bzl", "indent", "pprint")
 load("//uv/private/uv_project:build_deps.bzl", "write_build_deps")
 load("//uv/private/uv_project:select_gen.bzl", "EMPTY_LIBRARY", "build_package_select_arms", "conditional_dep", "marker_interner", "safe_name", "write_markers")
 
+def _select_alias(content, aliases, arms, name, testonly_attr):
+    """Label resolving `arms`: the sole default target, or a select() alias shared by identical arms."""
+    if len(arms) == 1:
+        return arms["//conditions:default"]
+    key = repr(arms)
+    label = aliases.get(key)
+    if label == None:
+        label = ":{}__{}".format(name, len(aliases))
+        aliases[key] = label
+        content.append("""
+alias(
+    name = "{name}",{testonly}
+    actual = select({arms}),
+    visibility = ["//visibility:private"],
+)
+""".format(name = label[1:], arms = indent(pprint(arms), " " * 4).lstrip(), testonly = testonly_attr))
+    return label
+
 def _project_impl(repository_ctx):
     """Materializes the dependency graph for a single project.
 
@@ -88,37 +106,32 @@ filegroup(
 """.format(package, indent(pprint(cfgs), "# ")))
         main_arms = {}
         whl_main_arms = {}
+        lib_aliases = {}
+        whl_aliases = {}
         testonly_attr = "\n    testonly = True," if package in testonly_packages else ""
 
         # FIXME: Handle markers for distinct versions
         for cfg, scc_cfgs in cfgs.items():
-            cfg_name = "_package_{}_{}".format(package, cfg)
-            main_arms["//private/dep_group:" + cfg] = ":" + cfg_name
-
-            whl_cfg_name = "_package_{}_{}_whl".format(package, cfg)
-
             cfg_arms, whl_cfg_arms = build_package_select_arms(
                 scc_cfgs = scc_cfgs,
                 scc_graph = scc_graph,
                 package = package,
                 marker_fn = _marker,
             )
-
-            content.append("""
-alias(
-    name = "{name}",{testonly}
-    actual = select({arms}),
-    visibility = ["//visibility:private"],
-)
-""".format(name = cfg_name, arms = indent(pprint(cfg_arms), " " * 4).lstrip(), testonly = testonly_attr))
-            whl_main_arms["//private/dep_group:" + cfg] = ":" + whl_cfg_name
-            content.append("""
-alias(
-    name = "{name}",
-    actual = select({arms}),
-    visibility = ["//visibility:private"],
-)
-""".format(name = whl_cfg_name, arms = indent(pprint(whl_cfg_arms), " " * 4).lstrip()))
+            main_arms["//private/dep_group:" + cfg] = _select_alias(
+                content,
+                lib_aliases,
+                cfg_arms,
+                "_package_" + package,
+                testonly_attr,
+            )
+            whl_main_arms["//private/dep_group:" + cfg] = _select_alias(
+                content,
+                whl_aliases,
+                whl_cfg_arms,
+                "_package_{}_whl".format(package),
+                "",
+            )
 
         content.append("""
 alias(
