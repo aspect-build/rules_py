@@ -9,13 +9,6 @@ filegroup(
 
 
 # cowsay
-# {
-#     "single_project_hub": {
-#         "cowsay__6_1": {
-#             "": 1,
-#         },
-#     },
-# }
 
 
 alias(
@@ -55,13 +48,6 @@ alias(
 
 
 # single_project_hub
-# {
-#     "single_project_hub": {
-#         "single_project_hub__0_0_0": {
-#             "": 1,
-#         },
-#     },
-# }
 
 
 alias(
