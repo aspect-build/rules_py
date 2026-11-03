@@ -10,6 +10,16 @@ source_built_wheel(
 )
 
 
+alias(
+    name = "whl_default",
+    actual = select({
+        "@aspect_rules_py//uv/private/gazelle_manifest:is_indexing": "@whl__cffi__8eca2a813c1cb7ad//:whl",
+        "//conditions:default": ":source_built_wheel",
+    }),
+    visibility = ["//visibility:private"],
+)
+
+
 select_chain(
    name = "whl",
    arms = {
@@ -27,7 +37,7 @@ select_chain(
        "@aspect_rules_py_pip_configurations//:cp312-win_amd64-cp312": "@whl__cffi__da68248800ad6320//:whl",
        "@aspect_rules_py_pip_configurations//:cp312-win_arm64-cp312": "@whl__cffi__4671d9dd5ec934cb//:whl",
    },
-   default_target = ":source_built_wheel",
+   default_target = ":whl_default",
    visibility = ["//visibility:public"],
 )
 
