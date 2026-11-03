@@ -184,7 +184,13 @@ def write_lcov(cov: "Coverage") -> None:
     import coverage.exceptions
 
     cov.stop()
-    output_file = os.getenv("COVERAGE_OUTPUT_FILE")
+    if os.getenv("LCOV_MERGER") and os.getenv("COVERAGE_DIR"):
+        # Under `bazel coverage`, Bazel's LCOV merger combines the *.dat files
+        # in COVERAGE_DIR into COVERAGE_OUTPUT_FILE after the test, so this
+        # report is merged with, not replaced by, native code coverage.
+        output_file = os.path.join(os.environ["COVERAGE_DIR"], "pylcov.dat")
+    else:
+        output_file = os.getenv("COVERAGE_OUTPUT_FILE")
     assert output_file is not None
 
     unfixed = output_file + ".tmp"

@@ -1,5 +1,6 @@
 load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load("//py:defs.bzl", "py_library", "py_test")
+load(":coverage_test.bzl", "cc_coverage_collector_test")
 
 package(default_testonly = True)
 
@@ -63,4 +64,11 @@ py_test(
     python_version = "3.13",
     target_compatible_with = _WINDOWS_INCOMPATIBLE,
     deps = [":limited_api_library.so"],
+)
+
+# `bazel coverage` must collect what the native extension in :test_smoke writes.
+cc_coverage_collector_test(
+    name = "test_smoke_cc_coverage_collector",
+    target_compatible_with = _WINDOWS_INCOMPATIBLE,
+    target_under_test = ":test_smoke",
 )

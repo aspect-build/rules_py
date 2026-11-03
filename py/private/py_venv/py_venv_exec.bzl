@@ -301,6 +301,15 @@ _test_attrs = dict({
         executable = True,
         cfg = "exec",
     ),
+    # Magic attribute that makes Bazel run its C/C++ coverage collector after
+    # the test, so profiles written by instrumented native code the test loads
+    # (e.g. extension modules) end up in coverage.dat, as for cc_test.
+    # See TestActionBuilder.java; rules_python's py_test sets the same.
+    "_collect_cc_coverage": attr.label(
+        default = "@bazel_tools//tools/test:collect_cc_coverage",
+        executable = True,
+        cfg = "exec",
+    ),
 })
 
 py_venv_exec = rule(
