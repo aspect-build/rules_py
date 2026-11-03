@@ -1,4 +1,4 @@
-load("@aspect_rules_py//py:defs.bzl", "py_pytest_main", "py_pytest_test", "py_test")
+load("@rules_py//py:defs.bzl", "py_pytest_main", "py_pytest_test", "py_test")
 
 # Regression test for #867: cross-repo test discovery must find tests in the
 # consumer repo, not autodiscover from the runfiles root.

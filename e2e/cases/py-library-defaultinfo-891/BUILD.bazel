@@ -1,4 +1,4 @@
-load("@aspect_rules_py//py:defs.bzl", "py_library", "py_test")
+load("@rules_py//py:defs.bzl", "py_library", "py_test")
 load(":tests.bzl", "py_library_defaultinfo_test_suite")
 
 py_library_defaultinfo_test_suite()

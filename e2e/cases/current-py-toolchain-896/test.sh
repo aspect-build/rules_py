@@ -16,7 +16,7 @@ check_runtime_version() {
     local version="$2"
     local got
     got="$("$BAZEL" run --lockfile_mode=off \
-        "--@aspect_rules_py//py:python_version=${version}" \
+        "--@rules_py//py:python_version=${version}" \
         -- "${target}" 2>/dev/null)"
     if [[ "${got}" != "${version}" ]]; then
         echo "FAIL: set python_version=${version}, but ${target} reports ${got}" >&2

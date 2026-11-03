@@ -5,17 +5,17 @@
 # pulled in transitively, and even the interpreter toolchain is provisioned
 # through rules_py's own python_interpreters extension.
 
-bazel_dep(name = "aspect_rules_py")
+bazel_dep(name = "rules_py")
 bazel_dep(name = "protobuf", version = "33.4")
 
 local_path_override(
-    module_name = "aspect_rules_py",
+    module_name = "rules_py",
     path = "../..",
 )
 
 # Provision a Python interpreter through rules_py's own extension rather than
 # calling rules_python's python.toolchain directly.
-interpreters = use_extension("@aspect_rules_py//py:extensions.bzl", "python_interpreters")
+interpreters = use_extension("@rules_py//py:extensions.bzl", "python_interpreters")
 interpreters.toolchain(python_version = "3.11")
 use_repo(interpreters, "python_interpreters")
 

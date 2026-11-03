@@ -21,7 +21,7 @@ equivalent. `uv.override_package(toolchains = ..., env = ...)` covers the
 `uv-sdist-jdk-build`.
 """
 
-uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv = use_extension("@rules_py//uv:extensions.bzl", "uv")
 uv.declare_hub(hub_name = "pypi_pycross_patches")
 uv.project(
     default_build_dependencies = [

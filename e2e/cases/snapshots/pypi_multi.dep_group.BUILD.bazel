@@ -1,6 +1,6 @@
 alias(
     name = "dep_group",
-    actual = "@aspect_rules_py//uv/private/constraints/dep_group:dep_group",
+    actual = "@rules_py//uv/private/constraints/dep_group:dep_group",
     visibility = ["//visibility:public"],
 )
 
@@ -8,7 +8,7 @@ alias(
 config_setting(
     name = "dev",
     flag_values = {
-        "@aspect_rules_py//uv/private/constraints/dep_group:dep_group": "dev",
+        "@rules_py//uv/private/constraints/dep_group:dep_group": "dev",
     },
     visibility = ["//visibility:public"],
 )
@@ -17,7 +17,7 @@ config_setting(
 config_setting(
     name = "unit-tests",
     flag_values = {
-        "@aspect_rules_py//uv/private/constraints/dep_group:dep_group": "unit-tests",
+        "@rules_py//uv/private/constraints/dep_group:dep_group": "unit-tests",
     },
     visibility = ["//visibility:public"],
 )
@@ -26,7 +26,7 @@ config_setting(
 config_setting(
     name = "beta",
     flag_values = {
-        "@aspect_rules_py//uv/private/constraints/dep_group:dep_group": "beta",
+        "@rules_py//uv/private/constraints/dep_group:dep_group": "beta",
     },
     visibility = ["//visibility:public"],
 )
@@ -35,7 +35,7 @@ config_setting(
 config_setting(
     name = "gamma",
     flag_values = {
-        "@aspect_rules_py//uv/private/constraints/dep_group:dep_group": "gamma",
+        "@rules_py//uv/private/constraints/dep_group:dep_group": "gamma",
     },
     visibility = ["//visibility:public"],
 )

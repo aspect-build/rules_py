@@ -37,7 +37,7 @@ plus PostgreSQL/OpenSSL/zlib/zstd source builds in this workspace; the JDK
 equivalent of that plumbing is already covered by `uv-sdist-jdk-build`.
 """
 
-uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv = use_extension("@rules_py//uv:extensions.bzl", "uv")
 uv.declare_hub(hub_name = "pypi_pycross_setuptools")
 uv.project(
     default_build_dependencies = [

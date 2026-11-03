@@ -1,4 +1,4 @@
-load("@aspect_rules_py//uv/private/whl_install:rule.bzl", "whl_dist")
+load("@rules_py//uv/private/whl_install:rule.bzl", "whl_dist")
 
 whl_dist(
     name = "whl",

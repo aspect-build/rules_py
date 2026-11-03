@@ -1,4 +1,4 @@
-uv_bin = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv_bin")
+uv_bin = use_extension("@rules_py//uv:extensions.bzl", "uv_bin")
 
 # A second hub, pinned to an older version.
 uv_bin.toolchain(

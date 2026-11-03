@@ -5,7 +5,7 @@ load("//uv/private/pprint:defs.bzl", "indent", "pprint")
 # Selected by aliases when no marker matches. Visibility must be
 # //:__subpackages__ because those aliases live in //:.
 EMPTY_LIBRARY = """\
-load("@aspect_rules_py//py:defs.bzl", "py_library")
+load("@rules_py//py:defs.bzl", "py_library")
 
 py_library(
     name = "empty",
@@ -33,7 +33,7 @@ def marker_interner(marker_table):
 def write_markers(repository_ctx, marker_table):
     """Lay down the decide_marker() targets for an interned marker table."""
     content = ["""
-load("@aspect_rules_py//uv/private/markers:defs.bzl", "decide_marker")
+load("@rules_py//uv/private/markers:defs.bzl", "decide_marker")
 
 """]
     for marker_expr, marker_id in marker_table.items():

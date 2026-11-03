@@ -1,6 +1,6 @@
 "uv pip compile example with py"
 
-bazel_dep(name = "aspect_rules_py")
+bazel_dep(name = "rules_py")
 bazel_dep(name = "rules_uv", version = "0.14.0")
 bazel_dep(name = "rules_python", version = "1.9.0")
 bazel_dep(name = "aspect_bazel_lib", version = "2.22.5", repo_name = None)
@@ -19,6 +19,6 @@ pip.parse(
 use_repo(pip, "pypi")
 
 local_path_override(
-    module_name = "aspect_rules_py",
+    module_name = "rules_py",
     path = "../..",
 )

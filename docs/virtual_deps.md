@@ -21,7 +21,7 @@ For example, instead of getting a specific version of Django from
 `deps = ["@pypi//django"]` on a `py_library` target,
 provide the package name with `virtual_deps = ["django"]`.
 
-> Note that any `py_binary` or `py_test` transitively depending on this `py_library` must be loaded from `aspect_rules_py` rather than `rules_python`, as the latter does not have a feature of resolving the virtual dep.
+> Note that any `py_binary` or `py_test` transitively depending on this `py_library` must be loaded from `rules_py` rather than `rules_python`, as the latter does not have a feature of resolving the virtual dep.
 
 ## Resolving to a package installed by rules_python
 
@@ -95,7 +95,7 @@ http_file(
 Then in a `BUILD` file, extract it to a directory:
 
 ```
-load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_unpacked_wheel")
+load("@rules_py//py:defs.bzl", "py_binary", "py_unpacked_wheel")
 
 # Extract the downloaded wheel to a directory
 py_unpacked_wheel(

@@ -117,7 +117,7 @@ def _make_compiler_wrapper(
     compiler_path: str,
     sysroot: str | None = None,
 ) -> str:
-    wrapper = path.join(tmpdir, ".aspect_rules_py_compilers", name)
+    wrapper = path.join(tmpdir, ".rules_py_compilers", name)
     makedirs(path.dirname(wrapper), exist_ok=True)
     with open(wrapper, "w") as f:
         f.write(_COMPILER_WRAPPER.format(
@@ -170,7 +170,7 @@ os.execv(libtool, [libtool, "-static", "-o", archive] + members)
 
 
 def _make_ar_libtool_wrapper(tmpdir: str, libtool_path: str) -> str:
-    wrapper = path.join(tmpdir, ".aspect_rules_py_compilers", "ar")
+    wrapper = path.join(tmpdir, ".rules_py_compilers", "ar")
     return _write_generated_file(
         wrapper,
         _AR_LIBTOOL_WRAPPER.format(libtool=libtool_path),
@@ -398,7 +398,7 @@ def _make_cross_compiler_wrapper(
     static_runtime_archives: list[str] | None = None,
     exe_link_flags: list[str] | None = None,
 ) -> str:
-    wrapper = path.join(tmpdir, ".aspect_rules_py_compilers", name)
+    wrapper = path.join(tmpdir, ".rules_py_compilers", name)
 
     # "-bundle" and "-undefined dynamic_lookup" leak from a macOS *host*
     # sysconfig and break ELF linkers, but when the *target* is darwin they
@@ -630,7 +630,7 @@ def _compiler_env(
 
     cc_path = _resolve_compiler_path(env, "CC", "cc")
     cxx_path = _resolve_compiler_path(env, "CXX", "c++")
-    if env.pop("ASPECT_RULES_PY_INFER_CXX_COMPANION", None) == "1":
+    if env.pop("RULES_PY_INFER_CXX_COMPANION", None) == "1":
         cxx_path = _local_cxx_companion(env.get("CXX"), cxx_path)
 
     sysroot = _darwin_sysroot()
@@ -991,7 +991,7 @@ def _configure_cargo_cross_env(build_env: dict[str, str], tmpdir: str, target_os
     if host_sysroot:
         merged_sysroot = _merge_rust_sysroot(tmpdir, build_env["RUSTC"], host_sysroot)
         build_env["RUSTC"] = _write_generated_file(
-            path.join(tmpdir, ".aspect_rules_py_rustc", "rustc"),
+            path.join(tmpdir, ".rules_py_rustc", "rustc"),
             _RUSTC_WRAPPER.format(rustc=build_env["RUSTC"], sysroot=merged_sysroot),
             executable=True,
         )

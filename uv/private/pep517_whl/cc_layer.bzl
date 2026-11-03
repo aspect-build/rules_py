@@ -1,7 +1,7 @@
 load("@rules_cc//cc:action_names.bzl", "ACTION_NAMES")
 load("@rules_cc//cc/common:cc_common.bzl", "cc_common")
 
-_EXECROOT_MARKER = "__ASPECT_RULES_PY_EXECROOT__"
+_EXECROOT_MARKER = "__RULES_PY_EXECROOT__"
 
 _CC_DISABLED_FEATURES = [
     "thin_lto",

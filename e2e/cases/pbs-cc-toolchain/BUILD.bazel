@@ -1,5 +1,5 @@
-load("@aspect_rules_py//py:defs.bzl", "py_test")
 load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("@rules_py//py:defs.bzl", "py_test")
 load(":toolchain_test.bzl", "pbs_toolchain_check")
 
 _WINDOWS_INCOMPATIBLE = select({
@@ -13,8 +13,8 @@ cc_binary(
     srcs = ["embed_python.cc"],
     target_compatible_with = _WINDOWS_INCOMPATIBLE,
     deps = [
-        "@aspect_rules_py//py:current_py_cc_headers",
-        "@aspect_rules_py//py:current_py_cc_libs",
+        "@rules_py//py:current_py_cc_headers",
+        "@rules_py//py:current_py_cc_libs",
     ],
 )
 
@@ -25,8 +25,8 @@ cc_binary(
     copts = ["-DPy_LIMITED_API=0x03080000"],
     target_compatible_with = _WINDOWS_INCOMPATIBLE,
     deps = [
-        "@aspect_rules_py//py:current_py_cc_headers_abi3",
-        "@aspect_rules_py//py:current_py_cc_libs",
+        "@rules_py//py:current_py_cc_headers_abi3",
+        "@rules_py//py:current_py_cc_libs",
     ],
 )
 

@@ -1,6 +1,6 @@
 """Regression #1420: pyarrow 14.0.1 Linux wheels ship a `pyarrow./` directory entry."""
 
-uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv = use_extension("@rules_py//uv:extensions.bzl", "uv")
 uv.declare_hub(hub_name = "pypi_pyarrow_dot_dir")
 uv.project(
     hub_name = "pypi_pyarrow_dot_dir",

@@ -1,13 +1,13 @@
 
-load("@aspect_rules_py//uv/private/pep517_whl:pep517_native_whl.bzl", "pep517_native_whl")
-load("@aspect_rules_py//uv/private/pep517_whl:frontend.bzl", "pep517_frontend")
-load("@aspect_rules_py//py:defs.bzl", "py_binary")
+load("@rules_py//uv/private/pep517_whl:pep517_native_whl.bzl", "pep517_native_whl")
+load("@rules_py//uv/private/pep517_whl:frontend.bzl", "pep517_frontend")
+load("@rules_py//py:defs.bzl", "py_binary")
 
 py_binary(
     name = "build_tool",
-    main = "@aspect_rules_py//uv/private/pep517_whl/tools:build_helper.py",
-    srcs = ["@aspect_rules_py//uv/private/pep517_whl/tools:build_helper.py"],
-    deps = ["@@aspect_rules_py++uv+project__uv_sdist_native_build//:build", "@@aspect_rules_py++uv+project__uv_sdist_native_build//:setuptools", "@project__uv_sdist_native_build//private/build_deps:setuptools"],
+    main = "@rules_py//uv/private/pep517_whl/tools:build_helper.py",
+    srcs = ["@rules_py//uv/private/pep517_whl/tools:build_helper.py"],
+    deps = ["@@rules_py++uv+project__uv_sdist_native_build//:build", "@@rules_py++uv+project__uv_sdist_native_build//:setuptools", "@project__uv_sdist_native_build//private/build_deps:setuptools"],
     include_console_scripts = True,
 )
 
@@ -18,7 +18,7 @@ pep517_frontend(
 
 pep517_native_whl(
     name = "whl",
-    src = "@@aspect_rules_py++uv+sdist__python_geohash__05a21fcf4eda1a5e//file:file",
+    src = "@@rules_py++uv+sdist__python_geohash__05a21fcf4eda1a5e//file:file",
     tool = ":frontend",
     version = "0.8.5",
     resource_set = "mem_4g",

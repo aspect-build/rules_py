@@ -1,4 +1,4 @@
-load("@aspect_rules_py//py:defs.bzl", "py_test")
+load("@rules_py//py:defs.bzl", "py_test")
 load("//tools:pth_snapshot.bzl", "extract_venv_data_tree")
 
 # Regression for https://github.com/aspect-build/rules_py/issues/1366.

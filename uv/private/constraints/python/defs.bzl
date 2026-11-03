@@ -31,7 +31,7 @@ def supported_python(python_tag):
         return False
 
 _PYTHON_VERSION_MAJOR_MINOR_FLAG = Label("@rules_python//python/config_settings:python_version_major_minor")
-_ARPY_PYTHON_VERSION_FLAG = Label("@aspect_rules_py//py/private/interpreter:python_version")
+_ARPY_PYTHON_VERSION_FLAG = Label("@rules_py//py/private/interpreter:python_version")
 
 def is_python_version_at_least(name, version, visibility, **kwargs):
     flag_name = "_{}_flag".format(name)
@@ -56,7 +56,7 @@ def _python_version_at_least_impl(ctx):
     rpy_value = ctx.attr._major_minor[config_common.FeatureFlagInfo].value
     arpy_raw = ctx.attr._arpy_version[BuildSettingInfo].value
 
-    # Normalize aspect_rules_py flag to major.minor
+    # Normalize rules_py flag to major.minor
     arpy_value = ""
     if arpy_raw:
         parts = arpy_raw.split(".")

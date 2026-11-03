@@ -4,7 +4,7 @@ JAR before compiling the _jpype C++ extension.
 
 bazel_dep(name = "rules_java", version = "8.14.0")
 
-uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv = use_extension("@rules_py//uv:extensions.bzl", "uv")
 uv.declare_hub(hub_name = "pypi_pycross_jdk")
 uv.project(
     default_build_dependencies = [

@@ -14,7 +14,7 @@ CARGO/RUSTC/RUST_HOST_SYSROOT make variables into the helper's env, so no
 `env` entry spells them out.
 """
 
-uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv = use_extension("@rules_py//uv:extensions.bzl", "uv")
 uv.declare_hub(hub_name = "pypi_pycross_rust")
 uv.project(
     default_build_dependencies = [

@@ -360,7 +360,7 @@
     }
   },
   "facts": {
-    "@@aspect_rules_py+//py:extensions.bzl%python_interpreters": {
+    "@@rules_py+//py:extensions.bzl%python_interpreters": {
       "release_index_v2_20260303_https://github.com/astral-sh/python-build-standalone/releases/download_install_only": {
         "3.10/aarch64-apple-darwin/default": {
           "filename": "cpython-3.10.20+20260303-aarch64-apple-darwin-install_only.tar.gz",

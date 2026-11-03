@@ -5,7 +5,7 @@ wheels for linux/amd64 and linux/arm64, but `[tool.uv] no-binary-package`
 forces it to build from sdist here.
 """
 
-uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv = use_extension("@rules_py//uv:extensions.bzl", "uv")
 uv.declare_hub(hub_name = "pypi_pycross_psutil")
 uv.project(
     default_build_dependencies = [

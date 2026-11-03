@@ -1,13 +1,13 @@
 
-load("@aspect_rules_py//uv/private/pep517_whl:pep517_native_whl.bzl", "pep517_native_whl")
-load("@aspect_rules_py//uv/private/pep517_whl:frontend.bzl", "pep517_frontend")
-load("@aspect_rules_py//py:defs.bzl", "py_binary")
+load("@rules_py//uv/private/pep517_whl:pep517_native_whl.bzl", "pep517_native_whl")
+load("@rules_py//uv/private/pep517_whl:frontend.bzl", "pep517_frontend")
+load("@rules_py//py:defs.bzl", "py_binary")
 
 py_binary(
     name = "build_tool",
-    main = "@aspect_rules_py//uv/private/pep517_whl/tools:build_helper.py",
-    srcs = ["@aspect_rules_py//uv/private/pep517_whl/tools:build_helper.py"],
-    deps = ["@aspect_rules_py//uv/private/pep517_whl/tools:tools", "@@aspect_rules_py++uv+project__uv_sdist_fallback//:packaging", "@@aspect_rules_py++uv+project__uv_sdist_fallback//:build", "@@aspect_rules_py++uv+project__uv_sdist_fallback//:setuptools", "@project__uv_sdist_fallback//private/build_deps:setuptools"],
+    main = "@rules_py//uv/private/pep517_whl/tools:build_helper.py",
+    srcs = ["@rules_py//uv/private/pep517_whl/tools:build_helper.py"],
+    deps = ["@rules_py//uv/private/pep517_whl/tools:tools", "@@rules_py++uv+project__uv_sdist_fallback//:packaging", "@@rules_py++uv+project__uv_sdist_fallback//:build", "@@rules_py++uv+project__uv_sdist_fallback//:setuptools", "@project__uv_sdist_fallback//private/build_deps:setuptools"],
     include_console_scripts = True,
 )
 
@@ -18,7 +18,7 @@ pep517_frontend(
 
 pep517_native_whl(
     name = "whl",
-    src = "@@aspect_rules_py++uv+sdist__cowsay__47445cb273684618//file:file",
+    src = "@@rules_py++uv+sdist__cowsay__47445cb273684618//file:file",
     tool = ":frontend",
     version = "6.0",
     console_scripts = ["cowsay=cowsay.__main__:cli"],

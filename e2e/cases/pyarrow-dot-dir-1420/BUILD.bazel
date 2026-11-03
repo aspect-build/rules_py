@@ -1,4 +1,4 @@
-load("@aspect_rules_py//py:defs.bzl", "py_test")
+load("@rules_py//py:defs.bzl", "py_test")
 
 # Regression #1420: pyarrow 14-17 Linux wheels contain an empty zip
 # directory entry named `pyarrow./` (trailing dot). whl_install must skip

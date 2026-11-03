@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-"""Default sdist configure tool for aspect_rules_py.
+"""Default sdist configure tool for rules_py.
 
 Inspects a source distribution archive and reports:
 - Whether it contains native/compiled source files

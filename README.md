@@ -1,4 +1,7 @@
-# aspect_rules_py
+# rules_py
+
+> [!IMPORTANT]
+> This module was previously published as `aspect_rules_py`. To upgrade, replace `aspect_rules_py` with `rules_py` in your `bazel_dep`, `load()` statements and flags.
 
 > [!NOTE]
 > This repository uses the [Aspect CLI](https://github.com/aspect-build/aspect-cli) for CI and local development.
@@ -7,7 +10,7 @@
 > [!WARNING]
 > **This is the 2.x ALPHA branch.** APIs and behavior may change without notice. For stable documentation, see the [1.x branch](https://github.com/aspect-build/rules_py/tree/1.x).
 
-`aspect_rules_py` is a high-performance alternative to [rules_python](https://github.com/bazelbuild/rules_python), the
+`rules_py` is a high-performance alternative to [rules_python](https://github.com/bazelbuild/rules_python), the
 reference Python ruleset for Bazel.
 
 It provides drop-in replacements for `py_binary`, `py_library`, and `py_test` that prioritize:
@@ -18,7 +21,7 @@ It provides drop-in replacements for `py_binary`, `py_library`, and `py_test` th
 - **Seamless IDE compatibility** via virtualenv-native structures
 - **Production-ready containers** with optimized OCI image layers
 
-`aspect_rules_py` optimizes for modern Python development workflows, large-scale monorepos, and Remote Build Execution (
+`rules_py` optimizes for modern Python development workflows, large-scale monorepos, and Remote Build Execution (
 RBE) environments.
 
 ## Advantages Over `rules_python`
@@ -61,7 +64,7 @@ a Rust-native Python package resolver.
 
 ### Own Python Interpreter Provisioning
 
-`aspect_rules_py` ships its own [python-build-standalone](https://github.com/astral-sh/python-build-standalone)
+`rules_py` ships its own [python-build-standalone](https://github.com/astral-sh/python-build-standalone)
 interpreter extension—rules_python is not required as a toolchain provider.
 
 > [!NOTE]
@@ -69,7 +72,7 @@ interpreter extension—rules_python is not required as a toolchain provider.
 > and dependency resolution. They graduated from `//py/unstable` and `//uv/unstable` in rules_py v2.0.0.
 
 ```python
-interpreters = use_extension("@aspect_rules_py//py:extensions.bzl", "python_interpreters")
+interpreters = use_extension("@rules_py//py:extensions.bzl", "python_interpreters")
 interpreters.toolchain(python_version = "3.12")
 use_repo(interpreters, "python_interpreters")
 register_toolchains("@python_interpreters//:all")
@@ -77,7 +80,7 @@ register_toolchains("@python_interpreters//:all")
 
 ```text
 # .bazelrc
-common --@aspect_rules_py//py:python_version=3.12
+common --@rules_py//py:python_version=3.12
 ```
 
 This enables cross-compilation from any host to any target without host-installed Python, and is the foundation for
@@ -134,7 +137,7 @@ Built-in rules for creating optimized container images:
 ## Installation and Configuration
 
 ```bzl
-bazel_dep(name = "aspect_rules_py", version = "1.11.2")
+bazel_dep(name = "rules_py", version = "<version>")  # See https://github.com/aspect-build/rules_py/releases
 ```
 
 ### Requirements
@@ -153,10 +156,10 @@ Some `uv` features need newer versions:
 
 ### Quick Start
 
-Load rules from `aspect_rules_py` in your `BUILD` files:
+Load rules from `rules_py` in your `BUILD` files:
 
 ```starlark
-load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_library", "py_test")
+load("@rules_py//py:defs.bzl", "py_binary", "py_library", "py_test")
 
 py_library(
     name = "lib",
@@ -180,10 +183,10 @@ py_test(
 
 ## Dependency Resolution with `uv`
 
-`aspect_rules_py//uv` is our alternative to `rules_python`'s `pip.parse`:
+`rules_py//uv` is our alternative to `rules_python`'s `pip.parse`:
 
 ```bzl
-uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv = use_extension("@rules_py//uv:extensions.bzl", "uv")
 
 # 1. Declare a hub (a shared dependency namespace)
 uv.declare_hub(
@@ -302,7 +305,7 @@ py_binary(
 Build optimized OCI images with layer caching:
 
 ```starlark
-load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_image_layer")
+load("@rules_py//py:defs.bzl", "py_binary", "py_image_layer")
 load("@rules_oci//oci:defs.bzl", "oci_image", "oci_load")
 
 py_binary(
@@ -355,7 +358,7 @@ which declares that the tars are going somewhere other than an OCI image.
 interpreter, and first-party groups:
 
 ```starlark
-load("@aspect_rules_py//py:defs.bzl", "py_layer_tier")
+load("@rules_py//py:defs.bzl", "py_layer_tier")
 
 py_layer_tier(
     name = "tier",
@@ -394,7 +397,7 @@ that reads stdin and writes compressed bytes to stdout works. The `extension` is
 how you declare what it emits, and it decides whether the result is OCI-valid:
 
 ```starlark
-load("@aspect_rules_py//py:defs.bzl", "py_layer_compressor")
+load("@rules_py//py:defs.bzl", "py_layer_compressor")
 
 py_layer_compressor(
     name = "pigz",
@@ -422,7 +425,7 @@ to have — prefer a `py_layer_compressor` there.
 
 ## IDE Integration
 
-`aspect_rules_py` generates standard virtualenv structures that IDEs understand.
+`rules_py` generates standard virtualenv structures that IDEs understand.
 In v2.0 the venv targets that the v1.x docs auto-emitted alongside every
 `py_binary` are opt-in — declare them on the targets you actually want your
 IDE to follow.
@@ -430,7 +433,7 @@ IDE to follow.
 The recommended one-liner:
 
 ```starlark
-load("@aspect_rules_py//py:defs.bzl", "py_binary")
+load("@rules_py//py:defs.bzl", "py_binary")
 
 py_binary(
     name = "my_app",
@@ -531,12 +534,12 @@ Generate `BUILD` files automatically with the Gazelle extension:
 ```bzl
 # MODULE.bazel
 bazel_dep(name = "gazelle", version = "0.42.0")
-bazel_dep(name = "aspect_rules_py", version = "1.11.2")
+bazel_dep(name = "rules_py", version = "<version>")  # See https://github.com/aspect-build/rules_py/releases
 
 # In your BUILD file
-# gazelle:map_kind py_library py_library @aspect_rules_py//py:defs.bzl
-# gazelle:map_kind py_binary py_binary @aspect_rules_py//py:defs.bzl
-# gazelle:map_kind py_test py_test @aspect_rules_py//py:defs.bzl
+# gazelle:map_kind py_library py_library @rules_py//py:defs.bzl
+# gazelle:map_kind py_binary py_binary @rules_py//py:defs.bzl
+# gazelle:map_kind py_test py_test @rules_py//py:defs.bzl
 ```
 
 ```bash
@@ -553,13 +556,13 @@ bazel run //:gazelle
 
 ## Migration from `rules_python`
 
-`aspect_rules_py` is designed for incremental adoption:
+`rules_py` is designed for incremental adoption:
 
-1. **Swap the rules**: Load `py_binary`, `py_library`, `py_test` from `@aspect_rules_py//py:defs.bzl` instead of
+1. **Swap the rules**: Load `py_binary`, `py_library`, `py_test` from `@rules_py//py:defs.bzl` instead of
    `@rules_python//python:defs.bzl`
 2. **Migrate dependencies**: Replace `pip.parse` with `uv.declare_hub` and generate a `uv.lock`
 3. **Optionally migrate toolchains**: Replace `rules_python` interpreter provisioning with
-   the `aspect_rules_py` interpreter extension for fully independent hermetic interpreters
+   the `rules_py` interpreter extension for fully independent hermetic interpreters
 
 For detailed migration guidance, see [docs/migrating.md](docs/migrating.md).
 
@@ -590,9 +593,9 @@ For detailed migration guidance, see [docs/migrating.md](docs/migrating.md).
 
 | Layer          | Implementation         | Description                                                                          |
 |:---------------|:-----------------------|:-------------------------------------------------------------------------------------|
-| **Toolchains** | `@aspect_rules_py//py` | Own python-build-standalone interpreter provisioning; `@rules_python` optional       |
-| **Resolution** | `@aspect_rules_py//uv` | Fast, lockfile-backed dependency resolution with `uv`                                |
-| **Execution**  | `@aspect_rules_py//py` | Drop-in replacements for `py_binary`, `py_library`, `py_test` with sandbox isolation |
+| **Toolchains** | `@rules_py//py` | Own python-build-standalone interpreter provisioning; `@rules_python` optional       |
+| **Resolution** | `@rules_py//uv` | Fast, lockfile-backed dependency resolution with `uv`                                |
+| **Execution**  | `@rules_py//py` | Drop-in replacements for `py_binary`, `py_library`, `py_test` with sandbox isolation |
 | **Generation** | `aspect-gazelle`       | Pre-compiled Gazelle extension—no CGO toolchain required                             |
 
 ## License

@@ -2,11 +2,14 @@
 """Generate MODULE.bazel for the analysis benchmark workspace from a template."""
 
 import argparse
+import re
 import sys
 from pathlib import Path
 
 TEMPLATE = Path(__file__).with_name("MODULE.bazel.template")
 OUTPUT = Path(__file__).with_name("MODULE.bazel")
+# Last BCR release published as aspect_rules_py; later ones are rules_py.
+LAST_ASPECT_RULES_PY_RELEASE = "2.0.0-alpha.10"
 PATCH = Path(__file__).parent / "workspace" / "patches" / "wheel_bench_note.patch"
 
 # Releases through 2.0.0-alpha.6 apply post-install patches from the install
@@ -32,12 +35,29 @@ def _version_key(version: str) -> tuple:
 def prefix_anchored(mode: str, version: str, path: str) -> bool:
     if mode == "bcr":
         return _version_key(version) <= _version_key(LAST_PREFIX_ANCHORED_RELEASE)
-    defs = Path(path, "uv/private/extension/defs.bzl").read_text()
+    defs = (Path(__file__).parent / path / "uv/private/extension/defs.bzl").read_text()
     return SITE_PACKAGES_ANCHOR_MARKER not in defs
 
 
 def patch_path_prefix(mode: str, version: str, path: str) -> str:
     return "lib/python3.11/site-packages/" if prefix_anchored(mode, version, path) else ""
+
+
+def module_name(mode: str, version: str, path: str) -> str:
+    """Module name of the rules_py under test, which was published as aspect_rules_py before the rename.
+
+    A relative `path` is resolved against this script's directory.
+    """
+    if mode == "bcr":
+        if _version_key(version) <= _version_key(LAST_ASPECT_RULES_PY_RELEASE):
+            return "aspect_rules_py"
+        return "rules_py"
+    module_file = Path(__file__).parent / path / "MODULE.bazel"
+    match = re.search(r'\bmodule\([^)]*?\bname\s*=\s*"([^"]+)"', module_file.read_text(), re.DOTALL)
+    if not match:
+        print(f"ERROR: no module name found in {module_file}", file=sys.stderr)
+        sys.exit(1)
+    return match.group(1)
 
 
 def generate(declaration: str) -> str:
@@ -78,13 +98,14 @@ def main() -> None:
     )
     args = parser.parse_args()
 
+    name = module_name(args.mode, args.version, args.path)
     if args.mode == "bcr":
-        declaration = f'bazel_dep(name = "aspect_rules_py", version = "{args.version}")'
+        declaration = f'bazel_dep(name = "{name}", version = "{args.version}", repo_name = "rules_py")'
     else:
         declaration = (
-            f'bazel_dep(name = "aspect_rules_py")\n'
+            f'bazel_dep(name = "{name}", repo_name = "rules_py")\n'
             f'local_path_override(\n'
-            f'    module_name = "aspect_rules_py",\n'
+            f'    module_name = "{name}",\n'
             f'    path = "{args.path}",\n'
             f')'
         )

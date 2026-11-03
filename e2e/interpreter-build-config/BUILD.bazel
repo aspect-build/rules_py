@@ -1,4 +1,4 @@
-load("@aspect_rules_py//py:defs.bzl", "py_test")
+load("@rules_py//py:defs.bzl", "py_test")
 
 # build_config = "install_only_stripped" (set in MODULE.bazel): the smaller,
 # symbol-stripped redistributable. It is functionally identical to install_only,

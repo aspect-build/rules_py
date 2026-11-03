@@ -9,7 +9,7 @@
 # incompatible `whl_missing` target — so the regression assertion is on the
 # dependency graph shape via genquery rather than on a build of the package.
 
-load("@aspect_rules_py//py:defs.bzl", "py_test")
+load("@rules_py//py:defs.bzl", "py_test")
 
 genquery(
     name = "markupsafe_targets",

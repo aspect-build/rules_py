@@ -4,7 +4,7 @@ normalised `name=module:func` reaches PyWheelsInfo. Asserted by the
 console_scripts_metadata_test targets in BUILD.bazel against real pinned wheels.
 """
 
-uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv = use_extension("@rules_py//uv:extensions.bzl", "uv")
 uv.declare_hub(hub_name = "pypi_uv_console_script_extras")
 uv.project(
     hub_name = "pypi_uv_console_script_extras",

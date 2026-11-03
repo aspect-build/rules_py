@@ -29,7 +29,7 @@ cat << EOF
 Add to your \`MODULE.bazel\` file:
 
 \`\`\`starlark
-bazel_dep(name = "aspect_rules_py", version = "${TAG:1}")
+bazel_dep(name = "rules_py", version = "${TAG:1}")
 \`\`\`
 
 And also register a Python toolchain, see rules_python. For example:

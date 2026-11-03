@@ -23,9 +23,9 @@ Two properties are pinned:
   execution platform's.
 """
 
-load("@aspect_rules_py_uv_host//:defs.bzl", "CURRENT_PLATFORM_LIBC")
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
+load("@rules_py_uv_host//:defs.bzl", "CURRENT_PLATFORM_LIBC")
 
 _PLATFORM_LIBC_FLAG = "//uv/private/constraints/platform:platform_libc"
 

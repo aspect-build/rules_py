@@ -47,11 +47,11 @@ artifact or a version fetched from the internet, run this from the
 root of the rules_py checkout:
 
 ```sh
-OVERRIDE="--override_module=aspect_rules_py=$(pwd)"
+OVERRIDE="--override_module=rules_py=$(pwd)"
 echo "common $OVERRIDE" >> ~/.bazelrc
 ```
 
-This means that any usage of `@aspect_rules_py` on your system will point to this folder.
+This means that any usage of `@rules_py` on your system will point to this folder.
 
 ## Running `uv` from the Bazel-managed toolchain
 

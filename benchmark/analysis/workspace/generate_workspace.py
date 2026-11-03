@@ -58,7 +58,7 @@ GROUP_EXTRA_DEPS = {
     "test": ["pytest_cov", "responses"],
 }
 
-LIBRARY_BUILD_TEMPLATE = '''load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_library")
+LIBRARY_BUILD_TEMPLATE = '''load("@rules_py//py:defs.bzl", "py_binary", "py_library")
 
 py_library(
     name = "{name}",
@@ -80,7 +80,7 @@ py_binary(
 )
 '''
 
-TEST_BUILD_TEMPLATE = '''load("@aspect_rules_py//py:defs.bzl", "py_test")
+TEST_BUILD_TEMPLATE = '''load("@rules_py//py:defs.bzl", "py_test")
 
 py_test(
     name = "{name}_test",
@@ -259,7 +259,7 @@ def generate_root_build(
 ) -> None:
     """Generate a root BUILD that groups all binaries."""
     rules = '"py_image_layer", "py_layer_tier"' if image_layer_groups else '"py_image_layer"'
-    lines = [f'load("@aspect_rules_py//py:defs.bzl", {rules})\n']
+    lines = [f'load("@rules_py//py:defs.bzl", {rules})\n']
     lines.append('load("@bazel_skylib//rules:build_test.bzl", "build_test")\n\n')
     lines.append('build_test(\n')
     lines.append('    name = "all_bins",\n')

@@ -5,7 +5,7 @@ Migration is a "drop-in replacement" for the majority of use cases.
 
 ## Replace load statements
 
-Instead of loading from `@rules_python//python:defs.bzl`, load from `@aspect_rules_py//py:defs.bzl`.
+Instead of loading from `@rules_python//python:defs.bzl`, load from `@rules_py//py:defs.bzl`.
 The rest of the BUILD file can remain the same.
 
 If using Gazelle, see the note on [using with Gazelle](/README.md#gazelle-integration)
@@ -35,7 +35,7 @@ In rules_py v2.0, the `resolutions` attribute takes a plain dict mapping each
 virtual dependency's package name to the label of an installed package that
 provides it, on both the `py_binary`/`py_test` macros and the `py_venv` rule.
 The `resolutions` helper struct is gone: delete the
-`load("@aspect_rules_py//py:defs.bzl", "resolutions")` statement, replace
+`load("@rules_py//py:defs.bzl", "resolutions")` statement, replace
 `resolutions.from_requirements(all_whl_requirements_by_package, requirement)`
 with `{pkg: requirement(pkg) for pkg in all_whl_requirements_by_package.keys()}`,
 and replace `.override({...})` with the dict union operator (`base | {...}`).
@@ -51,7 +51,7 @@ rules_py library fails analysis with `does not have mandatory providers:
 
 ```
 # .bazelrc
-common --@aspect_rules_py//py:emit_rules_python_providers
+common --@rules_py//py:emit_rules_python_providers
 ```
 
 `py_library`, `py_binary`, and `py_test` then also emit the rules_python

@@ -67,7 +67,7 @@ _ADDSITEDIR_LINE = (
     "vars().get(\"known_paths\"))"
 )
 
-_WINDOWS_LONG_PATHS_MODULE = "_aspect_rules_py_windows_long_paths"
+_WINDOWS_LONG_PATHS_MODULE = "_rules_py_windows_long_paths"
 
 def _dict_to_exports(env):
     return ["export %s=\"%s\"" % (k, v) for (k, v) in env.items()]

@@ -1,4 +1,4 @@
-load("@aspect_rules_py//py:defs.bzl", "py_test")
+load("@rules_py//py:defs.bzl", "py_test")
 
 # Regression: azure-core + azure-core-tracing-opentelemetry create a
 # regular-span conflict under the `azure` PEP 420 namespace (tl_conflicted).

@@ -87,14 +87,14 @@ exec "${script_dir}/python" -c 'import sys; from importlib import import_module;
 LINK bin/python -> ../../../../../../../+python_interpreters+python_3_13_x86_64_unknown_linux_gnu/bin/python3
 LINK bin/python3 -> python
 LINK bin/python3.13 -> python
-LINK lib/python3.13/site-packages/cowsay -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__cowsay__6_1/actual_install.install/lib/python3.13/site-packages/cowsay
-LINK lib/python3.13/site-packages/cowsay-6.1.dist-info -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__cowsay__6_1/actual_install.install/lib/python3.13/site-packages/cowsay-6.1.dist-info
+LINK lib/python3.13/site-packages/cowsay -> ../../../../../../../../../+uv+whl_install__rules_py__cowsay__6_1/actual_install.install/lib/python3.13/site-packages/cowsay
+LINK lib/python3.13/site-packages/cowsay-6.1.dist-info -> ../../../../../../../../../+uv+whl_install__rules_py__cowsay__6_1/actual_install.install/lib/python3.13/site-packages/cowsay-6.1.dist-info
 FILE lib/python3.13/site-packages/venv.pth
 ---
 ../../../../../../../../..
 import os, sys; _venv_bin = os.path.dirname(sys.executable); _path = os.environ.get("PATH", ""); os.environ["PATH"] = _path if _venv_bin in _path.split(os.pathsep) else _venv_bin + os.pathsep + _path; del _venv_bin, _path
 ../../../../../../../../../_main
-../../../../../../../../../+uv+project__aspect_rules_py
+../../../../../../../../../+uv+project__rules_py
 ---
 FILE pyvenv.cfg
 ---

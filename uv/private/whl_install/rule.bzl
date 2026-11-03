@@ -323,7 +323,7 @@ def _whl_install(ctx):
 whl_install = rule(
     implementation = _whl_install,
     doc = """
-Private implementation detail of aspect_rules_py//uv.
+Private implementation detail of rules_py//uv.
 
 Installing wheels as a Bazel build action, rather than a repo step.
 

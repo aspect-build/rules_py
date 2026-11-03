@@ -3,7 +3,7 @@
 # that uses only Python-style arch spellings (arm64/amd64). On every
 # mainstream Bazel host, platform_machine emits aarch64 or x86_64, so the
 # marker only matches once decide_marker normalizes the aliases.
-load("@aspect_rules_py//py:defs.bzl", "py_test")
+load("@rules_py//py:defs.bzl", "py_test")
 load(":inactive_marker_test.bzl", "inactive_marker_package_test", "inactive_marker_wheel_test")
 
 platform(
@@ -13,8 +13,8 @@ platform(
         "@platforms//os:linux",
     ],
     flags = [
-        "--@aspect_rules_py//uv/private/constraints/platform:platform_libc=glibc",
-        "--@aspect_rules_py//uv/private/constraints/platform:platform_version=2.28",
+        "--@rules_py//uv/private/constraints/platform:platform_libc=glibc",
+        "--@rules_py//uv/private/constraints/platform:platform_version=2.28",
     ],
 )
 

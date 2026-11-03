@@ -1,6 +1,6 @@
 """Checks whether a lock-generated conditional Python dependency is active."""
 
-load("@aspect_rules_py//py:defs.bzl", "PyInfo")
+load("@rules_py//py:defs.bzl", "PyInfo")
 
 def _marker_dependency_check_impl(ctx):
     sources = ctx.attr.dep[PyInfo].transitive_sources.to_list()

@@ -33,7 +33,7 @@ knows its execution fleet can declare the worker's values instead of
 inheriting the client's.
 """
 
-load("@aspect_rules_py_uv_host//:defs.bzl", "CURRENT_PLATFORM_LIBC", "CURRENT_PLATFORM_VERSION")
+load("@rules_py_uv_host//:defs.bzl", "CURRENT_PLATFORM_LIBC", "CURRENT_PLATFORM_VERSION")
 
 _PLATFORM_LIBC_FLAG = str(Label("//uv/private/constraints/platform:platform_libc"))
 _PLATFORM_VERSION_FLAG = str(Label("//uv/private/constraints/platform:platform_version"))

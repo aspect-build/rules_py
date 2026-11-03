@@ -6,7 +6,6 @@ regresses (e.g. requirement() reverts to :{name}, or all_requirements goes
 back to a commented stub) the relevant rule fails at load or analysis.
 """
 
-load("@aspect_rules_py//py:defs.bzl", "py_test")
 load(
     # The per-dep_group API lives in the rules_py-native defs.bzl, not the
     # rules_python-compat requirements.bzl. group_deps() returns a select() that
@@ -28,6 +27,7 @@ load(
     "all_whl_requirements_by_package",
     "requirement",
 )
+load("@rules_py//py:defs.bzl", "py_test")
 
 # all_data_requirements == all_requirements (rules_python-compat alias);
 # referenced once so buildifier doesn't strip the load.

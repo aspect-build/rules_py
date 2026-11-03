@@ -1,4 +1,4 @@
-"""Verify the running interpreter comes from aspect_rules_py provisioning, not rules_python."""
+"""Verify the running interpreter comes from rules_py provisioning, not rules_python."""
 
 import os
 import sys
@@ -11,7 +11,7 @@ def test_not_rules_python() -> None:
     # Resolve it to find the actual interpreter binary.
     real_exe = os.path.realpath(sys.executable)
     assert "pythons_hub" not in real_exe, (
-        "Expected aspect_rules_py interpreter, got rules_python: " + real_exe
+        "Expected rules_py interpreter, got rules_python: " + real_exe
     )
 
 

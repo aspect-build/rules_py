@@ -9,7 +9,7 @@ Uses its own hub so the `no-binary-package` settings stay isolated
 from other test cases.
 """
 
-uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv = use_extension("@rules_py//uv:extensions.bzl", "uv")
 uv.declare_hub(hub_name = "pypi_uv_pyproject_cases")
 uv.project(
     default_build_dependencies = [

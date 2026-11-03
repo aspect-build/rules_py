@@ -1,5 +1,5 @@
 VIRTUALENVS = [
-    "aspect_rules_py",
+    "rules_py",
 ]
 
 def compatible_with(venvs, extra_constraints = []):
@@ -27,10 +27,9 @@ def incompatible_with(venvs, extra_constraints = []):
     }
 
 _DEPS_BY_GROUP = {
-    "aspect_rules_py": [
+    "rules_py": [
         "@@+uv+pypi//arrow:pkg",
         "@@+uv+pypi//asgiref:pkg",
-        "@@+uv+pypi//aspect_rules_py:pkg",
         "@@+uv+pypi//attrs:pkg",
         "@@+uv+pypi//bazel_runfiles:pkg",
         "@@+uv+pypi//boto3:pkg",
@@ -84,6 +83,7 @@ _DEPS_BY_GROUP = {
         "@@+uv+pypi//rfc3339_validator:pkg",
         "@@+uv+pypi//rfc3986_validator:pkg",
         "@@+uv+pypi//rpds_py:pkg",
+        "@@+uv+pypi//rules_py:pkg",
         "@@+uv+pypi//s3transfer:pkg",
         "@@+uv+pypi//setuptools:pkg",
         "@@+uv+pypi//simplejson:pkg",
@@ -115,7 +115,7 @@ _GROUP_DEPS = select(
         Label("//dep_group:" + group): deps
         for group, deps in _GROUP_DEP_LABELS.items()
     },
-    no_match_error = "no dep_group selected; set the dep_group attribute on the consuming target to one of: aspect_rules_py",
+    no_match_error = "no dep_group selected; set the dep_group attribute on the consuming target to one of: rules_py",
 )
 
 def group_deps_for(group):

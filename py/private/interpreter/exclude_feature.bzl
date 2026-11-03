@@ -2,15 +2,15 @@
 
 Usage:
     bazel build //... \
-        --@aspect_rules_py//py/private/interpreter:exclude_feature=headers \
-        --@aspect_rules_py//py/private/interpreter:exclude_feature=tkinter
+        --@rules_py//py/private/interpreter:exclude_feature=headers \
+        --@rules_py//py/private/interpreter:exclude_feature=tkinter
 
 Each value accumulates. In a generated interpreter repo, a config_setting
 like:
 
     config_setting(
         name = "_exclude_headers",
-        flag_values = {"@aspect_rules_py//py/private/interpreter:exclude_feature": "headers"},
+        flag_values = {"@rules_py//py/private/interpreter:exclude_feature": "headers"},
     )
 
 will match if "headers" is among the accumulated --exclude_feature values.

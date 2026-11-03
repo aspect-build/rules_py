@@ -14,7 +14,7 @@ for version in 3.10 3.11; do
     for project in a b; do
         actual="$("$BAZEL" cquery \
             --lockfile_mode=off \
-            "--@aspect_rules_py//py:python_version=${version}" \
+            "--@rules_py//py:python_version=${version}" \
             --output=starlark \
             --starlark:expr=target.label.name \
             -- "filter('//uv-build-graph:.*_install$', deps(@project__build_graph_${project}//private/build_deps:forky))" |
@@ -37,7 +37,7 @@ for version in 3.10 3.11; do
     fi
     actual="$("$BAZEL" cquery \
         --lockfile_mode=off \
-        "--@aspect_rules_py//py:python_version=${version}" \
+        "--@rules_py//py:python_version=${version}" \
         --output=starlark \
         --starlark:expr=target.label.name \
         -- "filter('//uv-build-graph:.*_install$', deps(@project__build_graph_a//private/build_deps:cycleroot))" |
@@ -53,7 +53,7 @@ expect_cquery_failure() {
     local version="$1" target="$2" expected_error="$3" output
     if output="$("$BAZEL" cquery \
         --lockfile_mode=off \
-        "--@aspect_rules_py//py:python_version=${version}" \
+        "--@rules_py//py:python_version=${version}" \
         -- "$target" 2>&1)"; then
         printf 'FAIL: %s unexpectedly succeeded with Python %s\n' "$target" "$version" >&2
         exit 1

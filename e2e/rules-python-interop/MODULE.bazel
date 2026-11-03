@@ -8,13 +8,13 @@ whose hub this root module registers ahead of rules_python's own.
 
 module(name = "rules_python_interop")
 
-bazel_dep(name = "aspect_rules_py")
+bazel_dep(name = "rules_py")
 bazel_dep(name = "bazel_skylib", version = "1.4.2")
 bazel_dep(name = "rules_python", version = "1.9.0")
 bazel_dep(name = "rules_shell", version = "0.4.1")
 
 local_path_override(
-    module_name = "aspect_rules_py",
+    module_name = "rules_py",
     path = "../..",
 )
 
@@ -51,7 +51,7 @@ use_repo(pip, "console_script_pip", "django", "pip")
 
 # rules_py's own interpreters, spanning every version outside rules_python's
 # lane. The 3.10-3.14 span (minus 3.11) backs the exec-tools sweep in test.sh.
-interpreters = use_extension("@aspect_rules_py//py:extensions.bzl", "python_interpreters")
+interpreters = use_extension("@rules_py//py:extensions.bzl", "python_interpreters")
 interpreters.configure(
     releases = [
         "20260303",
@@ -92,7 +92,7 @@ http_file(
     urls = ["https://files.pythonhosted.org/packages/7f/9e/fc6bab255ae10bc57fa2f65646eace3d5405fbb7f5678b90140052d1db0f/Django-4.2.4-py3-none-any.whl"],
 )
 
-uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv = use_extension("@rules_py//uv:extensions.bzl", "uv")
 uv.declare_hub(hub_name = "rpy_pypi")
 uv.project(
     hub_name = "rpy_pypi",

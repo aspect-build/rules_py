@@ -6,7 +6,7 @@
 # generate an incompatible default target rather than failing with an empty
 # select chain.
 
-load("@aspect_rules_py//py:defs.bzl", "py_test")
+load("@rules_py//py:defs.bzl", "py_test")
 
 # Expose @pypi//pywin32's deps so the test can assert the generated
 # whl_install BUILD shape (whl_missing default, select_chain arm count).

@@ -272,7 +272,7 @@ def _sdist_build_impl(repository_ctx):
     monitor_memory_attr = ""
     if repository_ctx.attr.monitor_memory:
         all_deps = [
-            "@aspect_rules_py//uv/private/pep517_whl/tools:tools",
+            "@rules_py//uv/private/pep517_whl/tools:tools",
         ] + all_deps
         monitor_memory_attr = "\n    monitor_memory = True,"
 
@@ -324,7 +324,7 @@ def _sdist_build_impl(repository_ctx):
     frontend_target = ""
     tool = ":build_tool"
     if is_native:
-        frontend_load = "\nload(\"@aspect_rules_py//uv/private/pep517_whl:frontend.bzl\", \"pep517_frontend\")"
+        frontend_load = "\nload(\"@rules_py//uv/private/pep517_whl:frontend.bzl\", \"pep517_frontend\")"
         frontend_target = """
 pep517_frontend(
     name = "frontend",
@@ -334,13 +334,13 @@ pep517_frontend(
         tool = ":frontend"
 
     repository_ctx.file("BUILD.bazel", content = """
-load("@aspect_rules_py//uv/private/pep517_whl:{rule}.bzl", "{rule}"){frontend_load}
-load("@aspect_rules_py//py:defs.bzl", "py_binary")
+load("@rules_py//uv/private/pep517_whl:{rule}.bzl", "{rule}"){frontend_load}
+load("@rules_py//py:defs.bzl", "py_binary")
 
 py_binary(
     name = "build_tool",
-    main = "@aspect_rules_py//uv/private/pep517_whl/tools:build_helper.py",
-    srcs = ["@aspect_rules_py//uv/private/pep517_whl/tools:build_helper.py"],
+    main = "@rules_py//uv/private/pep517_whl/tools:build_helper.py",
+    srcs = ["@rules_py//uv/private/pep517_whl/tools:build_helper.py"],
     deps = {deps},
     include_console_scripts = True,
 )

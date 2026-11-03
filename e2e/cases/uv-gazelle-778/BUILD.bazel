@@ -1,5 +1,5 @@
-load("@aspect_rules_py//py:defs.bzl", "py_test")
-load("@aspect_rules_py//uv:defs.bzl", "gazelle_python_manifest")
+load("@rules_py//py:defs.bzl", "py_test")
+load("@rules_py//uv:defs.bzl", "gazelle_python_manifest")
 
 # Exercise generating a Gazelle manifest covering a ton of venvs. Reads
 # from the //uv-deps-650 hub which already has the 4-project shape

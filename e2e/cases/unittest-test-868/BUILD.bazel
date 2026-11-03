@@ -1,4 +1,4 @@
-load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_unittest_test")
+load("@rules_py//py:defs.bzl", "py_binary", "py_unittest_test")
 load("@rules_shell//shell:sh_test.bzl", "sh_test")
 
 # Regression coverage for py_unittest_test.

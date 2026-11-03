@@ -1,6 +1,6 @@
 alias(
     name = "dep_group",
-    actual = "@aspect_rules_py//uv/private/constraints/dep_group:dep_group",
+    actual = "@rules_py//uv/private/constraints/dep_group:dep_group",
     visibility = ["//visibility:public"],
 )
 
@@ -8,7 +8,7 @@ alias(
 config_setting(
     name = "single_project_hub",
     flag_values = {
-        "@aspect_rules_py//uv/private/constraints/dep_group:dep_group": "single_project_hub",
+        "@rules_py//uv/private/constraints/dep_group:dep_group": "single_project_hub",
     },
     visibility = ["//visibility:public"],
 )

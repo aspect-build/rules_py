@@ -3,7 +3,7 @@
 # overrides (see setup.MODULE.bazel). Each test builds+runs against the shared
 # deduplicated install repos, proving the reference rewrite leaves no dangling
 # label. The //snapshots dedup-installs entry pins the dedup signature.
-load("@aspect_rules_py//py:defs.bzl", "py_test")
+load("@rules_py//py:defs.bzl", "py_test")
 
 # The seven packages every project shares. canonical/duplicate add mccabe.
 _COMMON_PACKAGES = [

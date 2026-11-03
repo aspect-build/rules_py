@@ -2,10 +2,10 @@
 
 load(":exclude_feature.bzl", "INTERPRETER_FEATURES")
 
-_PYTHON_VERSION_FLAG = "@aspect_rules_py//py/private/interpreter:python_version"
+_PYTHON_VERSION_FLAG = "@rules_py//py/private/interpreter:python_version"
 _RPY_VERSION_FLAG = "@rules_python//python/config_settings:python_version"
-_FREETHREADING_FLAG = "@aspect_rules_py//py/private/interpreter:freethreaded"
-_EXCLUDE_FEATURE_FLAG = "@aspect_rules_py//py/private/interpreter:exclude_feature"
+_FREETHREADING_FLAG = "@rules_py//py/private/interpreter:freethreaded"
+_EXCLUDE_FEATURE_FLAG = "@rules_py//py/private/interpreter:exclude_feature"
 
 def _python_interpreter_impl(rctx):
     """Downloads and extracts a Python interpreter from PBS."""
@@ -217,7 +217,7 @@ filegroup(
     return """\
 load("@rules_cc//cc:cc_import.bzl", "cc_import")
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
-load("@aspect_rules_py//py/private/interpreter:runtime.bzl", "py_runtime_toolchain")
+load("@rules_py//py/private/interpreter:runtime.bzl", "py_runtime_toolchain")
 load("@rules_python//python/cc:py_cc_toolchain.bzl", "py_cc_toolchain")
 
 package(default_visibility = ["//visibility:public"])
@@ -331,12 +331,12 @@ def _platform_setting_name(flag, value):
     """Generate a unique config_setting name for a flag/value pair."""
 
     # Extract the last path component of the flag label as a readable prefix,
-    # e.g. "@aspect_rules_py//uv/private/constraints/platform:platform_libc"
+    # e.g. "@rules_py//uv/private/constraints/platform:platform_libc"
     # -> "platform_libc_glibc"
     name = flag.split(":")[-1] if ":" in flag else flag.split("/")[-1]
     return "{}_is_{}".format(name, value)
 
-_EXEC_TOOLS_TOOLCHAIN_TYPE = "@aspect_rules_py//py/private/toolchain:exec_tools_toolchain_type"
+_EXEC_TOOLS_TOOLCHAIN_TYPE = "@rules_py//py/private/toolchain:exec_tools_toolchain_type"
 
 def _exec_toolchain(name, exec_compatible_with, toolchain, toolchain_type, target_settings = None):
     """A toolchain() selected by exec platform, optionally gated on target settings."""
@@ -386,7 +386,7 @@ def _python_toolchains_impl(rctx):
     """Creates toolchain() registrations pointing to interpreter repos."""
     content = [
         'load("@bazel_skylib//lib:selects.bzl", "selects")',
-        'load("@aspect_rules_py//py/private/interpreter:current_py_toolchain.bzl", "current_py_toolchain")',
+        'load("@rules_py//py/private/interpreter:current_py_toolchain.bzl", "current_py_toolchain")',
         'package(default_visibility = ["//visibility:public"])',
     ]
 

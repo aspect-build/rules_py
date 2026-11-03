@@ -1,10 +1,10 @@
-load("@aspect_rules_py//py:defs.bzl", "py_library")
-load("@aspect_rules_py//uv/private/whl_install:defs.bzl", "select_chain")
-load("@aspect_rules_py//uv/private/whl_install:rule.bzl", "source_built_wheel", "whl_install")
+load("@rules_py//py:defs.bzl", "py_library")
+load("@rules_py//uv/private/whl_install:defs.bzl", "select_chain")
+load("@rules_py//uv/private/whl_install:rule.bzl", "source_built_wheel", "whl_install")
 
 source_built_wheel(
     name = "source_built_wheel",
-    src = "@@aspect_rules_py++uv+sdist_build__abi3_compat__cffi__2_0_0//:whl",
+    src = "@@rules_py++uv+sdist_build__abi3_compat__cffi__2_0_0//:whl",
     console_scripts = [],
     visibility = ["//visibility:private"],
 )
@@ -13,19 +13,19 @@ source_built_wheel(
 select_chain(
    name = "whl",
    arms = {
-       "@aspect_rules_py_pip_configurations//:cp312-macosx_11_0_arm64-cp312": "@whl__cffi__8eca2a813c1cb7ad//:whl",
-       "@aspect_rules_py_pip_configurations//:cp312-macosx_10_13_x86_64-cp312": "@whl__cffi__6d02d6655b0e54f5//:whl",
-       "@aspect_rules_py_pip_configurations//:cp312-manylinux_2_17_i686-cp312": "@whl__cffi__21d1152871b01940//:whl",
-       "@aspect_rules_py_pip_configurations//:cp312-manylinux_2_17_aarch64-cp312": "@whl__cffi__b21e08af67b8a103//:whl",
-       "@aspect_rules_py_pip_configurations//:cp312-manylinux_2_17_ppc64le-cp312": "@whl__cffi__1e3a615586f05fc4//:whl",
-       "@aspect_rules_py_pip_configurations//:cp312-manylinux_2_17_s390x-cp312": "@whl__cffi__81afed14892743bb//:whl",
-       "@aspect_rules_py_pip_configurations//:cp312-manylinux_2_17_x86_64-cp312": "@whl__cffi__3e17ed538242334b//:whl",
-       "@aspect_rules_py_pip_configurations//:cp312-manylinux_2_5_i686-cp312": "@whl__cffi__21d1152871b01940//:whl",
-       "@aspect_rules_py_pip_configurations//:cp312-musllinux_1_2_aarch64-cp312": "@whl__cffi__3925dd22fa2b7699//:whl",
-       "@aspect_rules_py_pip_configurations//:cp312-musllinux_1_2_x86_64-cp312": "@whl__cffi__2c8f814d84194c9e//:whl",
-       "@aspect_rules_py_pip_configurations//:cp312-win32-cp312": "@whl__cffi__da902562c3e9c550//:whl",
-       "@aspect_rules_py_pip_configurations//:cp312-win_amd64-cp312": "@whl__cffi__da68248800ad6320//:whl",
-       "@aspect_rules_py_pip_configurations//:cp312-win_arm64-cp312": "@whl__cffi__4671d9dd5ec934cb//:whl",
+       "@rules_py_pip_configurations//:cp312-macosx_11_0_arm64-cp312": "@whl__cffi__8eca2a813c1cb7ad//:whl",
+       "@rules_py_pip_configurations//:cp312-macosx_10_13_x86_64-cp312": "@whl__cffi__6d02d6655b0e54f5//:whl",
+       "@rules_py_pip_configurations//:cp312-manylinux_2_17_i686-cp312": "@whl__cffi__21d1152871b01940//:whl",
+       "@rules_py_pip_configurations//:cp312-manylinux_2_17_aarch64-cp312": "@whl__cffi__b21e08af67b8a103//:whl",
+       "@rules_py_pip_configurations//:cp312-manylinux_2_17_ppc64le-cp312": "@whl__cffi__1e3a615586f05fc4//:whl",
+       "@rules_py_pip_configurations//:cp312-manylinux_2_17_s390x-cp312": "@whl__cffi__81afed14892743bb//:whl",
+       "@rules_py_pip_configurations//:cp312-manylinux_2_17_x86_64-cp312": "@whl__cffi__3e17ed538242334b//:whl",
+       "@rules_py_pip_configurations//:cp312-manylinux_2_5_i686-cp312": "@whl__cffi__21d1152871b01940//:whl",
+       "@rules_py_pip_configurations//:cp312-musllinux_1_2_aarch64-cp312": "@whl__cffi__3925dd22fa2b7699//:whl",
+       "@rules_py_pip_configurations//:cp312-musllinux_1_2_x86_64-cp312": "@whl__cffi__2c8f814d84194c9e//:whl",
+       "@rules_py_pip_configurations//:cp312-win32-cp312": "@whl__cffi__da902562c3e9c550//:whl",
+       "@rules_py_pip_configurations//:cp312-win_amd64-cp312": "@whl__cffi__da68248800ad6320//:whl",
+       "@rules_py_pip_configurations//:cp312-win_arm64-cp312": "@whl__cffi__4671d9dd5ec934cb//:whl",
    },
    default_target = ":source_built_wheel",
    visibility = ["//visibility:public"],
@@ -36,12 +36,12 @@ whl_install(
     name = "actual_install",
     src = ":whl",
     compile_pyc = select({
-        "@aspect_rules_py//uv/private/pyc:is_precompile": True,
+        "@rules_py//uv/private/pyc:is_precompile": True,
         "//conditions:default": False,
     }),
     pyc_invalidation_mode = select({
-        "@aspect_rules_py//uv/private/pyc:is_whl_install_checked_hash": "checked-hash",
-        "@aspect_rules_py//uv/private/pyc:is_whl_install_timestamp": "timestamp",
+        "@rules_py//uv/private/pyc:is_whl_install_checked_hash": "checked-hash",
+        "@rules_py//uv/private/pyc:is_whl_install_timestamp": "timestamp",
         "//conditions:default": "unchecked-hash",
     }),
     visibility = ["//visibility:private"],

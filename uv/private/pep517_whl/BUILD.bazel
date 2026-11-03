@@ -40,7 +40,7 @@ bzl_library(
 bzl_library(
     name = "frontend",
     srcs = ["frontend.bzl"],
-    deps = ["@aspect_rules_py_uv_host//:defs"],
+    deps = ["@rules_py_uv_host//:defs"],
 )
 
 bzl_library(

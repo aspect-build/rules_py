@@ -9,9 +9,9 @@ def _ctx_with_imports(imports, deps = []):
             imports = imports,
         ),
         build_file_path = "foo/bar/BUILD.bazel",
-        workspace_name = "aspect_rules_py",
+        workspace_name = "rules_py",
         # Under bzlmod we have to set the workspace name otherwise we get _main
-        label = Label("@@aspect_rules_py//foo/bar:baz"),
+        label = Label("@@rules_py//foo/bar:baz"),
     )
 
 def _can_resolve_path_in_workspace_test_impl(ctx):
@@ -20,49 +20,49 @@ def _can_resolve_path_in_workspace_test_impl(ctx):
     # The import path is the current package
     fake_ctx = _ctx_with_imports(["."])
     imports = py_library.make_imports_depset(fake_ctx).to_list()
-    asserts.equals(env, "aspect_rules_py/foo/bar", imports[0])
+    asserts.equals(env, "rules_py/foo/bar", imports[0])
 
     # Empty string import is semantically equal to "."
     fake_ctx = _ctx_with_imports([""])
     imports = py_library.make_imports_depset(fake_ctx).to_list()
-    asserts.equals(env, "aspect_rules_py/foo/bar", imports[0])
+    asserts.equals(env, "rules_py/foo/bar", imports[0])
 
     # Empty imports array results in just the workspace root import
     fake_ctx = _ctx_with_imports([])
     imports = py_library.make_imports_depset(fake_ctx).to_list()
     asserts.equals(env, 1, len(imports))
-    asserts.equals(env, "aspect_rules_py", imports[0])
+    asserts.equals(env, "rules_py", imports[0])
 
     # The import path is the parent package
     fake_ctx = _ctx_with_imports([".."])
     imports = py_library.make_imports_depset(fake_ctx).to_list()
-    asserts.equals(env, "aspect_rules_py/foo", imports[0])
+    asserts.equals(env, "rules_py/foo", imports[0])
 
     # The import path is both the current and parent package
     fake_ctx = _ctx_with_imports([".", ".."])
     imports = py_library.make_imports_depset(fake_ctx).to_list()
-    asserts.equals(env, "aspect_rules_py/foo/bar", imports[0])
-    asserts.equals(env, "aspect_rules_py/foo", imports[1])
+    asserts.equals(env, "rules_py/foo/bar", imports[0])
+    asserts.equals(env, "rules_py/foo", imports[1])
 
     # The import path is the current package, but with trailing /
     fake_ctx = _ctx_with_imports(["./"])
     imports = py_library.make_imports_depset(fake_ctx).to_list()
-    asserts.equals(env, "aspect_rules_py/foo/bar", imports[0])
+    asserts.equals(env, "rules_py/foo/bar", imports[0])
 
     # The import path has some other child path in it
     fake_ctx = _ctx_with_imports(["./baz"])
     imports = py_library.make_imports_depset(fake_ctx).to_list()
-    asserts.equals(env, "aspect_rules_py/foo/bar/baz", imports[0])
+    asserts.equals(env, "rules_py/foo/bar/baz", imports[0])
 
     # The import path is at the root
     fake_ctx = _ctx_with_imports(["../.."])
     imports = py_library.make_imports_depset(fake_ctx).to_list()
-    asserts.equals(env, "aspect_rules_py", imports[0])
+    asserts.equals(env, "rules_py", imports[0])
 
     # The relative import path is longer than the path from the root
     fake_ctx = _ctx_with_imports(["../some/python/library/imp/path"])
     imports = py_library.make_imports_depset(fake_ctx).to_list()
-    asserts.equals(env, "aspect_rules_py/foo/some/python/library/imp/path", imports[0])
+    asserts.equals(env, "rules_py/foo/some/python/library/imp/path", imports[0])
 
     # Transitive imports are included in depset
     fake_ctx = _ctx_with_imports([".."], [ctx.attr.import_dep])
@@ -75,7 +75,7 @@ def _can_resolve_path_in_workspace_test_impl(ctx):
     # The dep is a rules_py py_library, which appends the workspace root to its
     # own imports, so that entry is carried transitively too.
     asserts.equals(env, ctx.workspace_name, imports[1])
-    asserts.equals(env, "aspect_rules_py/foo", imports[2])
+    asserts.equals(env, "rules_py/foo", imports[2])
 
     return unittest.end(env)
 

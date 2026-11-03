@@ -1,14 +1,14 @@
 alias(
     name = "dep_group",
-    actual = "@aspect_rules_py//uv/private/constraints/dep_group:dep_group",
+    actual = "@rules_py//uv/private/constraints/dep_group:dep_group",
     visibility = ["//visibility:public"],
 )
 
 
 config_setting(
-    name = "aspect_rules_py",
+    name = "rules_py",
     flag_values = {
-        "@aspect_rules_py//uv/private/constraints/dep_group:dep_group": "aspect_rules_py",
+        "@rules_py//uv/private/constraints/dep_group:dep_group": "rules_py",
     },
     visibility = ["//visibility:public"],
 )

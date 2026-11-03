@@ -4,7 +4,7 @@ rules_proto_grpc_python.
 The generated `greeting_pb2` module is emitted by a rules_python `py_library`
 (via `python_proto_library`) and pulls in the protobuf runtime through
 `@protobuf//:protobuf_python`. Both expose the upstream `PyInfo` provider. This
-test exists to prove aspect_rules_py's venv assembly still collects the
+test exists to prove rules_py's venv assembly still collects the
 transitive sources/imports of such a target after rules_py stopped importing
 `PyInfo` directly from rules_python (#1223) and began consuming its own
 re-exported provider seam.

@@ -1,4 +1,4 @@
-load("@aspect_rules_py//py:defs.bzl", "py_library", "py_test")
+load("@rules_py//py:defs.bzl", "py_library", "py_test")
 
 # Shared helpers for asserting venv / interpreter layout properties from
 # inside a py_binary or py_test. Consumers add this to their py_binary

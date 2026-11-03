@@ -10,7 +10,7 @@ def py_entrypoint_binary(
         pkg,
         visibility = ["//visibility:public"]):
     main = "_{}_entrypoint".format(name)
-    tmpl = Label("@aspect_rules_py//uv/private/py_entrypoint_binary:entrypoint.tmpl")
+    tmpl = Label("@rules_py//uv/private/py_entrypoint_binary:entrypoint.tmpl")
 
     if ":" not in entrypoint:
         fail("Invalid entrypoint coordinate")
@@ -71,10 +71,10 @@ def py_console_script_binary(
             (`tags`, `testonly`) are forwarded to the internal genrule.
     """
     main = "_{}_entrypoint".format(name)
-    tmpl = Label("@aspect_rules_py//uv/private/py_entrypoint_binary:entrypoint.tmpl")
+    tmpl = Label("@rules_py//uv/private/py_entrypoint_binary:entrypoint.tmpl")
 
     search_tool = "_{}_search_binary".format(name)
-    search_py = Label("@aspect_rules_py//uv/private/py_entrypoint_binary:search.py")
+    search_py = Label("@rules_py//uv/private/py_entrypoint_binary:search.py")
     search = "_{}_search".format(name)
 
     visibility = kwargs.pop("visibility", None)

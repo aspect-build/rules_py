@@ -7,7 +7,7 @@ pre-Cythonized .c in the sdist, so no Cython build dependency is needed —
 exercising the setuptools/distutils code-generation path's symbol/link pattern.
 """
 
-uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv = use_extension("@rules_py//uv:extensions.bzl", "uv")
 uv.declare_hub(hub_name = "pypi_pycross_msgpack")
 uv.project(
     default_build_dependencies = [

@@ -9,7 +9,7 @@ the shared `cases/` module also keeps their package-specific overrides
 unrelated cases sharing that workspace.
 """
 
-bazel_dep(name = "aspect_rules_py")
+bazel_dep(name = "rules_py")
 bazel_dep(name = "bazel_lib", version = "3.0.0")
 bazel_dep(name = "platforms", version = "1.0.0")
 bazel_dep(name = "llvm", version = "0.8.3")
@@ -17,11 +17,11 @@ bazel_dep(name = "rules_rust", version = "0.68.0")
 bazel_dep(name = "rules_shell", version = "0.4.1")
 
 local_path_override(
-    module_name = "aspect_rules_py",
+    module_name = "rules_py",
     path = "../..",
 )
 
-interpreters = use_extension("@aspect_rules_py//py:extensions.bzl", "python_interpreters")
+interpreters = use_extension("@rules_py//py:extensions.bzl", "python_interpreters")
 interpreters.configure(
     releases = [
         "20260303",
@@ -37,7 +37,7 @@ use_repo(interpreters, "python_interpreters")
 
 register_toolchains("@python_interpreters//:all")
 
-tools = use_extension("@aspect_rules_py//py:extensions.bzl", "py_tools")
+tools = use_extension("@rules_py//py:extensions.bzl", "py_tools")
 tools.rules_py_tools()
 use_repo(tools, "rules_py_tools")
 
@@ -61,7 +61,7 @@ use_repo(rust, "rust_toolchains")
 
 register_toolchains("@rust_toolchains//:all")
 
-uv_bin = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv_bin")
+uv_bin = use_extension("@rules_py//uv:extensions.bzl", "uv_bin")
 uv_bin.toolchain(version = "0.13.4")
 use_repo(uv_bin, "uv")
 

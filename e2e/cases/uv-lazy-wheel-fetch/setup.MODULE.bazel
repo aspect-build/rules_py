@@ -6,7 +6,7 @@ build succeeds only because inactive-platform wheels are fetched lazily (one
 exercises whl_dist's discovered-checksum path.
 """
 
-uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv = use_extension("@rules_py//uv:extensions.bzl", "uv")
 uv.declare_hub(hub_name = "pypi-lazy-wheel-fetch")
 uv.project(
     hub_name = "pypi-lazy-wheel-fetch",

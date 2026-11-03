@@ -1,6 +1,6 @@
-load("@aspect_rules_py//py:defs.bzl", "py_test")
+load("@rules_py//py:defs.bzl", "py_test")
 
-# Verify that e2e tests use aspect_rules_py interpreter provisioning,
+# Verify that e2e tests use rules_py interpreter provisioning,
 # not rules_python's python-build-standalone toolchains.
 py_test(
     name = "test",

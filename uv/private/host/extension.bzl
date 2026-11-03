@@ -8,7 +8,7 @@ defaults.
 load(":repository.bzl", "host_platform_repo")
 
 def _host_platform_impl(module_ctx):
-    host_platform_repo(name = "aspect_rules_py_uv_host")
+    host_platform_repo(name = "rules_py_uv_host")
 
     return module_ctx.extension_metadata(reproducible = True)
 

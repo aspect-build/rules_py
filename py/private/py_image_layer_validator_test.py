@@ -378,7 +378,7 @@ def test_pkg_name_pip_no_target() -> None:
 
 
 def test_pkg_name_canonical_pip() -> None:
-    assert _pkg_name_from_label("@@aspect_rules_py++pip+whl_install__images__colorama__0_4_6//colorama") == "colorama"
+    assert _pkg_name_from_label("@@rules_py++pip+whl_install__images__colorama__0_4_6//colorama") == "colorama"
 
 
 def test_pkg_name_first_party_deep_path() -> None:

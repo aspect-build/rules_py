@@ -5,7 +5,7 @@
 # (applied to the unpacked wheel). The post-install hunk's context includes the
 # pre-build hunk's line, so the two must apply in that order.
 
-load("@aspect_rules_py//py:defs.bzl", "py_test")
+load("@rules_py//py:defs.bzl", "py_test")
 
 exports_files([
     "patches/setproctitle-prebuild.patch",
