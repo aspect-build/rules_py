@@ -31,7 +31,8 @@ exclude_feature_flag = rule(
 
 # Feature definitions: maps feature name to the glob patterns it claims
 # from the interpreter install tree. Used by the interpreter repo rule
-# to generate per-feature filegroups.
+# to generate per-feature filegroups. `{stdlib}` is the standard library
+# directory, such as lib/python3.14t for a free-threaded build.
 INTERPRETER_FEATURES = {
     "headers": {
         "include": ["include/**"],
@@ -43,8 +44,8 @@ INTERPRETER_FEATURES = {
     },
     "tkinter": {
         "include": [
-            "lib/python{major}.{minor}/tkinter/**",
-            "lib/python{major}.{minor}/lib-dynload/_tkinter*",
+            "{stdlib}/tkinter/**",
+            "{stdlib}/lib-dynload/_tkinter*",
             "lib/libtcl*",
             "lib/libtk*",
             "lib/tcl*/**",
@@ -55,29 +56,29 @@ INTERPRETER_FEATURES = {
         "doc": "Tk GUI bindings",
     },
     "idle": {
-        "include": ["lib/python{major}.{minor}/idlelib/**"],
+        "include": ["{stdlib}/idlelib/**"],
         "doc": "IDLE editor",
     },
     "ensurepip": {
-        "include": ["lib/python{major}.{minor}/ensurepip/**"],
+        "include": ["{stdlib}/ensurepip/**"],
         "doc": "pip bootstrapper (bundled pip/setuptools wheels)",
     },
     "config": {
-        "include": ["lib/python{major}.{minor}/config-*/**"],
+        "include": ["{stdlib}/config-*/**"],
         "doc": "Build/link configuration and static libraries",
     },
     "pydoc": {
-        "include": ["lib/python{major}.{minor}/pydoc_data/**"],
+        "include": ["{stdlib}/pydoc_data/**"],
         "doc": "pydoc HTML templates",
     },
     "lib2to3": {
-        "include": ["lib/python{major}.{minor}/lib2to3/**"],
+        "include": ["{stdlib}/lib2to3/**"],
         "doc": "Python 2 to 3 conversion tool",
     },
     "turtle": {
         "include": [
-            "lib/python{major}.{minor}/turtle.py",
-            "lib/python{major}.{minor}/turtledemo/**",
+            "{stdlib}/turtle.py",
+            "{stdlib}/turtledemo/**",
         ],
         "doc": "Turtle graphics",
     },

@@ -67,6 +67,8 @@ def _resolve_toolchain(ctx):
         python = interpreter,
         interpreter_version_info = interpreter_version_info,
         freethreaded = freethreaded,
+        # Only rules_py's own interpreter toolchains provide this.
+        venv_dlls = getattr(toolchain_info, "venv_dlls", None),
     )
 
 semantics = struct(

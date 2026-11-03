@@ -50,6 +50,9 @@ def _py_runtime_toolchain_impl(ctx):
             py3_runtime = runtime,
             # The //py/private/toolchain:exec_tools_toolchain_type contract.
             exec_runtime = runtime,
+            # Read by rules_py's venv assembly, which links these into a
+            # Windows venv's `bin/`.
+            venv_dlls = ctx.files.venv_dlls,
         ),
         DefaultInfo(files = depset([ctx.file.interpreter], transitive = [runtime.files])),
     ]
@@ -78,6 +81,11 @@ build host regardless of the target platform being built for).""",
         ),
         "abi_flags": attr.string(
             doc = "CPython ABI flag suffix, e.g. \"t\" for freethreaded.",
+        ),
+        "venv_dlls": attr.label_list(
+            doc = "Windows only: the DLLs beside the interpreter that a venv links into its `bin/`, " +
+                  "so that a process started from there finds them.",
+            allow_files = [".dll"],
         ),
         "_bootstrap_template": attr.label(
             allow_single_file = True,

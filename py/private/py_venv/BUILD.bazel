@@ -8,6 +8,7 @@ exports_files([
     "templates/link.py",
     "templates/venv.tmpl.sh",
     "templates/venv_activate.tmpl.sh",
+    "templates/windows_long_paths.py",
 ])
 
 bool_flag(
