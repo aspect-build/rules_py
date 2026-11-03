@@ -9,8 +9,11 @@
 # so clang's PATH search hits the runner's /usr/bin/ld.
 common --incompatible_strict_action_env
 
-# Build without the bytes
-common:ci --remote_download_outputs=minimal
+# Download every output on a remote cache hit. With minimal, an action cache
+# entry whose blobs the remote cache has already dropped surfaces later as
+# "lost inputs", and Bazel's whole-build retries repeat that until the job times
+# out. Downloading eagerly turns a missing blob into a local re-execution.
+common:ci --remote_download_outputs=all
 common:ci --nobuild_runfile_links
 
 # --jobs defaults to the core count, which caps remote cache lookups and downloads
