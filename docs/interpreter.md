@@ -33,7 +33,7 @@ by [PEP 803](https://peps.python.org/pep-0803/) is not yet modeled.
 
 ```starlark
 # MODULE.bazel
-bazel_dep(name = "rules_py", version = "1.6.7")  # Or later
+bazel_dep(name = "rules_py", version = "<version>")  # See https://github.com/aspect-build/rules_py/releases
 
 interpreters = use_extension("@rules_py//py:extensions.bzl", "python_interpreters")
 interpreters.toolchain(

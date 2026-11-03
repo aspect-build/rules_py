@@ -203,7 +203,7 @@ def _whl_install_impl(repository_ctx):
 
     # Convert triples to conditions
     select_arms = {
-        "@aspect_rules_py_pip_configurations//:{}-{}-{}".format(*k): v
+        "@rules_py_pip_configurations//:{}-{}-{}".format(*k): v
         for k, v in select_arms.items()
     }
 

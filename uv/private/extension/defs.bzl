@@ -830,7 +830,7 @@ def _uv_impl(module_ctx):
     cfg = _parse_projects(module_ctx, hub_specs)
 
     configurations_hub(
-        name = "aspect_rules_py_pip_configurations",
+        name = "rules_py_pip_configurations",
         configurations = cfg.whl_cfgs,
     )
 

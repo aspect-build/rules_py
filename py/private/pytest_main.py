@@ -16,7 +16,7 @@
 import sys
 import os
 
-import aspect_rules_py_launcher_env as launcher_env
+import rules_py_launcher_env as launcher_env
 
 launcher_env.set_test_tmpdir()
 

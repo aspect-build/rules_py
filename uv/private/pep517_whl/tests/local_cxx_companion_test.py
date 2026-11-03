@@ -79,7 +79,7 @@ def _run(helper: str, sdist: str, workdir: str, cxx: str, expect: str, infer_com
             "CXX_TEST_EXPECT": expect,
             "HOME": workdir,
             "PATH": "/usr/bin:/bin",
-            "ASPECT_RULES_PY_INFER_CXX_COMPANION": "1" if infer_companion else "0",
+            "RULES_PY_INFER_CXX_COMPANION": "1" if infer_companion else "0",
         },
         text=True,
     )

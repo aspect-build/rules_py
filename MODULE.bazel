@@ -54,7 +54,7 @@ http_file = use_repo_rule(
 ]
 
 host = use_extension("//uv/private/host:extension.bzl", "host_platform")
-use_repo(host, "aspect_rules_py_uv_host")
+use_repo(host, "rules_py_uv_host")
 
 # PBS interpreters — used at repo-rule time for sdist inspection (needs >= 3.11
 # for tomllib) and available as build-time toolchains.
@@ -147,7 +147,7 @@ uv.annotate_packages(
 )
 use_repo(
     uv,
-    "aspect_rules_py_pip_configurations",
+    "rules_py_pip_configurations",
     "project__rules_py",
     "pypi",
     "sdist_build__rules_py__bravado__11_0_3",

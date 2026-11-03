@@ -59,7 +59,7 @@ write_source_files(
         # configurations_hub: Python platform-triple config_setting_groups
         # used by whl_install to pick the right pre-built wheel. Largest
         # snapshot (~1200 lines) — the resolver's flattened output shape.
-        "snapshots/pip_configurations.BUILD.bazel": "@aspect_rules_py_pip_configurations//:BUILD.bazel",
+        "snapshots/pip_configurations.BUILD.bazel": "@rules_py_pip_configurations//:BUILD.bazel",
         # python_toolchains: interpreter toolchain hub. Pins runtime and C
         # toolchains for every PBS platform plus supported exec toolchains.
         "snapshots/python_interpreters.BUILD.bazel": "@python_interpreters//:BUILD.bazel",

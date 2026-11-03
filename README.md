@@ -137,7 +137,7 @@ Built-in rules for creating optimized container images:
 ## Installation and Configuration
 
 ```bzl
-bazel_dep(name = "rules_py", version = "1.11.2")
+bazel_dep(name = "rules_py", version = "<version>")  # See https://github.com/aspect-build/rules_py/releases
 ```
 
 ### Requirements
@@ -534,7 +534,7 @@ Generate `BUILD` files automatically with the Gazelle extension:
 ```bzl
 # MODULE.bazel
 bazel_dep(name = "gazelle", version = "0.42.0")
-bazel_dep(name = "rules_py", version = "1.11.2")
+bazel_dep(name = "rules_py", version = "<version>")  # See https://github.com/aspect-build/rules_py/releases
 
 # In your BUILD file
 # gazelle:map_kind py_library py_library @rules_py//py:defs.bzl

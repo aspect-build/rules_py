@@ -18,7 +18,7 @@ from typing import Any, Literal
 from collections.abc import Iterator
 from xml.sax.saxutils import escape, quoteattr
 
-import aspect_rules_py_launcher_env as launcher_env
+import rules_py_launcher_env as launcher_env
 
 # The closed set of JUnit outcomes the writer understands.
 _Status = Literal["passed", "failure", "error", "skipped"]

@@ -11,15 +11,33 @@ from pathlib import Path
 
 TEMPLATE = Path(__file__).with_name("MODULE.bazel.template")
 OUTPUT = Path(__file__).with_name("MODULE.bazel")
-# Name every BCR release so far was published under.
-BCR_MODULE_NAME = "aspect_rules_py"
+# Last BCR release published as aspect_rules_py; later ones are rules_py.
+LAST_ASPECT_RULES_PY_RELEASE = "2.0.0-alpha.10"
 
 
-def module_name(mode: str, path: str) -> str:
-    """Module name of the rules_py under test, which was published as aspect_rules_py before the rename."""
+def _version_key(version: str) -> tuple:
+    base, _, pre = version.partition("-")
+    key = tuple(int(part) for part in base.split("."))
+    if not pre:
+        return key + ((1,),)
+    name, _, number = pre.partition(".")
+    return key + ((0, name, int(number or 0)),)
+
+
+def module_name(mode: str, version: str, path: str) -> str:
+    """Module name of the rules_py under test, which was published as aspect_rules_py before the rename.
+
+    A relative `path` is resolved against this script's directory.
+    """
     if mode == "bcr":
-        return BCR_MODULE_NAME
-    match = re.search(r'module\(\s*name\s*=\s*"([^"]+)"', Path(path, "MODULE.bazel").read_text())
+        if _version_key(version) <= _version_key(LAST_ASPECT_RULES_PY_RELEASE):
+            return "aspect_rules_py"
+        return "rules_py"
+    module_file = Path(__file__).parent / path / "MODULE.bazel"
+    match = re.search(r'\bmodule\([^)]*?\bname\s*=\s*"([^"]+)"', module_file.read_text(), re.DOTALL)
+    if not match:
+        print(f"ERROR: no module name found in {module_file}", file=sys.stderr)
+        sys.exit(1)
     return match.group(1)
 
 
@@ -61,7 +79,7 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    name = module_name(args.mode, args.path)
+    name = module_name(args.mode, args.version, args.path)
     if args.mode == "bcr":
         declaration = f'bazel_dep(name = "{name}", version = "{args.version}", repo_name = "rules_py")'
     else:

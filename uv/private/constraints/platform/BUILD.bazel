@@ -1,4 +1,4 @@
-load("@aspect_rules_py_uv_host//:defs.bzl", "CURRENT_PLATFORM_LIBC", "CURRENT_PLATFORM_VERSION")
+load("@rules_py_uv_host//:defs.bzl", "CURRENT_PLATFORM_LIBC", "CURRENT_PLATFORM_VERSION")
 load("@bazel_lib//:bzl_library.bzl", "bzl_library")
 load("@bazel_skylib//lib:selects.bzl", "selects")
 load("@bazel_skylib//rules:common_settings.bzl", "string_flag")
@@ -17,7 +17,7 @@ bzl_library(
     srcs = ["macro.bzl"],
     deps = [
         "//uv/private/constraints:defs",
-        "@aspect_rules_py_uv_host//:defs",
+        "@rules_py_uv_host//:defs",
         "@bazel_skylib//lib:selects",
     ],
 )

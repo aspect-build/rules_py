@@ -15,7 +15,7 @@ load("@rules_py//py:defs.bzl", "py_test")
 #
 # 1. `tmp_root = path.abspath(opts.outdir) + ".tmp"` remains valid after the
 #    cwd change.
-# 2. Absolute CC/CXX wrappers under `tmp_root/.aspect_rules_py_compilers/`
+# 2. Absolute CC/CXX wrappers under `tmp_root/.rules_py_compilers/`
 #    resolve the configured compiler execpaths before setup.py invokes them.
 #
 # Constrained to linux for the same reason as uv-sdist-native-build:

@@ -76,7 +76,7 @@ to swap a locked requirement (`cowsay`) for a local one.
 
 ```starlark
 # MODULE.bazel
-bazel_dep(name = "rules_py", version = "1.6.7") # Or later
+bazel_dep(name = "rules_py", version = "<version>")  # See https://github.com/aspect-build/rules_py/releases
 
 uv_bin = use_extension("@rules_py//uv:extensions.bzl", "uv_bin")
 uv_bin.toolchain(version = "0.13.4")

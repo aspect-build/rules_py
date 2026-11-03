@@ -39,8 +39,8 @@ _DERIVED_ENV = {
     "ANT_HOME": "ANT_HOME",
     "ANT_BIN_DIR": "RULES_PY_ANT_BIN_DIR",
 }
-_EXECROOT_MARKER = "__ASPECT_RULES_PY_EXECROOT__"
-_INFER_CXX_COMPANION = "ASPECT_RULES_PY_INFER_CXX_COMPANION"
+_EXECROOT_MARKER = "__RULES_PY_EXECROOT__"
+_INFER_CXX_COMPANION = "RULES_PY_INFER_CXX_COMPANION"
 
 def _collect_toolchain_inputs_and_vars(ctx):
     """Gather files + Make-variable substitutions from `ctx.attr.toolchains`.

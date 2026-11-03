@@ -1,4 +1,4 @@
-FILE Lib/site-packages/_aspect_rules_py_windows_long_paths.py
+FILE Lib/site-packages/_rules_py_windows_long_paths.py
 ---
 r"""Load Windows extension modules from paths near or over MAX_PATH.
 
@@ -63,7 +63,7 @@ LINK Lib/site-packages/cowsay-6.1.dist-info -> ../../../../../../../../+uv+whl_i
 FILE Lib/site-packages/venv.pth
 ---
 ../../../../../../../..
-import _aspect_rules_py_windows_long_paths; _aspect_rules_py_windows_long_paths.install()
+import _rules_py_windows_long_paths; _rules_py_windows_long_paths.install()
 import os, sys; _venv_bin = os.path.dirname(sys.executable); _path = os.environ.get("PATH", ""); os.environ["PATH"] = _path if _venv_bin in _path.split(os.pathsep) else _venv_bin + os.pathsep + _path; del _venv_bin, _path
 ../../../../../../../../_main
 ../../../../../../../../+uv+project__rules_py
