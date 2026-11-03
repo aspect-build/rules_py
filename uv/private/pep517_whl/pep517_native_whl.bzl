@@ -308,10 +308,21 @@ def _pep517_native_whl(ctx):
         env[_INFER_CXX_COMPANION] = "1"
 
     cross_args = []
-    if cross:
-        cc_toolchain = cc_toolchain_raw
-        if hasattr(cc_toolchain, "cc_provider_in_toolchain") and hasattr(cc_toolchain, "cc"):
-            cc_toolchain = cc_toolchain.cc
+    cc_toolchain = cc_toolchain_raw
+    if hasattr(cc_toolchain, "cc_provider_in_toolchain") and hasattr(cc_toolchain, "cc"):
+        cc_toolchain = cc_toolchain.cc
+
+    # A hermetic C++ toolchain reaches its libc headers, crt objects and
+    # runtime only through its action flags, so native builds need them too.
+    # Native builds keep the backend's self-discovery when `env` replaces the
+    # toolchain's compiler (its flags may not suit another driver) or the
+    # provider has no feature configuration to derive flags from.
+    native_toolchain_flags = (
+        hasattr(cc_toolchain, "ar_executable") and
+        "CC" not in ctx.attr.env and
+        "CXX" not in ctx.attr.env
+    )
+    if cross or native_toolchain_flags:
         cc_layer = extract_cc_layer(ctx, cc_toolchain)
 
         # Toolchain flags first, then any flags the package set via `env`
@@ -338,31 +349,34 @@ def _pep517_native_whl(ctx):
         if cc_layer.static_runtime_paths:
             env["RULES_PY_CXX_STATIC_RUNTIME"] = ":".join(cc_layer.static_runtime_paths)
 
-        cross_args = [
-            "--cross",
-            "--target-os",
-            cc_layer.target_os or "",
-            "--target-cpu",
-            cc_layer.target_cpu or "",
-            "--target-libc",
-            ctx.attr._platform_libc[BuildSettingInfo].value,
-        ]
+        if not cross:
+            cross_args = ["--toolchain-flags"]
+        else:
+            cross_args = [
+                "--cross",
+                "--target-os",
+                cc_layer.target_os or "",
+                "--target-cpu",
+                cc_layer.target_cpu or "",
+                "--target-libc",
+                ctx.attr._platform_libc[BuildSettingInfo].value,
+            ]
 
-        py_toolchain = ctx.toolchains[PY_TOOLCHAIN]
-        if py_toolchain != None:
-            runtime = getattr(py_toolchain, "py3_runtime", None)
-            if runtime:
-                artifacts = _target_python_artifacts(runtime)
-                if artifacts.sysconfig:
-                    extra_inputs.append(depset([artifacts.sysconfig]))
-                    env["RULES_PY_TARGET_SYSCONFIGDATA"] = artifacts.sysconfig.path
-                if artifacts.include_dir:
-                    extra_inputs.append(depset(artifacts.include_files))
-                    env["RULES_PY_TARGET_INCLUDE"] = artifacts.include_dir
+            py_toolchain = ctx.toolchains[PY_TOOLCHAIN]
+            if py_toolchain != None:
+                runtime = getattr(py_toolchain, "py3_runtime", None)
+                if runtime:
+                    artifacts = _target_python_artifacts(runtime)
+                    if artifacts.sysconfig:
+                        extra_inputs.append(depset([artifacts.sysconfig]))
+                        env["RULES_PY_TARGET_SYSCONFIGDATA"] = artifacts.sysconfig.path
+                    if artifacts.include_dir:
+                        extra_inputs.append(depset(artifacts.include_files))
+                        env["RULES_PY_TARGET_INCLUDE"] = artifacts.include_dir
 
-        host_platform = _derive_python_host_platform(cc_layer.target_os, cc_layer.target_cpu)
-        if host_platform:
-            env["_PYTHON_HOST_PLATFORM"] = host_platform
+            host_platform = _derive_python_host_platform(cc_layer.target_os, cc_layer.target_cpu)
+            if host_platform:
+                env["_PYTHON_HOST_PLATFORM"] = host_platform
 
     tool = ctx.attr.tool[DefaultInfo].files_to_run
     io_args = ctx.actions.args()
@@ -418,7 +432,8 @@ constraints of the target platform.
                   "execroot-relative path with " +
                   "`$(EXECROOT)/` so it remains valid after the backend changes into " +
                   "the unpacked source tree. Omit CC/CXX/AR/LD/STRIP to use the " +
-                  "configured C++ action tools.",
+                  "configured C++ action tools; while CC and CXX are omitted, " +
+                  "the toolchain's compile and link flags are passed too.",
         ),
         "_platform_libc": attr.label(
             default = "//uv/private/constraints/platform:platform_libc",
