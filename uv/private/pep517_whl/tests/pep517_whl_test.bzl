@@ -305,6 +305,15 @@ def _absolutize_flag_test_impl(ctx):
         # handles values the backend re-splices after the chdir).
         ("--sysroot=external/llvm/sysroot", "--sysroot=external/llvm/sysroot"),
         ("-O2", "-O2"),
+        # Joined `-flag=<path>` values rooted in the execroot get the marker.
+        ("-resource-dir=external/llvm/lib/clang/22", "-resource-dir=" + marker + "/external/llvm/lib/clang/22"),
+        ("-fsanitize-ignorelist=external/llvm/ubsan_ignore.txt", "-fsanitize-ignorelist=" + marker + "/external/llvm/ubsan_ignore.txt"),
+        ("-Wl,--version-script=bazel-out/k8-fastbuild/bin/ext.lds", "-Wl,--version-script=" + marker + "/bazel-out/k8-fastbuild/bin/ext.lds"),
+        # Other `=` values are not paths into the execroot.
+        ("-D__DATE__=redacted", "-D__DATE__=redacted"),
+        ("-ffile-compilation-dir=.", "-ffile-compilation-dir=."),
+        ("-resource-dir=/opt/llvm/lib/clang/22", "-resource-dir=/opt/llvm/lib/clang/22"),
+        ("-DFOO=a/b", "-DFOO=a/b"),
     ):
         asserts.equals(env, expected, absolutize(flag))
     return unittest.end(env)
