@@ -186,77 +186,77 @@ case $0 in
 esac
 exec "${script_dir}/python" -c 'import sys; from importlib import import_module; from operator import attrgetter; sys.argv[0] = "sqlformat"; sys.exit(attrgetter("main")(import_module("sqlparse.__main__"))())' "$@"
 ---
-LINK lib/python3.13/site-packages/Django-4.2.15.dist-info -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__django__4_2_15/actual_install.install/lib/python3.13/site-packages/Django-4.2.15.dist-info
-LINK lib/python3.13/site-packages/_pytest -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__pytest__8_1_1/actual_install.install/lib/python3.13/site-packages/_pytest
-LINK lib/python3.13/site-packages/arrow -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__arrow__1_3_0/actual_install.install/lib/python3.13/site-packages/arrow
-LINK lib/python3.13/site-packages/arrow-1.3.0.dist-info -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__arrow__1_3_0/actual_install.install/lib/python3.13/site-packages/arrow-1.3.0.dist-info
-LINK lib/python3.13/site-packages/asgiref -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__asgiref__3_8_1/actual_install.install/lib/python3.13/site-packages/asgiref
-LINK lib/python3.13/site-packages/asgiref-3.8.1.dist-info -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__asgiref__3_8_1/actual_install.install/lib/python3.13/site-packages/asgiref-3.8.1.dist-info
-LINK lib/python3.13/site-packages/attr -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__attrs__23_2_0/actual_install.install/lib/python3.13/site-packages/attr
-LINK lib/python3.13/site-packages/attrs -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__attrs__23_2_0/actual_install.install/lib/python3.13/site-packages/attrs
-LINK lib/python3.13/site-packages/attrs-23.2.0.dist-info -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__attrs__23_2_0/actual_install.install/lib/python3.13/site-packages/attrs-23.2.0.dist-info
-LINK lib/python3.13/site-packages/build -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__build__1_3_0/actual_install.install/lib/python3.13/site-packages/build
-LINK lib/python3.13/site-packages/build-1.3.0.dist-info -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__build__1_3_0/actual_install.install/lib/python3.13/site-packages/build-1.3.0.dist-info
-LINK lib/python3.13/site-packages/coverage -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__coverage__7_6_10/actual_install.install/lib/python3.13/site-packages/coverage
-LINK lib/python3.13/site-packages/coverage-7.6.10.dist-info -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__coverage__7_6_10/actual_install.install/lib/python3.13/site-packages/coverage-7.6.10.dist-info
-LINK lib/python3.13/site-packages/cowsay -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__cowsay__6_1/actual_install.install/lib/python3.13/site-packages/cowsay
-LINK lib/python3.13/site-packages/cowsay-6.1.dist-info -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__cowsay__6_1/actual_install.install/lib/python3.13/site-packages/cowsay-6.1.dist-info
-LINK lib/python3.13/site-packages/dateutil -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__python_dateutil__2_9_0_post0/actual_install.install/lib/python3.13/site-packages/dateutil
-LINK lib/python3.13/site-packages/dateutil-stubs -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__types_python_dateutil__2_9_0_20240316/actual_install.install/lib/python3.13/site-packages/dateutil-stubs
-LINK lib/python3.13/site-packages/django -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__django__4_2_15/actual_install.install/lib/python3.13/site-packages/django
-LINK lib/python3.13/site-packages/fqdn -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__fqdn__1_5_1/actual_install.install/lib/python3.13/site-packages/fqdn
-LINK lib/python3.13/site-packages/fqdn-1.5.1.dist-info -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__fqdn__1_5_1/actual_install.install/lib/python3.13/site-packages/fqdn-1.5.1.dist-info
-LINK lib/python3.13/site-packages/future -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__future__1_0_0/actual_install.install/lib/python3.13/site-packages/future
-LINK lib/python3.13/site-packages/future-1.0.0.dist-info -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__future__1_0_0/actual_install.install/lib/python3.13/site-packages/future-1.0.0.dist-info
-LINK lib/python3.13/site-packages/idna -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__idna__3_7/actual_install.install/lib/python3.13/site-packages/idna
-LINK lib/python3.13/site-packages/idna-3.7.dist-info -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__idna__3_7/actual_install.install/lib/python3.13/site-packages/idna-3.7.dist-info
-LINK lib/python3.13/site-packages/iniconfig -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__iniconfig__2_0_0/actual_install.install/lib/python3.13/site-packages/iniconfig
-LINK lib/python3.13/site-packages/iniconfig-2.0.0.dist-info -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__iniconfig__2_0_0/actual_install.install/lib/python3.13/site-packages/iniconfig-2.0.0.dist-info
-LINK lib/python3.13/site-packages/isoduration -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__isoduration__20_11_0/actual_install.install/lib/python3.13/site-packages/isoduration
-LINK lib/python3.13/site-packages/isoduration-20.11.0.dist-info -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__isoduration__20_11_0/actual_install.install/lib/python3.13/site-packages/isoduration-20.11.0.dist-info
-LINK lib/python3.13/site-packages/jsonpointer-2.4.dist-info -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__jsonpointer__2_4/actual_install.install/lib/python3.13/site-packages/jsonpointer-2.4.dist-info
-LINK lib/python3.13/site-packages/jsonpointer.py -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__jsonpointer__2_4/actual_install.install/lib/python3.13/site-packages/jsonpointer.py
-LINK lib/python3.13/site-packages/jsonschema -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__jsonschema__4_21_1/actual_install.install/lib/python3.13/site-packages/jsonschema
-LINK lib/python3.13/site-packages/jsonschema-4.21.1.dist-info -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__jsonschema__4_21_1/actual_install.install/lib/python3.13/site-packages/jsonschema-4.21.1.dist-info
-LINK lib/python3.13/site-packages/jsonschema_specifications -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__jsonschema_specifications__2023_12_1/actual_install.install/lib/python3.13/site-packages/jsonschema_specifications
-LINK lib/python3.13/site-packages/jsonschema_specifications-2023.12.1.dist-info -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__jsonschema_specifications__2023_12_1/actual_install.install/lib/python3.13/site-packages/jsonschema_specifications-2023.12.1.dist-info
-LINK lib/python3.13/site-packages/libfuturize -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__future__1_0_0/actual_install.install/lib/python3.13/site-packages/libfuturize
-LINK lib/python3.13/site-packages/libpasteurize -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__future__1_0_0/actual_install.install/lib/python3.13/site-packages/libpasteurize
+LINK lib/python3.13/site-packages/Django-4.2.15.dist-info -> ../../../../../../../../../+uv+whl_install__rules_py__django__4_2_15/actual_install.install/lib/python3.13/site-packages/Django-4.2.15.dist-info
+LINK lib/python3.13/site-packages/_pytest -> ../../../../../../../../../+uv+whl_install__rules_py__pytest__8_1_1/actual_install.install/lib/python3.13/site-packages/_pytest
+LINK lib/python3.13/site-packages/arrow -> ../../../../../../../../../+uv+whl_install__rules_py__arrow__1_3_0/actual_install.install/lib/python3.13/site-packages/arrow
+LINK lib/python3.13/site-packages/arrow-1.3.0.dist-info -> ../../../../../../../../../+uv+whl_install__rules_py__arrow__1_3_0/actual_install.install/lib/python3.13/site-packages/arrow-1.3.0.dist-info
+LINK lib/python3.13/site-packages/asgiref -> ../../../../../../../../../+uv+whl_install__rules_py__asgiref__3_8_1/actual_install.install/lib/python3.13/site-packages/asgiref
+LINK lib/python3.13/site-packages/asgiref-3.8.1.dist-info -> ../../../../../../../../../+uv+whl_install__rules_py__asgiref__3_8_1/actual_install.install/lib/python3.13/site-packages/asgiref-3.8.1.dist-info
+LINK lib/python3.13/site-packages/attr -> ../../../../../../../../../+uv+whl_install__rules_py__attrs__23_2_0/actual_install.install/lib/python3.13/site-packages/attr
+LINK lib/python3.13/site-packages/attrs -> ../../../../../../../../../+uv+whl_install__rules_py__attrs__23_2_0/actual_install.install/lib/python3.13/site-packages/attrs
+LINK lib/python3.13/site-packages/attrs-23.2.0.dist-info -> ../../../../../../../../../+uv+whl_install__rules_py__attrs__23_2_0/actual_install.install/lib/python3.13/site-packages/attrs-23.2.0.dist-info
+LINK lib/python3.13/site-packages/build -> ../../../../../../../../../+uv+whl_install__rules_py__build__1_3_0/actual_install.install/lib/python3.13/site-packages/build
+LINK lib/python3.13/site-packages/build-1.3.0.dist-info -> ../../../../../../../../../+uv+whl_install__rules_py__build__1_3_0/actual_install.install/lib/python3.13/site-packages/build-1.3.0.dist-info
+LINK lib/python3.13/site-packages/coverage -> ../../../../../../../../../+uv+whl_install__rules_py__coverage__7_6_10/actual_install.install/lib/python3.13/site-packages/coverage
+LINK lib/python3.13/site-packages/coverage-7.6.10.dist-info -> ../../../../../../../../../+uv+whl_install__rules_py__coverage__7_6_10/actual_install.install/lib/python3.13/site-packages/coverage-7.6.10.dist-info
+LINK lib/python3.13/site-packages/cowsay -> ../../../../../../../../../+uv+whl_install__rules_py__cowsay__6_1/actual_install.install/lib/python3.13/site-packages/cowsay
+LINK lib/python3.13/site-packages/cowsay-6.1.dist-info -> ../../../../../../../../../+uv+whl_install__rules_py__cowsay__6_1/actual_install.install/lib/python3.13/site-packages/cowsay-6.1.dist-info
+LINK lib/python3.13/site-packages/dateutil -> ../../../../../../../../../+uv+whl_install__rules_py__python_dateutil__2_9_0_post0/actual_install.install/lib/python3.13/site-packages/dateutil
+LINK lib/python3.13/site-packages/dateutil-stubs -> ../../../../../../../../../+uv+whl_install__rules_py__types_python_dateutil__2_9_0_20240316/actual_install.install/lib/python3.13/site-packages/dateutil-stubs
+LINK lib/python3.13/site-packages/django -> ../../../../../../../../../+uv+whl_install__rules_py__django__4_2_15/actual_install.install/lib/python3.13/site-packages/django
+LINK lib/python3.13/site-packages/fqdn -> ../../../../../../../../../+uv+whl_install__rules_py__fqdn__1_5_1/actual_install.install/lib/python3.13/site-packages/fqdn
+LINK lib/python3.13/site-packages/fqdn-1.5.1.dist-info -> ../../../../../../../../../+uv+whl_install__rules_py__fqdn__1_5_1/actual_install.install/lib/python3.13/site-packages/fqdn-1.5.1.dist-info
+LINK lib/python3.13/site-packages/future -> ../../../../../../../../../+uv+whl_install__rules_py__future__1_0_0/actual_install.install/lib/python3.13/site-packages/future
+LINK lib/python3.13/site-packages/future-1.0.0.dist-info -> ../../../../../../../../../+uv+whl_install__rules_py__future__1_0_0/actual_install.install/lib/python3.13/site-packages/future-1.0.0.dist-info
+LINK lib/python3.13/site-packages/idna -> ../../../../../../../../../+uv+whl_install__rules_py__idna__3_7/actual_install.install/lib/python3.13/site-packages/idna
+LINK lib/python3.13/site-packages/idna-3.7.dist-info -> ../../../../../../../../../+uv+whl_install__rules_py__idna__3_7/actual_install.install/lib/python3.13/site-packages/idna-3.7.dist-info
+LINK lib/python3.13/site-packages/iniconfig -> ../../../../../../../../../+uv+whl_install__rules_py__iniconfig__2_0_0/actual_install.install/lib/python3.13/site-packages/iniconfig
+LINK lib/python3.13/site-packages/iniconfig-2.0.0.dist-info -> ../../../../../../../../../+uv+whl_install__rules_py__iniconfig__2_0_0/actual_install.install/lib/python3.13/site-packages/iniconfig-2.0.0.dist-info
+LINK lib/python3.13/site-packages/isoduration -> ../../../../../../../../../+uv+whl_install__rules_py__isoduration__20_11_0/actual_install.install/lib/python3.13/site-packages/isoduration
+LINK lib/python3.13/site-packages/isoduration-20.11.0.dist-info -> ../../../../../../../../../+uv+whl_install__rules_py__isoduration__20_11_0/actual_install.install/lib/python3.13/site-packages/isoduration-20.11.0.dist-info
+LINK lib/python3.13/site-packages/jsonpointer-2.4.dist-info -> ../../../../../../../../../+uv+whl_install__rules_py__jsonpointer__2_4/actual_install.install/lib/python3.13/site-packages/jsonpointer-2.4.dist-info
+LINK lib/python3.13/site-packages/jsonpointer.py -> ../../../../../../../../../+uv+whl_install__rules_py__jsonpointer__2_4/actual_install.install/lib/python3.13/site-packages/jsonpointer.py
+LINK lib/python3.13/site-packages/jsonschema -> ../../../../../../../../../+uv+whl_install__rules_py__jsonschema__4_21_1/actual_install.install/lib/python3.13/site-packages/jsonschema
+LINK lib/python3.13/site-packages/jsonschema-4.21.1.dist-info -> ../../../../../../../../../+uv+whl_install__rules_py__jsonschema__4_21_1/actual_install.install/lib/python3.13/site-packages/jsonschema-4.21.1.dist-info
+LINK lib/python3.13/site-packages/jsonschema_specifications -> ../../../../../../../../../+uv+whl_install__rules_py__jsonschema_specifications__2023_12_1/actual_install.install/lib/python3.13/site-packages/jsonschema_specifications
+LINK lib/python3.13/site-packages/jsonschema_specifications-2023.12.1.dist-info -> ../../../../../../../../../+uv+whl_install__rules_py__jsonschema_specifications__2023_12_1/actual_install.install/lib/python3.13/site-packages/jsonschema_specifications-2023.12.1.dist-info
+LINK lib/python3.13/site-packages/libfuturize -> ../../../../../../../../../+uv+whl_install__rules_py__future__1_0_0/actual_install.install/lib/python3.13/site-packages/libfuturize
+LINK lib/python3.13/site-packages/libpasteurize -> ../../../../../../../../../+uv+whl_install__rules_py__future__1_0_0/actual_install.install/lib/python3.13/site-packages/libpasteurize
 FILE lib/python3.13/site-packages/many_scripts_venv.pth
 ---
 ../../../../../../../../..
 import os, sys; _venv_bin = os.path.dirname(sys.executable); _path = os.environ.get("PATH", ""); os.environ["PATH"] = _path if _venv_bin in _path.split(os.pathsep) else _venv_bin + os.pathsep + _path; del _venv_bin, _path
 ../../../../../../../../../_main
-../../../../../../../../../+uv+project__aspect_rules_py
+../../../../../../../../../+uv+project__rules_py
 ---
-LINK lib/python3.13/site-packages/packaging -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__packaging__24_0/actual_install.install/lib/python3.13/site-packages/packaging
-LINK lib/python3.13/site-packages/packaging-24.0.dist-info -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__packaging__24_0/actual_install.install/lib/python3.13/site-packages/packaging-24.0.dist-info
-LINK lib/python3.13/site-packages/past -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__future__1_0_0/actual_install.install/lib/python3.13/site-packages/past
-LINK lib/python3.13/site-packages/pluggy -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__pluggy__1_4_0/actual_install.install/lib/python3.13/site-packages/pluggy
-LINK lib/python3.13/site-packages/pluggy-1.4.0.dist-info -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__pluggy__1_4_0/actual_install.install/lib/python3.13/site-packages/pluggy-1.4.0.dist-info
-LINK lib/python3.13/site-packages/py.py -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__pytest__8_1_1/actual_install.install/lib/python3.13/site-packages/py.py
-LINK lib/python3.13/site-packages/pyproject_hooks -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__pyproject_hooks__1_2_0/actual_install.install/lib/python3.13/site-packages/pyproject_hooks
-LINK lib/python3.13/site-packages/pyproject_hooks-1.2.0.dist-info -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__pyproject_hooks__1_2_0/actual_install.install/lib/python3.13/site-packages/pyproject_hooks-1.2.0.dist-info
-LINK lib/python3.13/site-packages/pytest -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__pytest__8_1_1/actual_install.install/lib/python3.13/site-packages/pytest
-LINK lib/python3.13/site-packages/pytest-8.1.1.dist-info -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__pytest__8_1_1/actual_install.install/lib/python3.13/site-packages/pytest-8.1.1.dist-info
-LINK lib/python3.13/site-packages/python_dateutil-2.9.0.post0.dist-info -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__python_dateutil__2_9_0_post0/actual_install.install/lib/python3.13/site-packages/python_dateutil-2.9.0.post0.dist-info
-LINK lib/python3.13/site-packages/referencing -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__referencing__0_35_0/actual_install.install/lib/python3.13/site-packages/referencing
-LINK lib/python3.13/site-packages/referencing-0.35.0.dist-info -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__referencing__0_35_0/actual_install.install/lib/python3.13/site-packages/referencing-0.35.0.dist-info
-LINK lib/python3.13/site-packages/rfc3339_validator-0.1.4.dist-info -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__rfc3339_validator__0_1_4/actual_install.install/lib/python3.13/site-packages/rfc3339_validator-0.1.4.dist-info
-LINK lib/python3.13/site-packages/rfc3339_validator.py -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__rfc3339_validator__0_1_4/actual_install.install/lib/python3.13/site-packages/rfc3339_validator.py
-LINK lib/python3.13/site-packages/rfc3986_validator-0.1.1.dist-info -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__rfc3986_validator__0_1_1/actual_install.install/lib/python3.13/site-packages/rfc3986_validator-0.1.1.dist-info
-LINK lib/python3.13/site-packages/rfc3986_validator.py -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__rfc3986_validator__0_1_1/actual_install.install/lib/python3.13/site-packages/rfc3986_validator.py
-LINK lib/python3.13/site-packages/rpds -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__rpds_py__0_19_1/actual_install.install/lib/python3.13/site-packages/rpds
-LINK lib/python3.13/site-packages/rpds_py-0.19.1.dist-info -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__rpds_py__0_19_1/actual_install.install/lib/python3.13/site-packages/rpds_py-0.19.1.dist-info
-LINK lib/python3.13/site-packages/six-1.16.0.dist-info -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__six__1_16_0/actual_install.install/lib/python3.13/site-packages/six-1.16.0.dist-info
-LINK lib/python3.13/site-packages/six.py -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__six__1_16_0/actual_install.install/lib/python3.13/site-packages/six.py
-LINK lib/python3.13/site-packages/sqlparse -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__sqlparse__0_5_1/actual_install.install/lib/python3.13/site-packages/sqlparse
-LINK lib/python3.13/site-packages/sqlparse-0.5.1.dist-info -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__sqlparse__0_5_1/actual_install.install/lib/python3.13/site-packages/sqlparse-0.5.1.dist-info
-LINK lib/python3.13/site-packages/types_python_dateutil-2.9.0.20240316.dist-info -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__types_python_dateutil__2_9_0_20240316/actual_install.install/lib/python3.13/site-packages/types_python_dateutil-2.9.0.20240316.dist-info
-LINK lib/python3.13/site-packages/uri_template -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__uri_template__1_3_0/actual_install.install/lib/python3.13/site-packages/uri_template
-LINK lib/python3.13/site-packages/uri_template-1.3.0.dist-info -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__uri_template__1_3_0/actual_install.install/lib/python3.13/site-packages/uri_template-1.3.0.dist-info
-LINK lib/python3.13/site-packages/webcolors -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__webcolors__1_13/actual_install.install/lib/python3.13/site-packages/webcolors
-LINK lib/python3.13/site-packages/webcolors-1.13.dist-info -> ../../../../../../../../../+uv+whl_install__aspect_rules_py__webcolors__1_13/actual_install.install/lib/python3.13/site-packages/webcolors-1.13.dist-info
+LINK lib/python3.13/site-packages/packaging -> ../../../../../../../../../+uv+whl_install__rules_py__packaging__24_0/actual_install.install/lib/python3.13/site-packages/packaging
+LINK lib/python3.13/site-packages/packaging-24.0.dist-info -> ../../../../../../../../../+uv+whl_install__rules_py__packaging__24_0/actual_install.install/lib/python3.13/site-packages/packaging-24.0.dist-info
+LINK lib/python3.13/site-packages/past -> ../../../../../../../../../+uv+whl_install__rules_py__future__1_0_0/actual_install.install/lib/python3.13/site-packages/past
+LINK lib/python3.13/site-packages/pluggy -> ../../../../../../../../../+uv+whl_install__rules_py__pluggy__1_4_0/actual_install.install/lib/python3.13/site-packages/pluggy
+LINK lib/python3.13/site-packages/pluggy-1.4.0.dist-info -> ../../../../../../../../../+uv+whl_install__rules_py__pluggy__1_4_0/actual_install.install/lib/python3.13/site-packages/pluggy-1.4.0.dist-info
+LINK lib/python3.13/site-packages/py.py -> ../../../../../../../../../+uv+whl_install__rules_py__pytest__8_1_1/actual_install.install/lib/python3.13/site-packages/py.py
+LINK lib/python3.13/site-packages/pyproject_hooks -> ../../../../../../../../../+uv+whl_install__rules_py__pyproject_hooks__1_2_0/actual_install.install/lib/python3.13/site-packages/pyproject_hooks
+LINK lib/python3.13/site-packages/pyproject_hooks-1.2.0.dist-info -> ../../../../../../../../../+uv+whl_install__rules_py__pyproject_hooks__1_2_0/actual_install.install/lib/python3.13/site-packages/pyproject_hooks-1.2.0.dist-info
+LINK lib/python3.13/site-packages/pytest -> ../../../../../../../../../+uv+whl_install__rules_py__pytest__8_1_1/actual_install.install/lib/python3.13/site-packages/pytest
+LINK lib/python3.13/site-packages/pytest-8.1.1.dist-info -> ../../../../../../../../../+uv+whl_install__rules_py__pytest__8_1_1/actual_install.install/lib/python3.13/site-packages/pytest-8.1.1.dist-info
+LINK lib/python3.13/site-packages/python_dateutil-2.9.0.post0.dist-info -> ../../../../../../../../../+uv+whl_install__rules_py__python_dateutil__2_9_0_post0/actual_install.install/lib/python3.13/site-packages/python_dateutil-2.9.0.post0.dist-info
+LINK lib/python3.13/site-packages/referencing -> ../../../../../../../../../+uv+whl_install__rules_py__referencing__0_35_0/actual_install.install/lib/python3.13/site-packages/referencing
+LINK lib/python3.13/site-packages/referencing-0.35.0.dist-info -> ../../../../../../../../../+uv+whl_install__rules_py__referencing__0_35_0/actual_install.install/lib/python3.13/site-packages/referencing-0.35.0.dist-info
+LINK lib/python3.13/site-packages/rfc3339_validator-0.1.4.dist-info -> ../../../../../../../../../+uv+whl_install__rules_py__rfc3339_validator__0_1_4/actual_install.install/lib/python3.13/site-packages/rfc3339_validator-0.1.4.dist-info
+LINK lib/python3.13/site-packages/rfc3339_validator.py -> ../../../../../../../../../+uv+whl_install__rules_py__rfc3339_validator__0_1_4/actual_install.install/lib/python3.13/site-packages/rfc3339_validator.py
+LINK lib/python3.13/site-packages/rfc3986_validator-0.1.1.dist-info -> ../../../../../../../../../+uv+whl_install__rules_py__rfc3986_validator__0_1_1/actual_install.install/lib/python3.13/site-packages/rfc3986_validator-0.1.1.dist-info
+LINK lib/python3.13/site-packages/rfc3986_validator.py -> ../../../../../../../../../+uv+whl_install__rules_py__rfc3986_validator__0_1_1/actual_install.install/lib/python3.13/site-packages/rfc3986_validator.py
+LINK lib/python3.13/site-packages/rpds -> ../../../../../../../../../+uv+whl_install__rules_py__rpds_py__0_19_1/actual_install.install/lib/python3.13/site-packages/rpds
+LINK lib/python3.13/site-packages/rpds_py-0.19.1.dist-info -> ../../../../../../../../../+uv+whl_install__rules_py__rpds_py__0_19_1/actual_install.install/lib/python3.13/site-packages/rpds_py-0.19.1.dist-info
+LINK lib/python3.13/site-packages/six-1.16.0.dist-info -> ../../../../../../../../../+uv+whl_install__rules_py__six__1_16_0/actual_install.install/lib/python3.13/site-packages/six-1.16.0.dist-info
+LINK lib/python3.13/site-packages/six.py -> ../../../../../../../../../+uv+whl_install__rules_py__six__1_16_0/actual_install.install/lib/python3.13/site-packages/six.py
+LINK lib/python3.13/site-packages/sqlparse -> ../../../../../../../../../+uv+whl_install__rules_py__sqlparse__0_5_1/actual_install.install/lib/python3.13/site-packages/sqlparse
+LINK lib/python3.13/site-packages/sqlparse-0.5.1.dist-info -> ../../../../../../../../../+uv+whl_install__rules_py__sqlparse__0_5_1/actual_install.install/lib/python3.13/site-packages/sqlparse-0.5.1.dist-info
+LINK lib/python3.13/site-packages/types_python_dateutil-2.9.0.20240316.dist-info -> ../../../../../../../../../+uv+whl_install__rules_py__types_python_dateutil__2_9_0_20240316/actual_install.install/lib/python3.13/site-packages/types_python_dateutil-2.9.0.20240316.dist-info
+LINK lib/python3.13/site-packages/uri_template -> ../../../../../../../../../+uv+whl_install__rules_py__uri_template__1_3_0/actual_install.install/lib/python3.13/site-packages/uri_template
+LINK lib/python3.13/site-packages/uri_template-1.3.0.dist-info -> ../../../../../../../../../+uv+whl_install__rules_py__uri_template__1_3_0/actual_install.install/lib/python3.13/site-packages/uri_template-1.3.0.dist-info
+LINK lib/python3.13/site-packages/webcolors -> ../../../../../../../../../+uv+whl_install__rules_py__webcolors__1_13/actual_install.install/lib/python3.13/site-packages/webcolors
+LINK lib/python3.13/site-packages/webcolors-1.13.dist-info -> ../../../../../../../../../+uv+whl_install__rules_py__webcolors__1_13/actual_install.install/lib/python3.13/site-packages/webcolors-1.13.dist-info
 FILE pyvenv.cfg
 ---
 home = ../../../../../../+python_interpreters+python_3_13_x86_64_unknown_linux_gnu/bin

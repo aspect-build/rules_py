@@ -1,5 +1,5 @@
 [project]
-name = "aspect_rules_py"
+name = "rules_py"
 version = "0.0.0"
 authors = []
 requires-python = ">=3.10, <3.14"

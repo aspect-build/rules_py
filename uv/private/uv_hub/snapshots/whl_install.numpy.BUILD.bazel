@@ -4,7 +4,7 @@ load("@rules_py//uv/private/whl_install:rule.bzl", "source_built_wheel", "whl_in
 
 source_built_wheel(
     name = "source_built_wheel",
-    src = "@@+uv+sdist_build__aspect_rules_py__numpy__1_26_4//:whl",
+    src = "@@+uv+sdist_build__rules_py__numpy__1_26_4//:whl",
     console_scripts = [],
     visibility = ["//visibility:private"],
 )

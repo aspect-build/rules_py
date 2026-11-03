@@ -33,63 +33,6 @@ wheels = [
 ]
 
 [[package]]
-name = "aspect-rules-py"
-version = "0.0.0"
-source = { virtual = "." }
-dependencies = [
-    { name = "bazel-runfiles" },
-    { name = "build" },
-    { name = "click" },
-    { name = "colorama" },
-    { name = "coverage" },
-    { name = "cowsay" },
-    { name = "django" },
-    { name = "ftfy" },
-    { name = "maturin" },
-    { name = "neptune" },
-    { name = "pkg" },
-    { name = "pytest" },
-    { name = "setuptools" },
-    { name = "six" },
-    { name = "snakesay" },
-]
-
-[package.dev-dependencies]
-dev = [
-    { name = "pex" },
-    { name = "pyright" },
-    { name = "ruff" },
-    { name = "ty" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "bazel-runfiles" },
-    { name = "build" },
-    { name = "click" },
-    { name = "colorama", specifier = "~=0.4.0" },
-    { name = "coverage" },
-    { name = "cowsay" },
-    { name = "django", specifier = "~=4.2.7" },
-    { name = "ftfy", specifier = "==6.2.0" },
-    { name = "maturin" },
-    { name = "neptune", specifier = "==1.10.2" },
-    { name = "pkg" },
-    { name = "pytest" },
-    { name = "setuptools" },
-    { name = "six" },
-    { name = "snakesay" },
-]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "pex", specifier = "==2.3.1" },
-    { name = "pyright", specifier = "==1.1.411" },
-    { name = "ruff", specifier = "==0.15.22" },
-    { name = "ty", specifier = "==0.0.61" },
-]
-
-[[package]]
 name = "attrs"
 version = "23.2.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1071,6 +1014,63 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/4d/76/3f72d8fc38c1cb77b38c56a70da9d0c17700cc1cc50f9649c9d3c8f5ba71/ruff-0.15.22-py3-none-win32.whl", hash = "sha256:e5ba0e4a13fd14abbed2a77b517a3911290c6c6c59ef67784328d1668fab76cf", size = 10789165, upload-time = "2026-07-16T15:14:04.16Z" },
     { url = "https://files.pythonhosted.org/packages/cb/46/4965251734c2b6fcdca1b1b187d20bcac3af0ee5b083b89c910bb961ce3a/ruff-0.15.22-py3-none-win_amd64.whl", hash = "sha256:9be63ba1eb936acd2d1342fb8337c356353706fce233b2a15a09a97037e6acde", size = 11938297, upload-time = "2026-07-16T15:14:07.316Z" },
     { url = "https://files.pythonhosted.org/packages/57/c9/e69b1ff4c8b69093ef08b8919ab767af0569666865b39c30a8795d88d3c6/ruff-0.15.22-py3-none-win_arm64.whl", hash = "sha256:e1168075b72158510839f250027659cdd78476f40507dd517892304c41318661", size = 11298172, upload-time = "2026-07-16T15:14:10.51Z" },
+]
+
+[[package]]
+name = "rules-py"
+version = "0.0.0"
+source = { virtual = "." }
+dependencies = [
+    { name = "bazel-runfiles" },
+    { name = "build" },
+    { name = "click" },
+    { name = "colorama" },
+    { name = "coverage" },
+    { name = "cowsay" },
+    { name = "django" },
+    { name = "ftfy" },
+    { name = "maturin" },
+    { name = "neptune" },
+    { name = "pkg" },
+    { name = "pytest" },
+    { name = "setuptools" },
+    { name = "six" },
+    { name = "snakesay" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "pex" },
+    { name = "pyright" },
+    { name = "ruff" },
+    { name = "ty" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "bazel-runfiles" },
+    { name = "build" },
+    { name = "click" },
+    { name = "colorama", specifier = "~=0.4.0" },
+    { name = "coverage" },
+    { name = "cowsay" },
+    { name = "django", specifier = "~=4.2.7" },
+    { name = "ftfy", specifier = "==6.2.0" },
+    { name = "maturin" },
+    { name = "neptune", specifier = "==1.10.2" },
+    { name = "pkg" },
+    { name = "pytest" },
+    { name = "setuptools" },
+    { name = "six" },
+    { name = "snakesay" },
+]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "pex", specifier = "==2.3.1" },
+    { name = "pyright", specifier = "==1.1.411" },
+    { name = "ruff", specifier = "==0.15.22" },
+    { name = "ty", specifier = "==0.0.61" },
 ]
 
 [[package]]

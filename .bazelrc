@@ -15,7 +15,7 @@ common --noincompatible_enable_proto_toolchain_resolution
 common --define=SOME_VAR=SOME_VALUE
 
 # Set the default virtualenv to 'default'
-common --@pypi//dep_group=aspect_rules_py
+common --@pypi//dep_group=rules_py
 
 # Default python version
 common --@rules_py//py:python_version=3.13
