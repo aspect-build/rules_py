@@ -18,7 +18,7 @@ common --define=SOME_VAR=SOME_VALUE
 common --@pypi//dep_group=aspect_rules_py
 
 # Default python version
-common --@aspect_rules_py//py:python_version=3.13
+common --@rules_py//py:python_version=3.13
 
 # Uncomment to enable verbose diagnostics for uv repository rules (sdist builds, git archives)
 # common --repo_env=RULES_PY_UV_VERBOSE=1

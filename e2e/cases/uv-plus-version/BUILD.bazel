@@ -1,4 +1,4 @@
-load("@aspect_rules_py//py:defs.bzl", "py_test")
+load("@rules_py//py:defs.bzl", "py_test")
 load(":metadata_test.bzl", "wheel_metadata_test")
 
 platform(
@@ -8,8 +8,8 @@ platform(
         "@platforms//os:linux",
     ],
     flags = [
-        "--@aspect_rules_py//uv/private/constraints/platform:platform_libc=glibc",
-        "--@aspect_rules_py//uv/private/constraints/platform:platform_version=2.39",
+        "--@rules_py//uv/private/constraints/platform:platform_libc=glibc",
+        "--@rules_py//uv/private/constraints/platform:platform_version=2.39",
     ],
 )
 

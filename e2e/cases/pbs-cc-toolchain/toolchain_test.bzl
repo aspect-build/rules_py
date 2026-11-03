@@ -1,8 +1,8 @@
 """Analysis checks for paired PBS runtime and C toolchains."""
 
 _RUNTIME_TOOLCHAIN = "@bazel_tools//tools/python:toolchain_type"
-_PY_CC_TOOLCHAIN = "@aspect_rules_py//py:py_cc_toolchain_type"
-_EXEC_TOOLS_TOOLCHAIN = "@aspect_rules_py//py/private/toolchain:exec_tools_toolchain_type"
+_PY_CC_TOOLCHAIN = "@rules_py//py:py_cc_toolchain_type"
+_EXEC_TOOLS_TOOLCHAIN = "@rules_py//py/private/toolchain:exec_tools_toolchain_type"
 
 def _link_library_files(provider_set):
     files = []

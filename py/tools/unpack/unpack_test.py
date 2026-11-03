@@ -209,7 +209,7 @@ def main() -> None:
         assert (record_site_packages / "fixture" / "collision.py").read_bytes() == b"VALUE = 2\n"
         assert (
             record_site_packages / "record_fixture-1.0.dist-info" / "INSTALLER"
-        ).read_bytes() == b"aspect_rules_py"
+        ).read_bytes() == b"rules_py"
         assert (
             record_site_packages / "record_fixture-1.0.dist-info" / "REQUESTED"
         ).read_bytes() == b""

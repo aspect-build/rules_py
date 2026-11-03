@@ -1,4 +1,4 @@
-load("@aspect_rules_py//py:defs.bzl", "py_test", "py_unpacked_wheel")
+load("@rules_py//py:defs.bzl", "py_test", "py_unpacked_wheel")
 load("//tools:pth_snapshot.bzl", "extract_venv_pth")
 
 # Test namespace package resolution with the symlink-forest venv.

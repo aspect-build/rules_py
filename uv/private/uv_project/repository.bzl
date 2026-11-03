@@ -61,7 +61,7 @@ def _project_impl(repository_ctx):
 config_setting(
     name = "{name}",
     flag_values = {{
-        "@aspect_rules_py//uv/private/constraints/dep_group:dep_group": "{name}",
+        "@rules_py//uv/private/constraints/dep_group:dep_group": "{name}",
     }},
     visibility = ["//visibility:public"],
 )

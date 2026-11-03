@@ -30,7 +30,7 @@ def _hub_impl(repository_ctx):
         """\
 alias(
     name = "dep_group",
-    actual = "@aspect_rules_py//uv/private/constraints/dep_group:dep_group",
+    actual = "@rules_py//uv/private/constraints/dep_group:dep_group",
     visibility = ["//visibility:public"],
 )
 """,
@@ -43,7 +43,7 @@ alias(
 config_setting(
     name = "{name}",
     flag_values = {{
-        "@aspect_rules_py//uv/private/constraints/dep_group:dep_group": "{name}",
+        "@rules_py//uv/private/constraints/dep_group:dep_group": "{name}",
     }},
     visibility = ["//visibility:public"],
 )
@@ -234,7 +234,7 @@ def group_deps():
     # rules_py-specific additions belong in defs.bzl instead.
     content = []
     content.append("""
-load("@aspect_rules_py//uv/private:normalize_name.bzl", "normalize_name")
+load("@rules_py//uv/private:normalize_name.bzl", "normalize_name")
 
 all_requirements = {all_requirements}
 

@@ -97,7 +97,7 @@ The JSON object MAY contain any of the following fields:
 The bundled `detect_native.py` implements this contract. It requires
 Python >= 3.11 (for `tomllib`). It is located at:
 
-    @aspect_rules_py//uv/private/sdist_configure:detect_native.py
+    @rules_py//uv/private/sdist_configure:detect_native.py
 """
 
 # Default configure script bundled with rules_py.

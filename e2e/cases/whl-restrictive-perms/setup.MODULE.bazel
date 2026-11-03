@@ -10,7 +10,7 @@ only the metadata read is under test, and torch/mlx/opencv/jax would otherwise b
 locked and declared for it.
 """
 
-uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv = use_extension("@rules_py//uv:extensions.bzl", "uv")
 uv.declare_hub(hub_name = "pypi_whl_restrictive_perms")
 uv.project(
     hub_name = "pypi_whl_restrictive_perms",

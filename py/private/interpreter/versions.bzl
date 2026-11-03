@@ -252,7 +252,7 @@ def validate_build_config(suffix):
         fail(
             "build_config '{}' must not select free-threading. ".format(suffix) +
             "Free-threading is an orthogonal axis chosen at build time via " +
-            "--@aspect_rules_py//py/private/interpreter:freethreaded; pass the " +
+            "--@rules_py//py/private/interpreter:freethreaded; pass the " +
             "non-free-threaded suffix instead{}.".format(example),
         )
     return parsed

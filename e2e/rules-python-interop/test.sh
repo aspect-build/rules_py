@@ -36,7 +36,7 @@ check_resolved_runtime() {
 for version in 3.10 3.11 3.12 3.13 3.14; do
     "$BAZEL" run \
         --lockfile_mode=off \
-        "--@aspect_rules_py//py:python_version=${version}" \
+        "--@rules_py//py:python_version=${version}" \
         -- //:version_check "${version}"
 
     "$BAZEL" run \
@@ -51,8 +51,8 @@ done
 # rules_python's own flag, and the exec-tools toolchain type has no
 # rules_python provider at all.
 for version in 3.10 3.12 3.13 3.14; do
-    check_resolved_runtime @aspect_rules_py//py:python_version //:report_version "${version}" python_interpreters
-    check_resolved_runtime @aspect_rules_py//py:python_version //:report_exec_version "${version}" python_interpreters
+    check_resolved_runtime @rules_py//py:python_version //:report_version "${version}" python_interpreters
+    check_resolved_runtime @rules_py//py:python_version //:report_exec_version "${version}" python_interpreters
 
     check_resolved_runtime @rules_python//python/config_settings:python_version //:report_version "${version}" python_interpreters
     check_resolved_runtime @rules_python//python/config_settings:python_version //:report_exec_version "${version}" python_interpreters
@@ -64,7 +64,7 @@ check_resolved_runtime @rules_python//python/config_settings:python_version //:r
 
 "$BAZEL" build \
     --lockfile_mode=off \
-    --@aspect_rules_py//py:python_version=3.13 \
+    --@rules_py//py:python_version=3.13 \
     -- \
     //:python_launcher
 
@@ -77,7 +77,7 @@ fi
 echo "PASS: rules_py Python version selected the 3.13 launcher"
 
 "$BAZEL" test --lockfile_mode=off \
-    --@aspect_rules_py//py:python_version=3.13 \
+    --@rules_py//py:python_version=3.13 \
     -- \
     //reset-data-edges:passthrough_terminals_test \
     //reset-data-edges:reset_data_edges_test \

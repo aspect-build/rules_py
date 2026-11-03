@@ -1,4 +1,4 @@
-"""Wheel installer for aspect_rules_py WhlInstall and PyUnpackedWheel actions.
+"""Wheel installer for rules_py WhlInstall and PyUnpackedWheel actions.
 
 Installs a single wheel into::
 
@@ -404,7 +404,7 @@ def install_wheel(
         dist_info = record_path.parent
 
         installer_path = dist_info / "INSTALLER"
-        installer_path.write_text("aspect_rules_py", encoding="utf-8")
+        installer_path.write_text("rules_py", encoding="utf-8")
 
         requested_path = dist_info / "REQUESTED"
         requested_path.write_bytes(b"")

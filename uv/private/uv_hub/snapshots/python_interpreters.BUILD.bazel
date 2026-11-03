@@ -1,5 +1,5 @@
 load("@bazel_skylib//lib:selects.bzl", "selects")
-load("@aspect_rules_py//py/private/interpreter:current_py_toolchain.bzl", "current_py_toolchain")
+load("@rules_py//py/private/interpreter:current_py_toolchain.bzl", "current_py_toolchain")
 package(default_visibility = ["//visibility:public"])
 
 # Each python_version_is_* group matches on our own version flag, with
@@ -9,13 +9,13 @@ package(default_visibility = ["//visibility:public"])
 
 config_setting(
     name = "_python_version_is_3_12_our_major_minor",
-    flag_values = {"@aspect_rules_py//py/private/interpreter:python_version": "3.12"},
+    flag_values = {"@rules_py//py/private/interpreter:python_version": "3.12"},
 )
 
 config_setting(
     name = "_python_version_is_3_12_rpy_fallback",
     flag_values = {
-        "@aspect_rules_py//py/private/interpreter:python_version": "",
+        "@rules_py//py/private/interpreter:python_version": "",
         "@rules_python//python/config_settings:python_version": "3.12",
     },
 )
@@ -31,13 +31,13 @@ selects.config_setting_group(
 
 config_setting(
     name = "_python_version_is_3_13_our_major_minor",
-    flag_values = {"@aspect_rules_py//py/private/interpreter:python_version": "3.13"},
+    flag_values = {"@rules_py//py/private/interpreter:python_version": "3.13"},
 )
 
 config_setting(
     name = "_python_version_is_3_13_rpy_fallback",
     flag_values = {
-        "@aspect_rules_py//py/private/interpreter:python_version": "",
+        "@rules_py//py/private/interpreter:python_version": "",
         "@rules_python//python/config_settings:python_version": "3.13",
     },
 )
@@ -53,25 +53,25 @@ selects.config_setting_group(
 
 config_setting(
     name = "freethreaded_is_false",
-    flag_values = {"@aspect_rules_py//py/private/interpreter:freethreaded": "false"},
+    flag_values = {"@rules_py//py/private/interpreter:freethreaded": "false"},
 )
 
 
 config_setting(
     name = "freethreaded_is_true",
-    flag_values = {"@aspect_rules_py//py/private/interpreter:freethreaded": "true"},
+    flag_values = {"@rules_py//py/private/interpreter:freethreaded": "true"},
 )
 
 
 config_setting(
     name = "platform_libc_is_glibc",
-    flag_values = {"@aspect_rules_py//uv/private/constraints/platform:platform_libc": "glibc"},
+    flag_values = {"@rules_py//uv/private/constraints/platform:platform_libc": "glibc"},
 )
 
 
 config_setting(
     name = "platform_libc_is_musl",
-    flag_values = {"@aspect_rules_py//uv/private/constraints/platform:platform_libc": "musl"},
+    flag_values = {"@rules_py//uv/private/constraints/platform:platform_libc": "musl"},
 )
 
 
@@ -110,7 +110,7 @@ toolchain(
     exec_compatible_with = ["@platforms//os:macos", "@platforms//cpu:aarch64"],
     target_settings = [":python_version_is_3_12", ":freethreaded_is_false"],
     toolchain = "@python_3_12_aarch64_apple_darwin//:runtime",
-    toolchain_type = "@aspect_rules_py//py/private/toolchain:exec_tools_toolchain_type",
+    toolchain_type = "@rules_py//py/private/toolchain:exec_tools_toolchain_type",
 )
 
 
@@ -135,7 +135,7 @@ toolchain(
     exec_compatible_with = ["@platforms//os:linux", "@platforms//cpu:aarch64"],
     target_settings = [":python_version_is_3_12", ":freethreaded_is_false"],
     toolchain = "@python_3_12_aarch64_unknown_linux_gnu//:runtime",
-    toolchain_type = "@aspect_rules_py//py/private/toolchain:exec_tools_toolchain_type",
+    toolchain_type = "@rules_py//py/private/toolchain:exec_tools_toolchain_type",
 )
 
 
@@ -177,7 +177,7 @@ toolchain(
     exec_compatible_with = ["@platforms//os:macos", "@platforms//cpu:x86_64"],
     target_settings = [":python_version_is_3_12", ":freethreaded_is_false"],
     toolchain = "@python_3_12_x86_64_apple_darwin//:runtime",
-    toolchain_type = "@aspect_rules_py//py/private/toolchain:exec_tools_toolchain_type",
+    toolchain_type = "@rules_py//py/private/toolchain:exec_tools_toolchain_type",
 )
 
 
@@ -202,7 +202,7 @@ toolchain(
     exec_compatible_with = ["@platforms//os:linux", "@platforms//cpu:x86_64"],
     target_settings = [":python_version_is_3_12", ":freethreaded_is_false"],
     toolchain = "@python_3_12_x86_64_unknown_linux_gnu//:runtime",
-    toolchain_type = "@aspect_rules_py//py/private/toolchain:exec_tools_toolchain_type",
+    toolchain_type = "@rules_py//py/private/toolchain:exec_tools_toolchain_type",
 )
 
 
@@ -244,7 +244,7 @@ toolchain(
     exec_compatible_with = ["@platforms//os:windows", "@platforms//cpu:x86_64"],
     target_settings = [":python_version_is_3_12", ":freethreaded_is_false"],
     toolchain = "@python_3_12_x86_64_pc_windows_msvc//:runtime",
-    toolchain_type = "@aspect_rules_py//py/private/toolchain:exec_tools_toolchain_type",
+    toolchain_type = "@rules_py//py/private/toolchain:exec_tools_toolchain_type",
 )
 
 
@@ -269,7 +269,7 @@ toolchain(
     exec_compatible_with = ["@platforms//os:windows", "@platforms//cpu:aarch64"],
     target_settings = [":python_version_is_3_12", ":freethreaded_is_false"],
     toolchain = "@python_3_12_aarch64_pc_windows_msvc//:runtime",
-    toolchain_type = "@aspect_rules_py//py/private/toolchain:exec_tools_toolchain_type",
+    toolchain_type = "@rules_py//py/private/toolchain:exec_tools_toolchain_type",
 )
 
 
@@ -294,7 +294,7 @@ toolchain(
     exec_compatible_with = ["@platforms//os:windows", "@platforms//cpu:x86_32"],
     target_settings = [":python_version_is_3_12", ":freethreaded_is_false"],
     toolchain = "@python_3_12_i686_pc_windows_msvc//:runtime",
-    toolchain_type = "@aspect_rules_py//py/private/toolchain:exec_tools_toolchain_type",
+    toolchain_type = "@rules_py//py/private/toolchain:exec_tools_toolchain_type",
 )
 
 
@@ -319,7 +319,7 @@ toolchain(
     exec_compatible_with = ["@platforms//os:macos", "@platforms//cpu:aarch64"],
     target_settings = [":python_version_is_3_13", ":freethreaded_is_false"],
     toolchain = "@python_3_13_aarch64_apple_darwin//:runtime",
-    toolchain_type = "@aspect_rules_py//py/private/toolchain:exec_tools_toolchain_type",
+    toolchain_type = "@rules_py//py/private/toolchain:exec_tools_toolchain_type",
 )
 
 
@@ -344,7 +344,7 @@ toolchain(
     exec_compatible_with = ["@platforms//os:linux", "@platforms//cpu:aarch64"],
     target_settings = [":python_version_is_3_13", ":freethreaded_is_false"],
     toolchain = "@python_3_13_aarch64_unknown_linux_gnu//:runtime",
-    toolchain_type = "@aspect_rules_py//py/private/toolchain:exec_tools_toolchain_type",
+    toolchain_type = "@rules_py//py/private/toolchain:exec_tools_toolchain_type",
 )
 
 
@@ -386,7 +386,7 @@ toolchain(
     exec_compatible_with = ["@platforms//os:macos", "@platforms//cpu:x86_64"],
     target_settings = [":python_version_is_3_13", ":freethreaded_is_false"],
     toolchain = "@python_3_13_x86_64_apple_darwin//:runtime",
-    toolchain_type = "@aspect_rules_py//py/private/toolchain:exec_tools_toolchain_type",
+    toolchain_type = "@rules_py//py/private/toolchain:exec_tools_toolchain_type",
 )
 
 
@@ -411,7 +411,7 @@ toolchain(
     exec_compatible_with = ["@platforms//os:linux", "@platforms//cpu:x86_64"],
     target_settings = [":python_version_is_3_13", ":freethreaded_is_false"],
     toolchain = "@python_3_13_x86_64_unknown_linux_gnu//:runtime",
-    toolchain_type = "@aspect_rules_py//py/private/toolchain:exec_tools_toolchain_type",
+    toolchain_type = "@rules_py//py/private/toolchain:exec_tools_toolchain_type",
 )
 
 
@@ -453,7 +453,7 @@ toolchain(
     exec_compatible_with = ["@platforms//os:windows", "@platforms//cpu:x86_64"],
     target_settings = [":python_version_is_3_13", ":freethreaded_is_false"],
     toolchain = "@python_3_13_x86_64_pc_windows_msvc//:runtime",
-    toolchain_type = "@aspect_rules_py//py/private/toolchain:exec_tools_toolchain_type",
+    toolchain_type = "@rules_py//py/private/toolchain:exec_tools_toolchain_type",
 )
 
 
@@ -478,7 +478,7 @@ toolchain(
     exec_compatible_with = ["@platforms//os:windows", "@platforms//cpu:aarch64"],
     target_settings = [":python_version_is_3_13", ":freethreaded_is_false"],
     toolchain = "@python_3_13_aarch64_pc_windows_msvc//:runtime",
-    toolchain_type = "@aspect_rules_py//py/private/toolchain:exec_tools_toolchain_type",
+    toolchain_type = "@rules_py//py/private/toolchain:exec_tools_toolchain_type",
 )
 
 
@@ -503,7 +503,7 @@ toolchain(
     exec_compatible_with = ["@platforms//os:windows", "@platforms//cpu:x86_32"],
     target_settings = [":python_version_is_3_13", ":freethreaded_is_false"],
     toolchain = "@python_3_13_i686_pc_windows_msvc//:runtime",
-    toolchain_type = "@aspect_rules_py//py/private/toolchain:exec_tools_toolchain_type",
+    toolchain_type = "@rules_py//py/private/toolchain:exec_tools_toolchain_type",
 )
 
 
@@ -528,7 +528,7 @@ toolchain(
     exec_compatible_with = ["@platforms//os:macos", "@platforms//cpu:aarch64"],
     target_settings = [":python_version_is_3_13", ":freethreaded_is_true"],
     toolchain = "@python_3_13_aarch64_apple_darwin_freethreaded//:runtime",
-    toolchain_type = "@aspect_rules_py//py/private/toolchain:exec_tools_toolchain_type",
+    toolchain_type = "@rules_py//py/private/toolchain:exec_tools_toolchain_type",
 )
 
 
@@ -553,7 +553,7 @@ toolchain(
     exec_compatible_with = ["@platforms//os:linux", "@platforms//cpu:aarch64"],
     target_settings = [":python_version_is_3_13", ":freethreaded_is_true"],
     toolchain = "@python_3_13_aarch64_unknown_linux_gnu_freethreaded//:runtime",
-    toolchain_type = "@aspect_rules_py//py/private/toolchain:exec_tools_toolchain_type",
+    toolchain_type = "@rules_py//py/private/toolchain:exec_tools_toolchain_type",
 )
 
 
@@ -595,7 +595,7 @@ toolchain(
     exec_compatible_with = ["@platforms//os:macos", "@platforms//cpu:x86_64"],
     target_settings = [":python_version_is_3_13", ":freethreaded_is_true"],
     toolchain = "@python_3_13_x86_64_apple_darwin_freethreaded//:runtime",
-    toolchain_type = "@aspect_rules_py//py/private/toolchain:exec_tools_toolchain_type",
+    toolchain_type = "@rules_py//py/private/toolchain:exec_tools_toolchain_type",
 )
 
 
@@ -620,7 +620,7 @@ toolchain(
     exec_compatible_with = ["@platforms//os:linux", "@platforms//cpu:x86_64"],
     target_settings = [":python_version_is_3_13", ":freethreaded_is_true"],
     toolchain = "@python_3_13_x86_64_unknown_linux_gnu_freethreaded//:runtime",
-    toolchain_type = "@aspect_rules_py//py/private/toolchain:exec_tools_toolchain_type",
+    toolchain_type = "@rules_py//py/private/toolchain:exec_tools_toolchain_type",
 )
 
 
@@ -662,7 +662,7 @@ toolchain(
     exec_compatible_with = ["@platforms//os:windows", "@platforms//cpu:x86_64"],
     target_settings = [":python_version_is_3_13", ":freethreaded_is_true"],
     toolchain = "@python_3_13_x86_64_pc_windows_msvc_freethreaded//:runtime",
-    toolchain_type = "@aspect_rules_py//py/private/toolchain:exec_tools_toolchain_type",
+    toolchain_type = "@rules_py//py/private/toolchain:exec_tools_toolchain_type",
 )
 
 
@@ -687,7 +687,7 @@ toolchain(
     exec_compatible_with = ["@platforms//os:windows", "@platforms//cpu:aarch64"],
     target_settings = [":python_version_is_3_13", ":freethreaded_is_true"],
     toolchain = "@python_3_13_aarch64_pc_windows_msvc_freethreaded//:runtime",
-    toolchain_type = "@aspect_rules_py//py/private/toolchain:exec_tools_toolchain_type",
+    toolchain_type = "@rules_py//py/private/toolchain:exec_tools_toolchain_type",
 )
 
 
@@ -712,7 +712,7 @@ toolchain(
     exec_compatible_with = ["@platforms//os:windows", "@platforms//cpu:x86_32"],
     target_settings = [":python_version_is_3_13", ":freethreaded_is_true"],
     toolchain = "@python_3_13_i686_pc_windows_msvc_freethreaded//:runtime",
-    toolchain_type = "@aspect_rules_py//py/private/toolchain:exec_tools_toolchain_type",
+    toolchain_type = "@rules_py//py/private/toolchain:exec_tools_toolchain_type",
 )
 
 
@@ -720,7 +720,7 @@ toolchain(
     name = "zz_python_3_13_aarch64_apple_darwin_exec_tools_fallback",
     exec_compatible_with = ["@platforms//os:macos", "@platforms//cpu:aarch64"],
     toolchain = "@python_3_13_aarch64_apple_darwin//:runtime",
-    toolchain_type = "@aspect_rules_py//py/private/toolchain:exec_tools_toolchain_type",
+    toolchain_type = "@rules_py//py/private/toolchain:exec_tools_toolchain_type",
 )
 
 
@@ -728,7 +728,7 @@ toolchain(
     name = "zz_python_3_13_aarch64_unknown_linux_gnu_exec_tools_fallback",
     exec_compatible_with = ["@platforms//os:linux", "@platforms//cpu:aarch64"],
     toolchain = "@python_3_13_aarch64_unknown_linux_gnu//:runtime",
-    toolchain_type = "@aspect_rules_py//py/private/toolchain:exec_tools_toolchain_type",
+    toolchain_type = "@rules_py//py/private/toolchain:exec_tools_toolchain_type",
 )
 
 
@@ -736,7 +736,7 @@ toolchain(
     name = "zz_python_3_13_x86_64_apple_darwin_exec_tools_fallback",
     exec_compatible_with = ["@platforms//os:macos", "@platforms//cpu:x86_64"],
     toolchain = "@python_3_13_x86_64_apple_darwin//:runtime",
-    toolchain_type = "@aspect_rules_py//py/private/toolchain:exec_tools_toolchain_type",
+    toolchain_type = "@rules_py//py/private/toolchain:exec_tools_toolchain_type",
 )
 
 
@@ -744,7 +744,7 @@ toolchain(
     name = "zz_python_3_13_x86_64_unknown_linux_gnu_exec_tools_fallback",
     exec_compatible_with = ["@platforms//os:linux", "@platforms//cpu:x86_64"],
     toolchain = "@python_3_13_x86_64_unknown_linux_gnu//:runtime",
-    toolchain_type = "@aspect_rules_py//py/private/toolchain:exec_tools_toolchain_type",
+    toolchain_type = "@rules_py//py/private/toolchain:exec_tools_toolchain_type",
 )
 
 
@@ -752,7 +752,7 @@ toolchain(
     name = "zz_python_3_13_x86_64_pc_windows_msvc_exec_tools_fallback",
     exec_compatible_with = ["@platforms//os:windows", "@platforms//cpu:x86_64"],
     toolchain = "@python_3_13_x86_64_pc_windows_msvc//:runtime",
-    toolchain_type = "@aspect_rules_py//py/private/toolchain:exec_tools_toolchain_type",
+    toolchain_type = "@rules_py//py/private/toolchain:exec_tools_toolchain_type",
 )
 
 
@@ -760,7 +760,7 @@ toolchain(
     name = "zz_python_3_13_aarch64_pc_windows_msvc_exec_tools_fallback",
     exec_compatible_with = ["@platforms//os:windows", "@platforms//cpu:aarch64"],
     toolchain = "@python_3_13_aarch64_pc_windows_msvc//:runtime",
-    toolchain_type = "@aspect_rules_py//py/private/toolchain:exec_tools_toolchain_type",
+    toolchain_type = "@rules_py//py/private/toolchain:exec_tools_toolchain_type",
 )
 
 
@@ -768,7 +768,7 @@ toolchain(
     name = "zz_python_3_13_i686_pc_windows_msvc_exec_tools_fallback",
     exec_compatible_with = ["@platforms//os:windows", "@platforms//cpu:x86_32"],
     toolchain = "@python_3_13_i686_pc_windows_msvc//:runtime",
-    toolchain_type = "@aspect_rules_py//py/private/toolchain:exec_tools_toolchain_type",
+    toolchain_type = "@rules_py//py/private/toolchain:exec_tools_toolchain_type",
 )
 
 

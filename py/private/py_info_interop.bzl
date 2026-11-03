@@ -14,7 +14,7 @@ the other.
 The reverse direction (a `@rules_python` rule consuming a rules_py target) is
 not part of the steady-state design. It exists only as a migration
 compatibility layer: under
-`--@aspect_rules_py//py:emit_rules_python_providers`, rules_py rules
+`--@rules_py//py:emit_rules_python_providers`, rules_py rules
 additionally emit the `@rules_python` providers a `py_*` target from that
 ruleset demands, so a half-converted tree keeps building. A fully migrated
 tree leaves the flag off.

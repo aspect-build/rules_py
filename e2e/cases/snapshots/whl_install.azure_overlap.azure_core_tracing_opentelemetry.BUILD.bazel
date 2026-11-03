@@ -1,10 +1,10 @@
-load("@aspect_rules_py//py:defs.bzl", "py_library")
-load("@aspect_rules_py//uv/private/whl_install:defs.bzl", "select_chain")
-load("@aspect_rules_py//uv/private/whl_install:rule.bzl", "source_built_wheel", "whl_install")
+load("@rules_py//py:defs.bzl", "py_library")
+load("@rules_py//uv/private/whl_install:defs.bzl", "select_chain")
+load("@rules_py//uv/private/whl_install:rule.bzl", "source_built_wheel", "whl_install")
 
 source_built_wheel(
     name = "source_built_wheel",
-    src = "@@aspect_rules_py++uv+sdist_build__azure_core_tracing_import__azure_core_tracing_opentelemetry__1_0_0b11//:whl",
+    src = "@@rules_py++uv+sdist_build__azure_core_tracing_import__azure_core_tracing_opentelemetry__1_0_0b11//:whl",
     console_scripts = [],
     visibility = ["//visibility:private"],
 )
@@ -24,12 +24,12 @@ whl_install(
     name = "actual_install",
     src = ":whl",
     compile_pyc = select({
-        "@aspect_rules_py//uv/private/pyc:is_precompile": True,
+        "@rules_py//uv/private/pyc:is_precompile": True,
         "//conditions:default": False,
     }),
     pyc_invalidation_mode = select({
-        "@aspect_rules_py//uv/private/pyc:is_whl_install_checked_hash": "checked-hash",
-        "@aspect_rules_py//uv/private/pyc:is_whl_install_timestamp": "timestamp",
+        "@rules_py//uv/private/pyc:is_whl_install_checked_hash": "checked-hash",
+        "@rules_py//uv/private/pyc:is_whl_install_timestamp": "timestamp",
         "//conditions:default": "unchecked-hash",
     }),
     visibility = ["//visibility:private"],

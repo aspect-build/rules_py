@@ -1,4 +1,4 @@
-load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_library", "py_pytest_test")
+load("@rules_py//py:defs.bzl", "py_binary", "py_library", "py_pytest_test")
 load("@pypi_unconstrained_dependencies//:defs.bzl", "compatible_with")
 
 # py_library compatible with multiple dependency contexts

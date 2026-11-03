@@ -7,7 +7,7 @@ Uses its own hub to keep the override and no-binary setting isolated
 from other test cases.
 """
 
-uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv = use_extension("@rules_py//uv:extensions.bzl", "uv")
 uv.declare_hub(hub_name = "pypi_sdist_jdk_build")
 uv.project(
     default_build_dependencies = [

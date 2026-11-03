@@ -2,7 +2,7 @@
 # e2e snapshots. Three sub-projects (alpha, beta, gamma) all depend on
 # cowsay, exercising the N>1 select-arm and dep_group config_setting
 # emission that the single-project @pypi_single snapshot cannot cover.
-load("@aspect_rules_py//py:defs.bzl", "py_test")
+load("@rules_py//py:defs.bzl", "py_test")
 
 # Alpha defines `[dependency-groups]` (`dev` + hyphenated `unit-tests`)
 # instead of an implicit project-name group, so the snapshot covers both

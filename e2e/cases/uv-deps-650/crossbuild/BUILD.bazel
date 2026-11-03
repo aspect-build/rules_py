@@ -1,4 +1,4 @@
-load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_image_layer")
+load("@rules_py//py:defs.bzl", "py_binary", "py_image_layer")
 load("@bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
 load("@bazel_skylib//rules:build_test.bzl", "build_test")
 load("@rules_oci//oci:defs.bzl", "oci_image", "oci_image_index")
@@ -13,8 +13,8 @@ platform(
         "@platforms//cpu:aarch64",
     ],
     flags = [
-        "--@aspect_rules_py//uv/private/constraints/platform:platform_libc=glibc",
-        "--@aspect_rules_py//uv/private/constraints/platform:platform_version=2.39",
+        "--@rules_py//uv/private/constraints/platform:platform_libc=glibc",
+        "--@rules_py//uv/private/constraints/platform:platform_version=2.39",
         "--stripopt=--strip-all",
     ],
 )
@@ -26,8 +26,8 @@ platform(
         "@platforms//cpu:x86_64",
     ],
     flags = [
-        "--@aspect_rules_py//uv/private/constraints/platform:platform_libc=glibc",
-        "--@aspect_rules_py//uv/private/constraints/platform:platform_version=2.39",
+        "--@rules_py//uv/private/constraints/platform:platform_libc=glibc",
+        "--@rules_py//uv/private/constraints/platform:platform_version=2.39",
         "--stripopt=--strip-all",
     ],
 )

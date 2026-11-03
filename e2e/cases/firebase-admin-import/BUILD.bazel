@@ -1,4 +1,4 @@
-load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_test")
+load("@rules_py//py:defs.bzl", "py_binary", "py_test")
 load("@bazel_skylib//rules:build_test.bzl", "build_test")
 load("//tools:pth_snapshot.bzl", "extract_venv_pth")
 

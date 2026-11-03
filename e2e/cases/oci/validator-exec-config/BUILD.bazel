@@ -15,7 +15,7 @@ This `build_test` rebuilds the failing path with no custom Starlark — just
 asserts the build completes.
 """
 
-load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_image_layer")
+load("@rules_py//py:defs.bzl", "py_binary", "py_image_layer")
 load("@bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
 load("@bazel_skylib//rules:build_test.bzl", "build_test")
 
@@ -28,7 +28,7 @@ platform(
     # This flag is the trigger: before the fix, it inherited into the
     # validator's exec config and disqualified the darwin/windows host
     # interpreter toolchains.
-    flags = ["--@aspect_rules_py//uv/private/constraints/platform:platform_libc=glibc"],
+    flags = ["--@rules_py//uv/private/constraints/platform:platform_libc=glibc"],
 )
 
 py_binary(

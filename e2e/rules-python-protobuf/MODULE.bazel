@@ -8,7 +8,7 @@
 # transitively, and the interpreter toolchain is provisioned through rules_py's
 # own python_interpreters extension.
 
-bazel_dep(name = "aspect_rules_py")
+bazel_dep(name = "rules_py")
 bazel_dep(name = "bazel_skylib", version = "1.4.2")
 bazel_dep(name = "rules_proto_grpc_python", version = "5.8.0")
 
@@ -29,13 +29,13 @@ bazel_dep(name = "rules_foreign_cc", version = "0.15.1")
 bazel_dep(name = "rules_go", version = "0.61.1")
 
 local_path_override(
-    module_name = "aspect_rules_py",
+    module_name = "rules_py",
     path = "../..",
 )
 
 # Provision a Python interpreter through rules_py's own extension rather than
 # calling rules_python's python.toolchain directly.
-interpreters = use_extension("@aspect_rules_py//py:extensions.bzl", "python_interpreters")
+interpreters = use_extension("@rules_py//py:extensions.bzl", "python_interpreters")
 interpreters.toolchain(python_version = "3.11")
 use_repo(interpreters, "python_interpreters")
 

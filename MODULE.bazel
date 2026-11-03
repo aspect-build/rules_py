@@ -1,7 +1,7 @@
 "aspect-build/rules_py"
 
 module(
-    name = "aspect_rules_py",
+    name = "rules_py",
     # Require:
     #    >=8.5 for Facts API
     #    >=8.6 and >=9.0.1 for https://github.com/bazelbuild/bazel/pull/28551 and https://github.com/bazelbuild/bazel/pull/28649
@@ -131,7 +131,7 @@ uv.declare_hub(
     hub_name = "pypi",
 )
 uv.project(
-    name = "aspect_rules_py",
+    name = "rules_py",
     default_build_dependencies = [
         "build",
         "setuptools",

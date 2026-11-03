@@ -916,13 +916,13 @@ def _platform_cfg_impl(settings, attr):
     return {
         "//command_line_option:platforms": [attr.platform] if attr.platform else settings["//command_line_option:platforms"],
         "//command_line_option:collect_code_coverage": False,
-        "@aspect_rules_py//py:layer_tier": str(attr.layer_tier) if attr.layer_tier else settings["@aspect_rules_py//py:layer_tier"],
+        "@rules_py//py:layer_tier": str(attr.layer_tier) if attr.layer_tier else settings["@rules_py//py:layer_tier"],
     }
 
 _platform_cfg = transition(
     implementation = _platform_cfg_impl,
-    inputs = ["//command_line_option:platforms", "@aspect_rules_py//py:layer_tier"],
-    outputs = ["//command_line_option:platforms", "//command_line_option:collect_code_coverage", "@aspect_rules_py//py:layer_tier"],
+    inputs = ["//command_line_option:platforms", "@rules_py//py:layer_tier"],
+    outputs = ["//command_line_option:platforms", "//command_line_option:collect_code_coverage", "@rules_py//py:layer_tier"],
 )
 
 def _skip_path(f):
@@ -1569,7 +1569,7 @@ def py_image_layer(
         warn_layer_count: Warn when total layers exceed this. Default: 90.
         platform: Platform transition target.
         layer_tier: Optional py_layer_tier target pinned for this rule. Sets the
-            `@aspect_rules_py//py:layer_tier` label_flag via the rule transition,
+            `@rules_py//py:layer_tier` label_flag via the rule transition,
             overriding any command-line value for this rule's subgraph.
         launcher_dir: Absolute image directory for the binary launchers. Defaults
             to /app/bin with multiple binaries. Set RUNFILES_DIR=/app.runfiles in

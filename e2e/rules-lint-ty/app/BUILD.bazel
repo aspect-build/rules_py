@@ -1,4 +1,4 @@
-load("@aspect_rules_py//py:defs.bzl", "py_library", "py_test")
+load("@rules_py//py:defs.bzl", "py_library", "py_test")
 load("//tools/lint:linters.bzl", "ty_diagnostic_test", "ty_test")
 
 py_library(

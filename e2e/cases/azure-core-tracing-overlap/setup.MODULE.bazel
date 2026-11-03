@@ -5,7 +5,7 @@ azure-core owns the regular package `azure/core/` (and
 `azure/core/tracing/ext/` into that same tree from a separate wheel.
 """
 
-uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv = use_extension("@rules_py//uv:extensions.bzl", "uv")
 uv.declare_hub(hub_name = "pypi_azure_core_tracing")
 uv.project(
     hub_name = "pypi_azure_core_tracing",

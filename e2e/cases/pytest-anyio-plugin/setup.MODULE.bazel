@@ -1,6 +1,6 @@
 """Regression: anyio pytest plugin must be disabled via args = ["-p", "no:anyio"]."""
 
-uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv = use_extension("@rules_py//uv:extensions.bzl", "uv")
 uv.declare_hub(hub_name = "pypi_pytest_anyio_plugin")
 uv.project(
     hub_name = "pypi_pytest_anyio_plugin",

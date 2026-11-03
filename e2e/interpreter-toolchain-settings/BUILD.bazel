@@ -1,4 +1,4 @@
-load("@aspect_rules_py//uv/private/markers:defs.bzl", "decide_marker")
+load("@rules_py//uv/private/markers:defs.bzl", "decide_marker")
 load("@bazel_skylib//rules:build_test.bzl", "build_test")
 load(":marker_dependency_test.bzl", "marker_dependency_check")
 load(":toolchain_test.bzl", "interpreter_toolchain_check")
@@ -40,7 +40,7 @@ filegroup(
     name = "uv_constraint_selected",
     srcs = ["BUILD.bazel"],
     target_compatible_with = select({
-        "@aspect_rules_py//uv/private/constraints/python:py312": [],
+        "@rules_py//uv/private/constraints/python:py312": [],
         "//conditions:default": ["@platforms//:incompatible"],
     }),
 )

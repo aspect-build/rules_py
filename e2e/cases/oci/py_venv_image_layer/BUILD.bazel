@@ -1,4 +1,4 @@
-load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_image_layer", "py_test")
+load("@rules_py//py:defs.bzl", "py_binary", "py_image_layer", "py_test")
 load("@bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
 load("@container_structure_test//:defs.bzl", "container_structure_test")
 load("@rules_oci//oci:defs.bzl", "oci_image", "oci_load")
@@ -11,8 +11,8 @@ platform(
         "@platforms//cpu:aarch64",
     ],
     flags = [
-        "--@aspect_rules_py//uv/private/constraints/platform:platform_libc=glibc",
-        "--@aspect_rules_py//uv/private/constraints/platform:platform_version=2.39",
+        "--@rules_py//uv/private/constraints/platform:platform_libc=glibc",
+        "--@rules_py//uv/private/constraints/platform:platform_version=2.39",
         "--stripopt=--strip-all",
     ],
 )
@@ -24,8 +24,8 @@ platform(
         "@platforms//cpu:x86_64",
     ],
     flags = [
-        "--@aspect_rules_py//uv/private/constraints/platform:platform_libc=glibc",
-        "--@aspect_rules_py//uv/private/constraints/platform:platform_version=2.39",
+        "--@rules_py//uv/private/constraints/platform:platform_libc=glibc",
+        "--@rules_py//uv/private/constraints/platform:platform_version=2.39",
         "--stripopt=--strip-all",
     ],
 )
@@ -43,7 +43,7 @@ py_binary(
     deps = [
         "//oci/py_image_layer/branding",
         "//tools/verify_venv",
-        "@aspect_rules_py//py/tests/internal-deps/adder",
+        "@rules_py//py/tests/internal-deps/adder",
         "@pypi_oci_py_venv_image_layer//colorama",
     ],
 )
@@ -66,7 +66,7 @@ py_test(
     deps = [
         "//oci/py_image_layer/branding",
         "//tools/verify_venv",
-        "@aspect_rules_py//py/tests/internal-deps/adder",
+        "@rules_py//py/tests/internal-deps/adder",
         "@pypi_oci_py_venv_image_layer//colorama",
     ],
 )
@@ -145,8 +145,8 @@ container_structure_test(
     # `skip-on-bazel9`: the launcher runs `sys.executable` resolution
     # through the venv's bin/python3 symlink → real interpreter path,
     # which embeds the canonical repo name. Bazel 8 uses `+` as the
-    # module-extension separator (`aspect_rules_py++python_interpreters+...`);
-    # Bazel 9 switched to `~` (`aspect_rules_py~python_interpreters~...`).
+    # module-extension separator (`rules_py++python_interpreters+...`);
+    # Bazel 9 switched to `~` (`rules_py~python_interpreters~...`).
     # The yaml's expectedOutput strings only match the bazel-8 form.
     tags = [
         "requires-docker",

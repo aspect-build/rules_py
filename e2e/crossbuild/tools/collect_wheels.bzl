@@ -11,7 +11,7 @@ e_machine matches the architecture its `Tag:` claims (see
 tools/check_so_arch.py); pure wheels are skipped.
 """
 
-load("@aspect_rules_py//py:defs.bzl", "py_test")
+load("@rules_py//py:defs.bzl", "py_test")
 load("@bazel_lib//lib:run_binary.bzl", "run_binary")
 load("@bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
 

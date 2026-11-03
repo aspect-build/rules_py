@@ -1,7 +1,7 @@
 """Cross-module first-party fixtures for OCI image-layer tests.
 
 The library covers external source dependencies; the launcher covers external
-runfiles paths. Keep both in the @aspect_rules_py module.
+runfiles paths. Keep both in the @rules_py module.
 """
 
 load("//py:defs.bzl", "py_binary", "py_library")

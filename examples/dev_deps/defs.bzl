@@ -1,6 +1,6 @@
 """Wrapper macro that includes dev dependencies based on a build mode flag."""
 
-load("@aspect_rules_py//py:defs.bzl", _py_binary = "py_binary")
+load("@rules_py//py:defs.bzl", _py_binary = "py_binary")
 
 def py_dev_binary(name, deps = [], dev_deps = [], **kwargs):
     """A py_binary that includes dev_deps unless --//:mode=prod.

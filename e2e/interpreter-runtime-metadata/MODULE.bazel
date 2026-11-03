@@ -1,12 +1,12 @@
 module(name = "interpreter_runtime_metadata")
 
-bazel_dep(name = "aspect_rules_py")
+bazel_dep(name = "rules_py")
 local_path_override(
-    module_name = "aspect_rules_py",
+    module_name = "rules_py",
     path = "../..",
 )
 
-interpreters = use_extension("@aspect_rules_py//py:extensions.bzl", "python_interpreters")
+interpreters = use_extension("@rules_py//py:extensions.bzl", "python_interpreters")
 interpreters.configure(releases = ["20260303"])
 interpreters.toolchain(
     pre_release = True,
@@ -18,11 +18,11 @@ use_repo(
     "python_3_15_x86_64_unknown_linux_gnu_freethreaded",
 )
 
-uv_bin = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv_bin")
+uv_bin = use_extension("@rules_py//uv:extensions.bzl", "uv_bin")
 uv_bin.toolchain(version = "0.13.4")
 use_repo(uv_bin, "uv")
 
-uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv = use_extension("@rules_py//uv:extensions.bzl", "uv")
 uv.declare_hub(hub_name = "pypi_prerelease_marker")
 uv.project(
     hub_name = "pypi_prerelease_marker",

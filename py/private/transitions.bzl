@@ -1,20 +1,20 @@
 """Common transition implementation used by the various terminals."""
 
-_DEP_GROUP_FLAG = "@aspect_rules_py//uv/private/constraints/dep_group:dep_group"
-_DEP_GROUP_BASELINE_FLAG = "@aspect_rules_py//uv/private/constraints/dep_group:baseline"
+_DEP_GROUP_FLAG = "@rules_py//uv/private/constraints/dep_group:dep_group"
+_DEP_GROUP_BASELINE_FLAG = "@rules_py//uv/private/constraints/dep_group:baseline"
 
 # Our own python_version flag, replacing the rules_python one.
-_PYTHON_VERSION_FLAG = "@aspect_rules_py//py/private/interpreter:python_version"
-_PYTHON_VERSION_BASELINE_FLAG = "@aspect_rules_py//py/private/interpreter:baseline_python_version"
+_PYTHON_VERSION_FLAG = "@rules_py//py/private/interpreter:python_version"
+_PYTHON_VERSION_BASELINE_FLAG = "@rules_py//py/private/interpreter:baseline_python_version"
 
 # rules_python's flag, kept for backward compatibility during migration.
 _RPY_VERSION_FLAG = "@rules_python//python/config_settings:python_version"
-_RPY_VERSION_BASELINE_FLAG = "@aspect_rules_py//py/private/interpreter:baseline_rules_python_version"
+_RPY_VERSION_BASELINE_FLAG = "@rules_py//py/private/interpreter:baseline_rules_python_version"
 
-_FREETHREADED_FLAG = "@aspect_rules_py//py/private/interpreter:freethreaded"
-_FREETHREADED_BASELINE_FLAG = "@aspect_rules_py//py/private/interpreter:baseline_freethreaded"
+_FREETHREADED_FLAG = "@rules_py//py/private/interpreter:freethreaded"
+_FREETHREADED_BASELINE_FLAG = "@rules_py//py/private/interpreter:baseline_freethreaded"
 _RPY_FREETHREADED_FLAG = "@rules_python//python/config_settings:py_freethreaded"
-_RPY_FREETHREADED_BASELINE_FLAG = "@aspect_rules_py//py/private/interpreter:baseline_rules_python_freethreaded"
+_RPY_FREETHREADED_BASELINE_FLAG = "@rules_py//py/private/interpreter:baseline_rules_python_freethreaded"
 
 _BASELINE_UNSET = "<unset>"
 

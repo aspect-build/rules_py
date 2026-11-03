@@ -79,12 +79,12 @@ def main() -> None:
     args = parser.parse_args()
 
     if args.mode == "bcr":
-        declaration = f'bazel_dep(name = "aspect_rules_py", version = "{args.version}")'
+        declaration = f'bazel_dep(name = "rules_py", version = "{args.version}")'
     else:
         declaration = (
-            f'bazel_dep(name = "aspect_rules_py")\n'
+            f'bazel_dep(name = "rules_py")\n'
             f'local_path_override(\n'
-            f'    module_name = "aspect_rules_py",\n'
+            f'    module_name = "rules_py",\n'
             f'    path = "{args.path}",\n'
             f')'
         )

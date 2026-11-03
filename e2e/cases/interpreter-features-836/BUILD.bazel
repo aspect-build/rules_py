@@ -1,4 +1,4 @@
-load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_image_layer")
+load("@rules_py//py:defs.bzl", "py_binary", "py_image_layer")
 load("@bazel_features//:features.bzl", "bazel_features")
 load("@bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
 load("@container_structure_test//:defs.bzl", "container_structure_test")
@@ -16,7 +16,7 @@ platform(
         "@platforms//cpu:x86_64",
     ],
     flags = [
-        "--@aspect_rules_py//py/private/interpreter:exclude_feature=turtle",
+        "--@rules_py//py/private/interpreter:exclude_feature=turtle",
     ],
 )
 

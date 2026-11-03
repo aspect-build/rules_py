@@ -22,7 +22,7 @@ trap 'rm -f "$failure_log"' EXIT
 for target in //:rules_python_consumer_test //:rules_python_binary_consumer_test; do
     if "$BAZEL" build \
         --lockfile_mode=off \
-        --@aspect_rules_py//py:emit_rules_python_providers=false \
+        --@rules_py//py:emit_rules_python_providers=false \
         -- "$target" >"$failure_log" 2>&1; then
         fail "a rules_python target consumed $target's rules_py dependency without the compatibility layer"
     fi

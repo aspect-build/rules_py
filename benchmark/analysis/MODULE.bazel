@@ -2,16 +2,16 @@
 
 module(name = "analysis_benchmark")
 
-bazel_dep(name = "aspect_rules_py")
+bazel_dep(name = "rules_py")
 local_path_override(
-    module_name = "aspect_rules_py",
+    module_name = "rules_py",
     path = "../..",
 )
 
 bazel_dep(name = "bazel_skylib", version = "1.9.0")
 
-# Python interpreters provisioned from python-build-standalone via aspect_rules_py
-interpreters = use_extension("@aspect_rules_py//py:extensions.bzl", "python_interpreters")
+# Python interpreters provisioned from python-build-standalone via rules_py
+interpreters = use_extension("@rules_py//py:extensions.bzl", "python_interpreters")
 interpreters.toolchain(
     python_version = "3.11",
 )
@@ -20,7 +20,7 @@ use_repo(interpreters, "python_interpreters")
 register_toolchains("@python_interpreters//:all")
 
 # UV-based PyPI hub used to stress the rules_py analysis extension.
-uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv = use_extension("@rules_py//uv:extensions.bzl", "uv")
 uv.declare_hub(hub_name = "pypi")
 uv.project(
     hub_name = "pypi",

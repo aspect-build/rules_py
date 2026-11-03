@@ -1,7 +1,7 @@
 # python-geohash has no prebuilt wheel — this package covers the actual
 # cross-compilation of its C++ extension for linux/amd64 and linux/arm64.
 
-load("@aspect_rules_py//py:defs.bzl", "py_test")
+load("@rules_py//py:defs.bzl", "py_test")
 load("//tools:collect_wheels.bzl", "collect_wheels")
 load("//tools:wheel_export.bzl", "pycross_wheel_export")
 
@@ -21,10 +21,10 @@ py_test(
 )
 
 _PLATFORM_FLAGS = [
-    "--@aspect_rules_py//uv/private/constraints/platform:platform_libc=glibc",
-    "--@aspect_rules_py//uv/private/constraints/platform:platform_version=2.39",
-    "--@aspect_rules_py//uv/private/constraints/dep_group:dep_group=" + _DEP_GROUP,
-    "--@aspect_rules_py//py/private/interpreter:python_version=" + _PY,
+    "--@rules_py//uv/private/constraints/platform:platform_libc=glibc",
+    "--@rules_py//uv/private/constraints/platform:platform_version=2.39",
+    "--@rules_py//uv/private/constraints/dep_group:dep_group=" + _DEP_GROUP,
+    "--@rules_py//py/private/interpreter:python_version=" + _PY,
 ]
 
 platform(
@@ -79,8 +79,8 @@ platform(
         "@platforms//cpu:x86_64",
     ],
     flags = [
-        "--@aspect_rules_py//uv/private/constraints/dep_group:dep_group=" + _DEP_GROUP,
-        "--@aspect_rules_py//py/private/interpreter:python_version=" + _PY,
+        "--@rules_py//uv/private/constraints/dep_group:dep_group=" + _DEP_GROUP,
+        "--@rules_py//py/private/interpreter:python_version=" + _PY,
     ],
 )
 

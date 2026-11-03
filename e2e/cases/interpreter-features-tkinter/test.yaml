@@ -9,33 +9,33 @@ commandTests:
 
 fileExistenceTests:
   - name: tkinter package must not exist in interpreter
-    path: /app.runfiles/aspect_rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/lib/python3.11/tkinter
+    path: /app.runfiles/rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/lib/python3.11/tkinter
     shouldExist: false
 
   - name: _tkinter extension must not exist in interpreter
-    path: /app.runfiles/aspect_rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/lib/python3.11/lib-dynload/_tkinter.cpython-311-x86_64-linux-gnu.so
+    path: /app.runfiles/rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/lib/python3.11/lib-dynload/_tkinter.cpython-311-x86_64-linux-gnu.so
     shouldExist: false
 
   - name: libtcl must not exist in interpreter
-    path: /app.runfiles/aspect_rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/lib/libtcl9.0.so
+    path: /app.runfiles/rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/lib/libtcl9.0.so
     shouldExist: false
 
   - name: libtcl9tk must not exist in interpreter
-    path: /app.runfiles/aspect_rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/lib/libtcl9tk9.0.so
+    path: /app.runfiles/rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/lib/libtcl9tk9.0.so
     shouldExist: false
 
   - name: tcl support dir must not exist in interpreter
-    path: /app.runfiles/aspect_rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/lib/tcl9.0
+    path: /app.runfiles/rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/lib/tcl9.0
     shouldExist: false
 
   - name: tk support dir must not exist in interpreter
-    path: /app.runfiles/aspect_rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/lib/tk9.0
+    path: /app.runfiles/rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/lib/tk9.0
     shouldExist: false
 
   - name: itcl support dir must not exist in interpreter
-    path: /app.runfiles/aspect_rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/lib/itcl4.3.5
+    path: /app.runfiles/rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/lib/itcl4.3.5
     shouldExist: false
 
   - name: thread support dir must not exist in interpreter
-    path: /app.runfiles/aspect_rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/lib/thread3.0.4
+    path: /app.runfiles/rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/lib/thread3.0.4
     shouldExist: false

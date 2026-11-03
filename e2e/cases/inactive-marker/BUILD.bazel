@@ -10,7 +10,7 @@
 #
 # OR markers are covered by generator-level unit tests at
 # //uv/private/uv_project:select_gen_tests.
-load("@aspect_rules_py//py:defs.bzl", "py_test")
+load("@rules_py//py:defs.bzl", "py_test")
 
 _COMMON_DEPS = [
     "@pypi_inactive_marker//iniconfig",

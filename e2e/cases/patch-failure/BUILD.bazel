@@ -4,7 +4,7 @@
 #
 # gazelle:ignore
 
-load("@aspect_rules_py//uv/private/whl_install:rule.bzl", "source_built_wheel", "whl_install")
+load("@rules_py//uv/private/whl_install:rule.bzl", "source_built_wheel", "whl_install")
 
 # A minimal wheel. The patch targets `fakepkg/marker.txt` in site-packages.
 genrule(

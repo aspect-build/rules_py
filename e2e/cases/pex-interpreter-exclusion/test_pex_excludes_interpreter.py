@@ -10,8 +10,8 @@ PEXES = (
     "_main/pex-interpreter-exclusion/app_mismatch_pex.pex",
 )
 INTERPRETER_REPO_MARKERS = (
-    "aspect_rules_py++python_interpreters+",
-    "aspect_rules_py~~python_interpreters~",
+    "rules_py++python_interpreters+",
+    "rules_py~~python_interpreters~",
 )
 
 for rel in PEXES:

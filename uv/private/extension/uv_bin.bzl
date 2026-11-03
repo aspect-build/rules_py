@@ -35,7 +35,7 @@ def _uv_bin_impl(module_ctx):
         hashes.update(cfg.sha256s)
         if not hashes:
             fail(
-                "uv_bin.toolchain(name = \"{}\", version = \"{}\") is not pinned in aspect_rules_py ".format(hub_name, cfg.version) +
+                "uv_bin.toolchain(name = \"{}\", version = \"{}\") is not pinned in rules_py ".format(hub_name, cfg.version) +
                 "and has no `sha256s` entries. Supply `sha256s` with at least " +
                 "one platform (value may be empty string for non-reproducible fetches).",
             )
@@ -74,7 +74,7 @@ _toolchain_tag = tag_class(
         ),
         "version": attr.string(
             default = LATEST_UV_VERSION,
-            doc = "UV version to download (e.g. '0.13.4'). Defaults to the latest version known to aspect_rules_py.",
+            doc = "UV version to download (e.g. '0.13.4'). Defaults to the latest version known to rules_py.",
         ),
         "urls": attr.string_list(
             doc = "Download URL templates. Each entry is a format string with " +
@@ -85,7 +85,7 @@ _toolchain_tag = tag_class(
         "sha256s": attr.string_dict(
             doc = "Map of platform triple to SHA256 of the UV release archive. " +
                   "Overrides (or supplies, for unpinned versions) the hashes that " +
-                  "ship with aspect_rules_py. Use this when combining `version` " +
+                  "ship with rules_py. Use this when combining `version` " +
                   "with `urls` to point at a custom build or mirror.",
         ),
         "strip_prefix": attr.string(

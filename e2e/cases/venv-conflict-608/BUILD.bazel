@@ -1,4 +1,4 @@
-load("@aspect_rules_py//py:defs.bzl", "py_binary")
+load("@rules_py//py:defs.bzl", "py_binary")
 load("@bazel_skylib//rules:build_test.bzl", "build_test")
 
 # Regression test for #608 and #686: building a `py_binary` AND its

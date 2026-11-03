@@ -12,7 +12,7 @@
 #
 # gazelle:ignore
 
-load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_library", "py_unittest_test")
+load("@rules_py//py:defs.bzl", "py_binary", "py_library", "py_unittest_test")
 load("@rules_shell//shell:sh_test.bzl", "sh_test")
 
 py_library(

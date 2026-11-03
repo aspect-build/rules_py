@@ -1,4 +1,4 @@
-load("@aspect_rules_py//py:defs.bzl", "py_test")
+load("@rules_py//py:defs.bzl", "py_test")
 
 # Depends on the install repos rather than hub aliases: the point is that each
 # wheel's dist-info could be read at fetch time, and an alias would only add

@@ -1,6 +1,6 @@
 "Bazel dependencies"
 
-bazel_dep(name = "aspect_rules_py")
+bazel_dep(name = "rules_py")
 bazel_dep(name = "bazel_features", version = "1.38.0")
 bazel_dep(name = "bazel_skylib", version = "1.4.2")
 bazel_dep(name = "bazel_lib", version = "3.0.0")
@@ -13,7 +13,7 @@ bazel_dep(name = "rules_oci", version = "2.2.7")
 bazel_dep(name = "rules_shell", version = "0.4.1")
 
 local_path_override(
-    module_name = "aspect_rules_py",
+    module_name = "rules_py",
     path = "../..",
 )
 
@@ -23,8 +23,8 @@ single_version_override(
     version = "2.22.5",
 )
 
-# Python interpreters provisioned from python-build-standalone via aspect_rules_py
-interpreters = use_extension("@aspect_rules_py//py:extensions.bzl", "python_interpreters")
+# Python interpreters provisioned from python-build-standalone via rules_py
+interpreters = use_extension("@rules_py//py:extensions.bzl", "python_interpreters")
 interpreters.configure(
     releases = [
         "20260814",
@@ -54,7 +54,7 @@ use_repo(interpreters, "python_interpreters")
 register_toolchains("@python_interpreters//:all")
 
 # rules_py tools — provides the native_build_toolchain entries for sdist builds.
-tools = use_extension("@aspect_rules_py//py:extensions.bzl", "py_tools")
+tools = use_extension("@rules_py//py:extensions.bzl", "py_tools")
 tools.rules_py_tools()
 use_repo(tools, "rules_py_tools")
 
@@ -84,11 +84,11 @@ bazel_lib_toolchains = use_extension("@tar.bzl//tar:extensions.bzl", "toolchains
 use_repo(bazel_lib_toolchains, "bsd_tar_toolchains")
 
 # Default uv toolchain used by every uv-based case.
-uv_bin = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv_bin")
+uv_bin = use_extension("@rules_py//uv:extensions.bzl", "uv_bin")
 uv_bin.toolchain(version = "0.13.4")
 use_repo(uv_bin, "uv")
 
-uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv = use_extension("@rules_py//uv:extensions.bzl", "uv")
 
 # Per-case MODULE fragments. Each redeclares its own use_extension(...) proxies.
 include("//arch-alias-marker:setup.MODULE.bazel")

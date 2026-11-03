@@ -1,4 +1,4 @@
-load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_pex_binary")
+load("@rules_py//py:defs.bzl", "py_binary", "py_pex_binary")
 load("@bazel_skylib//rules:build_test.bzl", "build_test")
 
 py_binary(

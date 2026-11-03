@@ -1,4 +1,4 @@
-load("@aspect_rules_py//py:defs.bzl", "py_pytest_test")
+load("@rules_py//py:defs.bzl", "py_pytest_test")
 
 # Regression test: when anyio is installed, its pytest plugin auto-registers via
 # the pytest11 entry point and can interfere with test collection and execution.

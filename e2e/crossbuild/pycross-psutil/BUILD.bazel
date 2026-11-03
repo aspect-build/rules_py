@@ -3,7 +3,7 @@
 # used plain setuptools/distutils C-extension package so the setuptools
 # backend's cross support isn't validated by niche packages alone.
 
-load("@aspect_rules_py//py:defs.bzl", "py_test")
+load("@rules_py//py:defs.bzl", "py_test")
 load("//tools:collect_wheels.bzl", "collect_wheels")
 load("//tools:wheel_export.bzl", "pycross_wheel_export")
 
@@ -21,10 +21,10 @@ py_test(
 )
 
 _PLATFORM_FLAGS = [
-    "--@aspect_rules_py//uv/private/constraints/platform:platform_libc=glibc",
-    "--@aspect_rules_py//uv/private/constraints/platform:platform_version=2.39",
-    "--@aspect_rules_py//uv/private/constraints/dep_group:dep_group=" + _DEP_GROUP,
-    "--@aspect_rules_py//py/private/interpreter:python_version=" + _PY,
+    "--@rules_py//uv/private/constraints/platform:platform_libc=glibc",
+    "--@rules_py//uv/private/constraints/platform:platform_version=2.39",
+    "--@rules_py//uv/private/constraints/dep_group:dep_group=" + _DEP_GROUP,
+    "--@rules_py//py/private/interpreter:python_version=" + _PY,
 ]
 
 platform(

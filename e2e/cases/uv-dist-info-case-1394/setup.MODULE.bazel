@@ -10,7 +10,7 @@ Each takes its own hub: `no-binary` is a per-project setting, and sharing a hub
 would let one project's install configuration decide another's.
 """
 
-uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv = use_extension("@rules_py//uv:extensions.bzl", "uv")
 uv.declare_hub(hub_name = "pypi_dist_info_case_1394")
 uv.project(
     hub_name = "pypi_dist_info_case_1394",

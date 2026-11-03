@@ -1,7 +1,7 @@
 """Regression test for cross-repo pytest discovery (#867).
 
 Validates that py_pytest_test works cross-repo: the shared main lives in
-@aspect_rules_py while test sources live in the consumer. Test discovery
+@rules_py while test sources live in the consumer. Test discovery
 uses the .pytest_paths args file rather than autodiscovery.
 """
 

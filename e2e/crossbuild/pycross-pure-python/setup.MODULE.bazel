@@ -19,7 +19,7 @@ toolchain, so that matrix isolates a single property: the build tooling
 configuration targets another one.
 """
 
-uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv = use_extension("@rules_py//uv:extensions.bzl", "uv")
 uv.declare_hub(hub_name = "pypi_pycross_pure_python")
 uv.project(
     default_build_dependencies = [

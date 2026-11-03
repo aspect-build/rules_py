@@ -1,6 +1,6 @@
 """Analysis test: generated `_pb2.pyi` stubs surface in rules_py's `PyInfo`."""
 
-load("@aspect_rules_py//py:defs.bzl", "PyInfo")
+load("@rules_py//py:defs.bzl", "PyInfo")
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
 
 def _basenames(files):

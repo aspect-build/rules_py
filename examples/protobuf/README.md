@@ -10,7 +10,7 @@ protobuf Python runtime. A `rules_py` `py_binary`/`py_test` consumes that
 `PyInfo` directly, so the generated bindings work inside a `rules_py` venv with
 no glue code.
 
-The only direct dependencies are `aspect_rules_py` and `protobuf`: nothing here
+The only direct dependencies are `rules_py` and `protobuf`: nothing here
 names [rules_python], even though both rulesets rely on it transitively, and the
 Python interpreter toolchain is provisioned through `rules_py`'s own
 `python_interpreters` extension. This example exists so that contract is built

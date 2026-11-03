@@ -7,7 +7,7 @@ legacy `name = module:func [extra]` syntax, so a regression that lets the
 `[extra]` suffix leak back into the value fails here.
 """
 
-load("@aspect_rules_py//py:defs.bzl", "PyWheelsInfo")
+load("@rules_py//py:defs.bzl", "PyWheelsInfo")
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
 
 def _forward_wheels_impl(ctx):

@@ -135,9 +135,9 @@ def _whl_install_impl(repository_ctx):
     # The strategy here is to roll through the wheels,
     select_arms = {}
     content = [
-        "load(\"@aspect_rules_py//py:defs.bzl\", \"py_library\")",
-        "load(\"@aspect_rules_py//uv/private/whl_install:defs.bzl\", \"select_chain\")",
-        "load(\"@aspect_rules_py//uv/private/whl_install:rule.bzl\", \"source_built_wheel\", \"whl_install\")",
+        "load(\"@rules_py//py:defs.bzl\", \"py_library\")",
+        "load(\"@rules_py//uv/private/whl_install:defs.bzl\", \"select_chain\")",
+        "load(\"@rules_py//uv/private/whl_install:rule.bzl\", \"source_built_wheel\", \"whl_install\")",
     ]
 
     # During expansion the value is (source_specificity, target). When two
@@ -272,13 +272,13 @@ select_chain(
     testonly_attr = "\n    testonly = True," if repository_ctx.attr.package_testonly else ""
 
     compile_pyc_select = """select({
-        "@aspect_rules_py//uv/private/pyc:is_precompile": True,
+        "@rules_py//uv/private/pyc:is_precompile": True,
         "//conditions:default": False,
     })"""
 
     whl_install_pyc_invalidation_mode_select = """select({
-        "@aspect_rules_py//uv/private/pyc:is_whl_install_checked_hash": "checked-hash",
-        "@aspect_rules_py//uv/private/pyc:is_whl_install_timestamp": "timestamp",
+        "@rules_py//uv/private/pyc:is_whl_install_checked_hash": "checked-hash",
+        "@rules_py//uv/private/pyc:is_whl_install_timestamp": "timestamp",
         "//conditions:default": "unchecked-hash",
     })"""
 

@@ -1,5 +1,5 @@
-load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_image_layer", "py_pex_binary", "py_test")
-load("@aspect_rules_py//uv:defs.bzl", "gazelle_python_manifest")
+load("@rules_py//py:defs.bzl", "py_binary", "py_image_layer", "py_pex_binary", "py_test")
+load("@rules_py//uv:defs.bzl", "gazelle_python_manifest")
 load("@bazel_skylib//rules:build_test.bzl", "build_test")
 
 gazelle_python_manifest(

@@ -5,7 +5,7 @@ normalization in uv/private/markers/defs.bzl the dep is dropped on every
 mainstream Bazel host.
 """
 
-uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv = use_extension("@rules_py//uv:extensions.bzl", "uv")
 uv.declare_hub(hub_name = "pypi_arch_alias_marker")
 uv.project(
     hub_name = "pypi_arch_alias_marker",

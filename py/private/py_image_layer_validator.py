@@ -30,8 +30,8 @@ from collections.abc import Iterable, Sequence
 _OCI_LAYER_HARD_LIMIT = 127
 _END_SOURCE_MARKER = "#end-source"
 _BINARY_GLOBS = {"*.so", "*.so.*", "*.pyd", "*.dylib", "*.dll"}
-_LAYER_TIER_TARGET = "@aspect_rules_py//py:layer_tier"
-_DEFAULT_LAYER_TIER_TARGET = "@aspect_rules_py//py/private:default_layer_tier"
+_LAYER_TIER_TARGET = "@rules_py//py:layer_tier"
+_DEFAULT_LAYER_TIER_TARGET = "@rules_py//py/private:default_layer_tier"
 
 _LAYER_COUNT_SUGGESTION_COMMENT = [
     "        # Too many layers: consolidate related packages under a shared group name.",

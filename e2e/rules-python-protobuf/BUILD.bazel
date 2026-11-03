@@ -1,4 +1,4 @@
-load("@aspect_rules_py//py:defs.bzl", "py_library", "py_test")
+load("@rules_py//py:defs.bzl", "py_library", "py_test")
 load("@protobuf//bazel:proto_library.bzl", "proto_library")
 load("@protobuf//bazel:py_proto_library.bzl", "py_proto_library")
 load("@rules_proto_grpc_python//:defs.bzl", "python_proto_library")

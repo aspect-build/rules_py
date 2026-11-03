@@ -1,6 +1,6 @@
 """Checks that a final-release-only dependency is absent on a prerelease."""
 
-load("@aspect_rules_py//py:defs.bzl", "PyInfo")
+load("@rules_py//py:defs.bzl", "PyInfo")
 
 def _marker_dependency_check_impl(ctx):
     if ctx.attr.dep[PyInfo].transitive_sources.to_list():

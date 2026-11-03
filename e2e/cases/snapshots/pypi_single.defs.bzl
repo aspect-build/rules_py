@@ -28,8 +28,8 @@ def incompatible_with(venvs, extra_constraints = []):
 
 _DEPS_BY_GROUP = {
     "single_project_hub": [
-        "@@aspect_rules_py++uv+pypi_single//cowsay:pkg",
-        "@@aspect_rules_py++uv+pypi_single//single_project_hub:pkg",
+        "@@rules_py++uv+pypi_single//cowsay:pkg",
+        "@@rules_py++uv+pypi_single//single_project_hub:pkg",
     ],
 }
 

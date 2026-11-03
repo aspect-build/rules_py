@@ -22,7 +22,7 @@ arranged so the //snapshots dedup entry exercises every branch of the
 canonical repo of each identity is deterministic across the shared extension.
 """
 
-uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv = use_extension("@rules_py//uv:extensions.bzl", "uv")
 uv.declare_hub(hub_name = "pypi_dedup")
 uv.project(
     hub_name = "pypi_dedup",

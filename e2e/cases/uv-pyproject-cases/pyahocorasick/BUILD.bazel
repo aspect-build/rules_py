@@ -1,4 +1,4 @@
-load("@aspect_rules_py//py:defs.bzl", "py_test")
+load("@rules_py//py:defs.bzl", "py_test")
 
 # Regression: pyahocorasick 2.2.0 exercises pep517_native_whl /
 # build_helper.py via the parent's `[tool.uv].no-binary-package`

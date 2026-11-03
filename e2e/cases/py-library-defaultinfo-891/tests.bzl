@@ -4,7 +4,7 @@
 # dependency graphs. Transitive sources belong in PyInfo.transitive_sources only.
 # See https://github.com/aspect-build/rules_py/pull/221.
 
-load("@aspect_rules_py//py/private:py_library.bzl", _py_library = "py_library")
+load("@rules_py//py/private:py_library.bzl", _py_library = "py_library")
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
 
 def _default_info_no_transitive_srcs_impl(ctx):
