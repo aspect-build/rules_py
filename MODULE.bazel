@@ -147,9 +147,9 @@ uv.annotate_packages(
 )
 use_repo(
     uv,
-    "rules_py_pip_configurations",
     "project__rules_py",
     "pypi",
+    "rules_py_pip_configurations",
     "sdist_build__rules_py__bravado__11_0_3",
     "sdist_build__rules_py__bravado_core__6_1_1",
     "whl_install__rules_py__attrs__23_2_0",

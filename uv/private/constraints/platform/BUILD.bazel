@@ -1,7 +1,7 @@
-load("@rules_py_uv_host//:defs.bzl", "CURRENT_PLATFORM_LIBC", "CURRENT_PLATFORM_VERSION")
 load("@bazel_lib//:bzl_library.bzl", "bzl_library")
 load("@bazel_skylib//lib:selects.bzl", "selects")
 load("@bazel_skylib//rules:common_settings.bzl", "string_flag")
+load("@rules_py_uv_host//:defs.bzl", "CURRENT_PLATFORM_LIBC", "CURRENT_PLATFORM_VERSION")
 load(":macro.bzl", "generate")
 
 package(default_visibility = ["//visibility:public"])
@@ -17,8 +17,8 @@ bzl_library(
     srcs = ["macro.bzl"],
     deps = [
         "//uv/private/constraints:defs",
-        "@rules_py_uv_host//:defs",
         "@bazel_skylib//lib:selects",
+        "@rules_py_uv_host//:defs",
     ],
 )
 
