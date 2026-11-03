@@ -1,6 +1,5 @@
 "Module Extensions used from MODULE.bazel"
 
-load("@aspect_tools_telemetry_report//:defs.bzl", "TELEMETRY")  # buildifier: disable=load
 load("//py/private/interpreter:extension.bzl", _python_interpreters = "python_interpreters")
 load(":toolchains.bzl", "DEFAULT_TOOLS_REPOSITORY", "rules_py_toolchains")
 
