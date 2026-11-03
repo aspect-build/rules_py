@@ -1,9 +1,9 @@
 """Analysis test for deduplicating runtime data across terminal overrides."""
 
-load("@rules_py//py/private:py_info.bzl", "PyInfo")
-load("@rules_py//py/private:transitions.bzl", "python_transition", "reset_python_flags_transition")
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
+load("@rules_py//py/private:py_info.bzl", "PyInfo")
+load("@rules_py//py/private:transitions.bzl", "python_transition", "reset_python_flags_transition")
 
 _DEP_GROUP_FLAG = "@rules_py//uv/private/constraints/dep_group:dep_group"
 _PYTHON_VERSION_FLAG = "@rules_py//py/private/interpreter:python_version"

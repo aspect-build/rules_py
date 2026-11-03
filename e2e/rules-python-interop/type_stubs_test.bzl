@@ -1,7 +1,7 @@
 """Analysis test: rules_python `pyi_srcs` surface in rules_py's `PyInfo`."""
 
-load("@rules_py//py:defs.bzl", "PyInfo")
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
+load("@rules_py//py:defs.bzl", "PyInfo")
 
 def _basenames(files):
     return sorted([file.basename for file in files.to_list()])

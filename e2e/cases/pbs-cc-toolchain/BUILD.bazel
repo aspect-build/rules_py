@@ -1,5 +1,5 @@
-load("@rules_py//py:defs.bzl", "py_test")
 load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("@rules_py//py:defs.bzl", "py_test")
 load(":toolchain_test.bzl", "pbs_toolchain_check")
 
 _WINDOWS_INCOMPATIBLE = select({

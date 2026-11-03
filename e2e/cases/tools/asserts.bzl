@@ -1,7 +1,7 @@
 """Test helper"""
 
-load("@rules_py//py:defs.bzl", "py_test")
 load("@bazel_lib//lib:write_source_files.bzl", "write_source_file")
+load("@rules_py//py:defs.bzl", "py_test")
 
 # Path substrings that must never appear in any image layer. These ship via
 # the venv/runfiles source layer only if something bypasses the pip-package

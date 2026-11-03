@@ -1,7 +1,7 @@
-load("@rules_py//py:defs.bzl", "py_binary", "py_image_layer")
 load("@bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
 load("@bazel_skylib//rules:build_test.bzl", "build_test")
 load("@rules_oci//oci:defs.bzl", "oci_image", "oci_image_index")
+load("@rules_py//py:defs.bzl", "py_binary", "py_image_layer")
 load("@rules_shell//shell:sh_test.bzl", "sh_test")
 load("//tools:asserts.bzl", "assert_tar_listing")
 load(":toolchain_test.bzl", "exec_python_path")

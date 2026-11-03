@@ -1,5 +1,5 @@
-load("@rules_py//py:defs.bzl", "py_test")
 load("@bazel_lib//lib:transitions.bzl", "platform_transition_test")
+load("@rules_py//py:defs.bzl", "py_test")
 
 platform(
     name = "freethreaded",

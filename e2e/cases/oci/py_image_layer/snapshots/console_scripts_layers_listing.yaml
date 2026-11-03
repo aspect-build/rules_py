@@ -56,7 +56,7 @@ files:
   - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/_main/oci/py_image_layer/._console_scripts_bin.venv/bin/python -> ../../../../../rules_py++python_interpreters+python_3_11_x86_64_unknown_linux_gnu/bin/python3
   - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/_main/oci/py_image_layer/._console_scripts_bin.venv/bin/python3 -> python
   - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/_main/oci/py_image_layer/._console_scripts_bin.venv/bin/python3.11 -> python
-  - -rwxr-xr-x  0 0      0         327 Jan  1  2023 ./app.runfiles/_main/oci/py_image_layer/._console_scripts_bin.venv/lib/python3.11/site-packages/_console_scripts_bin.venv.pth
+  - -rwxr-xr-x  0 0      0         320 Jan  1  2023 ./app.runfiles/_main/oci/py_image_layer/._console_scripts_bin.venv/lib/python3.11/site-packages/_console_scripts_bin.venv.pth
   - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/_main/oci/py_image_layer/._console_scripts_bin.venv/lib/python3.11/site-packages/build -> ../../../../../../../rules_py++uv+whl_install__images__build__1_4_0/actual_install.install/lib/python3.11/site-packages/build
   - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/_main/oci/py_image_layer/._console_scripts_bin.venv/lib/python3.11/site-packages/build-1.4.0.dist-info -> ../../../../../../../rules_py++uv+whl_install__images__build__1_4_0/actual_install.install/lib/python3.11/site-packages/build-1.4.0.dist-info
   - lrwxr-xr-x  0 0      0           0 Jan  1  2023 ./app.runfiles/_main/oci/py_image_layer/._console_scripts_bin.venv/lib/python3.11/site-packages/packaging -> ../../../../../../../rules_py++uv+whl_install__images__packaging__26_0/actual_install.install/lib/python3.11/site-packages/packaging

@@ -1,7 +1,7 @@
 """Analysis test for wheel metadata across equivalent URL spellings."""
 
-load("@rules_py//py/private:providers.bzl", "PyWheelsInfo")
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
+load("@rules_py//py/private:providers.bzl", "PyWheelsInfo")
 
 _PYTHON_VERSION_FLAG = str(Label("@rules_py//py/private/interpreter:python_version"))
 _TARGET_PLATFORM = str(Label("//uv-plus-version:linux_x86_64"))

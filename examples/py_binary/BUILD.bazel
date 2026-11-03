@@ -1,6 +1,6 @@
-load("@rules_py//py:defs.bzl", "py_binary")
 load("@bazel_lib//lib:expand_template.bzl", "expand_template")
 load("@bazel_skylib//rules:build_test.bzl", "build_test")
+load("@rules_py//py:defs.bzl", "py_binary")
 
 expand_template(
     name = "stamped",

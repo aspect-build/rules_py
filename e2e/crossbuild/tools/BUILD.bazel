@@ -1,7 +1,7 @@
 # Shared helpers consumed by //... via load("//tools:...").
 
-load("@rules_py//py:defs.bzl", "py_binary", "py_library", "py_test")
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_py//py:defs.bzl", "py_binary", "py_library", "py_test")
 load(":ant_layer.bzl", "ant_home")
 load(":rust_layer.bzl", "rust_host_sysroot")
 

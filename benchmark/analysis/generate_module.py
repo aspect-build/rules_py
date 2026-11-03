@@ -2,11 +2,14 @@
 """Generate MODULE.bazel for the analysis benchmark workspace from a template."""
 
 import argparse
+import re
 import sys
 from pathlib import Path
 
 TEMPLATE = Path(__file__).with_name("MODULE.bazel.template")
 OUTPUT = Path(__file__).with_name("MODULE.bazel")
+# Name every BCR release so far was published under.
+BCR_MODULE_NAME = "aspect_rules_py"
 PATCH = Path(__file__).parent / "workspace" / "patches" / "wheel_bench_note.patch"
 
 # Releases through 2.0.0-alpha.6 apply post-install patches from the install
@@ -38,6 +41,14 @@ def prefix_anchored(mode: str, version: str, path: str) -> bool:
 
 def patch_path_prefix(mode: str, version: str, path: str) -> str:
     return "lib/python3.11/site-packages/" if prefix_anchored(mode, version, path) else ""
+
+
+def module_name(mode: str, path: str) -> str:
+    """Module name of the rules_py under test, which was published as aspect_rules_py before the rename."""
+    if mode == "bcr":
+        return BCR_MODULE_NAME
+    match = re.search(r'module\(\s*name\s*=\s*"([^"]+)"', Path(path, "MODULE.bazel").read_text())
+    return match.group(1)
 
 
 def generate(declaration: str) -> str:
@@ -78,13 +89,14 @@ def main() -> None:
     )
     args = parser.parse_args()
 
+    name = module_name(args.mode, args.path)
     if args.mode == "bcr":
-        declaration = f'bazel_dep(name = "rules_py", version = "{args.version}")'
+        declaration = f'bazel_dep(name = "{name}", version = "{args.version}", repo_name = "rules_py")'
     else:
         declaration = (
-            f'bazel_dep(name = "rules_py")\n'
+            f'bazel_dep(name = "{name}", repo_name = "rules_py")\n'
             f'local_path_override(\n'
-            f'    module_name = "rules_py",\n'
+            f'    module_name = "{name}",\n'
             f'    path = "{args.path}",\n'
             f')'
         )

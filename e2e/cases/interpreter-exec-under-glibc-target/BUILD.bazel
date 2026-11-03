@@ -22,9 +22,9 @@ The fix in `py/private/interpreter/versions.bzl` drops the unnecessary
 `target_settings: platform_libc=libsystem/msvc` from non-linux toolchains.
 """
 
-load("@rules_py//py:defs.bzl", "py_binary")
 load("@bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
 load("@bazel_skylib//rules:build_test.bzl", "build_test")
+load("@rules_py//py:defs.bzl", "py_binary")
 
 platform(
     name = "linux_glibc",

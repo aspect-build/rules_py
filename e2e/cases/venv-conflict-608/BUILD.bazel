@@ -1,5 +1,5 @@
-load("@rules_py//py:defs.bzl", "py_binary")
 load("@bazel_skylib//rules:build_test.bzl", "build_test")
+load("@rules_py//py:defs.bzl", "py_binary")
 
 # Regression test for #608 and #686: building a `py_binary` AND its
 # sibling `<name>.venv` target in the same invocation must not action-

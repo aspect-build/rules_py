@@ -1,9 +1,9 @@
 """Analysis and validation fixtures for multi-launcher image layers."""
 
-load("@rules_py//py:defs.bzl", "py_binary", "py_image_layer", "py_layer_tier", "py_library")
-load("@rules_py//py/tests:analysis_failure_test.bzl", "analysis_failure_test")
 load("@bazel_features//:features.bzl", "bazel_features")
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
+load("@rules_py//py:defs.bzl", "py_binary", "py_image_layer", "py_layer_tier", "py_library")
+load("@rules_py//py/tests:analysis_failure_test.bzl", "analysis_failure_test")
 
 _PY_TOOLCHAIN = "@bazel_tools//tools/python:toolchain_type"
 

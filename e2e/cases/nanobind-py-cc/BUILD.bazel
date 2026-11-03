@@ -1,6 +1,6 @@
-load("@rules_py//py:defs.bzl", "py_test")
 load("@bazel_skylib//rules:build_test.bzl", "build_test")
 load("@nanobind_bazel//:build_defs.bzl", "nanobind_extension")
+load("@rules_py//py:defs.bzl", "py_test")
 
 # Regression coverage for https://github.com/aspect-build/rules_py/issues/1095:
 # a nanobind_extension resolves Python headers through

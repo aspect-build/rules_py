@@ -1,5 +1,5 @@
-load("@rules_py//uv/private/markers:defs.bzl", "decide_marker")
 load("@bazel_skylib//rules:build_test.bzl", "build_test")
+load("@rules_py//uv/private/markers:defs.bzl", "decide_marker")
 load(":marker_dependency_test.bzl", "marker_dependency_check")
 load(":toolchain_test.bzl", "interpreter_toolchain_check")
 

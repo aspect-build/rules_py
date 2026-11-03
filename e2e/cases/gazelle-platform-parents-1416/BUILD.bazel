@@ -1,6 +1,6 @@
-load("@rules_py//uv:defs.bzl", "gazelle_python_manifest")
 load("@bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
 load("@bazel_skylib//rules:build_test.bzl", "build_test")
+load("@rules_py//uv:defs.bzl", "gazelle_python_manifest")
 load(":wheel_selection_probe.bzl", "wheel_selection_probe")
 
 # Regression test for `gazelle_python_manifest(platform_parent = ...)`

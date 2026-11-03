@@ -1,5 +1,3 @@
-load("@rules_py//py:defs.bzl", "py_test")
-
 # Lazy per-wheel fetching regression.
 #
 # The lock ships charset-normalizer with reachable HASHLESS wheels for the
@@ -11,6 +9,7 @@ load("@rules_py//py:defs.bzl", "py_test")
 # produced a working layout, and the hashless host wheels exercise whl_dist's
 # discovered-checksum path.
 load("@bazel_skylib//rules:build_test.bzl", "build_test")
+load("@rules_py//py:defs.bzl", "py_test")
 
 # Gazelle indexes each package's platform-SELECTED wheel (`:whl`), never the
 # unreachable win_amd64 sentinel that sorts first in the lock — so this builds

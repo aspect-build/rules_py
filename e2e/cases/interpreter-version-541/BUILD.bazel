@@ -1,5 +1,5 @@
-load("@rules_py//py:defs.bzl", "py_test")
 load("@bazel_lib//lib:expand_template.bzl", "expand_template")
+load("@rules_py//py:defs.bzl", "py_test")
 
 [
     [

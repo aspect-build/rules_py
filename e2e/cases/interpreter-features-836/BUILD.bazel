@@ -1,8 +1,8 @@
-load("@rules_py//py:defs.bzl", "py_binary", "py_image_layer")
 load("@bazel_features//:features.bzl", "bazel_features")
 load("@bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
 load("@container_structure_test//:defs.bzl", "container_structure_test")
 load("@rules_oci//oci:defs.bzl", "oci_image")
+load("@rules_py//py:defs.bzl", "py_binary", "py_image_layer")
 
 # See cases/oci/py_venv_image_layer/BUILD.bazel for the rationale: Bazel 9
 # stages canonical repo names so `runfiles.bash` bootstrap can't locate

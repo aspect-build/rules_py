@@ -15,9 +15,9 @@ This `build_test` rebuilds the failing path with no custom Starlark — just
 asserts the build completes.
 """
 
-load("@rules_py//py:defs.bzl", "py_binary", "py_image_layer")
 load("@bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
 load("@bazel_skylib//rules:build_test.bzl", "build_test")
+load("@rules_py//py:defs.bzl", "py_binary", "py_image_layer")
 
 platform(
     name = "linux_glibc",
