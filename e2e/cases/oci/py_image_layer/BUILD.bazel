@@ -733,7 +733,7 @@ py_test(
     name = "validator_wiring_test",
     srcs = ["assert_file_contains.py"],
     args = [
-        "'--expect=WARNING: image has 2 layers (warn threshold: 1, hard limit: 127).'",
+        "'--expect=WARNING: image has 3 layers (warn threshold: 1, hard limit: 127).'",
         "$(rootpaths :validator_warn_report)",
     ],
     data = [":validator_warn_report"],
@@ -1022,6 +1022,14 @@ genrule(
     srcs = [":my_app_shared_layers_only_src"],
     outs = ["_my_app_shared_sources.listing"],
     cmd = "for f in $(SRCS); do $(BSDTAR_BIN) -tf $$f; done > $@",
+    toolchains = ["@bsd_tar_toolchains//:resolved_toolchain"],
+)
+
+genrule(
+    name = "my_app_shared_deps_listing",
+    srcs = [":my_app_shared_layers_no_src"],
+    outs = ["_my_app_shared_deps.listing"],
+    cmd = "for f in $(SRCS); do $(BSDTAR_BIN) -tf $$f; done | sort -u > $@",
     toolchains = ["@bsd_tar_toolchains//:resolved_toolchain"],
 )
 

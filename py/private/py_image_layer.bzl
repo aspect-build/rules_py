@@ -253,10 +253,11 @@ py_layer_tier = rule(
                    "other than an OCI image."),
         ),
         "interpreter_group": attr.string(
-            default = "",
-            doc = ("When non-empty, the Python interpreter runfiles resolved from the " +
-                   "binary's py toolchain are emitted as their own layer under this name " +
-                   "instead of being bundled into the default source layer."),
+            default = "interpreter",
+            doc = ("The Python interpreter runfiles resolved from the binary's py " +
+                   "toolchain are emitted as their own layer under this name, so a change " +
+                   "to the sources does not rebuild and re-push the interpreter. Set to " +
+                   "\"\" to bundle them into the default source layer instead."),
         ),
         "root": attr.string(
             default = "/app",
