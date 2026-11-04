@@ -1025,6 +1025,14 @@ genrule(
     toolchains = ["@bsd_tar_toolchains//:resolved_toolchain"],
 )
 
+genrule(
+    name = "my_app_shared_deps_listing",
+    srcs = [":my_app_shared_layers_no_src"],
+    outs = ["_my_app_shared_deps.listing"],
+    cmd = "for f in $(SRCS); do $(BSDTAR_BIN) -tf $$f; done | sort -u > $@",
+    toolchains = ["@bsd_tar_toolchains//:resolved_toolchain"],
+)
+
 py_image_layer(
     name = "my_app_binaries_layers",
     binaries = select({

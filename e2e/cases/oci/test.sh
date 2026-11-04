@@ -100,7 +100,8 @@ echo "== source closures must preserve scalar and shared layouts =="
 if ! "$BAZEL" build -- \
     "${PKG}:_scalar_default_sources_listing" \
     "${PKG}:my_app_launchers_sources_listing" \
-    "${PKG}:my_app_shared_sources_listing" >"$output_log" 2>&1; then
+    "${PKG}:my_app_shared_sources_listing" \
+    "${PKG}:my_app_shared_deps_listing" >"$output_log" 2>&1; then
     cat "$output_log" >&2
     fail "expected source-layer listings to build"
 fi
@@ -120,12 +121,13 @@ listing="bazel-bin/oci/py_image_layer/_my_app_shared_sources.listing"
 for suffix in \
     /branding/__init__.py \
     /branding/palette.txt \
-    /lib/python3.11/os.py \
     /custom/bin/my_app_bin \
     /custom/bin/my_app_peer_bin \
     /oci/py_image_layer/my_app_peer_bin/config.json; do
     expect_listing_count "$listing" "$suffix" 1
 done
+expect_listing_count "$listing" "/lib/python3.11/os.py" 0
+expect_listing_count "bazel-bin/oci/py_image_layer/_my_app_shared_deps.listing" "/lib/python3.11/os.py" 1
 
 echo "PASS: scalar and shared source layouts are preserved"
 
