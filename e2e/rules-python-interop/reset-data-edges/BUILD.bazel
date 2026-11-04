@@ -1,5 +1,5 @@
-load("@rules_py//py:defs.bzl", "py_binary", "py_library", "py_venv")
 load("@bazel_skylib//rules:diff_test.bzl", "diff_test")
+load("@rules_py//py:defs.bzl", "py_binary", "py_library", "py_venv")
 load(":tests.bzl", "probe", "pyc_fanout_report", "reset_data_edges_test_suite", "root", "terminal", "versioned_terminal")
 
 package(default_testonly = True)
