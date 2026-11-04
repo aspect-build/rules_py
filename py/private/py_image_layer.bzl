@@ -1198,19 +1198,6 @@ def _py_image_layer_impl(ctx):
     # layer has to land under the same `/app.runfiles/` tree for each launcher
     # to find them. Map every launcher's `.runfiles/` tree into that shared root.
     all_tars = []
-    source_maybe_symlink = any([info.interpreter_layer == None for info in infos])
-    source_map = lambda f, d: _source_file_to_mtree(
-        f,
-        d,
-        strip_prefix,
-        root,
-        source_maybe_symlink,
-        executable_dsts,
-        runfile_executable_paths,
-        repo_mapping.path if repo_mapping != None else "",
-        owner,
-        group,
-    )
     pkg_map = lambda f, d: _pkg_file_to_mtree(f, d, owner, group)
     interpreter_map = lambda f, d: _interpreter_file_to_mtree(f, d, owner, group)
 
@@ -1235,6 +1222,27 @@ def _py_image_layer_impl(ctx):
             fp_group_files.setdefault(entry.group, []).append(entry.files)
     fp_by_group = {group: [depset(transitive = files)] for group, files in fp_group_files.items()}
     first_party_reference_files = [files[0] for files in fp_by_group.values()]
+
+    # Source files are trusted as regular files (no awk readlink) only when
+    # nothing can point across layers: without an interpreter layer the
+    # interpreter's repo-staged symlinks land here, and with rule or
+    # first-party groups a source symlink may target a file another tier emits.
+    source_maybe_symlink = (
+        bool(rule_group_files or first_party_reference_files) or
+        any([info.interpreter_layer == None for info in infos])
+    )
+    source_map = lambda f, d: _source_file_to_mtree(
+        f,
+        d,
+        strip_prefix,
+        root,
+        source_maybe_symlink,
+        executable_dsts,
+        runfile_executable_paths,
+        repo_mapping.path if repo_mapping != None else "",
+        owner,
+        group,
+    )
 
     layer_sources = [info.source_files for info in infos] + [info.python_sources for info in infos]
     if repo_mapping != None:
