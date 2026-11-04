@@ -1,0 +1,50 @@
+module(name = "remote_repo_contents_cache")
+
+bazel_dep(name = "aspect_rules_py")
+bazel_dep(name = "bazel_skylib", version = "1.4.2")
+
+local_path_override(
+    module_name = "aspect_rules_py",
+    path = "../..",
+)
+
+interpreters = use_extension("@aspect_rules_py//py:extensions.bzl", "python_interpreters")
+interpreters.configure(releases = ["20260814"])
+interpreters.toolchain(python_version = "3.11")
+use_repo(interpreters, "python_interpreters")
+
+register_toolchains("@python_interpreters//:all")
+
+uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv.declare_hub(hub_name = "pypi")
+uv.project(
+    default_build_dependencies = [
+        "build",
+        "setuptools",
+    ],
+    hub_name = "pypi",
+    lock = "//:uv.lock",
+    pyproject = "//:pyproject.toml",
+)
+use_repo(
+    uv,
+    "pypi",
+    "sdist_build__remote_repo_contents_cache__docopt__0_6_2",
+    "sdist_build__remote_repo_contents_cache__hurry_filesize__0_9",
+    "sdist_build__remote_repo_contents_cache__sgmllib3k__1_0_0",
+)
+
+# Controls that make a failed assertion on sdist_build attributable: the
+# reproducible one proves the remote cache round-trips, the other proves the
+# consuming client really started cold.
+cache_probe = use_repo_rule("//:cache_probe.bzl", "cache_probe")
+
+cache_probe(
+    name = "cache_probe_reproducible",
+    reproducible = True,
+)
+
+cache_probe(
+    name = "cache_probe_nonreproducible",
+    reproducible = False,
+)
