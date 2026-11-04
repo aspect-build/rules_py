@@ -184,7 +184,7 @@ py_test(
 ### First-party bytecode
 
 `py_binary` and `py_test` accept `precompile = "off" | "pycache" | "sourceless"`
-(`select()` accepted). The default is `off`; `--@aspect_rules_py//py:precompile`
+(`select()` accepted). The default is `off`; `--@rules_py//py:precompile`
 changes it for targets that leave `precompile` unset, and an explicit `precompile` pins the
 mode regardless of the flag.
 
@@ -205,10 +205,10 @@ at import. Editing a source and rerunning a stale `bazel-bin` launcher without
 rebuilding therefore runs the old bytecode, where `off` mode would follow the
 runfiles symlink to the edit; use `bazel run` or rebuild first. For source
 trees edited without a rebuild,
-`--@aspect_rules_py//py:pyc_invalidation_mode=checked-hash` makes Python hash
+`--@rules_py//py:pyc_invalidation_mode=checked-hash` makes Python hash
 each source on import and use the edit, at some import cost; `sourceless` has
 no source to check. Third-party bytecode compiled by `whl_install` has its own
-`--@aspect_rules_py//uv/private/pyc:whl_install_pyc_invalidation_mode`.
+`--@rules_py//uv/private/pyc:whl_install_pyc_invalidation_mode`.
 
 Each target compiles its sources into a directory of its own, and runfiles
 place the bytecode at its natural paths beside the sources. A source listed by
@@ -227,7 +227,7 @@ under `sourceless`; packages from a rules_python pip hub run from source. See
 [migrating](docs/migrating.md#bytecode-for-unconverted-targets) for bytecode
 those rules precompile themselves.
 
-`--@aspect_rules_py//py:pyc_shards` sets how many `PyCompile` actions each
+`--@rules_py//py:pyc_shards` sets how many `PyCompile` actions each
 target gets: `0` is one action per file, `N` shards a
 target's sources by path hash into `N` actions, so `1` compiles the whole
 target at once, and the default `-1` picks the smallest power of two that
@@ -237,7 +237,7 @@ a doubling boundary. A repo opts in once:
 
 ```
 # .bazelrc
-build --@aspect_rules_py//py:precompile=sourceless
+build --@rules_py//py:precompile=sourceless
 ```
 
 Bytecode is compiled by an exec-platform CPython matching the target's cache
@@ -251,11 +251,11 @@ compiler must implement the same
 argument-file interface as [`pyc_compile.py`](py/private/pyc_compile.py):
 
 ```starlark
-load("@aspect_rules_py//py:defs.bzl", "py_pyc_compiler_toolchain")
+load("@rules_py//py:defs.bzl", "py_pyc_compiler_toolchain")
 
 config_setting(
     name = "python_3_13",
-    flag_values = {"@aspect_rules_py//py:python_version": "3.13"},
+    flag_values = {"@rules_py//py:python_version": "3.13"},
 )
 
 py_pyc_compiler_toolchain(
@@ -267,7 +267,7 @@ toolchain(
     name = "python_3_13_pyc_compiler",
     target_settings = [":python_3_13"],
     toolchain = ":python_3_13_pyc_compiler_impl",
-    toolchain_type = "@aspect_rules_py//py:pyc_compiler_toolchain_type",
+    toolchain_type = "@rules_py//py:pyc_compiler_toolchain_type",
 )
 ```
 
@@ -278,7 +278,7 @@ register_toolchains("//:python_3_13_pyc_compiler")
 ```
 
 A `tool` that is itself a rules_py target, such as a `py_binary`, also needs a
-`target_settings` entry matching `--@aspect_rules_py//py:precompile=pycache`
+`target_settings` entry matching `--@rules_py//py:precompile=pycache`
 or `sourceless`; otherwise the tool's own venv selects the toolchain while it
 is analyzed and Bazel reports a dependency cycle.
 
