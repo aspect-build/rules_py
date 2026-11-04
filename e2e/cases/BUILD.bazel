@@ -212,7 +212,8 @@ write_source_files(
         #   minimum can't.
         # * wheel_root_pth — `py_unpacked_wheel` without `top_levels`;
         #   pins the `site.addsitedir(...)` shape so wheel-root `.pth`
-        #   shims keep running.
+        #   shims keep running, and the plain path line before it that
+        #   static analyzers read.
         # * multi_addsitedir — the same branch at N=4. Every `addsitedir`
         #   line reuses the `known_paths` set owned by the enclosing
         #   `site.addpackage`, so the file costs one `_init_pathinfo()` in
