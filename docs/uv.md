@@ -447,6 +447,16 @@ whatever your existing `pip.parse` may be called, but there's no reason to use
 more than one hub within a single repository. Each dependency set should be
 registered as a separate dependency group within the same hub.
 
+**Enable the repository contents cache**. Every wheel `uv` locks gets its own
+repository, and fetching one extracts the wheel's metadata. These repository
+rules are reproducible, so Bazel's repository contents cache can reuse their
+results across output bases, worktrees and `bazel clean --expunge`:
+
+```
+# .bazelrc
+common --repo_contents_cache=~/.cache/bazel-repo-contents
+```
+
 ## Gazelle integration
 
 If you use [Gazelle](https://github.com/bazelbuild/bazel-gazelle) with the
