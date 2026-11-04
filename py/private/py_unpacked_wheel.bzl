@@ -1,10 +1,11 @@
 """Unpacks a Python wheel into a directory and returns a PyInfo provider that represents that wheel"""
 
 load("@bazel_skylib//lib:paths.bzl", "paths")
-load("//py/private:providers.bzl", "PyWheelsInfo", "make_wheel_record")
+load("//py/private:providers.bzl", "PyWheelsInfo", "WHEEL_PYC_INFO", "make_wheel_record")
 load("//py/private:pth.bzl", "make_imports_depset")
 load("//py/private:py_info.bzl", "PyInfo")
 load("//py/private:py_semantics.bzl", _py_semantics = "semantics")
+load("//py/private:transitions.bzl", "no_bytecode_transition")
 load("//py/private/toolchain:types.bzl", "EXEC_TOOLS_TOOLCHAIN", "PY_TOOLCHAIN")
 
 def _py_unpacked_wheel_impl(ctx):
@@ -82,6 +83,7 @@ def _py_unpacked_wheel_impl(ctx):
         ),
     ]
 
+    providers.append(WHEEL_PYC_INFO)
     providers.append(PyWheelsInfo(
         wheels = depset(direct = [make_wheel_record(
             top_levels = ctx.attr.top_levels,
@@ -174,6 +176,7 @@ directly see the package. When empty, namespace merging falls back to
 py_unpacked_wheel = rule(
     implementation = _py_unpacked_wheel_impl,
     attrs = _attrs,
+    cfg = no_bytecode_transition,
     provides = [PyInfo],
     toolchains = [
         PY_TOOLCHAIN,

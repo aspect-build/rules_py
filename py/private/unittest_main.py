@@ -37,11 +37,12 @@ launcher_env.set_test_tmpdir()
 cov = launcher_env.start_coverage()
 
 
-def _runfile(workspace_name: str, short_path: str) -> str:
+def _runfile(workspace_name: str, short_path: str) -> str | None:
     """Resolve a baked runfiles-relative path through the launcher's runfiles.
 
     Sources are never resolved against the working directory, where an
-    unrelated `.py` could shadow the packaged test.
+    unrelated `.py` could shadow the packaged test. Returns None when the
+    runfiles hold no such file.
     """
     if short_path.startswith("../"):
         rpath = short_path[len("../") :]
@@ -54,11 +55,12 @@ def _runfile(workspace_name: str, short_path: str) -> str:
                 entry, _, target = line.rstrip("\n").partition(" ")
                 if entry == rpath:
                     return target
-        raise ImportError("test file %r is not in the runfiles manifest" % rpath)
+        return None
     runfiles_dir = os.environ.get("RUNFILES_DIR")
     if not runfiles_dir:
         raise ImportError("RUNFILES_DIR or RUNFILES_MANIFEST_FILE is required to locate test files")
-    return os.path.join(runfiles_dir, rpath)
+    path = os.path.join(runfiles_dir, rpath)
+    return path if os.path.exists(path) else None
 
 
 def _import_test_modules(workspace_name: str, test_files: list[str]) -> list[ModuleType]:
@@ -75,14 +77,21 @@ def _import_test_modules(workspace_name: str, test_files: list[str]) -> list[Mod
     for short_path in test_files:
         if not short_path.endswith(".py"):
             continue
-        path = _runfile(workspace_name, short_path)
         # Strip the leading ../ of external-repo runfiles paths so the derived
         # module name carries no leading dots; the original path still loads it.
         rel = short_path
         while rel.startswith("../"):
             rel = rel[len("../"):]
         mod_name = rel[:-len(".py")].replace("/", ".")
-        loader = importlib.machinery.SourceFileLoader(mod_name, path)
+        path = _runfile(workspace_name, short_path)
+        if path is not None:
+            loader = importlib.machinery.SourceFileLoader(mod_name, path)
+        else:
+            # Sourceless runfiles replace the source with a colocated .pyc.
+            path = _runfile(workspace_name, short_path[:-len(".py")] + ".pyc")
+            if path is None:
+                raise ImportError("test file %r is not in the runfiles" % short_path)
+            loader = importlib.machinery.SourcelessFileLoader(mod_name, path)
         spec = importlib.util.spec_from_loader(mod_name, loader)
         if spec is None:
             raise ImportError("cannot load test module from %r" % path)

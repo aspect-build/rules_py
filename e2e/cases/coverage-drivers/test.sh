@@ -80,5 +80,7 @@ for rc in data_file relative_files source source_dirs source_pkgs; do
     check_coverage "//coverage-drivers:coverage_pytest_rcfile_${rc}_test" "bazel-testlogs/coverage-drivers/coverage_pytest_rcfile_${rc}_test/coverage.dat"
 done
 check_coverage //coverage-drivers:coverage_unittest_test bazel-testlogs/coverage-drivers/coverage_unittest_test/coverage.dat
+check_coverage //coverage-drivers:coverage_pyc_test bazel-testlogs/coverage-drivers/coverage_pyc_test/coverage.dat
+check_coverage //coverage-drivers:coverage_pyc_only_test bazel-testlogs/coverage-drivers/coverage_pyc_only_test/coverage.dat
 
 echo "All coverage driver checks passed."

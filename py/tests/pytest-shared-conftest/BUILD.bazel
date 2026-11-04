@@ -1,0 +1,44 @@
+load("//py:defs.bzl", "py_pytest_test")
+load("//py/tests:pyc_testing.bzl", "pyc_config_test")
+
+package(default_testonly = True)
+
+# Each test lists the same conftest.py in its srcs, as hand-written pytest
+# BUILD files often do, and needs its fixture in every bytecode mode.
+[
+    py_pytest_test(
+        name = "{}_{}_test".format(test, mode),
+        srcs = [
+            "conftest.py",
+            "test_{}.py".format(test),
+        ],
+        precompile = mode,
+        deps = ["@pypi//pytest"],
+    )
+    for test in [
+        "a",
+        "b",
+    ]
+    for mode in [
+        "off",
+        "pycache",
+        "sourceless",
+    ]
+]
+
+# Batched compiles stay per target, so the shared conftest.py never conflicts.
+[
+    pyc_config_test(
+        name = "{}_{}_shards_one_test".format(test, mode),
+        pyc_shards = "1",
+        target = ":{}_{}_test".format(test, mode),
+    )
+    for test in [
+        "a",
+        "b",
+    ]
+    for mode in [
+        "pycache",
+        "sourceless",
+    ]
+]

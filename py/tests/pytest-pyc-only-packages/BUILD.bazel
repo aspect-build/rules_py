@@ -1,0 +1,90 @@
+load("//py:defs.bzl", "py_library", "py_pytest_test")
+load("//py/tests:pyc_testing.bzl", "expect_test")
+load("//py/tests/py-venv-multi-exec:pyc_layout_test.bzl", "pyc_layout_test")
+
+# Same-named tests in sibling packages: pytest derives their module names by
+# walking up to the `__init__.py` files, which live in a dependency here.
+# Under sourceless those must stay source beside the retained tests.
+py_library(
+    name = "packages",
+    srcs = [
+        "alpha/__init__.py",
+        "beta/__init__.py",
+    ],
+    imports = ["."],
+)
+
+py_library(
+    name = "support",
+    srcs = ["support.py"],
+    imports = ["."],
+)
+
+py_pytest_test(
+    name = "packages_pyc_only_test",
+    srcs = [
+        "alpha/test_behavior.py",
+        "beta/test_behavior.py",
+    ],
+    precompile = "sourceless",
+    deps = [
+        ":packages",
+        ":support",
+        "@pypi//pytest",
+    ],
+)
+
+# Package markers above the tests stay source; other dependencies do not.
+pyc_layout_test(
+    name = "package_marker_retained_test",
+    mode = "sourceless",
+    module = "alpha/__init__",
+    protect_source = True,
+    target = ":packages_pyc_only_test",
+)
+
+pyc_layout_test(
+    name = "support_sourceless_test",
+    mode = "sourceless",
+    module = "support",
+    target = ":packages_pyc_only_test",
+)
+
+# pytest_args generates a per-test main in this package, found as a direct dep's bytecode.
+py_pytest_test(
+    name = "codegen_pyc_only_test",
+    srcs = ["codegen_test.py"],
+    precompile = "sourceless",
+    pytest_args = ["-q"],
+    deps = [
+        ":support",
+        "@pypi//pytest",
+    ],
+)
+
+# The shared pytest main compiles under the venv's Python version, not the default.
+py_pytest_test(
+    name = "pyc_only_python_312_test",
+    srcs = ["version_test.py"],
+    precompile = "sourceless",
+    python_version = "3.12",
+    deps = [
+        ":support",
+        "@pypi//pytest",
+    ],
+)
+
+genrule(
+    name = "pyc_only_python_312_entrypoint_magic",
+    testonly = True,
+    srcs = [":pyc_only_python_312_test"],
+    outs = ["pyc_only_python_312_entrypoint_magic.txt"],
+    cmd = "for f in $(SRCS); do case $$f in *.pyc) od -An -tx1 -N4 $$f | tr -d ' \\n' > $@; echo >> $@;; esac; done",
+)
+
+# CPython 3.12 bytecode magic.
+expect_test(
+    name = "pyc_only_python_312_entrypoint_magic_test",
+    actual = ":pyc_only_python_312_entrypoint_magic",
+    lines = ["cb0d0d0a"],
+)
