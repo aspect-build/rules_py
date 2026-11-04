@@ -29,14 +29,14 @@ def _feature_filegroups_exclude_pycache_test_impl(ctx):
 
 feature_filegroups_exclude_pycache_test = unittest.make(_feature_filegroups_exclude_pycache_test_impl)
 
-def _build_file(abi_flags):
+def _build_file(abi_flags, is_macos = False, is_windows = False):
     return repository_testlib.build_file_content(
         major = "3",
         minor = "14",
         micro = "0",
-        python_bin = "bin/python3",
-        is_macos = False,
-        is_windows = False,
+        python_bin = "python.exe" if is_windows else "bin/python3",
+        is_macos = is_macos,
+        is_windows = is_windows,
         abi_flags = abi_flags,
         releaselevel = "final",
         serial = "0",
@@ -74,9 +74,33 @@ def _freethreaded_stdlib_excludes_test_impl(ctx):
 
 freethreaded_stdlib_excludes_test = unittest.make(_freethreaded_stdlib_excludes_test_impl)
 
+def _python_headers_gil_disabled_test_impl(ctx):
+    env = unittest.begin(ctx)
+
+    # Windows has one pyconfig.h for both builds, so only the free-threaded
+    # Windows headers define Py_GIL_DISABLED themselves; the free-threaded
+    # pyconfig.h defines it on Linux and macOS.
+    for abi_flags, is_macos, is_windows, defined in [
+        ("t", False, True, True),
+        ("td", False, True, True),
+        ("", False, True, False),
+        ("d", False, True, False),
+        ("t", False, False, False),
+        ("t", True, False, False),
+    ]:
+        case = "abi_flags={} is_macos={} is_windows={}".format(abi_flags, is_macos, is_windows)
+        content = _build_file(abi_flags, is_macos = is_macos, is_windows = is_windows)
+        asserts.equals(env, 1 if defined else 0, content.count('defines = ["Py_GIL_DISABLED"],'), case)
+        asserts.false(env, "defines = []" in content, case)
+
+    return unittest.end(env)
+
+python_headers_gil_disabled_test = unittest.make(_python_headers_gil_disabled_test_impl)
+
 def repository_test_suite():
     unittest.suite(
         "repository_tests",
         feature_filegroups_exclude_pycache_test,
         freethreaded_stdlib_excludes_test,
+        python_headers_gil_disabled_test,
     )
