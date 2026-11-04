@@ -1,0 +1,23 @@
+version = 1
+revision = 3
+requires-python = ">=3.11"
+
+[manifest]
+members = [
+    "dynver",
+    "uv-dynamic-version",
+]
+
+[[package]]
+name = "dynver"
+source = { editable = "packages/dynver" }
+
+[[package]]
+name = "uv-dynamic-version"
+source = { editable = "." }
+dependencies = [
+    { name = "dynver" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "dynver", editable = "packages/dynver" }]

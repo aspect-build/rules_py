@@ -1,0 +1,13 @@
+uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv.declare_hub(hub_name = "pypi_uv_dynamic_version")
+uv.project(
+    hub_name = "pypi_uv_dynamic_version",
+    lock = "//uv-dynamic-version:uv.lock",
+    pyproject = "//uv-dynamic-version:pyproject.toml",
+)
+uv.override_package(
+    name = "dynver",
+    lock = "//uv-dynamic-version:uv.lock",
+    target = "//uv-dynamic-version/packages/dynver",
+)
+use_repo(uv, "pypi_uv_dynamic_version")
