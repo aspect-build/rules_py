@@ -48,24 +48,24 @@ assert_matches "rules_python macOS (x86_64)" \
 assert_matches "rules_python Windows (x86_64)" \
     "./app.runfiles/rules_python++python+python_3_11_x86_64-pc-windows-msvc/python.exe"
 
-# --- Should match: aspect_rules_py provisioning (underscores throughout) ---
+# --- Should match: rules_py provisioning (underscores throughout) ---
 
-assert_matches "aspect_rules_py provisioned (x86_64 linux)" \
+assert_matches "rules_py provisioned (x86_64 linux)" \
     "./app.runfiles/python_3_11_x86_64_unknown_linux_gnu/bin/python3"
 
-assert_matches "aspect_rules_py provisioned (aarch64 linux)" \
+assert_matches "rules_py provisioned (aarch64 linux)" \
     "./app.runfiles/python_3_12_aarch64_unknown_linux_gnu/lib/libpython3.so"
 
-assert_matches "aspect_rules_py provisioned (macOS)" \
+assert_matches "rules_py provisioned (macOS)" \
     "./app.runfiles/python_3_13_aarch64_apple_darwin/bin/python3"
 
-assert_matches "aspect_rules_py provisioned (Windows)" \
+assert_matches "rules_py provisioned (Windows)" \
     "./app.runfiles/python_3_11_x86_64_pc_windows_msvc/python.exe"
 
-assert_matches "aspect_rules_py provisioned with patch version" \
+assert_matches "rules_py provisioned with patch version" \
     "./app.runfiles/python_3_11_14_x86_64_unknown_linux_gnu/bin/python3"
 
-assert_matches "aspect_rules_py provisioned (musl)" \
+assert_matches "rules_py provisioned (musl)" \
     "./app.runfiles/python_3_12_x86_64_unknown_linux_musl/bin/python3"
 
 # --- Should NOT match: pip/pypi package repos (issue #787) ---
@@ -83,7 +83,7 @@ assert_no_match "WORKSPACE pip package with arch" \
     "./app.runfiles/rules_python~0.21.0~pip~pypi_39_numpy_cp39_manylinux_2_17_x86_64_abc123/site-packages/numpy/__init__.py"
 
 assert_no_match "uv/aspect pip package with arch" \
-    "./app.runfiles/aspect_rules_py++uv+pypi_313_cryptography_cp39_abi3_manylinux_2_17_x86_64_58d4e912/site-packages/cryptography/__init__.py"
+    "./app.runfiles/rules_py++uv+pypi_313_cryptography_cp39_abi3_manylinux_2_17_x86_64_58d4e912/site-packages/cryptography/__init__.py"
 
 # --- Should NOT match: main repo app files ---
 

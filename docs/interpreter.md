@@ -1,6 +1,6 @@
-# `aspect_rules_py` Python Interpreters
+# `rules_py` Python Interpreters
 
-`aspect_rules_py` provides its own Python interpreter provisioning, backed by
+`rules_py` provides its own Python interpreter provisioning, backed by
 [python-build-standalone](https://github.com/astral-sh/python-build-standalone)
 (PBS). This replaces the need to use `rules_python`'s `python.toolchain()` for
 interpreter management.
@@ -33,9 +33,9 @@ by [PEP 803](https://peps.python.org/pep-0803/) is not yet modeled.
 
 ```starlark
 # MODULE.bazel
-bazel_dep(name = "aspect_rules_py", version = "1.6.7")  # Or later
+bazel_dep(name = "rules_py", version = "<version>")  # See https://github.com/aspect-build/rules_py/releases
 
-interpreters = use_extension("@aspect_rules_py//py:extensions.bzl", "python_interpreters")
+interpreters = use_extension("@rules_py//py:extensions.bzl", "python_interpreters")
 interpreters.toolchain(
     python_version = "3.12",
 )
@@ -47,7 +47,7 @@ register_toolchains("@python_interpreters//:all")
 Select the build-wide Python version in `.bazelrc`:
 
 ```text
-common --@aspect_rules_py//py:python_version=3.12
+common --@rules_py//py:python_version=3.12
 ```
 
 That's all you need. The extension uses a set of default PBS release dates that
@@ -61,7 +61,7 @@ full range of available Python versions. Use `configure()` to pin to specific
 releases or to include versions that have been dropped from newer releases:
 
 ```starlark
-interpreters = use_extension("@aspect_rules_py//py:extensions.bzl", "python_interpreters")
+interpreters = use_extension("@rules_py//py:extensions.bzl", "python_interpreters")
 interpreters.configure(
     releases = ["20260303", "20241002"],
 )
@@ -129,13 +129,13 @@ There are two layers of version control, from broadest to most specific.
 
 ### 1. A build-wide version (.bazelrc)
 
-Set `--@aspect_rules_py//py:python_version` in `.bazelrc` to lock the
+Set `--@rules_py//py:python_version` in `.bazelrc` to lock the
 entire build to a specific version and keep the selection explicit in version
 control:
 
 ```
 # .bazelrc
-common --@aspect_rules_py//py:python_version=3.12
+common --@rules_py//py:python_version=3.12
 ```
 
 This flag can also be overridden on the command line for one-off testing against
@@ -143,7 +143,7 @@ a different version:
 
 ```sh
 # Quick smoke-test on 3.11 without editing any files
-bazel test //... --@aspect_rules_py//py:python_version=3.11
+bazel test //... --@rules_py//py:python_version=3.11
 ```
 
 ### 2. Per-target overrides (python_version attribute)
@@ -153,7 +153,7 @@ can pin to a specific version using the `python_version` attribute. This takes
 precedence over the flag:
 
 ```starlark
-load("@aspect_rules_py//py:defs.bzl", "py_binary")
+load("@rules_py//py:defs.bzl", "py_binary")
 
 py_binary(
     name = "app",
@@ -179,7 +179,7 @@ versions:
 
 | Mechanism                               | Scope                  | Set by                     |
 | --------------------------------------- | ---------------------- | -------------------------- |
-| `--@aspect_rules_py//py:python_version` | Whole build            | `.bazelrc` or command line |
+| `--@rules_py//py:python_version` | Whole build            | `.bazelrc` or command line |
 | `python_version` attribute              | Single target          | `BUILD.bazel`              |
 
 The target attribute takes precedence over the build-wide flag.
@@ -194,7 +194,7 @@ free-threaded mode with the build setting:
 
 ```shell
 bazel build \
-    --@aspect_rules_py//py/private/interpreter:freethreaded=true \
+    --@rules_py//py/private/interpreter:freethreaded=true \
     //...
 ```
 
@@ -314,7 +314,7 @@ This interpreter provisioning is designed to coexist with `rules_python`:
   `interpreter_path` rather than an in-build `interpreter` file) are not
   supported; rules_py requires a registered, in-build interpreter.
 - Build actions that run an interpreter (wheel installation, site-packages
-  merging) resolve `@aspect_rules_py//py/private/toolchain:exec_tools_toolchain_type`,
+  merging) resolve `@rules_py//py/private/toolchain:exec_tools_toolchain_type`,
   registered by `interpreters.toolchain()`. The exec interpreter follows the
   Python version flags when the hub provisions that version; otherwise it
   falls back to the hub's highest provisioned version — including the hub
@@ -326,7 +326,7 @@ This interpreter provisioning is designed to coexist with `rules_python`:
 
 Note that runtimes provisioned by `interpreters.toolchain()` carry
 `rules_python`'s public `PyRuntimeInfo` (re-exported from
-`@aspect_rules_py//py:defs.bzl`), so `rules_python`-defined executables and
+`@rules_py//py:defs.bzl`), so `rules_python`-defined executables and
 their downstream consumers (`py_zipapp_binary`, `py_interpreter`) analyze and
 run on them. No coverage tool is bundled, so `rules_python`-rule coverage on
 these runtimes is unavailable.

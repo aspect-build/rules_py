@@ -7,7 +7,7 @@ distribution is ever fetched. The //:snapshots entries pin depth-limited
 queries over the generated `private/build_deps` targets of both projects.
 """
 
-uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv = use_extension("@rules_py//uv:extensions.bzl", "uv")
 uv.declare_hub(hub_name = "pypi_build_graph")
 uv.project(
     default_build_dependencies = [],

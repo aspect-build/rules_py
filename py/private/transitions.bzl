@@ -1,14 +1,14 @@
 """Common transition implementation used by the various terminals."""
 
-_DEP_GROUP_FLAG = "@aspect_rules_py//uv/private/constraints/dep_group:dep_group"
-_DEP_GROUP_BASELINE_FLAG = "@aspect_rules_py//uv/private/constraints/dep_group:baseline"
+_DEP_GROUP_FLAG = "@rules_py//uv/private/constraints/dep_group:dep_group"
+_DEP_GROUP_BASELINE_FLAG = "@rules_py//uv/private/constraints/dep_group:baseline"
 
 # Terminals read the requested mode; below them only whether it is `off` matters.
 # Edges keep the value whenever it already agrees, so a library requested
 # directly shares the configuration its launchers give it.
-PYC_FLAG = "@aspect_rules_py//py:precompile"
-_PYC_BASELINE_FLAG = "@aspect_rules_py//py:baseline_precompile"
-PYC_INVALIDATION_FLAG = "@aspect_rules_py//py:pyc_invalidation_mode"
+PYC_FLAG = "@rules_py//py:precompile"
+_PYC_BASELINE_FLAG = "@rules_py//py:baseline_precompile"
+PYC_INVALIDATION_FLAG = "@rules_py//py:pyc_invalidation_mode"
 
 def _bytecode_request(current, mode):
     if (current != "off") == (mode != "off"):
@@ -16,17 +16,17 @@ def _bytecode_request(current, mode):
     return "off" if mode == "off" else "pycache"
 
 # Our own python_version flag, replacing the rules_python one.
-_PYTHON_VERSION_FLAG = "@aspect_rules_py//py/private/interpreter:python_version"
-_PYTHON_VERSION_BASELINE_FLAG = "@aspect_rules_py//py/private/interpreter:baseline_python_version"
+_PYTHON_VERSION_FLAG = "@rules_py//py/private/interpreter:python_version"
+_PYTHON_VERSION_BASELINE_FLAG = "@rules_py//py/private/interpreter:baseline_python_version"
 
 # rules_python's flag, kept for backward compatibility during migration.
 _RPY_VERSION_FLAG = "@rules_python//python/config_settings:python_version"
-_RPY_VERSION_BASELINE_FLAG = "@aspect_rules_py//py/private/interpreter:baseline_rules_python_version"
+_RPY_VERSION_BASELINE_FLAG = "@rules_py//py/private/interpreter:baseline_rules_python_version"
 
-_FREETHREADED_FLAG = "@aspect_rules_py//py/private/interpreter:freethreaded"
-_FREETHREADED_BASELINE_FLAG = "@aspect_rules_py//py/private/interpreter:baseline_freethreaded"
+_FREETHREADED_FLAG = "@rules_py//py/private/interpreter:freethreaded"
+_FREETHREADED_BASELINE_FLAG = "@rules_py//py/private/interpreter:baseline_freethreaded"
 _RPY_FREETHREADED_FLAG = "@rules_python//python/config_settings:py_freethreaded"
-_RPY_FREETHREADED_BASELINE_FLAG = "@aspect_rules_py//py/private/interpreter:baseline_rules_python_freethreaded"
+_RPY_FREETHREADED_BASELINE_FLAG = "@rules_py//py/private/interpreter:baseline_rules_python_freethreaded"
 
 _BASELINE_UNSET = "<unset>"
 

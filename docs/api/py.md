@@ -9,7 +9,7 @@ The `python_version` attribute must refer to a python toolchain version
 which has been registered in the `MODULE.bazel` file, e.g.:
 
 ```starlark
-interpreters = use_extension("@aspect_rules_py//py:extensions.bzl", "python_interpreters")
+interpreters = use_extension("@rules_py//py:extensions.bzl", "python_interpreters")
 interpreters.toolchain(python_version = "3.10")
 interpreters.toolchain(python_version = "3.12")
 use_repo(interpreters, "python_interpreters")
@@ -22,7 +22,7 @@ register_toolchains("@python_interpreters//:all")
 ## current_py_toolchain
 
 <pre>
-load("@aspect_rules_py//py:defs.bzl", "current_py_toolchain")
+load("@rules_py//py:defs.bzl", "current_py_toolchain")
 
 current_py_toolchain(<a href="#current_py_toolchain-name">name</a>)
 </pre>
@@ -75,7 +75,7 @@ bazel_env(
 ## py_layer_compressor
 
 <pre>
-load("@aspect_rules_py//py:defs.bzl", "py_layer_compressor")
+load("@rules_py//py:defs.bzl", "py_layer_compressor")
 
 py_layer_compressor(<a href="#py_layer_compressor-name">name</a>, <a href="#py_layer_compressor-args">args</a>, <a href="#py_layer_compressor-extension">extension</a>, <a href="#py_layer_compressor-tool">tool</a>)
 </pre>
@@ -124,7 +124,7 @@ The program runs inside the tar action, so prefer a Bazel-built binary or a
 ## py_layer_tier
 
 <pre>
-load("@aspect_rules_py//py:defs.bzl", "py_layer_tier")
+load("@rules_py//py:defs.bzl", "py_layer_tier")
 
 py_layer_tier(<a href="#py_layer_tier-name">name</a>, <a href="#py_layer_tier-allow_non_oci_layers">allow_non_oci_layers</a>, <a href="#py_layer_tier-compression">compression</a>, <a href="#py_layer_tier-compressors">compressors</a>, <a href="#py_layer_tier-group">group</a>, <a href="#py_layer_tier-groups">groups</a>,
               <a href="#py_layer_tier-interpreter_group">interpreter_group</a>, <a href="#py_layer_tier-owner">owner</a>, <a href="#py_layer_tier-root">root</a>, <a href="#py_layer_tier-strip_prefix">strip_prefix</a>)
@@ -156,7 +156,7 @@ Must not be testonly. `py_image_layer` transitions the `//py:layer_tier` flag to
 ## py_library
 
 <pre>
-load("@aspect_rules_py//py:defs.bzl", "py_library")
+load("@rules_py//py:defs.bzl", "py_library")
 
 py_library(<a href="#py_library-name">name</a>, <a href="#py_library-deps">deps</a>, <a href="#py_library-srcs">srcs</a>, <a href="#py_library-data">data</a>, <a href="#py_library-imports">imports</a>, <a href="#py_library-pyi_deps">pyi_deps</a>, <a href="#py_library-resolutions">resolutions</a>, <a href="#py_library-virtual_deps">virtual_deps</a>)
 </pre>
@@ -183,7 +183,7 @@ py_library(<a href="#py_library-name">name</a>, <a href="#py_library-deps">deps<
 ## py_pex_binary
 
 <pre>
-load("@aspect_rules_py//py:defs.bzl", "py_pex_binary")
+load("@rules_py//py:defs.bzl", "py_pex_binary")
 
 py_pex_binary(<a href="#py_pex_binary-name">name</a>, <a href="#py_pex_binary-binary">binary</a>, <a href="#py_pex_binary-inherit_path">inherit_path</a>, <a href="#py_pex_binary-inject_env">inject_env</a>, <a href="#py_pex_binary-python_interpreter_constraints">python_interpreter_constraints</a>,
               <a href="#py_pex_binary-python_shebang">python_shebang</a>)
@@ -198,7 +198,7 @@ archive, so `$(rootpath)`, `$(location)` and `$(execpath)` values do not exist.
 Outside of Bazel only `inject_env` applies.
 
 A pex always packages first-party sources, whatever
-`--@aspect_rules_py//py:precompile` requests: `binary` is built with that flag
+`--@rules_py//py:precompile` requests: `binary` is built with that flag
 reset to `off`, the `__pycache__` bytecode of a `binary` pinned to
 `precompile = "pycache"` is left out, and a `binary` pinned to
 `precompile = "sourceless"` fails analysis.
@@ -221,7 +221,7 @@ reset to `off`, the `__pycache__` bytecode of a `binary` pinned to
 ## py_pyc_compiler_toolchain
 
 <pre>
-load("@aspect_rules_py//py:defs.bzl", "py_pyc_compiler_toolchain")
+load("@rules_py//py:defs.bzl", "py_pyc_compiler_toolchain")
 
 py_pyc_compiler_toolchain(<a href="#py_pyc_compiler_toolchain-name">name</a>, <a href="#py_pyc_compiler_toolchain-runtime">runtime</a>, <a href="#py_pyc_compiler_toolchain-tool">tool</a>)
 </pre>
@@ -233,11 +233,11 @@ Exactly one of `runtime` or `tool` is required. A `tool` must implement the
 same version gating as the interpreter it stands in for. Compile actions are
 path-mapped, so a `tool` must write only to the paths it is given and embed
 only the `DFILE` argument, never an input or output path, in its bytecode. It must also honour `--checked-hash`, passed under
-`--@aspect_rules_py//py:pyc_invalidation_mode=checked-hash`.
+`--@rules_py//py:pyc_invalidation_mode=checked-hash`.
 
 A `tool` that is itself a rules_py target, such as a `py_binary`, resolves this
 toolchain type while it is analyzed. Also gate its `toolchain()` on
-`--@aspect_rules_py//py:precompile` requesting bytecode, as
+`--@rules_py//py:precompile` requesting bytecode, as
 `//py/tests/pyc-compile:custom_pyc_compiler_toolchain` does, so it never
 selects itself.
 
@@ -256,7 +256,7 @@ selects itself.
 ## py_unpacked_wheel
 
 <pre>
-load("@aspect_rules_py//py:defs.bzl", "py_unpacked_wheel")
+load("@rules_py//py:defs.bzl", "py_unpacked_wheel")
 
 py_unpacked_wheel(<a href="#py_unpacked_wheel-name">name</a>, <a href="#py_unpacked_wheel-src">src</a>, <a href="#py_unpacked_wheel-console_scripts">console_scripts</a>, <a href="#py_unpacked_wheel-data_files">data_files</a>, <a href="#py_unpacked_wheel-namespace_entries">namespace_entries</a>, <a href="#py_unpacked_wheel-namespace_top_levels">namespace_top_levels</a>,
                   <a href="#py_unpacked_wheel-top_levels">top_levels</a>)
@@ -283,7 +283,7 @@ py_unpacked_wheel(<a href="#py_unpacked_wheel-name">name</a>, <a href="#py_unpac
 ## whl_filegroup
 
 <pre>
-load("@aspect_rules_py//py:defs.bzl", "whl_filegroup")
+load("@rules_py//py:defs.bzl", "whl_filegroup")
 
 whl_filegroup(<a href="#whl_filegroup-name">name</a>, <a href="#whl_filegroup-pattern">pattern</a>, <a href="#whl_filegroup-runfiles">runfiles</a>, <a href="#whl_filegroup-whl">whl</a>)
 </pre>
@@ -334,7 +334,7 @@ from the already extracted whl file.
 ## PyInfo
 
 <pre>
-load("@aspect_rules_py//py:defs.bzl", "PyInfo")
+load("@rules_py//py:defs.bzl", "PyInfo")
 
 PyInfo(<a href="#PyInfo-transitive_sources">transitive_sources</a>, <a href="#PyInfo-transitive_pyi_files">transitive_pyi_files</a>, <a href="#PyInfo-imports">imports</a>, <a href="#PyInfo-pyi_imports">pyi_imports</a>, <a href="#PyInfo-virtual_dependencies">virtual_dependencies</a>,
        <a href="#PyInfo-virtual_resolutions">virtual_resolutions</a>)
@@ -359,7 +359,7 @@ Python source, import-path, and virtual-dependency information for a target's de
 ## PyLayerCompressorInfo
 
 <pre>
-load("@aspect_rules_py//py:defs.bzl", "PyLayerCompressorInfo")
+load("@rules_py//py:defs.bzl", "PyLayerCompressorInfo")
 
 PyLayerCompressorInfo(<a href="#PyLayerCompressorInfo-args">args</a>, <a href="#PyLayerCompressorInfo-executable">executable</a>, <a href="#PyLayerCompressorInfo-extension">extension</a>, <a href="#PyLayerCompressorInfo-files_to_run">files_to_run</a>)
 </pre>
@@ -381,7 +381,7 @@ A custom layer compressor: a program bsdtar pipes the archive through.
 ## PyLayerTierInfo
 
 <pre>
-load("@aspect_rules_py//py:defs.bzl", "PyLayerTierInfo")
+load("@rules_py//py:defs.bzl", "PyLayerTierInfo")
 
 PyLayerTierInfo(<a href="#PyLayerTierInfo-whole_groups">whole_groups</a>, <a href="#PyLayerTierInfo-subpath_groups">subpath_groups</a>, <a href="#PyLayerTierInfo-compression">compression</a>, <a href="#PyLayerTierInfo-compressors">compressors</a>, <a href="#PyLayerTierInfo-codecs">codecs</a>, <a href="#PyLayerTierInfo-multi_member_groups">multi_member_groups</a>,
                 <a href="#PyLayerTierInfo-interpreter_group">interpreter_group</a>, <a href="#PyLayerTierInfo-root">root</a>, <a href="#PyLayerTierInfo-strip_prefix">strip_prefix</a>, <a href="#PyLayerTierInfo-owner">owner</a>, <a href="#PyLayerTierInfo-group">group</a>)
@@ -411,7 +411,7 @@ Layer tier for py_image_layer: how pip packages are grouped and compressed.
 ## PyRuntimeInfo
 
 <pre>
-load("@aspect_rules_py//py:defs.bzl", "PyRuntimeInfo")
+load("@rules_py//py:defs.bzl", "PyRuntimeInfo")
 
 PyRuntimeInfo(*, <a href="#PyRuntimeInfo-implementation_name">implementation_name</a>, <a href="#PyRuntimeInfo-interpreter_path">interpreter_path</a>, <a href="#PyRuntimeInfo-interpreter">interpreter</a>, <a href="#PyRuntimeInfo-files">files</a>, <a href="#PyRuntimeInfo-coverage_tool">coverage_tool</a>,
               <a href="#PyRuntimeInfo-coverage_files">coverage_files</a>, <a href="#PyRuntimeInfo-pyc_tag">pyc_tag</a>, <a href="#PyRuntimeInfo-python_version">python_version</a>, <a href="#PyRuntimeInfo-stub_shebang">stub_shebang</a>, <a href="#PyRuntimeInfo-bootstrap_template">bootstrap_template</a>,
@@ -461,7 +461,7 @@ the same conventions as the standard CPython interpreter.
 ## PyWheelsInfo
 
 <pre>
-load("@aspect_rules_py//py:defs.bzl", "PyWheelsInfo")
+load("@rules_py//py:defs.bzl", "PyWheelsInfo")
 
 PyWheelsInfo(<a href="#PyWheelsInfo-wheels">wheels</a>)
 </pre>
@@ -489,7 +489,7 @@ of whether its metadata was available during analysis.
 ## py_binary
 
 <pre>
-load("@aspect_rules_py//py:defs.bzl", "py_binary")
+load("@rules_py//py:defs.bzl", "py_binary")
 
 py_binary(<a href="#py_binary-name">name</a>, <a href="#py_binary-srcs">srcs</a>, <a href="#py_binary-main">main</a>, <a href="#py_binary-kwargs">**kwargs</a>)
 </pre>
@@ -515,7 +515,7 @@ workspace symlink in one step, set `expose_venv_link = True`.
 | <a id="py_binary-name"></a>name |  Name of the rule.   |  none |
 | <a id="py_binary-srcs"></a>srcs |  Python source files.   |  `[]` |
 | <a id="py_binary-main"></a>main |  Entry point. Like rules_python, this is treated as a suffix of a file that should appear among the srcs. If absent, then `[name].py` is tried. As a final fallback, if the srcs has a single file, that is used as the main.<br><br>Note: the fallback runs at macro-evaluation time and operates on label strings, not resolved files — it cannot inspect a generated target's output basename. If `main` would resolve to a file produced by another rule (e.g. a `genrule` whose output happens to be `<name>.py`), the macro can't see that and you must pass `main =` explicitly.   |  `None` |
-| <a id="py_binary-kwargs"></a>kwargs |  additional named parameters forwarded to the underlying rule and the sibling py_venv. Three extras are handled by this macro:<br><br>* `include_console_scripts` (bool, default `False`) — when   `True`, the binary's runfiles include the venv's   wheel-declared `bin/<name>` console-script wrappers so   subprocesses can invoke them by name via `PATH`.   Independent of `expose_venv`: the `.venv` target always   carries wrappers for `bazel run`, the binary only with   this flag. * `expose_venv` (bool, default `False`) — when `True`, emit   a sibling `:{name}.venv` py_venv carrying all venv-shaping   attrs (deps, imports, package_collisions,   include_*_site_packages, interpreter_options). The `.venv`   target is runnable (`bazel run :{name}.venv` drops into   the hermetic interpreter). * `expose_venv_link` (bool, default `False`) — when `True`,   additionally emit a `:{name}.venv_link` py_venv_link.   `bazel run :{name}.venv_link` links the target's runfiles   tree into the workspace and prints the nested venv path   suitable for an IDE's interpreter setting. Implies   `expose_venv = True`; passing   `expose_venv = False, expose_venv_link = True` explicitly   is rejected with a clear error. Equivalent to declaring an   explicit   `py_venv_link(name = "{name}.venv_link", venv = ":{name}.venv")`   alongside the binary. * `precompile` (string) — first-party bytecode packaging.   `"off"` ships only `.py` sources; `"pycache"` additionally   ships PEP 3147 `__pycache__` bytecode; `"sourceless"` ships   colocated `.pyc` files in place of the sources. Unset (`None`)   inherits the global `--@aspect_rules_py//py:precompile` flag; an explicit value pins   the mode. `select()` accepted. See "First-party bytecode" in   the README.   |  none |
+| <a id="py_binary-kwargs"></a>kwargs |  additional named parameters forwarded to the underlying rule and the sibling py_venv. Three extras are handled by this macro:<br><br>* `include_console_scripts` (bool, default `False`) — when   `True`, the binary's runfiles include the venv's   wheel-declared `bin/<name>` console-script wrappers so   subprocesses can invoke them by name via `PATH`.   Independent of `expose_venv`: the `.venv` target always   carries wrappers for `bazel run`, the binary only with   this flag. * `expose_venv` (bool, default `False`) — when `True`, emit   a sibling `:{name}.venv` py_venv carrying all venv-shaping   attrs (deps, imports, package_collisions,   include_*_site_packages, interpreter_options). The `.venv`   target is runnable (`bazel run :{name}.venv` drops into   the hermetic interpreter). * `expose_venv_link` (bool, default `False`) — when `True`,   additionally emit a `:{name}.venv_link` py_venv_link.   `bazel run :{name}.venv_link` links the target's runfiles   tree into the workspace and prints the nested venv path   suitable for an IDE's interpreter setting. Implies   `expose_venv = True`; passing   `expose_venv = False, expose_venv_link = True` explicitly   is rejected with a clear error. Equivalent to declaring an   explicit   `py_venv_link(name = "{name}.venv_link", venv = ":{name}.venv")`   alongside the binary. * `precompile` (string) — first-party bytecode packaging.   `"off"` ships only `.py` sources; `"pycache"` additionally   ships PEP 3147 `__pycache__` bytecode; `"sourceless"` ships   colocated `.pyc` files in place of the sources. Unset (`None`)   inherits the global `--@rules_py//py:precompile` flag; an explicit value pins   the mode. `select()` accepted. See "First-party bytecode" in   the README.   |  none |
 
 
 <a id="py_image_layer"></a>
@@ -523,7 +523,7 @@ workspace symlink in one step, set `expose_venv_link = True`.
 ## py_image_layer
 
 <pre>
-load("@aspect_rules_py//py:defs.bzl", "py_image_layer")
+load("@rules_py//py:defs.bzl", "py_image_layer")
 
 py_image_layer(<a href="#py_image_layer-name">name</a>, <a href="#py_image_layer-binary">binary</a>, <a href="#py_image_layer-groups">groups</a>, <a href="#py_image_layer-group_execution_requirements">group_execution_requirements</a>, <a href="#py_image_layer-group_compress_levels">group_compress_levels</a>,
                <a href="#py_image_layer-group_compression">group_compression</a>, <a href="#py_image_layer-group_compressors">group_compressors</a>, <a href="#py_image_layer-allow_non_oci_layers">allow_non_oci_layers</a>,
@@ -567,7 +567,7 @@ or pin a tier to a specific rule via the `py_layer_tier` attr below.
 | <a id="py_image_layer-warn_remote_cache_threshold_mb"></a>warn_remote_cache_threshold_mb |  Threshold for large package warnings.   |  `200` |
 | <a id="py_image_layer-warn_layer_count"></a>warn_layer_count |  Warn when total layers exceed this. Default: 90.   |  `90` |
 | <a id="py_image_layer-platform"></a>platform |  Platform transition target.   |  `None` |
-| <a id="py_image_layer-layer_tier"></a>layer_tier |  Optional py_layer_tier target pinned for this rule. Sets the `@aspect_rules_py//py:layer_tier` label_flag via the rule transition, overriding any command-line value for this rule's subgraph.   |  `None` |
+| <a id="py_image_layer-layer_tier"></a>layer_tier |  Optional py_layer_tier target pinned for this rule. Sets the `@rules_py//py:layer_tier` label_flag via the rule transition, overriding any command-line value for this rule's subgraph.   |  `None` |
 | <a id="py_image_layer-launcher_dir"></a>launcher_dir |  Absolute image directory for the binary launchers. Defaults to /app/bin with multiple binaries. Set RUNFILES_DIR=/app.runfiles in the image.   |  `""` |
 | <a id="py_image_layer-binaries"></a>binaries |  Alternative to binary. A nonempty list of py_binary targets to include in the image.   |  `None` |
 | <a id="py_image_layer-kwargs"></a>kwargs |  Forwarded to inner rule.   |  none |
@@ -578,7 +578,7 @@ or pin a tier to a specific rule via the `py_layer_tier` attr below.
 ## py_pytest_main
 
 <pre>
-load("@aspect_rules_py//py:defs.bzl", "py_pytest_main")
+load("@rules_py//py:defs.bzl", "py_pytest_main")
 
 py_pytest_main(<a href="#py_pytest_main-name">name</a>, <a href="#py_pytest_main-py_library">py_library</a>, <a href="#py_pytest_main-deps">deps</a>, <a href="#py_pytest_main-data">data</a>, <a href="#py_pytest_main-testonly">testonly</a>, <a href="#py_pytest_main-kwargs">**kwargs</a>)
 </pre>
@@ -608,7 +608,7 @@ an importable `main()` for custom setup/teardown around pytest).
 ## py_pytest_test
 
 <pre>
-load("@aspect_rules_py//py:defs.bzl", "py_pytest_test")
+load("@rules_py//py:defs.bzl", "py_pytest_test")
 
 py_pytest_test(<a href="#py_pytest_test-name">name</a>, <a href="#py_pytest_test-srcs">srcs</a>, <a href="#py_pytest_test-deps">deps</a>, <a href="#py_pytest_test-pytest_args">pytest_args</a>, <a href="#py_pytest_test-chdir">chdir</a>, <a href="#py_pytest_test-resolutions">resolutions</a>, <a href="#py_pytest_test-kwargs">**kwargs</a>)
 </pre>
@@ -652,7 +652,7 @@ and shadow that distribution for the code under test. `consider_namespace_packag
 ## py_runtime
 
 <pre>
-load("@aspect_rules_py//py:defs.bzl", "py_runtime")
+load("@rules_py//py:defs.bzl", "py_runtime")
 
 py_runtime(<a href="#py_runtime-attrs">**attrs</a>)
 </pre>
@@ -683,7 +683,7 @@ This macro affects the following args:
 ## py_runtime_pair
 
 <pre>
-load("@aspect_rules_py//py:defs.bzl", "py_runtime_pair")
+load("@rules_py//py:defs.bzl", "py_runtime_pair")
 
 py_runtime_pair(<a href="#py_runtime_pair-name">name</a>, <a href="#py_runtime_pair-py2_runtime">py2_runtime</a>, <a href="#py_runtime_pair-py3_runtime">py3_runtime</a>, <a href="#py_runtime_pair-attrs">**attrs</a>)
 </pre>
@@ -759,7 +759,7 @@ register_toolchains("//my_pkg:my_toolchain")
 ## py_test
 
 <pre>
-load("@aspect_rules_py//py:defs.bzl", "py_test")
+load("@rules_py//py:defs.bzl", "py_test")
 
 py_test(<a href="#py_test-name">name</a>, <a href="#py_test-srcs">srcs</a>, <a href="#py_test-main">main</a>, <a href="#py_test-kwargs">**kwargs</a>)
 </pre>
@@ -788,7 +788,7 @@ more. To drive a suite with a framework, use the purpose-oriented macros
 ## py_unittest_test
 
 <pre>
-load("@aspect_rules_py//py:defs.bzl", "py_unittest_test")
+load("@rules_py//py:defs.bzl", "py_unittest_test")
 
 py_unittest_test(<a href="#py_unittest_test-name">name</a>, <a href="#py_unittest_test-srcs">srcs</a>, <a href="#py_unittest_test-deps">deps</a>, <a href="#py_unittest_test-resolutions">resolutions</a>, <a href="#py_unittest_test-kwargs">**kwargs</a>)
 </pre>
@@ -825,7 +825,7 @@ ORed, `*` is fnmatch). Unknown args are rejected rather than ignored.
 ## py_venv
 
 <pre>
-load("@aspect_rules_py//py:defs.bzl", "py_venv")
+load("@rules_py//py:defs.bzl", "py_venv")
 
 py_venv(<a href="#py_venv-freethreaded">freethreaded</a>, <a href="#py_venv-kwargs">**kwargs</a>)
 </pre>
@@ -846,7 +846,7 @@ py_venv(<a href="#py_venv-freethreaded">freethreaded</a>, <a href="#py_venv-kwar
 ## py_venv_link
 
 <pre>
-load("@aspect_rules_py//py:defs.bzl", "py_venv_link")
+load("@rules_py//py:defs.bzl", "py_venv_link")
 
 py_venv_link(<a href="#py_venv_link-name">name</a>, <a href="#py_venv_link-venv">venv</a>, <a href="#py_venv_link-link_name">link_name</a>, <a href="#py_venv_link-kwargs">**kwargs</a>)
 </pre>
@@ -882,7 +882,7 @@ console-script wrappers and its `bin/activate`. Pass
 ## py_wheel
 
 <pre>
-load("@aspect_rules_py//py:defs.bzl", "py_wheel")
+load("@rules_py//py:defs.bzl", "py_wheel")
 
 py_wheel(<a href="#py_wheel-name">name</a>, <a href="#py_wheel-twine">twine</a>, <a href="#py_wheel-twine_binary">twine_binary</a>, <a href="#py_wheel-publish_args">publish_args</a>, <a href="#py_wheel-kwargs">**kwargs</a>)
 </pre>

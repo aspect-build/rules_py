@@ -1,4 +1,4 @@
-"""Site-packages subtree merger for aspect_rules_py venv assembly.
+"""Site-packages subtree merger for rules_py venv assembly.
 
 Physically merges one package directory contributed by multiple wheels
 into a single output directory — the shape a flat `pip install` into one

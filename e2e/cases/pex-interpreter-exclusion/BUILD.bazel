@@ -1,4 +1,4 @@
-load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_pex_binary", "py_test", "py_unpacked_wheel")
+load("@rules_py//py:defs.bzl", "py_binary", "py_pex_binary", "py_test", "py_unpacked_wheel")
 
 py_binary(
     name = "app",

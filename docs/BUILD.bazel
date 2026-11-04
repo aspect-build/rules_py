@@ -2,7 +2,7 @@
 
 The stardoc targets are centralized in this dev-only package on purpose: the
 @stardoc load must never reach packages downstream consumers evaluate (//py is
-loaded by --@aspect_rules_py//py:python_version users, the current_py_cc_*
+loaded by --@rules_py//py:python_version users, the current_py_cc_*
 aliases, etc., and stardoc is a dev_dependency, invisible outside the root
 module). The cost is exports_files() in py/ and uv/, scoped to this package.
 

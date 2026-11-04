@@ -1,4 +1,4 @@
-load("@aspect_rules_py//py:defs.bzl", "py_library", "py_test")
+load("@rules_py//py:defs.bzl", "py_library", "py_test")
 
 # A source from another package whose path repeats one below this package keeps its own bytecode.
 py_library(

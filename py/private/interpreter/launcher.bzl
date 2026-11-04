@@ -51,8 +51,8 @@ Example usage in a `genrule`:
 genrule(
     name = "run_python",
     outs = ["output.txt"],
-    cmd = "$(location @aspect_rules_py//py:python) -c 'print(42)' > $@",
-    tools = ["@aspect_rules_py//py:python"],
+    cmd = "$(location @rules_py//py:python) -c 'print(42)' > $@",
+    tools = ["@rules_py//py:python"],
 )
 ```
 

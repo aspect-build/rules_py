@@ -1,5 +1,5 @@
 
-load("@aspect_rules_py//uv/private/markers:defs.bzl", "decide_marker")
+load("@rules_py//uv/private/markers:defs.bzl", "decide_marker")
 
 
 

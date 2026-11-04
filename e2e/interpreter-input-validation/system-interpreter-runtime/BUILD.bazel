@@ -1,4 +1,4 @@
-load("@aspect_rules_py//py:defs.bzl", "current_py_toolchain", "py_venv")
+load("@rules_py//py:defs.bzl", "current_py_toolchain", "py_venv")
 load(":defs.bzl", "system_runtime")
 
 # The resolved target toolchain provides a py3_runtime without an in-build

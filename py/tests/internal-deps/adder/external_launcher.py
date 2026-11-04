@@ -14,7 +14,7 @@ def rlocation(apparent_repo, path):
 
 
 if __name__ == "__main__":
-    adder_path = rlocation("aspect_rules_py", "py/tests/internal-deps/adder/add.py")
+    adder_path = rlocation("rules_py", "py/tests/internal-deps/adder/add.py")
     if adder_path is None or not os.path.exists(adder_path):
         raise RuntimeError("could not resolve adder through runfiles")
     print("external {}".format(add(2, 3)))

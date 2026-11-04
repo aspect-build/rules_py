@@ -430,7 +430,7 @@ compile_tools_test(
     ]
 ]
 
-# Runfiles libraries live in modules that cannot name aspect_rules_py, yet the
+# Runfiles libraries live in modules that cannot name rules_py, yet the
 # bytecode aspect compiles them: rules_python's own and bazel_tools' forwarder.
 [
     py_test(

@@ -1,10 +1,10 @@
-load("@aspect_rules_py//py:defs.bzl", "py_test")
 load("@bazel_lib//lib:transitions.bzl", "platform_transition_test")
+load("@rules_py//py:defs.bzl", "py_test")
 
 platform(
     name = "freethreaded",
     flags = [
-        "--@aspect_rules_py//py/private/interpreter:freethreaded=true",
+        "--@rules_py//py/private/interpreter:freethreaded=true",
     ],
     parents = ["@platforms//host"],
 )

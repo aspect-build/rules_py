@@ -4,19 +4,19 @@ load("//:defs.bzl", "compatible_with")
 alias(
     name = "whl",
     actual = select({
-          "//dep_group:aspect_rules_py": "@project__aspect_rules_py//:pkg_whl",
+          "//dep_group:rules_py": "@project__rules_py//:pkg_whl",
       }),
-    target_compatible_with = select(compatible_with(["aspect_rules_py"])),
+    target_compatible_with = select(compatible_with(["rules_py"])),
     visibility = ["//visibility:public"],
 )
 alias(
     name = "pkg",
     actual = select({
-          "//dep_group:aspect_rules_py": "@project__aspect_rules_py//:pkg",
+          "//dep_group:rules_py": "@project__rules_py//:pkg",
       },
-        no_match_error = "Available only in dep_groups: aspect_rules_py",
+        no_match_error = "Available only in dep_groups: rules_py",
     ),
-    target_compatible_with = select(compatible_with(["aspect_rules_py"])),
+    target_compatible_with = select(compatible_with(["rules_py"])),
     visibility = ["//visibility:public"],
 )
 

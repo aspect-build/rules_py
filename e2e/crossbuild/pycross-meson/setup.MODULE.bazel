@@ -13,7 +13,7 @@ resolves meson and ninja from the build venv, and pybind11's headers come
 from its wheel.
 """
 
-uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv = use_extension("@rules_py//uv:extensions.bzl", "uv")
 uv.declare_hub(hub_name = "pypi_pycross_meson")
 uv.project(
     default_build_dependencies = [

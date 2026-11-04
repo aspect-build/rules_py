@@ -207,6 +207,6 @@ configurable_python_version = rule(
     attrs = {
         "full": attr.bool(),
         "rules_python": attr.label(mandatory = True),
-        "_aspect_python_version": attr.label(default = Label("@aspect_rules_py//py/private/interpreter:python_version")),
+        "_aspect_python_version": attr.label(default = Label("@rules_py//py/private/interpreter:python_version")),
     },
 )

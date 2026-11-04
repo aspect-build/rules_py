@@ -2,8 +2,8 @@
 # the e2e snapshots. Mirrors the root MODULE's single-`uv.project()` setup
 # without sharing root's dep graph, so e2e can pin both the single-project
 # and multi-project (`@pypi_multi`, see //multi-project-hub) shapes.
-load("@aspect_rules_py//py:defs.bzl", "py_test")
-load("@aspect_rules_py//uv:defs.bzl", "gazelle_python_manifest")
+load("@rules_py//py:defs.bzl", "py_test")
+load("@rules_py//uv:defs.bzl", "gazelle_python_manifest")
 
 py_test(
     name = "single_project_hub",

@@ -1,7 +1,7 @@
-load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_image_layer", "py_test", "py_venv")
 load("@bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
 load("@container_structure_test//:defs.bzl", "container_structure_test")
 load("@rules_oci//oci:defs.bzl", "oci_image")
+load("@rules_py//py:defs.bzl", "py_binary", "py_image_layer", "py_test", "py_venv")
 load("//tools:asserts.bzl", "assert_tar_listing")
 
 platform(
@@ -11,8 +11,8 @@ platform(
         "@platforms//cpu:x86_64",
     ],
     flags = [
-        "--@aspect_rules_py//uv/private/constraints/platform:platform_libc=glibc",
-        "--@aspect_rules_py//py/private/interpreter:exclude_feature=tkinter",
+        "--@rules_py//uv/private/constraints/platform:platform_libc=glibc",
+        "--@rules_py//py/private/interpreter:exclude_feature=tkinter",
     ],
 )
 

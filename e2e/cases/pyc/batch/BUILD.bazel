@@ -1,6 +1,6 @@
-load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_library", "py_test")
-load("@aspect_rules_py//py/tests:analysis_failure_test.bzl", "analysis_failure_test")
-load("@aspect_rules_py//py/tests:pyc_testing.bzl", "compile_action_count_test", "pyc_config_files", "pyc_config_test")
+load("@rules_py//py:defs.bzl", "py_binary", "py_library", "py_test")
+load("@rules_py//py/tests:analysis_failure_test.bzl", "analysis_failure_test")
+load("@rules_py//py/tests:pyc_testing.bzl", "compile_action_count_test", "pyc_config_files", "pyc_config_test")
 load("@rules_shell//shell:sh_test.bzl", "sh_test")
 
 package(default_testonly = True)

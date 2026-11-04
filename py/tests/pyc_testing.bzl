@@ -19,9 +19,9 @@ _PLATFORMS = "//command_line_option:platforms"
 _FLAGS = [PYC_FLAG, _PYC_SHARDS, _INVALIDATION_MODE, _PRECOMPILE, _RETENTION, _COVERAGE, _EXTRA_TOOLCHAINS, _PLATFORMS]
 
 _CONFIG_ATTRS = {
-    "precompile": attr.string(doc = "`--@aspect_rules_py//py:precompile` value; empty keeps the current one."),
-    "pyc_shards": attr.string(doc = "`--@aspect_rules_py//py:pyc_shards` value; empty keeps the current one."),
-    "pyc_invalidation_mode": attr.string(doc = "`--@aspect_rules_py//py:pyc_invalidation_mode` value; empty keeps the current one."),
+    "precompile": attr.string(doc = "`--@rules_py//py:precompile` value; empty keeps the current one."),
+    "pyc_shards": attr.string(doc = "`--@rules_py//py:pyc_shards` value; empty keeps the current one."),
+    "pyc_invalidation_mode": attr.string(doc = "`--@rules_py//py:pyc_invalidation_mode` value; empty keeps the current one."),
     "rules_python_precompile": attr.string(doc = "rules_python `precompile` value; empty keeps the current one."),
     "rules_python_precompile_source_retention": attr.string(doc = "rules_python `precompile_source_retention` value; empty keeps the current one."),
     "collect_code_coverage": attr.bool(doc = "Whether to instrument for coverage."),

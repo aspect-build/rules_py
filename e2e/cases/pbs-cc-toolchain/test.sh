@@ -14,13 +14,13 @@ check_toolchain() {
 
     local platform_flags=()
     if [[ "$platform" == "linux_x86_64" ]]; then
-        platform_flags+=(--@aspect_rules_py//uv/private/constraints/platform:platform_libc=glibc)
+        platform_flags+=(--@rules_py//uv/private/constraints/platform:platform_libc=glibc)
     fi
 
     "$BAZEL" build \
         --lockfile_mode=off \
-        "--@aspect_rules_py//py:python_version=${version}" \
-        "--@aspect_rules_py//py/private/interpreter:freethreaded=${freethreaded}" \
+        "--@rules_py//py:python_version=${version}" \
+        "--@rules_py//py/private/interpreter:freethreaded=${freethreaded}" \
         ${platform_flags[@]+"${platform_flags[@]}"} \
         "--platforms=//pbs-cc-toolchain:${platform}" \
         -- "$@"
@@ -36,18 +36,18 @@ check_toolchain 3.13 true windows_x86_64 //pbs-cc-toolchain:windows_freethreaded
 
 host_flags=()
 if [[ "$(uname -s)" == "Linux" ]]; then
-    host_flags+=(--@aspect_rules_py//uv/private/constraints/platform:platform_libc=glibc)
+    host_flags+=(--@rules_py//uv/private/constraints/platform:platform_libc=glibc)
 fi
 
 if [[ "$(uname -s)" == "Darwin" ]]; then
-    library_target="@aspect_rules_py//py/tests/cc-deps:example_library.so"
+    library_target="@rules_py//py/tests/cc-deps:example_library.so"
     "$BAZEL" build \
         --lockfile_mode=off \
-        --@aspect_rules_py//py:python_version=3.13 \
+        --@rules_py//py:python_version=3.13 \
         -- "$library_target"
     library="$("$BAZEL" cquery \
         --lockfile_mode=off \
-        --@aspect_rules_py//py:python_version=3.13 \
+        --@rules_py//py:python_version=3.13 \
         --output=files \
         -- "$library_target")"
     if otool -L "$library" | grep -Fq 'libpython'; then
@@ -61,7 +61,7 @@ fi
 # free-threaded runtime and C toolchains selected from the PBS archive.
 "$BAZEL" test \
     --lockfile_mode=off \
-    --@aspect_rules_py//py:python_version=3.13 \
-    --@aspect_rules_py//py/private/interpreter:freethreaded=true \
+    --@rules_py//py:python_version=3.13 \
+    --@rules_py//py/private/interpreter:freethreaded=true \
     ${host_flags[@]+"${host_flags[@]}"} \
-    -- @aspect_rules_py//py/tests/cc-deps:test_smoke
+    -- @rules_py//py/tests/cc-deps:test_smoke

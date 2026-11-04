@@ -1,4 +1,4 @@
-load("@aspect_rules_py//py:defs.bzl", "py_test")
+load("@rules_py//py:defs.bzl", "py_test")
 
 # Runtime coverage for git-sourced lockfile packages. six is locked with
 # `source = { git = "https://github.com/benjaminp/six?tag=1.17.0#<commit>" }`,

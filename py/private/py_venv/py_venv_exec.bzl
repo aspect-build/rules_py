@@ -406,7 +406,7 @@ share one configured venv.
         doc = """First-party bytecode packaging: `off` ships only `.py`
 sources; `pycache` additionally ships PEP 3147 `__pycache__` bytecode;
 `sourceless` ships colocated `.pyc` files in place of the sources. Empty
-(the default) follows the global `--@aspect_rules_py//py:precompile` flag; an explicit value
+(the default) follows the global `--@rules_py//py:precompile` flag; an explicit value
 pins the mode regardless of the flag. Configurable: `select()` values
 are accepted.""",
     ),

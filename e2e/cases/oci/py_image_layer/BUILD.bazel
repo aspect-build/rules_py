@@ -1,9 +1,9 @@
-load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_image_layer", "py_layer_tier", "py_library", "py_test")
-load("@aspect_rules_py//py/private/py_venv:defs.bzl", "py_venv", "py_venv_exec")
 load("@bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
 load("@bazel_skylib//rules:build_test.bzl", "build_test")
 load("@container_structure_test//:defs.bzl", "container_structure_test")
 load("@rules_oci//oci:defs.bzl", "oci_image", "oci_load")
+load("@rules_py//py:defs.bzl", "py_binary", "py_image_layer", "py_layer_tier", "py_library", "py_test")
+load("@rules_py//py/private/py_venv:defs.bzl", "py_venv", "py_venv_exec")
 load("//tools:asserts.bzl", "assert_tar_listing", "assert_tar_ownership")
 load(":image_layer_analysis_tests.bzl", "image_layer_analysis_test_suite")
 load(":runtime_wrapper.bzl", "runtime_wrapper")
@@ -20,12 +20,12 @@ platform(
         "@platforms//os:linux",
         "@platforms//cpu:aarch64",
     ],
-    # aspect_rules_py's interpreter toolchains are gated on the
+    # rules_py's interpreter toolchains are gated on the
     # `platform_libc` flag; pin glibc here so cross-builds from a darwin host
-    # select aspect_rules_py's interpreter instead of falling back to
+    # select rules_py's interpreter instead of falling back to
     # rules_python's auto-registered toolchain.
     flags = [
-        "--@aspect_rules_py//uv/private/constraints/platform:platform_libc=glibc",
+        "--@rules_py//uv/private/constraints/platform:platform_libc=glibc",
     ],
 )
 
@@ -36,7 +36,7 @@ platform(
         "@platforms//cpu:x86_64",
     ],
     flags = [
-        "--@aspect_rules_py//uv/private/constraints/platform:platform_libc=glibc",
+        "--@rules_py//uv/private/constraints/platform:platform_libc=glibc",
     ],
 )
 
@@ -47,8 +47,8 @@ py_binary(
     deps = [
         "//oci/py_image_layer/branding",
         "//tools/verify_venv",
-        "@aspect_rules_py//py/tests/internal-deps/adder",
         "@pypi_oci_py_image_layer//colorama",
+        "@rules_py//py/tests/internal-deps/adder",
     ],
 )
 
@@ -225,8 +225,8 @@ py_test(
     deps = [
         "//oci/py_image_layer/branding",
         "//tools/verify_venv",
-        "@aspect_rules_py//py/tests/internal-deps/adder",
         "@pypi_oci_py_image_layer//colorama",
+        "@rules_py//py/tests/internal-deps/adder",
     ],
 )
 
@@ -657,9 +657,9 @@ py_binary(
     deps = [
         "//oci/py_image_layer/branding",
         "//tools/verify_venv",
-        "@aspect_rules_py//py/tests/internal-deps/adder",
         "@pypi_oci_py_image_layer//colorama",
         "@pypi_oci_py_image_layer//pyproject_hooks",
+        "@rules_py//py/tests/internal-deps/adder",
     ],
 )
 
@@ -1358,8 +1358,8 @@ assert_tar_listing(
         deps = [
             "//oci/py_image_layer/branding",
             "//tools/verify_venv",
-            "@aspect_rules_py//py/tests/internal-deps/adder",
             "@pypi_oci_py_image_layer//colorama",
+            "@rules_py//py/tests/internal-deps/adder",
         ],
     )
     for mode in [
@@ -1445,7 +1445,7 @@ assert_tar_listing(
     actual = [":platform_nested_external_layers"],
     # The interpreter tree is beside the point here; keep the snapshot to the
     # venv and the payloads.
-    exclude = ["aspect_rules_py++python_interpreters+"],
+    exclude = ["rules_py++python_interpreters+"],
     expected = "nested_external_layers_listing.yaml",
 )
 
@@ -1503,7 +1503,7 @@ container_structure_test(
     ],
 )
 
-# `platform` must resolve relative to the calling repo, not aspect_rules_py.
+# `platform` must resolve relative to the calling repo, not rules_py.
 py_image_layer(
     name = "server_platform_layers",
     binary = ":server",

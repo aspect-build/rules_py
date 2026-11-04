@@ -18,8 +18,8 @@ check_toolchain() {
 
     "$BAZEL" build \
         --lockfile_mode=off \
-        "--@aspect_rules_py//py:python_version=${version}" \
-        --@aspect_rules_py//uv/private/constraints/platform:platform_libc=glibc \
+        "--@rules_py//py:python_version=${version}" \
+        --@rules_py//uv/private/constraints/platform:platform_libc=glibc \
         "--define=interpreter_setting=${setting}" \
         --platforms=//:linux_x86_64 \
         "$@" \
@@ -32,7 +32,7 @@ check_toolchain 3.12 312
 
 "$BAZEL" build \
     --lockfile_mode=off \
-    --@aspect_rules_py//py:python_version=3.12 \
+    --@rules_py//py:python_version=3.12 \
     --@rules_python//python/config_settings:python_version=3.11 \
     -- //:uv_constraint_selected \
     || fail "rules_py Python version did not take precedence over rules_python"
@@ -45,19 +45,19 @@ check_toolchain 3.12 312
 
 "$BAZEL" build \
     --lockfile_mode=off \
-    --@aspect_rules_py//uv/private/constraints/dep_group:dep_group=interpreter-toolchain-settings \
-    --@aspect_rules_py//uv/private/constraints/platform:platform_libc=glibc \
+    --@rules_py//uv/private/constraints/dep_group:dep_group=interpreter-toolchain-settings \
+    --@rules_py//uv/private/constraints/platform:platform_libc=glibc \
     --define=interpreter_setting=312 \
     --platforms=//:linux_x86_64 \
-    --@aspect_rules_py//py:python_version=3.12 \
+    --@rules_py//py:python_version=3.12 \
     --@rules_python//python/config_settings:python_version=3.11 \
     -- //:uv_markers_selected //:uv_dependency_selected //:uv_minor_precision_selected \
     || fail "rules_py Python version did not take precedence for uv markers"
 
 "$BAZEL" build \
     --lockfile_mode=off \
-    --@aspect_rules_py//uv/private/constraints/dep_group:dep_group=interpreter-toolchain-settings \
-    --@aspect_rules_py//uv/private/constraints/platform:platform_libc=glibc \
+    --@rules_py//uv/private/constraints/dep_group:dep_group=interpreter-toolchain-settings \
+    --@rules_py//uv/private/constraints/platform:platform_libc=glibc \
     --define=interpreter_setting=312 \
     --platforms=//:linux_x86_64 \
     --@rules_python//python/config_settings:python_version=3.12 \
@@ -66,15 +66,15 @@ check_toolchain 3.12 312
 
 "$BAZEL" build \
     --lockfile_mode=off \
-    --@aspect_rules_py//uv/private/constraints/dep_group:dep_group=interpreter-toolchain-settings \
-    --@aspect_rules_py//py:python_version=3.11 \
+    --@rules_py//uv/private/constraints/dep_group:dep_group=interpreter-toolchain-settings \
+    --@rules_py//py:python_version=3.11 \
     --@rules_python//python/config_settings:python_version=3.12 \
     -- //:uv_markers_not_selected //:uv_dependency_not_selected \
     || fail "rules_py Python version did not disable mismatched uv markers"
 
 "$BAZEL" build \
     --lockfile_mode=off \
-    --@aspect_rules_py//py:python_version=3.12 \
+    --@rules_py//py:python_version=3.12 \
     --@rules_python//python/config_settings:python_version=3.12.7 \
     -- //:uv_patch_markers_selected \
     || fail "uv full-version markers did not preserve the selected patch version"
@@ -87,7 +87,7 @@ check_toolchain 3.12 312
 
 "$BAZEL" build \
     --lockfile_mode=off \
-    --@aspect_rules_py//py:python_version=3.12.7 \
+    --@rules_py//py:python_version=3.12.7 \
     -- //:uv_markers_selected //:uv_patch_markers_selected \
     || fail "a rules_py patch version was not honored by uv markers"
 
@@ -96,8 +96,8 @@ trap 'rm -f "$failure_log"' EXIT
 
 if "$BAZEL" build \
     --lockfile_mode=off \
-    --@aspect_rules_py//py:python_version=3.11 \
-    --@aspect_rules_py//uv/private/constraints/platform:platform_libc=glibc \
+    --@rules_py//py:python_version=3.11 \
+    --@rules_py//uv/private/constraints/platform:platform_libc=glibc \
     --define=interpreter_setting=312 \
     --platforms=//:linux_x86_64 \
     -- //:resolved_311 >"$failure_log" 2>&1; then

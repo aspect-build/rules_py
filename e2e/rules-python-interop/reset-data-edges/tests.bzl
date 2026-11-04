@@ -1,16 +1,16 @@
 """Analysis test for deduplicating runtime data across terminal overrides."""
 
-load("@aspect_rules_py//py/private:py_info.bzl", "PyInfo")
-load("@aspect_rules_py//py/private:transitions.bzl", "python_transition", "reset_python_flags_transition")
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
+load("@rules_py//py/private:py_info.bzl", "PyInfo")
+load("@rules_py//py/private:transitions.bzl", "python_transition", "reset_python_flags_transition")
 
-_DEP_GROUP_FLAG = "@aspect_rules_py//uv/private/constraints/dep_group:dep_group"
-_PYTHON_VERSION_FLAG = "@aspect_rules_py//py/private/interpreter:python_version"
+_DEP_GROUP_FLAG = "@rules_py//uv/private/constraints/dep_group:dep_group"
+_PYTHON_VERSION_FLAG = "@rules_py//py/private/interpreter:python_version"
 _RPY_VERSION_FLAG = "@rules_python//python/config_settings:python_version"
-_FREETHREADED_FLAG = "@aspect_rules_py//py/private/interpreter:freethreaded"
+_FREETHREADED_FLAG = "@rules_py//py/private/interpreter:freethreaded"
 _RPY_FREETHREADED_FLAG = "@rules_python//python/config_settings:py_freethreaded"
-_PYC_FLAG = "@aspect_rules_py//py:precompile"
+_PYC_FLAG = "@rules_py//py:precompile"
 
 _ProbeInfo = provider(fields = ["file"])
 _ProbeFilesInfo = provider(fields = ["files", "modes", "versions", "pyc_modes", "bin_dirs"])

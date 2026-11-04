@@ -1,4 +1,4 @@
-load("@aspect_rules_py//py:defs.bzl", "py_library")
+load("@rules_py//py:defs.bzl", "py_library")
 
 exports_files([
     "a.uv.lock",

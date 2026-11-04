@@ -14,7 +14,7 @@ load("//py/private/toolchain:types.bzl", "EXEC_TOOLS_TOOLCHAIN", "PYC_COMPILER_T
 PYC_MODES = ["off", "pycache", "sourceless"]
 
 # `-X` option a sourceless launcher passes so its venv can tell it apart from `pycache`.
-SOURCELESS_XOPTION = "aspect_rules_py_sourceless"
+SOURCELESS_XOPTION = "rules_py_sourceless"
 
 PycModeInfo = provider(
     doc = "Private: effective first-party bytecode mode of a runnable target.",
@@ -322,7 +322,7 @@ def compile_pycs(ctx, srcs, existing = {}):
 
     shards = ctx.attr._pyc_shards[BuildSettingInfo].value
     if shards < -1:
-        fail("--@aspect_rules_py//py:pyc_shards must be -1 (automatic), 0 (per source) or a shard count, got {}".format(shards))
+        fail("--@rules_py//py:pyc_shards must be -1 (automatic), 0 (per source) or a shard count, got {}".format(shards))
     key = bytecode_key(target_runtime)
     jobs = []
     for src in srcs:

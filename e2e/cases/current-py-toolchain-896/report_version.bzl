@@ -6,7 +6,7 @@ in the interpreter hub. `bazel run` it and assert on stdout.
 """
 
 _RUNTIME_TOOLCHAIN = "@bazel_tools//tools/python:toolchain_type"
-_EXEC_TOOLS_TOOLCHAIN = "@aspect_rules_py//py/private/toolchain:exec_tools_toolchain_type"
+_EXEC_TOOLS_TOOLCHAIN = "@rules_py//py/private/toolchain:exec_tools_toolchain_type"
 
 def _report_version_impl(ctx):
     runtime = getattr(ctx.toolchains[ctx.attr._toolchain_type], ctx.attr._runtime_field)

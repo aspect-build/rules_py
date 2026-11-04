@@ -1,6 +1,6 @@
-# `aspect_rules_py//uv`
+# `rules_py//uv`
 
-`aspect_rules_py` provides an alternative to the venerable `rules_python`
+`rules_py` provides an alternative to the venerable `rules_python`
 `pip.parse` implementation, which leverages the
 [uv](https://github.com/astral-sh/uv) lockfiles instead of `requirements.txt` to
 configure PyPi dependencies.
@@ -76,13 +76,13 @@ to swap a locked requirement (`cowsay`) for a local one.
 
 ```starlark
 # MODULE.bazel
-bazel_dep(name = "aspect_rules_py", version = "1.6.7") # Or later
+bazel_dep(name = "rules_py", version = "<version>")  # See https://github.com/aspect-build/rules_py/releases
 
-uv_bin = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv_bin")
+uv_bin = use_extension("@rules_py//uv:extensions.bzl", "uv_bin")
 uv_bin.toolchain(version = "0.13.4")
 use_repo(uv_bin, "uv")
 
-uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv = use_extension("@rules_py//uv:extensions.bzl", "uv")
 uv.declare_hub(
     hub_name = "pypi",      # Or whatever you wish
 )
@@ -116,7 +116,7 @@ Individual targets can request different dependency groups if multiple dependenc
 
 ```
 # BUILD.bazel
-load("@aspect_rules_py//py:defs.bzl", "py_binary")
+load("@rules_py//py:defs.bzl", "py_binary")
 
 py_binary(
    name = "say",
@@ -181,13 +181,13 @@ Optional attributes:
 - `name` — hub repo name; defaults to `"uv"` (i.e. `@uv`). Set to a distinct
   value to publish an additional hub (e.g. `@uv_legacy//:uv`) alongside the
   default.
-- `version` — defaults to the latest version known to aspect_rules_py.
+- `version` — defaults to the latest version known to rules_py.
   Unknown versions are still fetchable but non-reproducible unless paired
   with `sha256s`.
 - `urls` — mirror templates with `{version}`, `{platform}`, `{ext}`
   placeholders; tried in order. Defaults to the upstream GitHub release URL.
 - `sha256s` — map of platform triple to SHA256. Overrides or supplies the
-  hashes baked into aspect_rules_py. Entries are optional per-platform; a
+  hashes baked into rules_py. Entries are optional per-platform; a
   platform with an empty-string hash fetches without integrity verification
   and the download is marked non-reproducible (its bytes may vary across
   users).
@@ -199,7 +199,7 @@ interpreter provisioning. The uv extension only reads lockfiles and generates
 build targets — it does not download or configure Python interpreters.
 
 At build time, Bazel's normal toolchain resolution selects an interpreter. You
-can provide one via `aspect_rules_py`'s own `python_interpreters` extension
+can provide one via `rules_py`'s own `python_interpreters` extension
 (see [interpreter.md](interpreter.md)), via `rules_python`'s
 `python.toolchain()`, or any other mechanism that registers a
 `@bazel_tools//tools/python:toolchain_type` toolchain. As long as an
@@ -216,8 +216,8 @@ In order to cope with various libcs and libc compatibility ranges, uv also has
 two internal config setting flags
 
 ```
---@aspect_rules_py//uv/private/constraints/platform:platform_libc=glibc
---@aspect_rules_py//uv/private/constraints/platform:platform_version=2.39
+--@rules_py//uv/private/constraints/platform:platform_libc=glibc
+--@rules_py//uv/private/constraints/platform:platform_version=2.39
 ```
 
 The `platform_libc` flag must be the name of a libc (eg. glibc, musl, libsystem,
@@ -230,7 +230,7 @@ using platform transitions.
 
 ```
 load("@bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
-load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_image_layer")
+load("@rules_py//py:defs.bzl", "py_binary", "py_image_layer")
 
 platform(
     name = "arm64_linux",
@@ -241,8 +241,8 @@ platform(
     # These flags must be reset to values appropriate for the target.
     # Their default values are appropriate to the host.
     flags = [
-        "--@aspect_rules_py//uv/private/constraints/platform:platform_libc=glibc",
-        "--@aspect_rules_py//uv/private/constraints/platform:platform_version=2.39",
+        "--@rules_py//uv/private/constraints/platform:platform_libc=glibc",
+        "--@rules_py//uv/private/constraints/platform:platform_version=2.39",
     ],
 )
 
@@ -343,7 +343,7 @@ builds occur using the configured Python and Cc toolchains.
 ### Marker version precision
 
 Markers evaluate `python_version` and `python_full_version` from the configured
-version flags: `--@aspect_rules_py//py:python_version` when set, otherwise the
+version flags: `--@rules_py//py:python_version` when set, otherwise the
 rules_python `python_version` flag. Comparison happens at the precision the
 flag provides — a bare `3.12` evaluates `python_full_version` as `3.12.0`,
 regardless of the patch version the provisioned interpreter ships. Patch-precise
@@ -457,7 +457,7 @@ this file from your locked wheels.
 
 ```starlark
 # BUILD.bazel (typically at the workspace root)
-load("@aspect_rules_py//uv:defs.bzl", "gazelle_python_manifest")
+load("@rules_py//uv:defs.bzl", "gazelle_python_manifest")
 
 gazelle_python_manifest(
     name = "gazelle_python_manifest",

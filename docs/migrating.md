@@ -5,7 +5,7 @@ Migration is a "drop-in replacement" for the majority of use cases.
 
 ## Replace load statements
 
-Instead of loading from `@rules_python//python:defs.bzl`, load from `@aspect_rules_py//py:defs.bzl`.
+Instead of loading from `@rules_python//python:defs.bzl`, load from `@rules_py//py:defs.bzl`.
 The rest of the BUILD file can remain the same, except for bytecode attributes:
 see [Converting precompile attributes](#converting-precompile-attributes).
 
@@ -36,7 +36,7 @@ In rules_py v2.0, the `resolutions` attribute takes a plain dict mapping each
 virtual dependency's package name to the label of an installed package that
 provides it, on both the `py_binary`/`py_test` macros and the `py_venv` rule.
 The `resolutions` helper struct is gone: delete the
-`load("@aspect_rules_py//py:defs.bzl", "resolutions")` statement, replace
+`load("@rules_py//py:defs.bzl", "resolutions")` statement, replace
 `resolutions.from_requirements(all_whl_requirements_by_package, requirement)`
 with `{pkg: requirement(pkg) for pkg in all_whl_requirements_by_package.keys()}`,
 and replace `.override({...})` with the dict union operator (`base | {...}`).
@@ -59,7 +59,7 @@ rules_py library fails analysis with `does not have mandatory providers:
 
 ```
 # .bazelrc
-common --@aspect_rules_py//py:emit_rules_python_providers
+common --@rules_py//py:emit_rules_python_providers
 ```
 
 `py_library`, `py_binary`, and `py_test` then also emit the rules_python
@@ -84,9 +84,9 @@ them.
 | The same with `precompile_source_retention = "omit_source"` | `precompile = "sourceless"` |
 | `precompile = "disabled"` or `pyc_collection = "disabled"` | `precompile = "off"`, the default |
 | `precompile = "inherit"` or `pyc_collection = "inherit"` | Leave `precompile` unset to follow the flag. |
-| `--@rules_python//python/config_settings:precompile=enabled` | `--@aspect_rules_py//py:precompile=pycache` |
-| `--@rules_python//python/config_settings:precompile_source_retention=omit_source` | `--@aspect_rules_py//py:precompile=sourceless` |
-| `precompile_invalidation_mode = "checked_hash"` | `--@aspect_rules_py//py:pyc_invalidation_mode=checked-hash`, for the whole build |
+| `--@rules_python//python/config_settings:precompile=enabled` | `--@rules_py//py:precompile=pycache` |
+| `--@rules_python//python/config_settings:precompile_source_retention=omit_source` | `--@rules_py//py:precompile=sourceless` |
+| `precompile_invalidation_mode = "checked_hash"` | `--@rules_py//py:pyc_invalidation_mode=checked-hash`, for the whole build |
 | `precompile_invalidation_mode = "unchecked_hash"` or `"auto"` | Nothing: `unchecked-hash` is the default, under every `-c` mode. |
 | `precompile_optimize_level` | No equivalent. |
 
@@ -121,7 +121,7 @@ attribute shown, disables its precompilation, or is converted to rules_py:
   whichever source retention it uses: set `precompile_optimize_level = 0`. A
   srcs-less wrapper forwarding its `PyInfo` hides that attribute, so wrap only
   level-0 libraries.
-- Under `--@aspect_rules_py//py:pyc_invalidation_mode=checked-hash`, reused
+- Under `--@rules_py//py:pyc_invalidation_mode=checked-hash`, reused
   `__pycache__` bytecode that is not checked-hash fails the build: set
   `precompile_invalidation_mode = "checked_hash"` (its default `auto` already is,
   outside `-c opt`).

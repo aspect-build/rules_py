@@ -1,6 +1,6 @@
 """Regression: grpcio ships bare linux_armv7l wheels that must survive lockfile parsing."""
 
-uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv = use_extension("@rules_py//uv:extensions.bzl", "uv")
 uv.declare_hub(hub_name = "pypi-bare-linux-wheels")
 uv.project(
     hub_name = "pypi-bare-linux-wheels",

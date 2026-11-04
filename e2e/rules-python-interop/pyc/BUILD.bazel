@@ -1,5 +1,5 @@
-load("@aspect_rules_py//py:defs.bzl", "py_test")
-load("@aspect_rules_py//py/tests:pyc_testing.bzl", "pyc_config_test")
+load("@rules_py//py:defs.bzl", "py_test")
+load("@rules_py//py/tests:pyc_testing.bzl", "pyc_config_test")
 
 # rules_python libraries from another module, plain and precompiled, compiled by the bytecode aspect.
 [

@@ -1,4 +1,4 @@
-load("@aspect_rules_py//py:defs.bzl", "py_test")
+load("@rules_py//py:defs.bzl", "py_test")
 
 # PyJWT and jwt both ship a regular jwt/ package. PyJWT contributes
 # jwt/api_jwt.py while jwt contributes jwt/jwa.py. A winner-only top-level

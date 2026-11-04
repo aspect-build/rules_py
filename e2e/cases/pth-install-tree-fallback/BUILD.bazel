@@ -1,4 +1,4 @@
-load("@aspect_rules_py//py:defs.bzl", "py_test", "py_unpacked_wheel")
+load("@rules_py//py:defs.bzl", "py_test", "py_unpacked_wheel")
 load("//tools:pth_snapshot.bzl", "extract_venv_pth")
 
 # Snapshot fixtures for assemble_venv's `_format_imp` install_tree branch.
@@ -11,7 +11,7 @@ load("//tools:pth_snapshot.bzl", "extract_venv_pth")
 # The loser stays reachable because a winner whose `__init__.py` calls
 # `pkgutil.extend_path` grafts from sys.path, and no metadata distinguishes
 # such a package from a plain one (see
-# @aspect_rules_py//py/tests/py_venv_conflict:extend_path_regular_collision_test).
+# @rules_py//py/tests/py_venv_conflict:extend_path_regular_collision_test).
 #
 # itfc / itfd — NAMESPACE collision. Both claim the PEP 420 namespace
 # `nspkg` and declare no `namespace_entries`, so venv assembly cannot
@@ -22,7 +22,7 @@ load("//tools:pth_snapshot.bzl", "extract_venv_pth")
 # path, not `site.addsitedir(...)`: the loser's root `.pth` was already
 # projected into the venv site-packages by the per-top-level symlinks, so
 # `addsitedir` would re-run it (see the runtime guard at
-# @aspect_rules_py//py/tests/wheel-root-pth-double). The pinned snapshots
+# @rules_py//py/tests/wheel-root-pth-double). The pinned snapshots
 # make that line shape visible — reverting to `addsitedir` changes them.
 
 # A wheel is just a zip; build minimal ones with the prebuilt zipper so the

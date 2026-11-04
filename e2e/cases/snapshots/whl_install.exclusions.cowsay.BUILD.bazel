@@ -1,10 +1,10 @@
-load("@aspect_rules_py//py:defs.bzl", "py_library")
-load("@aspect_rules_py//uv/private/whl_install:defs.bzl", "select_chain")
-load("@aspect_rules_py//uv/private/whl_install:rule.bzl", "source_built_wheel", "whl_install")
+load("@rules_py//py:defs.bzl", "py_library")
+load("@rules_py//uv/private/whl_install:defs.bzl", "select_chain")
+load("@rules_py//uv/private/whl_install:rule.bzl", "source_built_wheel", "whl_install")
 
 source_built_wheel(
     name = "source_built_wheel",
-    src = "@@aspect_rules_py++uv+sdist_build__exclusions__cowsay__6_0//:whl",
+    src = "@@rules_py++uv+sdist_build__exclusions__cowsay__6_0//:whl",
     console_scripts = [],
     visibility = ["//visibility:private"],
 )
@@ -13,8 +13,8 @@ source_built_wheel(
 select_chain(
    name = "whl",
    arms = {
-       "@aspect_rules_py_pip_configurations//:py3-any-none": "@whl__cowsay__77b07c508af48aa3//:whl",
-       "@aspect_rules_py_pip_configurations//:py2-any-none": "@whl__cowsay__77b07c508af48aa3//:whl",
+       "@rules_py_pip_configurations//:py3-any-none": "@whl__cowsay__77b07c508af48aa3//:whl",
+       "@rules_py_pip_configurations//:py2-any-none": "@whl__cowsay__77b07c508af48aa3//:whl",
    },
    default_target = ":source_built_wheel",
    visibility = ["//visibility:public"],
@@ -25,12 +25,12 @@ whl_install(
     name = "actual_install",
     src = ":whl",
     compile_pyc = select({
-        "@aspect_rules_py//uv/private/pyc:is_precompile": True,
+        "@rules_py//uv/private/pyc:is_precompile": True,
         "//conditions:default": False,
     }),
     pyc_invalidation_mode = select({
-        "@aspect_rules_py//uv/private/pyc:is_whl_install_checked_hash": "checked-hash",
-        "@aspect_rules_py//uv/private/pyc:is_whl_install_timestamp": "timestamp",
+        "@rules_py//uv/private/pyc:is_whl_install_checked_hash": "checked-hash",
+        "@rules_py//uv/private/pyc:is_whl_install_timestamp": "timestamp",
         "//conditions:default": "unchecked-hash",
     }),
     patches = ["@@//uv-exclusions/patches:nested_test.patch"],

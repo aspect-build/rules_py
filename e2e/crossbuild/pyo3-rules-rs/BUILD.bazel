@@ -3,7 +3,7 @@
 # The vendored rules_rust needs a patch to build with path mapping on; see
 # setup.MODULE.bazel and rules_rust_4250_path_mapping_cc_linker.patch.
 
-load("@aspect_rules_py//py:defs.bzl", "py_test")
+load("@rules_py//py:defs.bzl", "py_test")
 load("@rules_rust_rs//extensions/pyo3:defs.bzl", "pyo3_extension")
 
 pyo3_extension(

@@ -18,7 +18,7 @@ for path in pycs:
             unchecked.append(path)
 if unchecked:
     sys.exit(
-        "--@aspect_rules_py//py:pyc_invalidation_mode=checked-hash cannot reuse bytecode "
+        "--@rules_py//py:pyc_invalidation_mode=checked-hash cannot reuse bytecode "
         "that is not checked-hash: {}. Set precompile_invalidation_mode = \"checked_hash\" "
         "on the rules_python library that precompiles it, or disable its precompilation.".format(
             ", ".join(unchecked)

@@ -1,4 +1,4 @@
-load("@aspect_rules_py//py:defs.bzl", "py_pytest_test", "py_test")
+load("@rules_py//py:defs.bzl", "py_pytest_test", "py_test")
 
 # Regression test for #530: pytest-mock plugin must be discoverable.
 py_pytest_test(

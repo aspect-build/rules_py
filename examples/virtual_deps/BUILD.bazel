@@ -1,5 +1,5 @@
-load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_library", "py_pytest_main", "py_test")
 load("@pypi//:requirements.bzl", "requirement")
+load("@rules_py//py:defs.bzl", "py_binary", "py_library", "py_pytest_main", "py_test")
 
 py_library(
     name = "greet",

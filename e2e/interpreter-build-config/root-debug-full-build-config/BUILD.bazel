@@ -1,4 +1,4 @@
-load("@aspect_rules_py//py:defs.bzl", "py_test")
+load("@rules_py//py:defs.bzl", "py_test")
 
 # The only runtime coverage for a "-full" default mode: tar.zst extraction with
 # strip_prefix python/install, and abi_flags "d" flowing into the repo's

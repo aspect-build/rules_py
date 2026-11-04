@@ -1,4 +1,4 @@
-load("@aspect_rules_py//py:defs.bzl", "py_library", "py_pytest_test", "py_unittest_test")
+load("@rules_py//py:defs.bzl", "py_library", "py_pytest_test", "py_unittest_test")
 
 # `bazel coverage` end-to-end regression for both test drivers. Each test
 # exercises the shared library so the emitted LCOV has a real SF:/DA: record for

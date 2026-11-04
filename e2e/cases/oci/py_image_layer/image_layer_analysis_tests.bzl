@@ -1,11 +1,11 @@
 """Analysis and validation fixtures for multi-launcher image layers."""
 
-load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_image_layer", "py_layer_tier", "py_library")
-load("@aspect_rules_py//py/tests:analysis_failure_test.bzl", "analysis_failure_test")
-load("@aspect_rules_py//py/tests:pyc_testing.bzl", "expect_test")
 load("@bazel_features//:features.bzl", "bazel_features")
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
 load("@bazel_skylib//rules:build_test.bzl", "build_test")
+load("@rules_py//py:defs.bzl", "py_binary", "py_image_layer", "py_layer_tier", "py_library")
+load("@rules_py//py/tests:analysis_failure_test.bzl", "analysis_failure_test")
+load("@rules_py//py/tests:pyc_testing.bzl", "expect_test")
 
 _PY_TOOLCHAIN = "@bazel_tools//tools/python:toolchain_type"
 
@@ -245,7 +245,7 @@ def image_layer_analysis_test_suite():
 
     native.config_setting(
         name = "_python_3_11",
-        flag_values = {"@aspect_rules_py//py/private/interpreter:python_version": "3.11"},
+        flag_values = {"@rules_py//py/private/interpreter:python_version": "3.11"},
     )
 
     for prefix, package in [("wheel_scripts", "build"), ("pure_wheel", "colorama")]:
@@ -361,7 +361,7 @@ def image_layer_analysis_test_suite():
         root = "/srv",
         strip_prefix = "oci/py_image_layer",
     )
-    external_launcher = Label("@aspect_rules_py//py/tests/internal-deps/adder:external_launcher")
+    external_launcher = Label("@rules_py//py/tests/internal-deps/adder:external_launcher")
     py_layer_tier(
         name = "_external_scalar_tier",
         strip_prefix = "../{}/{}".format(external_launcher.workspace_name, external_launcher.package),
@@ -406,7 +406,7 @@ touch $@
         binaries = [
             ":_repo_mapping_images_bin",
             ":_repo_mapping_venv_bin",
-            "@aspect_rules_py//py/tests/internal-deps/adder:external_launcher",
+            "@rules_py//py/tests/internal-deps/adder:external_launcher",
         ],
         launcher_dir = "/app/bin",
         layer_tier = ":_repo_mapping_tier",

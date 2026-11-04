@@ -15,7 +15,7 @@
 #
 # gazelle:ignore
 
-load("@aspect_rules_py//py:defs.bzl", "py_binary")
+load("@rules_py//py:defs.bzl", "py_binary")
 
 py_binary(
     name = "hello",

@@ -228,9 +228,9 @@ def collect_configurations(lock):
                         configuration = "{}-{}-{}".format(cfg_python_tag, platform_tag, abi_tag)
 
                         configurations[configuration] = [
-                            "@aspect_rules_py//uv/private/constraints/platform:{}".format(platform_tag),
-                            "@aspect_rules_py//uv/private/constraints/abi:{}".format(abi_tag),
-                            "@aspect_rules_py//uv/private/constraints/python:{}".format(cfg_python_tag),
+                            "@rules_py//uv/private/constraints/platform:{}".format(platform_tag),
+                            "@rules_py//uv/private/constraints/abi:{}".format(abi_tag),
+                            "@rules_py//uv/private/constraints/python:{}".format(cfg_python_tag),
                         ]
 
     return configurations

@@ -1,4 +1,4 @@
-load("@aspect_rules_py//py:defs.bzl", "py_library")
+load("@rules_py//py:defs.bzl", "py_library")
 load("@rules_python//python:py_library.bzl", rules_python_library = "py_library")
 
 # One source listed by both rulesets in a repository other than the main one;

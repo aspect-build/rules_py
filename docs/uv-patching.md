@@ -27,7 +27,7 @@ The patching features require a `patch` binary (from diffutils) available on the
 The most common case is fixing an installed package. For example, many NVIDIA packages ship a conflicting `nvidia/__init__.py` that causes import errors when multiple NVIDIA packages are installed together:
 
 ```starlark
-uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv = use_extension("@rules_py//uv:extensions.bzl", "uv")
 
 uv.override_package(
     lock = "//:uv.lock",
@@ -45,7 +45,7 @@ Where `patches/nvidia-strip-init.patch` might look like:
 -# Some conflicting namespace init
 -from nvidia._init import *
 -__all__ = [...]
-+# Stripped by aspect_rules_py override
++# Stripped by rules_py override
 ```
 
 Post-install patch paths are site-packages-relative, like `exclude_glob`. A

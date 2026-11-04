@@ -22,7 +22,7 @@ generated_path() {
 }
 top_level="$(bazel cquery //pyc:gen_shared_module --output=files 2>/dev/null)"
 for mode in off pycache sourceless; do
-    got="$(generated_path --@aspect_rules_py//py:precompile=$mode)"
+    got="$(generated_path --@rules_py//py:precompile=$mode)"
     test "$got" = "$top_level" || fail "under precompile=$mode the genrule below a launcher builds at $got, not $top_level"
 done
 
@@ -41,7 +41,7 @@ test "$compiles" = "$hits" || fail "PyCompile was not path-mapped: $hits of $com
 echo "== checked-hash bytecode follows a source edited without a rebuild =="
 for mode in unchecked-hash:built checked-hash:edited; do
     cp "$edited_backup" pyc/edited_lib.py
-    bazel build --@aspect_rules_py//py:pyc_invalidation_mode="${mode%%:*}" //pyc:edited_bin
+    bazel build --@rules_py//py:pyc_invalidation_mode="${mode%%:*}" //pyc:edited_bin
     printf 'VALUE = "edited"\n' >pyc/edited_lib.py
     got="$(bazel-bin/pyc/edited_bin)"
     test "$got" = "${mode#*:}" || fail "under pyc_invalidation_mode=${mode%%:*} an edited source ran as '$got', expected '${mode#*:}'"

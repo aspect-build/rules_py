@@ -1,6 +1,6 @@
 """Action-level PBS venv regression target."""
 
-load("@aspect_rules_py//py:defs.bzl", "py_binary")
+load("@rules_py//py:defs.bzl", "py_binary")
 
 def pbs_action_probe(name, python_version):
     """Run a PBS-backed binary from a non-runfiles action cwd."""

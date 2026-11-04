@@ -4,7 +4,7 @@ Reads the runtime from rules_py's exec-tools toolchain type so the test pins
 that it serves a rules_py-provisioned interpreter.
 """
 
-EXEC_TOOLS_TOOLCHAIN = "@aspect_rules_py//py/private/toolchain:exec_tools_toolchain_type"
+EXEC_TOOLS_TOOLCHAIN = "@rules_py//py/private/toolchain:exec_tools_toolchain_type"
 
 def _exec_tools_facts_impl(ctx):
     exec_runtime = ctx.toolchains[EXEC_TOOLS_TOOLCHAIN].exec_runtime
@@ -20,7 +20,7 @@ exec_tools_facts = rule(
 def _set_python_version_impl(settings, attr):
     # Keep the rules_python toolchain consumer on the same interpreter.
     return {
-        "@aspect_rules_py//py/private/interpreter:python_version": attr.python_version,
+        "@rules_py//py/private/interpreter:python_version": attr.python_version,
         "@rules_python//python/config_settings:python_version": attr.python_version,
     }
 
@@ -28,7 +28,7 @@ _set_python_version = transition(
     implementation = _set_python_version_impl,
     inputs = [],
     outputs = [
-        "@aspect_rules_py//py/private/interpreter:python_version",
+        "@rules_py//py/private/interpreter:python_version",
         "@rules_python//python/config_settings:python_version",
     ],
 )

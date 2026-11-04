@@ -50,11 +50,11 @@ Exactly one of `runtime` or `tool` is required. A `tool` must implement the
 same version gating as the interpreter it stands in for. Compile actions are
 path-mapped, so a `tool` must write only to the paths it is given and embed
 only the `DFILE` argument, never an input or output path, in its bytecode. It must also honour `--checked-hash`, passed under
-`--@aspect_rules_py//py:pyc_invalidation_mode=checked-hash`.
+`--@rules_py//py:pyc_invalidation_mode=checked-hash`.
 
 A `tool` that is itself a rules_py target, such as a `py_binary`, resolves this
 toolchain type while it is analyzed. Also gate its `toolchain()` on
-`--@aspect_rules_py//py:precompile` requesting bytecode, as
+`--@rules_py//py:precompile` requesting bytecode, as
 `//py/tests/pyc-compile:custom_pyc_compiler_toolchain` does, so it never
 selects itself.""",
     implementation = _py_pyc_compiler_toolchain_impl,

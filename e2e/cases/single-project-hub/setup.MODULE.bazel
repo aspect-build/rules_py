@@ -3,7 +3,7 @@
 so it doesn't blend into the multi-project @pypi_multi.
 """
 
-uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv = use_extension("@rules_py//uv:extensions.bzl", "uv")
 uv.declare_hub(hub_name = "pypi_single")
 uv.project(
     hub_name = "pypi_single",

@@ -1,5 +1,5 @@
-load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_library", "py_pyc_compiler_toolchain", rules_py_test = "py_test")
-load("@aspect_rules_py//py/tests:pyc_testing.bzl", "pyc_config_test")
+load("@rules_py//py:defs.bzl", "py_binary", "py_library", "py_pyc_compiler_toolchain", rules_py_test = "py_test")
+load("@rules_py//py/tests:pyc_testing.bzl", "pyc_config_test")
 load("@rules_python//python:py_library.bzl", rules_python_library = "py_library")
 load("@rules_python//python:py_test.bzl", rules_python_test = "py_test")
 load(":type_stubs_test.bzl", "merged_stubs_test")
@@ -13,7 +13,7 @@ py_pyc_compiler_toolchain(
 toolchain(
     name = "rules_python_pyc_compiler_toolchain",
     toolchain = ":rules_python_pyc_compiler",
-    toolchain_type = "@aspect_rules_py//py:pyc_compiler_toolchain_type",
+    toolchain_type = "@rules_py//py:pyc_compiler_toolchain_type",
 )
 
 # One converted library, two consumers: the @rules_python test stands in

@@ -1,4 +1,4 @@
-load("@aspect_rules_py//py:defs.bzl", "py_test")
+load("@rules_py//py:defs.bzl", "py_test")
 
 # nvidia-cuda-cccl and nvidia-cuda-runtime both install under the PEP 420
 # namespace `nvidia` and ship no `__init__.py`, so namespace-entry resolution
@@ -14,8 +14,8 @@ load("@aspect_rules_py//py:defs.bzl", "py_test")
 #
 #   bazel build //venv-namespace-collapse:test.venv \
 #     --platforms=//tools:linux_x86_64 \
-#     --@aspect_rules_py//uv/private/constraints/platform:platform_libc=glibc \
-#     --@aspect_rules_py//uv/private/constraints/platform:platform_version=2.17
+#     --@rules_py//uv/private/constraints/platform:platform_libc=glibc \
+#     --@rules_py//uv/private/constraints/platform:platform_version=2.17
 py_test(
     name = "test",
     srcs = ["test.py"],

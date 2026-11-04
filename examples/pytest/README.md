@@ -12,11 +12,11 @@ same way the `pytest` command-line does.
 
 ## How to use
 
-After adding `aspect_rules_py` as a `bazel_dep` in your `MODULE.bazel`, add the following to your
+After adding `rules_py` as a `bazel_dep` in your `MODULE.bazel`, add the following to your
 Bazel packages which contain `_test.py` files:
 
 ```python
-load("@aspect_rules_py//py:defs.bzl", "py_pytest_main")
+load("@rules_py//py:defs.bzl", "py_pytest_main")
 
 py_pytest_main(
     name = "__test__",

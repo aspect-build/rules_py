@@ -21,7 +21,7 @@ run as a generic `py_test` with an explicit `main`.
 ## pytest
 
 ```starlark
-load("@aspect_rules_py//py:defs.bzl", "py_pytest_test")
+load("@rules_py//py:defs.bzl", "py_pytest_test")
 
 py_pytest_test(
     name = "test_foo",
@@ -59,7 +59,7 @@ provides its own entrypoint):
 
 ```starlark
 # tools/pytest/defs.bzl
-load("@aspect_rules_py//py:defs.bzl", _py_pytest_test = "py_pytest_test")
+load("@rules_py//py:defs.bzl", _py_pytest_test = "py_pytest_test")
 
 def py_test(name, **kwargs):
     kwargs.pop("main", None)  # py_pytest_test provides its own entrypoint
@@ -76,7 +76,7 @@ def py_test(name, **kwargs):
 ## unittest
 
 ```starlark
-load("@aspect_rules_py//py:defs.bzl", "py_unittest_test")
+load("@rules_py//py:defs.bzl", "py_unittest_test")
 
 py_unittest_test(
     name = "test_foo",

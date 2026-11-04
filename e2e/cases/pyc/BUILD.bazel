@@ -1,7 +1,7 @@
-load("@aspect_rules_py//py:defs.bzl", "py_binary", "py_image_layer", "py_library", "py_pex_binary", "py_test", "py_venv")
-load("@aspect_rules_py//py/private/py_venv:defs.bzl", "py_venv_exec_test")
-load("@aspect_rules_py//py/tests:analysis_failure_test.bzl", "analysis_failure_test")
-load("@aspect_rules_py//py/tests:pyc_testing.bzl", "compile_action_count_test", "dependency_configuration_test", "library_configuration_test", "output_configuration_test", "pyc_config_files", "pyc_config_test", "runfiles_with_suffix_test")
+load("@rules_py//py:defs.bzl", "py_binary", "py_image_layer", "py_library", "py_pex_binary", "py_test", "py_venv")
+load("@rules_py//py/private/py_venv:defs.bzl", "py_venv_exec_test")
+load("@rules_py//py/tests:analysis_failure_test.bzl", "analysis_failure_test")
+load("@rules_py//py/tests:pyc_testing.bzl", "compile_action_count_test", "dependency_configuration_test", "library_configuration_test", "output_configuration_test", "pyc_config_files", "pyc_config_test", "runfiles_with_suffix_test")
 load("@bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
 load("@bazel_skylib//rules:build_test.bzl", "build_test")
 load("@bazel_skylib//rules:diff_test.bzl", "diff_test")
@@ -194,7 +194,7 @@ py_library(
             "@platforms//cpu:" + cpu,
         ],
         flags = [
-            "--@aspect_rules_py//uv/private/constraints/platform:platform_libc=glibc",
+            "--@rules_py//uv/private/constraints/platform:platform_libc=glibc",
         ],
     )
     for cpu in [
@@ -300,7 +300,7 @@ platform(
         "@platforms//cpu:x86_64",
     ],
     # Pin libc so the PBS linux-gnu toolchain matches regardless of host.
-    flags = ["--@aspect_rules_py//uv/private/constraints/platform:platform_libc=glibc"],
+    flags = ["--@rules_py//uv/private/constraints/platform:platform_libc=glibc"],
 )
 
 platform(
@@ -309,7 +309,7 @@ platform(
         "@platforms//os:linux",
         "@platforms//cpu:aarch64",
     ],
-    flags = ["--@aspect_rules_py//uv/private/constraints/platform:platform_libc=glibc"],
+    flags = ["--@rules_py//uv/private/constraints/platform:platform_libc=glibc"],
 )
 
 py_binary(

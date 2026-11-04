@@ -2,14 +2,14 @@
 
 Stable public API for uv rules.
 
-Graduated from `@aspect_rules_py//uv/unstable:defs.bzl` in rules_py v2.0.0.
+Graduated from `@rules_py//uv/unstable:defs.bzl` in rules_py v2.0.0.
 
 <a id="gazelle_python_manifest"></a>
 
 ## gazelle_python_manifest
 
 <pre>
-load("@aspect_rules_py//uv:defs.bzl", "gazelle_python_manifest")
+load("@rules_py//uv:defs.bzl", "gazelle_python_manifest")
 
 gazelle_python_manifest(<a href="#gazelle_python_manifest-name">name</a>, <a href="#gazelle_python_manifest-hub">hub</a>, <a href="#gazelle_python_manifest-venvs">venvs</a>, <a href="#gazelle_python_manifest-include_stub_packages">include_stub_packages</a>, <a href="#gazelle_python_manifest-platform_parent">platform_parent</a>)
 </pre>
@@ -33,7 +33,7 @@ Generates a Gazelle Python manifest from uv-managed wheels.
 ## py_console_script_binary
 
 <pre>
-load("@aspect_rules_py//uv:defs.bzl", "py_console_script_binary")
+load("@rules_py//uv:defs.bzl", "py_console_script_binary")
 
 py_console_script_binary(<a href="#py_console_script_binary-name">name</a>, <a href="#py_console_script_binary-pkg">pkg</a>, <a href="#py_console_script_binary-script">script</a>, <a href="#py_console_script_binary-deps">deps</a>, <a href="#py_console_script_binary-dep_group">dep_group</a>, <a href="#py_console_script_binary-kwargs">**kwargs</a>)
 </pre>
@@ -58,7 +58,7 @@ Build a binary for a console_script entrypoint of a package.
 ## py_entrypoint_binary
 
 <pre>
-load("@aspect_rules_py//uv:defs.bzl", "py_entrypoint_binary")
+load("@rules_py//uv:defs.bzl", "py_entrypoint_binary")
 
 py_entrypoint_binary(<a href="#py_entrypoint_binary-name">name</a>, <a href="#py_entrypoint_binary-entrypoint">entrypoint</a>, <a href="#py_entrypoint_binary-pkg">pkg</a>, <a href="#py_entrypoint_binary-visibility">visibility</a>)
 </pre>

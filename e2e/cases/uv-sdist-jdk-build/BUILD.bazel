@@ -11,7 +11,7 @@
 # This target stays in the repo as the entry point for any future work
 # to make the full sdist compile succeed end-to-end.
 
-load("@aspect_rules_py//py:defs.bzl", "py_test")
+load("@rules_py//py:defs.bzl", "py_test")
 
 py_test(
     name = "test",

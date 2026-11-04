@@ -5,7 +5,7 @@ build fails outright if the cross toolchain can only drive C — geohash's own
 setup.py would otherwise fall back silently.
 """
 
-uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv = use_extension("@rules_py//uv:extensions.bzl", "uv")
 uv.declare_hub(hub_name = "pypi_pycross_geohash")
 uv.project(
     default_build_dependencies = [

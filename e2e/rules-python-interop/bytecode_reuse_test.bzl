@@ -1,8 +1,8 @@
 """Asserts which bytecode layout rules_py reuses from a rules_python library."""
 
-load("@aspect_rules_py//py/private:providers.bzl", "PycInfo")
-load("@aspect_rules_py//py/private:pyc.bzl", "pyc_aspect")
-load("@aspect_rules_py//py/tests:pyc_testing.bzl", "precompile_transition")
+load("@rules_py//py/private:providers.bzl", "PycInfo")
+load("@rules_py//py/private:pyc.bzl", "pyc_aspect")
+load("@rules_py//py/tests:pyc_testing.bzl", "precompile_transition")
 load("@rules_python//python:py_info.bzl", "PyInfo")
 
 def _bytecode_reuse_check_impl(ctx):
@@ -26,7 +26,7 @@ bytecode_reuse_check = rule(
     },
 )
 
-_PYC = "@aspect_rules_py//py:precompile"
+_PYC = "@rules_py//py:precompile"
 _PRECOMPILE = "@rules_python//python/config_settings:precompile"
 _RETENTION = "@rules_python//python/config_settings:precompile_source_retention"
 

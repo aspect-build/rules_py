@@ -1,13 +1,13 @@
 
-load("@aspect_rules_py//uv/private/pep517_whl:pep517_native_whl.bzl", "pep517_native_whl")
-load("@aspect_rules_py//uv/private/pep517_whl:frontend.bzl", "pep517_frontend")
-load("@aspect_rules_py//py:defs.bzl", "py_binary")
+load("@rules_py//uv/private/pep517_whl:pep517_native_whl.bzl", "pep517_native_whl")
+load("@rules_py//uv/private/pep517_whl:frontend.bzl", "pep517_frontend")
+load("@rules_py//py:defs.bzl", "py_binary")
 
 py_binary(
     name = "build_tool",
-    main = "@aspect_rules_py//uv/private/pep517_whl/tools:build_helper.py",
-    srcs = ["@aspect_rules_py//uv/private/pep517_whl/tools:build_helper.py"],
-    deps = ["@@aspect_rules_py++uv+project__uv_sdist_jdk_build//:scikit_build_core", "@@aspect_rules_py++uv+project__uv_sdist_jdk_build//:setuptools", "@@aspect_rules_py++uv+project__uv_sdist_jdk_build//:wheel", "@@aspect_rules_py++uv+project__uv_sdist_jdk_build//:build", "@project__uv_sdist_jdk_build//private/build_deps:scikit_build_core"],
+    main = "@rules_py//uv/private/pep517_whl/tools:build_helper.py",
+    srcs = ["@rules_py//uv/private/pep517_whl/tools:build_helper.py"],
+    deps = ["@@rules_py++uv+project__uv_sdist_jdk_build//:scikit_build_core", "@@rules_py++uv+project__uv_sdist_jdk_build//:setuptools", "@@rules_py++uv+project__uv_sdist_jdk_build//:wheel", "@@rules_py++uv+project__uv_sdist_jdk_build//:build", "@project__uv_sdist_jdk_build//private/build_deps:scikit_build_core"],
     include_console_scripts = True,
 )
 
@@ -18,7 +18,7 @@ pep517_frontend(
 
 pep517_native_whl(
     name = "whl",
-    src = "@@aspect_rules_py++uv+sdist__jpype1__3cd88838dc3d2d54//file:file",
+    src = "@@rules_py++uv+sdist__jpype1__3cd88838dc3d2d54//file:file",
     tool = ":frontend",
     version = "1.7.1",
     toolchains = [

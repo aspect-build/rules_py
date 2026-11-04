@@ -27,7 +27,7 @@ def write_build_deps(repository_ctx, packages, scc_graph, marker_fn = None):
     _marker = marker_fn or marker_interner(marker_table)
 
     content = ["""\
-load("@aspect_rules_py//py:defs.bzl", "py_library")
+load("@rules_py//py:defs.bzl", "py_library")
 """]
     for scc_id, members in scc_graph.items():
         deps = [
@@ -47,8 +47,8 @@ py_library(
     repository_ctx.file("private/build_deps/sccs/BUILD.bazel", "\n".join(content))
 
     content = ["""\
-load("@aspect_rules_py//py:defs.bzl", "py_library")
-load("@aspect_rules_py//uv/private/uv_project:build_deps.bzl", "unresolved_build_requirement")
+load("@rules_py//py:defs.bzl", "py_library")
+load("@rules_py//uv/private/uv_project:build_deps.bzl", "unresolved_build_requirement")
 """]
     for package, candidates in packages.items():
         arms = {}

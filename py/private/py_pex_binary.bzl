@@ -373,7 +373,7 @@ archive, so `$(rootpath)`, `$(location)` and `$(execpath)` values do not exist.
 Outside of Bazel only `inject_env` applies.
 
 A pex always packages first-party sources, whatever
-`--@aspect_rules_py//py:precompile` requests: `binary` is built with that flag
+`--@rules_py//py:precompile` requests: `binary` is built with that flag
 reset to `off`, the `__pycache__` bytecode of a `binary` pinned to
 `precompile = "pycache"` is left out, and a `binary` pinned to
 `precompile = "sourceless"` fails analysis.

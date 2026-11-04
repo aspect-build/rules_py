@@ -5,7 +5,7 @@ GitHub tarball and built from source. Uses its own hub to keep the git
 source isolated from the shared `pypi` hub.
 """
 
-uv = use_extension("@aspect_rules_py//uv:extensions.bzl", "uv")
+uv = use_extension("@rules_py//uv:extensions.bzl", "uv")
 uv.declare_hub(hub_name = "pypi_git_source")
 uv.project(
     default_build_dependencies = [

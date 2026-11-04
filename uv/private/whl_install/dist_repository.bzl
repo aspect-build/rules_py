@@ -39,7 +39,7 @@ def _whl_dist_impl(rctx):
 
     meta = extract_install_metadata(rctx, rctx.path(basename), basename)
 
-    rctx.file("BUILD.bazel", content = """load("@aspect_rules_py//uv/private/whl_install:rule.bzl", "whl_dist")
+    rctx.file("BUILD.bazel", content = """load("@rules_py//uv/private/whl_install:rule.bzl", "whl_dist")
 
 whl_dist(
     name = "whl",

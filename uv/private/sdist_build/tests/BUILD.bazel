@@ -11,7 +11,7 @@ load(":repository_test.bzl", "config_settings_attr_test", "env_attr_test")
 
 build_test(
     name = "sdist_fallback_with_anyarch_wheel_build_test",
-    targets = ["@sdist_build__aspect_rules_py__bravado__11_0_3//:whl"],
+    targets = ["@sdist_build__rules_py__bravado__11_0_3//:whl"],
 )
 
 config_settings_attr_test(name = "config_settings_attr_test")

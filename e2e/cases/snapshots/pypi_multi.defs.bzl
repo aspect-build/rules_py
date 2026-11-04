@@ -31,18 +31,18 @@ def incompatible_with(venvs, extra_constraints = []):
 
 _DEPS_BY_GROUP = {
     "beta": [
-        "@@aspect_rules_py++uv+pypi_multi//beta:pkg",
-        "@@aspect_rules_py++uv+pypi_multi//cowsay:pkg",
+        "@@rules_py++uv+pypi_multi//beta:pkg",
+        "@@rules_py++uv+pypi_multi//cowsay:pkg",
     ],
     "dev": [
-        "@@aspect_rules_py++uv+pypi_multi//cowsay:pkg",
+        "@@rules_py++uv+pypi_multi//cowsay:pkg",
     ],
     "gamma": [
-        "@@aspect_rules_py++uv+pypi_multi//cowsay:pkg",
-        "@@aspect_rules_py++uv+pypi_multi//gamma:pkg",
+        "@@rules_py++uv+pypi_multi//cowsay:pkg",
+        "@@rules_py++uv+pypi_multi//gamma:pkg",
     ],
     "unit-tests": [
-        "@@aspect_rules_py++uv+pypi_multi//cowsay:pkg",
+        "@@rules_py++uv+pypi_multi//cowsay:pkg",
     ],
 }
 

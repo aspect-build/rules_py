@@ -15,7 +15,7 @@ import socket
 import stat
 import tempfile
 
-import aspect_rules_py_launcher_env as launcher_env
+import rules_py_launcher_env as launcher_env
 
 # multiprocessing.connection.arbitrary_address() builds
 # <tmp>/pymp-XXXXXXXX/listener-XXXXXXXX

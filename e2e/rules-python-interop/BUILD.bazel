@@ -1,6 +1,6 @@
-load("@aspect_rules_py//py:defs.bzl", "current_py_toolchain", "py_binary", "py_image_layer", "py_library", "py_pyc_compiler_toolchain", "py_venv", "py_wheel", "whl_filegroup", rules_py_test = "py_test")
-load("@aspect_rules_py//py/tests:analysis_failure_test.bzl", "analysis_failure_test")
-load("@aspect_rules_py//py/tests:pyc_testing.bzl", "bytecode_sources_test", "expect_test", "pyc_config_files", "pyc_config_test")
+load("@rules_py//py:defs.bzl", "current_py_toolchain", "py_binary", "py_image_layer", "py_library", "py_pyc_compiler_toolchain", "py_venv", "py_wheel", "whl_filegroup", rules_py_test = "py_test")
+load("@rules_py//py/tests:analysis_failure_test.bzl", "analysis_failure_test")
+load("@rules_py//py/tests:pyc_testing.bzl", "bytecode_sources_test", "expect_test", "pyc_config_files", "pyc_config_test")
 load("@bazel_skylib//rules:build_test.bzl", "build_test")
 load("@bazel_skylib//rules:diff_test.bzl", "diff_test")
 load("@rules_python//python:py_library.bzl", rules_python_library = "py_library")
@@ -35,7 +35,7 @@ toolchain(
     name = "rules_python_311_pyc_compiler_toolchain",
     target_settings = ["@rules_python//python/config_settings:is_python_3.11"],
     toolchain = ":rules_python_311_pyc_compiler",
-    toolchain_type = "@aspect_rules_py//py:pyc_compiler_toolchain_type",
+    toolchain_type = "@rules_py//py:pyc_compiler_toolchain_type",
 )
 
 # Default toolchain resolution: no python_version set, so this lands on
@@ -285,8 +285,8 @@ py_binary(
 genrule(
     name = "python_launcher",
     outs = ["python_launcher.txt"],
-    cmd = "$(location @aspect_rules_py//py:python) -c 'import sys; print(\"{}.{}\".format(*sys.version_info))' > $@",
-    tools = ["@aspect_rules_py//py:python"],
+    cmd = "$(location @rules_py//py:python) -c 'import sys; print(\"{}.{}\".format(*sys.version_info))' > $@",
+    tools = ["@rules_py//py:python"],
 )
 
 py_library(

@@ -7,7 +7,7 @@ The `python_version` attribute must refer to a python toolchain version
 which has been registered in the `MODULE.bazel` file, e.g.:
 
 ```starlark
-interpreters = use_extension("@aspect_rules_py//py:extensions.bzl", "python_interpreters")
+interpreters = use_extension("@rules_py//py:extensions.bzl", "python_interpreters")
 interpreters.toolchain(python_version = "3.10")
 interpreters.toolchain(python_version = "3.12")
 use_repo(interpreters, "python_interpreters")
@@ -165,7 +165,7 @@ def py_binary(name, srcs = [], main = None, **kwargs):
               `"off"` ships only `.py` sources; `"pycache"` additionally
               ships PEP 3147 `__pycache__` bytecode; `"sourceless"` ships
               colocated `.pyc` files in place of the sources. Unset (`None`)
-              inherits the global `--@aspect_rules_py//py:precompile` flag; an explicit value pins
+              inherits the global `--@rules_py//py:precompile` flag; an explicit value pins
               the mode. `select()` accepted. See "First-party bytecode" in
               the README.
     """
