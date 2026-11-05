@@ -22,10 +22,7 @@ def _verify_prefixes(expected_cwd: str) -> None:
         None,
     )
 
-    expect_empty_home = os.name != "nt" and sys.version_info[:2] in {
-        (3, 11),
-        (3, 12),
-    }
+    expect_empty_home = os.name == "nt" or sys.version_info[:2] >= (3, 11)
     assert (home == "") == expect_empty_home, (home, sys.version_info)
     if expect_empty_home:
         assert sys._base_executable != sys.executable, sys.executable
