@@ -90,7 +90,11 @@ def _toolchain_env_test_impl(ctx):
     marker_index = args.index("--execroot-marker")
     marker = args[marker_index + 1]
     asserts.equals(env, "-I{}/relative/include".format(marker), action_env.get("CPPFLAGS"))
-    asserts.equals(env, "{}/relative/libdep.a".format(marker), action_env.get("LDFLAGS"))
+    asserts.true(
+        env,
+        action_env.get("LDFLAGS", "").endswith("{}/relative/libdep.a".format(marker)),
+        "the package's LDFLAGS must follow the toolchain's; got: {}".format(action_env.get("LDFLAGS")),
+    )
 
     action_inputs = [f.path for f in build_actions[0].inputs.to_list()]
     for key in _CC_ENV_KEYS:
@@ -366,4 +370,30 @@ config_settings_args_test = analysistest.make(
             doc = "Exact `--config-setting key=value` flag sequence the helper must receive; empty asserts absence.",
         ),
     },
+)
+
+def _toolchain_flags_test_impl(ctx):
+    env = analysistest.begin(ctx)
+    target = analysistest.target_under_test(env)
+    actions = [a for a in target.actions if a.mnemonic == "PySdistNativeBuild"]
+    asserts.equals(env, 1, len(actions), "expected exactly one PySdistNativeBuild action")
+    if actions:
+        argv = actions[0].argv
+        asserts.equals(
+            env,
+            ctx.attr.expect_flags,
+            "--toolchain-flags" in argv,
+            "--toolchain-flags presence; argv: {}".format(list(argv)),
+        )
+        asserts.equals(
+            env,
+            ctx.attr.expect_flags,
+            bool(actions[0].env.get("CFLAGS")),
+            "the C++ toolchain's compile flags in CFLAGS",
+        )
+    return analysistest.end(env)
+
+pep517_native_whl_toolchain_flags_test = analysistest.make(
+    _toolchain_flags_test_impl,
+    attrs = {"expect_flags": attr.bool()},
 )
