@@ -39,6 +39,9 @@ def _python_interpreter_impl(rctx):
             releaselevel = level
             break
 
+    sys_platform = "win32" if is_windows else ("darwin" if is_macos else "linux")
+    platform_machine = "aarch64" if platform.startswith(("aarch64", "arm64")) else "x86_64"
+
     # Delete terminfo symlink loops on newer PBS releases (linux only)
     if "linux" in platform:
         rctx.delete("share/terminfo")
@@ -46,6 +49,9 @@ def _python_interpreter_impl(rctx):
     rctx.file("BUILD.bazel", content = _build_file_content(
         abi_flags = rctx.attr.abi_flags,
         symlinks = {} if is_windows else _find_symlinks(rctx.path(".")),
+        sys_platform = sys_platform,
+        platform_machine = platform_machine,
+        libc = "musl" if "musl" in platform else "",
         major = major,
         minor = minor,
         micro = micro,
@@ -134,7 +140,7 @@ filegroup(
 
     return "\n".join(lines), all_excludes
 
-def _build_file_content(major, minor, micro, python_bin, is_macos, is_windows, abi_flags, releaselevel, serial, symlinks = {}):
+def _build_file_content(major, minor, micro, python_bin, is_macos, is_windows, abi_flags, releaselevel, serial, symlinks = {}, sys_platform = "linux", platform_machine = "x86_64", libc = ""):
     """Generate the full BUILD.bazel content for an interpreter repo."""
 
     # A free-threaded build's standard library is lib/python3.14t, not
@@ -319,6 +325,8 @@ py_cc_toolchain(
     name = "py_cc_toolchain",
     headers = ":python_headers",
 {headers_abi3_attr}{libs_attr}    python_version = "{major}.{minor}",
+{libc_attr}    platform_machine = "{platform_machine}",
+    sys_platform = "{sys_platform}",
 )
 """.format(
         abi_flags = abi_flags,
@@ -327,7 +335,10 @@ py_cc_toolchain(
         headers_abi3_attr = headers_abi3_attr,
         include_dirs = repr(include_dirs),
         library_targets = library_targets,
+        libc_attr = "    libc = \"{}\",\n".format(libc) if libc else "",
         libs_attr = libs_attr,
+        platform_machine = platform_machine,
+        sys_platform = sys_platform,
         python_bin = python_bin,
         major = major,
         minor = minor,
