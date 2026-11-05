@@ -13,6 +13,9 @@ _CC_DISABLED_FEATURES = [
 
 _PATH_FLAG_PREFIXES = ("-I", "-L", "-isysroot", "-iwithsysroot", "-isystem", "-B")
 
+# Execroot-relative roots a `-flag=<path>` value may start with.
+_EXECROOT_ROOTS = ("external/", "bazel-out/")
+
 CC_LAYER_ATTRS = {
     "_os_linux": attr.label(default = "@platforms//os:linux"),
     "_os_macos": attr.label(default = "@platforms//os:macos"),
@@ -41,6 +44,13 @@ def _absolutize_flag(flag):
             rest = flag[len(pfx):]
             if rest and not rest.startswith("/") and "/" in rest:
                 return pfx + _EXECROOT_MARKER + "/" + rest
+
+    # `-resource-dir=`, `-fsanitize-ignorelist=`, `-Wl,--opt=` and similar
+    # carry an execroot-relative path after the first `=`. `--sysroot=` is
+    # left to build_helper's _absolutize_sysroot_flags.
+    name, sep, value = flag.partition("=")
+    if sep and name != "--sysroot" and value.startswith(_EXECROOT_ROOTS):
+        return name + sep + _EXECROOT_MARKER + "/" + value
     return flag
 
 def get_target_platform(ctx):
@@ -73,8 +83,9 @@ def get_target_platform(ctx):
 def extract_cc_layer(ctx, cc_toolchain):
     """Extract CC toolchain tools, flags, and target platform info.
 
-    Called only in cross-compilation mode. The native path relies on the
-    existing _cc_toolchain_inputs_and_tools + backend self-discovery.
+    Called for cross builds and for native builds whose toolchain carries a
+    feature configuration: a hermetic toolchain supplies its libc headers,
+    crt objects and runtime only through these flags.
 
     Args:
         ctx: The rule context. Must include CC_LAYER_ATTRS and
