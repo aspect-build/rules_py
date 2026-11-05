@@ -576,12 +576,32 @@ def _generate_cross_site(
     return site_dir
 
 
+def _add_cargo_and_ant(env: dict[str, str], tmpdir: str) -> None:
+    # maturin locates cargo via shutil.which, not $CARGO — without it on
+    # PATH it auto-installs a Rust toolchain (puccinialin), which fails in
+    # the sandbox. This bites native builds too, so it is not cross-gated.
+    cargo_path = env.get("CARGO")
+    if cargo_path:
+        env["PATH"] = pathsep.join([path.dirname(cargo_path), env.get("PATH", defpath)])
+
+        # Cargo's default $CARGO_HOME (~/.cargo) is unwritable in the sandbox.
+        cargo_home = path.join(tmpdir, ".cargo_home")
+        makedirs(cargo_home, exist_ok=True)
+        env.setdefault("CARGO_HOME", cargo_home)
+
+    # CMake's find_program(ANT_EXECUTABLE) (jpype1 et al.) needs ant on PATH.
+    ant_bin_dir = env.pop("RULES_PY_ANT_BIN_DIR", None)
+    if ant_bin_dir:
+        env["PATH"] = pathsep.join([ant_bin_dir, env.get("PATH", defpath)])
+
+
 def _compiler_env(
     tmpdir: str,
     execroot_marker: str | None = None,
     cross: bool = False,
     target_os: str = "",
     target_cpu: str = "",
+    msvc: bool = False,
 ) -> dict[str, str]:
     env = dict(os.environ)
     if execroot_marker:
@@ -627,6 +647,26 @@ def _compiler_env(
     # Bazel expands tool paths relative to the execroot. Resolve them while the
     # helper still runs there; bare tool names deliberately remain on PATH.
     _absolutize_tool_paths(env)
+
+    if msvc:
+        # setuptools finds cl.exe through PATH, INCLUDE and LIB from the
+        # toolchain, and only when it is told no Visual Studio is needed.
+        for key in ("CC", "CXX", "CPP", "AR", "LDSHARED", "LDCXXSHARED"):
+            env.pop(key, None)
+        env["DISTUTILS_USE_SDK"] = "1"
+        env["MSSdk"] = "1"
+        _add_cargo_and_ant(env, tmpdir)
+        return env
+
+    if msvc:
+        # setuptools finds cl.exe through PATH, INCLUDE and LIB from the
+        # toolchain, and only when it is told no Visual Studio is needed.
+        for key in ("CC", "CXX", "CPP", "AR", "LDSHARED", "LDCXXSHARED"):
+            env.pop(key, None)
+        env["DISTUTILS_USE_SDK"] = "1"
+        env["MSSdk"] = "1"
+        _add_cargo_and_ant(env, tmpdir)
+        return env
 
     cc_path = _resolve_compiler_path(env, "CC", "cc")
     cxx_path = _resolve_compiler_path(env, "CXX", "c++")
@@ -752,22 +792,7 @@ def _compiler_env(
     ]:
         _override_tool(env, key, wrapper)
 
-    # maturin locates cargo via shutil.which, not $CARGO — without it on
-    # PATH it auto-installs a Rust toolchain (puccinialin), which fails in
-    # the sandbox. This bites native builds too, so it is not cross-gated.
-    cargo_path = env.get("CARGO")
-    if cargo_path:
-        env["PATH"] = pathsep.join([path.dirname(cargo_path), env.get("PATH", defpath)])
-
-        # Cargo's default $CARGO_HOME (~/.cargo) is unwritable in the sandbox.
-        cargo_home = path.join(tmpdir, ".cargo_home")
-        makedirs(cargo_home, exist_ok=True)
-        env.setdefault("CARGO_HOME", cargo_home)
-
-    # CMake's find_program(ANT_EXECUTABLE) (jpype1 et al.) needs ant on PATH.
-    ant_bin_dir = env.pop("RULES_PY_ANT_BIN_DIR", None)
-    if ant_bin_dir:
-        env["PATH"] = pathsep.join([ant_bin_dir, env.get("PATH", defpath)])
+    _add_cargo_and_ant(env, tmpdir)
 
     return env
 
@@ -1135,6 +1160,7 @@ PARSER.add_argument("--patch-strip", type=int, default=1, help="Strip count for 
 PARSER.add_argument("--patch", action="append", default=[], dest="patches", help="Patch file to apply (repeatable)")
 PARSER.add_argument("--execroot-marker", help="Token in env values to replace with the absolute execroot")
 PARSER.add_argument("--cross", action="store_true", help="Cross-compilation mode: target platform != exec platform")
+PARSER.add_argument("--msvc", action="store_true", help="cl.exe build: the environment carries PATH, INCLUDE and LIB, and no GNU-style compiler variables are set")
 PARSER.add_argument("--target-os", default="", help="Target platform OS the wheel must be tagged for (linux, darwin, windows)")
 PARSER.add_argument("--target-libc", default="", help="Target platform C library the wheel must link against (glibc, musl, libsystem)")
 PARSER.add_argument("--target-cpu", default="", help="Target platform CPU the wheel must be tagged for (x86_64, aarch64, ...)")
@@ -1191,6 +1217,7 @@ def main() -> None:
         cross=opts.cross,
         target_os=opts.target_os,
         target_cpu=opts.target_cpu,
+        msvc=opts.msvc,
     )
 
     if _legacy_metadata_conflicts_with_pyproject(t):

@@ -6,6 +6,9 @@ build to verify the env wiring.
 """
 
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts", "unittest")
+load("@rules_cc//cc:action_names.bzl", "ACTION_NAMES")
+load("@rules_cc//cc:cc_toolchain_config_lib.bzl", "env_entry", "env_set", "feature")
+load("@rules_cc//cc/common:cc_common.bzl", "cc_common")
 load("//uv/private:source_built_wheel.bzl", "SourceBuiltWheelInfo")
 load("//uv/private/pep517_whl:cc_layer.bzl", "cc_layer_test_util")
 load("//uv/private/pep517_whl:pep517_native_whl.bzl", "cross_detection_test_util", "cross_identity_test_util")
@@ -366,4 +369,112 @@ config_settings_args_test = analysistest.make(
             doc = "Exact `--config-setting key=value` flag sequence the helper must receive; empty asserts absence.",
         ),
     },
+)
+
+def _absolutize_msvc_entries_test_impl(ctx):
+    env = unittest.begin(ctx)
+    absolutize = cc_layer_test_util.absolutize_msvc_entries
+    marker = cc_layer_test_util.execroot_marker
+    for value, expected in (
+        # Relative entries get the execroot marker; drive-letter, rooted and
+        # UNC entries and empty segments pass through.
+        ("external\\msvc\\bin", marker + "\\external\\msvc\\bin"),
+        ("C:\\Windows\\System32", "C:\\Windows\\System32"),
+        ("\\\\server\\share", "\\\\server\\share"),
+        ("/abs/include", "/abs/include"),
+        ("a\\b;C:\\c;d", marker + "\\a\\b;C:\\c;" + marker + "\\d"),
+        ("a;;b", marker + "\\a;;" + marker + "\\b"),
+        ("", ""),
+    ):
+        asserts.equals(env, expected, absolutize(value))
+    return unittest.end(env)
+
+absolutize_msvc_entries_test = unittest.make(_absolutize_msvc_entries_test_impl)
+
+def _msvc_toolchain_config_impl(ctx):
+    def env_feature(name, action, key, value):
+        return feature(
+            name = name,
+            enabled = True,
+            env_sets = [env_set(actions = [action], env_entries = [env_entry(key, value)])],
+        )
+
+    return cc_common.create_cc_toolchain_config_info(
+        ctx = ctx,
+        toolchain_identifier = "msvc-stub",
+        host_system_name = "local",
+        target_system_name = "local",
+        target_cpu = "x64_windows",
+        target_libc = "msvcrt",
+        compiler = "msvc-cl",
+        abi_version = "local",
+        abi_libc_version = "local",
+        cxx_builtin_include_directories = [],
+        features = [
+            env_feature("stub_path", ACTION_NAMES.c_compile, "PATH", "msvc_stub\\bin;msvc_stub\\tools"),
+            env_feature("stub_include", ACTION_NAMES.c_compile, "INCLUDE", "msvc_stub\\include;msvc_stub\\sdk\\include"),
+            env_feature("stub_lib", ACTION_NAMES.cpp_link_dynamic_library, "LIB", "msvc_stub\\lib;msvc_stub\\sdk\\lib"),
+        ],
+    )
+
+msvc_toolchain_config = rule(
+    implementation = _msvc_toolchain_config_impl,
+    provides = [CcToolchainConfigInfo],
+)
+
+_MSVC_ENV_MARKER = cc_layer_test_util.execroot_marker + "\\"
+
+def _msvc_entries(action, name):
+    return action.env.get(name, "").split(";")
+
+def _msvc_runs_cl_test_impl(ctx):
+    env = analysistest.begin(ctx)
+    actions = [a for a in analysistest.target_actions(env) if a.mnemonic == "PySdistNativeBuild"]
+    asserts.equals(env, 1, len(actions), "expected one PySdistNativeBuild action")
+    if actions:
+        action = actions[0]
+        asserts.true(env, "--msvc" in action.argv, "missing --msvc: %s" % action.argv)
+        asserts.false(env, "--cross" in action.argv, "native build ran in cross mode")
+        for name in ["CC", "CXX", "AR", "LD", "STRIP", "CFLAGS", "LDSHAREDFLAGS"]:
+            asserts.false(env, name in action.env, name + " is set for cl.exe")
+        for name in ["PATH", "INCLUDE", "LIB"]:
+            entries = _msvc_entries(action, name)
+            asserts.true(env, len(entries) > (1 if name == "PATH" else 2), name + " lacks the toolchain entries")
+            for entry in entries:
+                asserts.true(env, entry.startswith(_MSVC_ENV_MARKER), "%s entry without the execroot marker: %s" % (name, entry))
+            asserts.true(env, "msvc_stub\\" in entries[0], name + " does not start with the toolchain: " + entries[0])
+        asserts.true(env, _msvc_entries(action, "INCLUDE")[-1].endswith("\\include"), "INCLUDE lacks the interpreter include dir")
+        asserts.true(env, _msvc_entries(action, "LIB")[-1].endswith("\\libs"), "LIB lacks the interpreter libs dir")
+        inputs = [f.path for f in action.inputs.to_list()]
+        asserts.true(env, any([p.endswith("libs/python312.lib") for p in inputs]), "python312.lib is not an input")
+        asserts.true(env, any([p.endswith("include/pyconfig.h") for p in inputs]), "pyconfig.h is not an input")
+    return analysistest.end(env)
+
+def _msvc_cross_fails_test_impl(ctx):
+    env = analysistest.begin(ctx)
+    asserts.expect_failure(env, "MSVC sdist builds need a Windows execution platform matching the target")
+    return analysistest.end(env)
+
+_MSVC_WINDOWS_X64 = [Label("//uv/private/pep517_whl/tests:msvc_windows_x64")]
+_MSVC_SETTINGS = {
+    "//command_line_option:platforms": _MSVC_WINDOWS_X64,
+    "//command_line_option:extra_toolchains": [
+        Label("//uv/private/pep517_whl/tests:msvc_cc_toolchain"),
+        Label("//uv/private/pep517_whl/tests:msvc_python_toolchain"),
+        Label("//uv/private/pep517_whl/tests:msvc_native_build_toolchain"),
+    ],
+}
+
+# A Windows executor lets the build run natively: the action drives cl.exe.
+pep517_native_whl_msvc_test = analysistest.make(
+    _msvc_runs_cl_test_impl,
+    config_settings = _MSVC_SETTINGS | {"//command_line_option:extra_execution_platforms": _MSVC_WINDOWS_X64},
+)
+
+# With only the Linux executor the same target is a cross build, which MSVC
+# does not support.
+pep517_native_whl_msvc_linux_exec_test = analysistest.make(
+    _msvc_cross_fails_test_impl,
+    expect_failure = True,
+    config_settings = _MSVC_SETTINGS,
 )

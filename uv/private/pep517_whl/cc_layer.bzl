@@ -215,8 +215,65 @@ def extract_cc_layer(ctx, cc_toolchain):
         static_runtime_paths = static_runtime_paths,
     )
 
+def _absolutize_msvc_entries(value):
+    """Prefix the execroot-relative entries of a `;` separated Windows path list."""
+    entries = []
+    for entry in value.split(";"):
+        if entry and not entry.startswith(("\\", "/")) and entry[1:2] != ":":
+            entry = _EXECROOT_MARKER + "\\" + entry
+        entries.append(entry)
+    return ";".join(entries)
+
+def extract_msvc_layer(ctx, cc_toolchain):
+    """Extract the PATH, INCLUDE and LIB a cl.exe toolchain sets.
+
+    cl.exe and link.exe find the Windows SDK and the MSVC headers and
+    libraries through these variables, not through command line flags.
+
+    Args:
+        ctx: The rule context, with fragments = ["cpp"].
+        cc_toolchain: The resolved CcToolchainInfo.
+
+    Returns:
+        struct(path, include, lib) of `;` separated strings whose
+        execroot-relative entries start with the EXECROOT marker.
+    """
+    feature_configuration = cc_common.configure_features(
+        ctx = ctx,
+        cc_toolchain = cc_toolchain,
+        requested_features = ctx.features,
+        unsupported_features = ctx.disabled_features + _CC_DISABLED_FEATURES,
+    )
+    compile_env = cc_common.get_environment_variables(
+        feature_configuration = feature_configuration,
+        action_name = ACTION_NAMES.c_compile,
+        variables = cc_common.create_compile_variables(
+            feature_configuration = feature_configuration,
+            cc_toolchain = cc_toolchain,
+        ),
+    )
+
+    # LIB is only set on link actions.
+    link_env = cc_common.get_environment_variables(
+        feature_configuration = feature_configuration,
+        action_name = ACTION_NAMES.cpp_link_dynamic_library,
+        variables = cc_common.create_link_variables(
+            cc_toolchain = cc_toolchain,
+            feature_configuration = feature_configuration,
+            is_using_linker = True,
+            is_linking_dynamic_library = True,
+            must_keep_debug = False,
+        ),
+    )
+    return struct(
+        path = _absolutize_msvc_entries(compile_env.get("PATH", "")),
+        include = _absolutize_msvc_entries(compile_env.get("INCLUDE", "")),
+        lib = _absolutize_msvc_entries(link_env.get("LIB", "")),
+    )
+
 # Exposed for the unit tests in tests/pep517_whl_test.bzl only.
 cc_layer_test_util = struct(
     absolutize_flag = _absolutize_flag,
+    absolutize_msvc_entries = _absolutize_msvc_entries,
     execroot_marker = _EXECROOT_MARKER,
 )
