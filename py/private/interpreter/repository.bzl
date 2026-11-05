@@ -45,6 +45,7 @@ def _python_interpreter_impl(rctx):
 
     rctx.file("BUILD.bazel", content = _build_file_content(
         abi_flags = rctx.attr.abi_flags,
+        symlinks = {} if is_windows else _find_symlinks(rctx.path(".")),
         major = major,
         minor = minor,
         micro = micro,
@@ -56,6 +57,47 @@ def _python_interpreter_impl(rctx):
     ))
 
     return rctx.repo_metadata(reproducible = True)
+
+def _relative_link(from_dir, to):
+    """Relative path from directory `from_dir` to `to`, both "/"-separated."""
+    from_parts = [p for p in from_dir.split("/") if p]
+    to_parts = [p for p in to.split("/") if p]
+    common = 0
+    for a, b in zip(from_parts, to_parts):
+        if a != b:
+            break
+        common += 1
+    return "/".join([".."] * (len(from_parts) - common) + to_parts[common:])
+
+def _find_symlinks(root):
+    """Symlinks under `root` that resolve inside it, repo-relative path → target.
+
+    Bazel resolves symlinks in source files before they reach an action's
+    input tree, so remote execution sees `bin/python` as a copy of
+    `bin/python3.11`. Recording the links here lets image layers keep them
+    wherever the action runs. Targets are written relative to the link's
+    directory. Links that dangle or leave the repo, and anything below a
+    linked directory, are left out.
+    """
+    root_real = str(root.realpath)
+    links = {}
+    pending = [(root, "")]
+    for _ in range(1000000):
+        if not pending:
+            break
+        directory, rel_dir = pending.pop()
+        for entry in directory.readdir():
+            rel = rel_dir + entry.basename
+            if not entry.exists:
+                continue
+            real = str(entry.realpath)
+            if real != root_real + "/" + rel:
+                if real.startswith(root_real + "/"):
+                    links[rel] = _relative_link(rel_dir, real[len(root_real) + 1:])
+                continue
+            if entry.is_dir:
+                pending.append((entry, rel + "/"))
+    return links
 
 def _feature_filegroups(stdlib, is_windows):
     """Generate per-feature filegroup targets and config_settings.
@@ -92,7 +134,7 @@ filegroup(
 
     return "\n".join(lines), all_excludes
 
-def _build_file_content(major, minor, micro, python_bin, is_macos, is_windows, abi_flags, releaselevel, serial):
+def _build_file_content(major, minor, micro, python_bin, is_macos, is_windows, abi_flags, releaselevel, serial, symlinks = {}):
     """Generate the full BUILD.bazel content for an interpreter repo."""
 
     # A free-threaded build's standard library is lib/python3.14t, not
@@ -270,6 +312,7 @@ filegroup(
         "releaselevel": "{releaselevel}",
         "serial": "{serial}",
     }},
+    symlinks = {symlinks},
 {venv_dlls_attr})
 
 py_cc_toolchain(
@@ -297,6 +340,7 @@ py_cc_toolchain(
         core_exclude = core_exclude,
         venv_dlls_target = venv_dlls_target,
         venv_dlls_attr = venv_dlls_attr,
+        symlinks = repr(dict(sorted(symlinks.items()))),
     )
 
 python_interpreter = repository_rule(
@@ -579,4 +623,6 @@ python_toolchains = repository_rule(
 repository_testlib = struct(
     build_file_content = _build_file_content,
     feature_filegroups = _feature_filegroups,
+    find_symlinks = _find_symlinks,
+    relative_link = _relative_link,
 )

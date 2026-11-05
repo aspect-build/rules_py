@@ -53,6 +53,9 @@ def _py_runtime_toolchain_impl(ctx):
             # Read by rules_py's venv assembly, which links these into a
             # Windows venv's `bin/`.
             venv_dlls = ctx.files.venv_dlls,
+            # Read by py_image_layer, which packages these as symlinks even
+            # where the action's inputs arrive resolved (remote execution).
+            interpreter_symlinks = ctx.attr.symlinks,
         ),
         DefaultInfo(files = depset([ctx.file.interpreter], transitive = [runtime.files])),
     ]
@@ -81,6 +84,10 @@ build host regardless of the target platform being built for).""",
         ),
         "abi_flags": attr.string(
             doc = "CPython ABI flag suffix, e.g. \"t\" for freethreaded.",
+        ),
+        "symlinks": attr.string_dict(
+            doc = "Symlinks in the runtime tree, repo-relative path → target relative to " +
+                  "the link's directory, as the repository rule found them on disk.",
         ),
         "venv_dlls": attr.label_list(
             doc = "Windows only: the DLLs beside the interpreter that a venv links into its `bin/`, " +
