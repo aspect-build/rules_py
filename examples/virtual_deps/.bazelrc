@@ -1,3 +1,5 @@
+# The root's Aspect rc; see e2e/crossbuild/.bazelrc for why .aspect/generated/ is committed here.
+try-import %workspace%/../../.aspect/bazelrc
 import %workspace%/../../bazel/workspace.bazelrc
 
 # Activate this project's dependency group so @pypi//<pkg> targets are selected.

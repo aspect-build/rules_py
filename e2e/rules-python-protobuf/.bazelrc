@@ -1,3 +1,5 @@
+# The root's Aspect rc; see e2e/crossbuild/.bazelrc for why .aspect/generated/ is committed here.
+try-import %workspace%/../../.aspect/bazelrc
 # Inherit the repo-wide flag preset. This module's workspace root is
 # e2e/rules-python-protobuf/, so %workspace% climbs two directories up to the
 # repo root where bazelrc-preset.bzl generates bazel/defaults.bazelrc.

@@ -1,3 +1,5 @@
+# The root's Aspect rc; see e2e/crossbuild/.bazelrc for why .aspect/generated/ is committed here.
+try-import %workspace%/../../.aspect/bazelrc
 import %workspace%/../../bazel/workspace.bazelrc
 
 # Configure a default venv
