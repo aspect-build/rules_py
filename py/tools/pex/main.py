@@ -135,6 +135,32 @@ assert import_idx == 3703, "Check bootstrap template monkey patching."
 
 setattr(pex.pex_builder, "BOOTSTRAP_ENVIRONMENT", BE[:import_idx] + "\n".join(INJECT_TEMPLATE) + "\n" + BE[import_idx:])
 
+# pex stamps each zip entry with the mode of the file it zips, but Bazel does not
+# track file modes: an action's key covers its inputs' contents only, remote
+# execution hands the action every input marked executable, and a local build sees
+# a source file with whatever mode the checkout's umask gave it. The PEX's bytes
+# would then depend on which executor built it. Give every entry one mode instead,
+# executable so that no file needing the bit can lose it. Rewriting the ZipInfo
+# leaves the files themselves alone; pex hard-links sources into its chroot, so a
+# chmod there would reach back into the execroot.
+import stat
+import time
+from pex.common import PermPreservingZipFile
+
+_zip_entry_from_file = PermPreservingZipFile.zip_entry_from_file
+
+def _zip_entry_with_fixed_mode(
+    filename: str,
+    arcname: str | None = None,
+    date_time: time.struct_time | None = None,
+) -> PermPreservingZipFile.ZipEntry:
+    entry = _zip_entry_from_file(filename, arcname=arcname, date_time=date_time)
+    file_type = stat.S_IFMT(entry.info.external_attr >> 16)
+    entry.info.external_attr = (file_type | 0o755) << 16 | (entry.info.external_attr & 0xFFFF)
+    return entry
+
+setattr(PermPreservingZipFile, "zip_entry_from_file", staticmethod(_zip_entry_with_fixed_mode))
+
 
 pex_builder = PEXBuilder(
     # Build the PEX artifact using the current interpreter; we know it works in cfg=exec
