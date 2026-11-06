@@ -1,7 +1,7 @@
 """Snapshot rule that dumps the full venv tree structure for review diffs.
 
 Produces a deterministic text file listing every symlink (with target)
-and text file (with content) inside a ``py_venv`` target's output tree.
+and text file (with content, unless it is large) inside a ``py_venv`` target's output tree.
 Used via ``write_source_files`` so changes to the venv assembly surface
 as a reviewable diff.
 
@@ -47,6 +47,8 @@ def _venv_tree_impl(ctx):
                                     echo "---"
                                     cat "$p"
                                     echo "---"
+                                elif [ -f "$p" ]; then
+                                    echo "FILE ${p#./} (large)"
                                 fi
                                 ;;
                             *)
@@ -58,6 +60,8 @@ def _venv_tree_impl(ctx):
                         echo "---"
                         cat "$p"
                         echo "---"
+                    elif [ -f "$p" ]; then
+                        echo "FILE ${p#./} (large)"
                     fi
                 done
             } > "$OUT"

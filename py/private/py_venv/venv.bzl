@@ -371,31 +371,43 @@ def assemble_venv(
     # absolute target bakes in the build-host execroot path that does not
     # exist inside an OCI container, leaving a dangling symlink. The
     # target path itself is computed by resolve_venv_toolchain.
-    bin_python = ctx.actions.declare_symlink("{}/bin/python".format(venv_name))
-    ctx.actions.symlink(
-        output = bin_python,
-        target_path = tc.bin_python_target_path,
-    )
-    declared.append(bin_python)
-
-    # Versioned python symlinks (python3, python3.<MAJ>.<MIN>, and
-    # python3.<MAJ>.<MIN>t for freethreaded) all point at the sibling
-    # `python`; names resolved by resolve_venv_toolchain.
-    for versioned_name in tc.versioned_python_names:
-        sym = ctx.actions.declare_symlink("{}/bin/{}".format(venv_name, versioned_name))
+    #
+    # On Windows Bazel builds the runfiles tree's symlink from where the
+    # output lives, not from the runfiles tree, so a relative target through
+    # the runfiles root dangles. There the `bin/` links are file symlinks to
+    # the interpreter and its DLLs instead.
+    if is_windows:
+        bin_python = ctx.actions.declare_file("{}/bin/python".format(venv_name))
         ctx.actions.symlink(
-            output = sym,
-            target_path = "python",
+            output = bin_python,
+            target_file = py_toolchain.python,
         )
-        declared.append(sym)
-
-    for name, target_path in tc.windows_bin_links.items():
-        sym = ctx.actions.declare_symlink("{}/bin/{}".format(venv_name, name))
+        declared.append(bin_python)
+        windows_links = dict(tc.windows_bin_links)
+        for versioned_name in tc.versioned_python_names:
+            windows_links[versioned_name] = py_toolchain.python
+        for name, target in windows_links.items():
+            sym = ctx.actions.declare_file("{}/bin/{}".format(venv_name, name))
+            ctx.actions.symlink(
+                output = sym,
+                target_file = target,
+            )
+            declared.append(sym)
+    else:
+        bin_python = ctx.actions.declare_symlink("{}/bin/python".format(venv_name))
         ctx.actions.symlink(
-            output = sym,
-            target_path = target_path,
+            output = bin_python,
+            target_path = tc.bin_python_target_path,
         )
-        declared.append(sym)
+        declared.append(bin_python)
+
+        for versioned_name in tc.versioned_python_names:
+            sym = ctx.actions.declare_symlink("{}/bin/{}".format(venv_name, versioned_name))
+            ctx.actions.symlink(
+                output = sym,
+                target_path = "python",
+            )
+            declared.append(sym)
 
     bin_activate = None
     if venv_activate_tmpl != None:
