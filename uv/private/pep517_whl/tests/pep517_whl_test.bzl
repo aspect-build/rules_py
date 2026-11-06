@@ -300,6 +300,7 @@ def _absolutize_flag_test_impl(ctx):
         ("-Iexternal/llvm/include", "-I" + marker + "/external/llvm/include"),
         ("-I/usr/include", "-I/usr/include"),
         ("-Bexternal/llvm/bin", "-B" + marker + "/external/llvm/bin"),
+        ("-resource-dir=external/llvm/lib/clang/23", "-resource-dir=" + marker + "/external/llvm/lib/clang/23"),
         # "--sysroot=" is deliberately not cc_layer's job: build_helper's
         # _absolutize_sysroot_flags rewrites it at execution time (it also
         # handles values the backend re-splices after the chdir).

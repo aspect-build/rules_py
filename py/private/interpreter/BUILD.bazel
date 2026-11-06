@@ -25,6 +25,7 @@ bzl_library(
 string_flag(
     name = "python_version",
     build_setting_default = "",
+    scope = "universal",
 )
 
 # Internal transition scratch state. Python terminals capture the version
