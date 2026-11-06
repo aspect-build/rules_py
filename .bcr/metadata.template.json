@@ -2,7 +2,7 @@
   "homepage": "https://github.com/aspect-build/rules_py",
   "maintainers": [
     {
-      "email": "sahin@aspect.build",
+      "email": "thesayyn@gmail.com",
       "github": "thesayyn",
       "name": "Şahin Yort"
     },
@@ -17,9 +17,14 @@
       "name": "César Abel"
     },
     {
-      "email": "jason@aspect.build",
+      "email": "jason@jbedard.ca",
       "github": "jbedard",
       "name": "Jason Bedard"
+    },
+    {
+      "email": "adamc@aspect.build",
+      "github": "acozzette",
+      "name": "Adam Cozzette"
     }
   ],
   "repository": ["github:aspect-build/rules_py"],
