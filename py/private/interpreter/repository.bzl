@@ -54,6 +54,7 @@ def _python_interpreter_impl(rctx):
         is_windows = is_windows,
         releaselevel = releaselevel,
         serial = serial,
+        archive = rctx.attr.archive,
     ))
 
     return rctx.repo_metadata(reproducible = True)
@@ -134,8 +135,18 @@ filegroup(
 
     return "\n".join(lines), all_excludes
 
-def _build_file_content(major, minor, micro, python_bin, is_macos, is_windows, abi_flags, releaselevel, serial, symlinks = {}):
+def _build_file_content(major, minor, micro, python_bin, is_macos, is_windows, abi_flags, releaselevel, serial, symlinks = {}, archive = ""):
     """Generate the full BUILD.bazel content for an interpreter repo."""
+
+    # Selected only under py_pex_binary(scie = ...), so that no other build
+    # fetches the archive repo.
+    pbs_archive_attr = ""
+    if archive:
+        pbs_archive_attr = """    pbs_archive = select({{
+        "@rules_py//py/private/interpreter:pex_scie_enabled": "{archive}",
+        "//conditions:default": None,
+    }}),
+""".format(archive = archive)
 
     # A free-threaded build's standard library is lib/python3.14t, not
     # lib/python3.14.
@@ -303,7 +314,7 @@ filegroup(
 {venv_dlls_target}py_runtime_toolchain(
     name = "runtime",
     abi_flags = "{abi_flags}",
-    files = [":files"],
+{pbs_archive_attr}    files = [":files"],
     interpreter = "{python_bin}",
     interpreter_version_info = {{
         "major": "{major}",
@@ -323,6 +334,7 @@ py_cc_toolchain(
 """.format(
         abi_flags = abi_flags,
         abi3_header_target = abi3_header_target,
+        pbs_archive_attr = pbs_archive_attr,
         header_interface_deps = repr(header_interface_deps),
         headers_abi3_attr = headers_abi3_attr,
         include_dirs = repr(include_dirs),
@@ -347,6 +359,10 @@ python_interpreter = repository_rule(
     implementation = _python_interpreter_impl,
     attrs = {
         "abi_flags": attr.string(mandatory = True),
+        "archive": attr.string(
+            default = "",
+            doc = "Label of the PBS archive this interpreter was extracted from, which a scie embeds.",
+        ),
         "platform": attr.string(mandatory = True),
         "python_version": attr.string(default = ""),
         "sha256": attr.string(default = ""),

@@ -36,7 +36,29 @@ genrule(
 assert_contains(
     name = "test__print_modules_pex",
     actual = "print_modules_pex.out",
-    expected = "Mooo!,cowsay-6.1/cowsay/__init__.py,six-1.16.0/six.py",
+    expected = "Mooo!,cowsay-6.1-py3-none-any.whl/cowsay/__init__.py,six-1.16.0-py2.py3-none-any.whl/six.py",
+)
+
+# A scie bundles the binary's interpreter, so it runs with no environment at all
+# (no PATH, hence no Python), and still finds its wheels and runfiles.
+py_pex_binary(
+    name = "print_modules_scie",
+    binary = ":print_modules_bin",
+    python_interpreter_constraints = [],
+    scie = "eager",
+)
+
+genrule(
+    name = "run_print_modules_scie",
+    outs = ["print_modules_scie.out"],
+    cmd = "env -i HOME=$$PWD/home $(execpath print_modules_scie) >$@",
+    tools = ["print_modules_scie"],
+)
+
+assert_contains(
+    name = "test__print_modules_scie",
+    actual = "print_modules_scie.out",
+    expected = "Mooo!,cowsay-6.1-py3-none-any.whl/cowsay/__init__.py,six-1.16.0-py2.py3-none-any.whl/six.py",
 )
 
 # Assert py_pex_binary attrs land in the built artifact: the shebang line,
@@ -135,6 +157,43 @@ platform_transition_binary(
     name = "print_modules_pex_amd64_linux",
     binary = ":print_modules_pex",
     target_platform = ":amd64_linux",
+)
+
+# A scie for another platform than the build host's: science assembles it with
+# the host's scie-jump and embeds the target's.
+platform(
+    name = "arm64_macos",
+    constraint_values = [
+        "@platforms//os:macos",
+        "@platforms//cpu:aarch64",
+    ],
+)
+
+platform_transition_binary(
+    name = "print_modules_scie_arm64_macos",
+    binary = ":print_modules_scie",
+    target_platform = ":arm64_macos",
+)
+
+platform_transition_binary(
+    name = "print_modules_scie_amd64_linux",
+    binary = ":print_modules_scie",
+    target_platform = ":amd64_linux",
+)
+
+py_test(
+    name = "scie_platforms_test",
+    srcs = ["scie_platforms_test.py"],
+    data = [
+        ":print_modules_scie_amd64_linux",
+        ":print_modules_scie_arm64_macos",
+    ],
+    env = {
+        "SCIE_AMD64_LINUX": "$(rlocationpath :print_modules_scie_amd64_linux)",
+        "SCIE_ARM64_MACOS": "$(rlocationpath :print_modules_scie_arm64_macos)",
+    },
+    main = "scie_platforms_test.py",
+    deps = ["@pypi//bazel_runfiles"],
 )
 
 build_test(
