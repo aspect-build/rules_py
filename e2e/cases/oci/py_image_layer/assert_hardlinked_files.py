@@ -4,7 +4,7 @@ import sys
 import tarfile
 
 
-def main():
+def main() -> None:
     found = set()
     for path in sys.argv[1:]:
         with tarfile.open(path) as archive:
