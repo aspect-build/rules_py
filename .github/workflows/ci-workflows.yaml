@@ -28,7 +28,7 @@ env:
     ASPECT_WORKSPACE: ${{ github.workspace }}
     REMOTE_FLAG: ${{ secrets.ASPECT_CLOUD_API_TOKEN != '' && '--remote' || '' }}
     # The vanilla-`bazel` half of the same wiring. The attribution comes with it:
-    # the aspect-bes group this chains points --workspace_status_command at
+    # the aspect-cloud section points --workspace_status_command at
     # `aspect setup workspace-data`, which stamps the same keys an `aspect <task>`
     # sends as --build_metadata.
     BAZEL_ASPECT_FLAGS: ${{ secrets.ASPECT_CLOUD_API_TOKEN != '' && '--config=aspect-cloud' || '' }}
