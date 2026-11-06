@@ -76,4 +76,6 @@ expect_analysis_failure \
     //:venv_sys \
     "must provide an in-build \`interpreter\` file"
 
+bash "$case_dir/python-version-scope/test.sh"
+
 echo "PASS: interpreter configuration is validated at the owning module boundary"
