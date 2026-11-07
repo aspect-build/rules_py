@@ -695,6 +695,18 @@ def _compiler_env(
     env.setdefault("CXX", cxx)
 
     if toolchain_flags:
+        # Meson's cython sanity check (and similar probes) look up "python3"
+        # with pkg-config before the interpreter that is running the build. A
+        # host python3.pc points at host headers (-I/usr/include/python3.x,
+        # pyconfig.h under /usr/include/<triple>), which the toolchain's
+        # -nostdlibinc hides, so the probe fails with "Compiler cython cannot
+        # compile programs". An empty libdir makes pkg-config find nothing by
+        # default, so meson falls back to the build interpreter. An explicit
+        # PKG_CONFIG_PATH is still honored.
+        pkgconfig_libdir = path.join(tmpdir, ".pkgconfig_empty")
+        makedirs(pkgconfig_libdir, exist_ok=True)
+        env.setdefault("PKG_CONFIG_LIBDIR", pkgconfig_libdir)
+
         ldshared_flags = env.get("LDSHAREDFLAGS", "")
         env["LDSHARED"] = cc + ((" " + ldshared_flags) if ldshared_flags else "")
         env["LDCXXSHARED"] = cxx + ((" " + ldshared_flags) if ldshared_flags else "")
