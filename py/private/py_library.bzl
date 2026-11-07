@@ -149,6 +149,11 @@ def _make_imports_depset(ctx, extra_imports_depsets = []):
         workspace_name = ctx.workspace_name,
         label = ctx.label,
         extra_imports_depsets = extra_imports_depsets,
+        # A library with neither sources nor data puts nothing at its
+        # repository's root, and Python 3.15 reports every `.pth` path that does
+        # not exist. Data can hold an importable file, such as a prebuilt
+        # extension module.
+        include_repo_root = bool(getattr(ctx.attr, "srcs", []) or getattr(ctx.attr, "data", [])),
     )
 
 def _make_wheels_depset(ctx):

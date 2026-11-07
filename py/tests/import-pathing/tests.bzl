@@ -88,6 +88,34 @@ _can_resolve_path_in_workspace_test = unittest.make(
     },
 )
 
+def _external_repo_root_requires_files_test_impl(ctx):
+    env = unittest.begin(ctx)
+
+    def external_ctx(srcs = [], data = []):
+        return struct(
+            attr = struct(deps = [], imports = [], srcs = srcs, data = data),
+            workspace_name = "_main",
+            label = Label("@@other_repo//foo:bar"),
+        )
+
+    # A library without srcs or data puts no files at its repo root, and
+    # Python 3.15 reports every `.pth` path that does not exist.
+    imports = py_library.make_imports_depset(external_ctx()).to_list()
+    asserts.equals(env, ["_main"], imports)
+
+    imports = py_library.make_imports_depset(external_ctx(srcs = ["bar.py"])).to_list()
+    asserts.equals(env, ["_main", "other_repo"], imports)
+
+    # Data can hold an importable file, such as a prebuilt extension module.
+    imports = py_library.make_imports_depset(external_ctx(data = ["_bar.so"])).to_list()
+    asserts.equals(env, ["_main", "other_repo"], imports)
+
+    return unittest.end(env)
+
+_external_repo_root_requires_files_test = unittest.make(
+    _external_repo_root_requires_files_test_impl,
+)
+
 def _fails_on_imp_path_that_breaks_workspace_root_imp(ctx):
     env = analysistest.begin(ctx)
     asserts.expect_failure(env, "Import paths must not escape the workspace root")
@@ -114,6 +142,7 @@ def py_library_import_pathing_test_suite():
     unittest.suite(
         "py_library_import_pathing_test_suite",
         _can_resolve_path_in_workspace_test,
+        _external_repo_root_requires_files_test,
     )
 
     _py_library(
