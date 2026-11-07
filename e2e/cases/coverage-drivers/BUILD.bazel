@@ -1,4 +1,4 @@
-load("@rules_py//py:defs.bzl", "py_library", "py_pytest_test", "py_unittest_test")
+load("@rules_py//py:defs.bzl", "py_library", "py_pytest_test", "py_test", "py_unittest_test")
 
 # `bazel coverage` end-to-end regression for both test drivers. Each test
 # exercises the shared library so the emitted LCOV has a real SF:/DA: record for
@@ -116,3 +116,16 @@ py_pytest_test(
         "source_pkgs",
     ]
 ]
+
+# The SF: fixup must also map a source under the chdir, which coveragepy
+# reports relative to the CWD when runfiles are real files (remote execution).
+py_test(
+    name = "lcov_chdir_paths_test",
+    srcs = ["lcov_chdir_paths_test.py"],
+    dep_group = "coverage-drivers",
+    main = "lcov_chdir_paths_test.py",
+    deps = [
+        "@pypi_coverage_drivers//coverage",
+        "@rules_py//py/private/launcher_env",
+    ],
+)

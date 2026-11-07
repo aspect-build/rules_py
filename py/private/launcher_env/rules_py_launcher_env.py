@@ -16,8 +16,9 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from coverage import Coverage
 
-# coveragepy resolves manifest entries through symlinks; Bazel wants the
-# original spelling back in the LCOV (coveragepy#963).
+# Maps resolved source paths back to manifest entries: coveragepy follows
+# symlinks (coveragepy#963) and writes paths under its start directory
+# relative to it, while Bazel wants the manifest spelling in the LCOV.
 _absfile_mapping: dict[str, str] = {}
 
 
@@ -182,6 +183,7 @@ def write_lcov(cov: "Coverage") -> None:
     https://bazel.build/configure/coverage
     """
     import coverage.exceptions
+    import coverage.files
 
     cov.stop()
     output_file = os.getenv("COVERAGE_OUTPUT_FILE")
@@ -199,12 +201,13 @@ def write_lcov(cov: "Coverage") -> None:
 
     with open(unfixed, "r") as src, open(output_file, "w") as dst:
         for line in src:
-            # Undo coveragepy's symlink-following of source paths
-            # (coveragepy#963).
+            # Relative SF: paths are relative to the directory coverage started
+            # in, not the current one, which a test may have changed since.
             if line.startswith("SF:"):
-                sourcefile = line[3:].rstrip()
-                if sourcefile in _absfile_mapping:
-                    dst.write("SF:%s\n" % _absfile_mapping[sourcefile])
+                sourcefile = os.path.join(coverage.files.relative_directory(), line[3:].rstrip())
+                mapped = _absfile_mapping.get(coverage.files.abs_file(sourcefile))
+                if mapped is not None:
+                    dst.write("SF:%s\n" % mapped)
                     continue
             # Drop the 'end line number' field Bazel rejects (bazel#25118).
             if line.startswith("FN:"):

@@ -31,16 +31,17 @@ check_coverage() {
         exit 1
     }
 
-    # foo.py must appear; the abs-path -> manifest-path fixup (coveragepy#963)
-    # rewrites coverage.py's symlink-followed path back to the source name.
-    grep -qE '^SF:.*foo\.py$' "${datfile}" || {
-        echo "FAIL: no SF: record for foo.py in ${datfile}" >&2
+    # foo.py must appear under its workspace path; the SF: fixup rewrites
+    # coverage.py's symlink-followed (coveragepy#963) or CWD-relative path back
+    # to the manifest entry.
+    grep -qE '^SF:coverage-drivers/foo\.py$' "${datfile}" || {
+        echo "FAIL: no SF:coverage-drivers/foo.py record in ${datfile}" >&2
         cat "${datfile}" >&2
         exit 1
     }
 
     # At least one line hit inside foo.py's own record — its functions ran.
-    awk '/^SF:.*foo\.py$/ { in_foo = 1; next } /^end_of_record$/ { in_foo = 0 } in_foo && /^DA:[0-9]+,[1-9]/ { hit = 1 } END { exit hit ? 0 : 1 }' "${datfile}" || {
+    awk '/^SF:coverage-drivers\/foo\.py$/ { in_foo = 1; next } /^end_of_record$/ { in_foo = 0 } in_foo && /^DA:[0-9]+,[1-9]/ { hit = 1 } END { exit hit ? 0 : 1 }' "${datfile}" || {
         echo "FAIL: no covered lines (DA:<line>,>=1) in foo.py's record in ${datfile}" >&2
         cat "${datfile}" >&2
         exit 1
