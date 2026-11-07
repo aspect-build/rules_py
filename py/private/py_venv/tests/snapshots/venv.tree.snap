@@ -94,7 +94,6 @@ FILE lib/python3.13/site-packages/venv.pth
 ../../../../../../../../..
 import os, sys; _venv_bin = os.path.dirname(sys.executable); _path = os.environ.get("PATH", ""); os.environ["PATH"] = _path if _venv_bin in _path.split(os.pathsep) else _venv_bin + os.pathsep + _path; del _venv_bin, _path
 ../../../../../../../../../_main
-../../../../../../../../../+uv+project__rules_py
 ---
 FILE pyvenv.cfg
 ---
