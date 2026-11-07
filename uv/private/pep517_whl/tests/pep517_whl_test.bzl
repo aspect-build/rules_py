@@ -349,7 +349,7 @@ def _config_settings_args_test_impl(ctx):
         argv = list(actions[0].argv)
         expected = ctx.attr.expected
         if not expected:
-            asserts.false(env, "--config-setting" in argv, "no config_settings must mean no --config-setting; got: {}".format(argv))
+            asserts.false(env, any([arg.startswith("--config-setting") for arg in argv]), "no config_settings must mean no --config-setting; got: {}".format(argv))
         else:
             found = [argv[i:i + len(expected)] == expected for i in range(len(argv) - len(expected) + 1)]
             asserts.true(
@@ -363,7 +363,7 @@ config_settings_args_test = analysistest.make(
     _config_settings_args_test_impl,
     attrs = {
         "expected": attr.string_list(
-            doc = "Exact `--config-setting key=value` flag sequence the helper must receive; empty asserts absence.",
+            doc = "Exact `--config-setting=key=value` flag sequence the helper must receive; empty asserts absence.",
         ),
     },
 )

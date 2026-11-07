@@ -1236,9 +1236,11 @@ def main() -> None:
             "--outdir", outdir,
         ]
         # `build -C` accumulates repeated keys into a list for the backend, so
-        # package settings never collide with the -C the cross branch adds.
+        # package settings never collide with the settings the cross branch adds.
+        # Each is one `--config-setting=` argument so a setting starting with
+        # `-` (e.g. setuptools' `--global-option=...`) isn't parsed as an option.
         for setting in opts.config_settings:
-            cmd += ["-C", setting]
+            cmd.append("--config-setting=" + setting)
 
         # meson-python only synthesizes its own cross file for macOS
         # ARCHFLAGS/cibuildwheel shapes; everything else configures as a
@@ -1248,10 +1250,10 @@ def main() -> None:
             backend = _build_backend(_load_pyproject_data(t))
             if backend == "mesonpy":
                 cross_file = _generate_meson_cross_file(tmp_root, build_env, opts.target_os, opts.target_cpu)
-                cmd += ["-C", "setup-args=--cross-file=" + cross_file]
+                cmd.append("--config-setting=setup-args=--cross-file=" + cross_file)
             elif backend == "scikit_build_core.build":
                 toolchain = _generate_cmake_toolchain_file(tmp_root, build_env, opts.target_os, opts.target_cpu)
-                cmd += ["-C", "cmake.toolchain-file=" + toolchain]
+                cmd.append("--config-setting=cmake.toolchain-file=" + toolchain)
             elif backend == "maturin" and build_env.get("CARGO"):
                 _configure_cargo_cross_env(build_env, tmp_root, opts.target_os, opts.target_cpu, opts.target_libc)
     else:
