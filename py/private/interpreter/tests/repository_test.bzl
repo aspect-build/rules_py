@@ -183,6 +183,22 @@ def _py_cc_toolchain_platform_test_impl(ctx):
         asserts.true(env, 'sys_platform = "{}",'.format(sys_platform) in content, content)
         asserts.true(env, 'platform_machine = "{}",'.format(machine) in content, content)
         asserts.equals(env, bool(libc), 'libc = "musl",' in content, content)
+
+    # rules_python < 2.3.0 has no such attributes, so they must be omittable.
+    content = repository_testlib.build_file_content(
+        major = "3",
+        minor = "14",
+        micro = "0",
+        python_bin = "bin/python3",
+        is_macos = False,
+        is_windows = False,
+        abi_flags = "",
+        releaselevel = "final",
+        serial = "0",
+        platform_attrs = False,
+    )
+    asserts.false(env, "sys_platform" in content, content)
+    asserts.false(env, "platform_machine" in content, content)
     return unittest.end(env)
 
 py_cc_toolchain_platform_test = unittest.make(_py_cc_toolchain_platform_test_impl)

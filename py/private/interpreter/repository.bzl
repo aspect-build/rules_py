@@ -7,6 +7,11 @@ _RPY_VERSION_FLAG = "@rules_python//python/config_settings:python_version"
 _FREETHREADING_FLAG = "@rules_py//py/private/interpreter:freethreaded"
 _EXCLUDE_FEATURE_FLAG = "@rules_py//py/private/interpreter:exclude_feature"
 
+# py_cc_toolchain only accepts sys_platform, platform_machine and libc since
+# rules_python 2.3.0, and rules_python exposes no `features` flag for them.
+# Probe the rule's source so older supported versions (>= 1.9.0) still analyze.
+_PY_CC_TOOLCHAIN_RULE = Label("@rules_python//python/private:py_cc_toolchain_rule.bzl")
+
 def _python_interpreter_impl(rctx):
     """Downloads and extracts a Python interpreter from PBS."""
     url = rctx.attr.url
@@ -52,6 +57,7 @@ def _python_interpreter_impl(rctx):
         sys_platform = sys_platform,
         platform_machine = platform_machine,
         libc = "musl" if "musl" in platform else "",
+        platform_attrs = "platform_machine" in rctx.read(_PY_CC_TOOLCHAIN_RULE),
         major = major,
         minor = minor,
         micro = micro,
@@ -140,7 +146,7 @@ filegroup(
 
     return "\n".join(lines), all_excludes
 
-def _build_file_content(major, minor, micro, python_bin, is_macos, is_windows, abi_flags, releaselevel, serial, symlinks = {}, sys_platform = "linux", platform_machine = "x86_64", libc = ""):
+def _build_file_content(major, minor, micro, python_bin, is_macos, is_windows, abi_flags, releaselevel, serial, symlinks = {}, sys_platform = "linux", platform_machine = "x86_64", libc = "", platform_attrs = True):
     """Generate the full BUILD.bazel content for an interpreter repo."""
 
     # A free-threaded build's standard library is lib/python3.14t, not
@@ -157,6 +163,11 @@ def _build_file_content(major, minor, micro, python_bin, is_macos, is_windows, a
     abi3_header_target = ""
     headers_abi3_attr = ""
     libs_attr = ""
+    platform_attrs_content = ""
+    if platform_attrs:
+        platform_attrs_content = "    platform_machine = \"{}\",\n    sys_platform = \"{}\",\n".format(platform_machine, sys_platform)
+        if libc:
+            platform_attrs_content += "    libc = \"{}\",\n".format(libc)
 
     # Unlike POSIX, Windows extensions must link a Python import library:
     # https://docs.python.org/3/extending/windows.html#differences-between-unix-and-windows
@@ -325,9 +336,7 @@ py_cc_toolchain(
     name = "py_cc_toolchain",
     headers = ":python_headers",
 {headers_abi3_attr}{libs_attr}    python_version = "{major}.{minor}",
-{libc_attr}    platform_machine = "{platform_machine}",
-    sys_platform = "{sys_platform}",
-)
+{platform_attrs})
 """.format(
         abi_flags = abi_flags,
         abi3_header_target = abi3_header_target,
@@ -335,10 +344,8 @@ py_cc_toolchain(
         headers_abi3_attr = headers_abi3_attr,
         include_dirs = repr(include_dirs),
         library_targets = library_targets,
-        libc_attr = "    libc = \"{}\",\n".format(libc) if libc else "",
         libs_attr = libs_attr,
-        platform_machine = platform_machine,
-        sys_platform = sys_platform,
+        platform_attrs = platform_attrs_content,
         python_bin = python_bin,
         major = major,
         minor = minor,
