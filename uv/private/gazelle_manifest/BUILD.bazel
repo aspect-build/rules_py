@@ -1,4 +1,20 @@
 load("@bazel_lib//:bzl_library.bzl", "bzl_library")
+load("@bazel_skylib//rules:common_settings.bzl", "bool_flag")
+
+# Set by gazelle_python_manifest's per-venv platforms. Under it, a package with
+# no wheel for the platform resolves to one of its other wheels (see
+# whl_install's `whl_default`), since only the wheel's module names are read.
+bool_flag(
+    name = "indexing",
+    build_setting_default = False,
+    visibility = ["//visibility:private"],
+)
+
+config_setting(
+    name = "is_indexing",
+    flag_values = {":indexing": "True"},
+    visibility = ["//visibility:public"],
+)
 
 bzl_library(
     name = "defs",
