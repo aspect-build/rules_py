@@ -88,7 +88,7 @@ register_toolchains("@python_interpreters//:all")
 # Dev deps are the remainder of the file
 
 # LLVM configuration
-bazel_dep(name = "llvm", version = "0.8.3", dev_dependency = True)
+bazel_dep(name = "llvm", version = "0.8.24", dev_dependency = True)
 
 register_toolchains(
     "@llvm//toolchain:all",

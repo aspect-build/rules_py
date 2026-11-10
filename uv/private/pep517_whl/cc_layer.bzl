@@ -11,7 +11,7 @@ _CC_DISABLED_FEATURES = [
     "layering_check",
 ]
 
-_PATH_FLAG_PREFIXES = ("-I", "-L", "-isysroot", "-iwithsysroot", "-isystem", "-B")
+_PATH_FLAG_PREFIXES = ("-I", "-L", "-isysroot", "-iwithsysroot", "-isystem", "-B", "-resource-dir=")
 
 CC_LAYER_ATTRS = {
     "_os_linux": attr.label(default = "@platforms//os:linux"),
