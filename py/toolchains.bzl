@@ -14,8 +14,8 @@ def rules_py_toolchains(name = DEFAULT_TOOLS_REPOSITORY):
     toolchains_repo(name = name)
 
     http_file(
-        name = "rules_py_pex_2_3_1",
-        urls = ["https://files.pythonhosted.org/packages/e7/d0/fbda2a4d41d62d86ce53f5ae4fbaaee8c34070f75bb7ca009090510ae874/pex-2.3.1-py2.py3-none-any.whl"],
-        sha256 = "64692a5bf6f298403aab930d22f0d836ae4736c5bc820e262e9092fe8c56f830",
-        downloaded_file_path = "pex-2.3.1-py2.py3-none-any.whl",
+        name = "rules_py_pex_2_104_1",
+        urls = ["https://files.pythonhosted.org/packages/ed/91/015d90559ac5e3e7f0ef0cd9bdb1556d2617ea6ea05c2d4fce653e624484/pex-2.104.1-py3.py312-none-any.whl"],
+        sha256 = "2e4006752f61de052e45d9dad2e8e3fc59b56cc41372d53618fa412f164870f4",
+        downloaded_file_path = "pex-2.104.1-py3.py312-none-any.whl",
     )
