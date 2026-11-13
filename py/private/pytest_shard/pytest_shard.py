@@ -1,3 +1,5 @@
+import hashlib
+
 from typing import Protocol, TypeVar
 from collections.abc import Sequence
 
@@ -36,13 +38,13 @@ def filter_items_by_shard(
     items: Sequence[_Item], shard_id: int, num_shards: int
 ) -> list[_Item]:
     """Computes `items` that should be tested in `shard_id` out of `num_shards` total shards."""
-    shards = [i % num_shards for i in range(len(items))]
-
-    new_items = []
-    for shard, item in zip(shards, items):
-        if shard == shard_id:
-            new_items.append(item)
-    return new_items
+    # Rank by a stable key before round-robin assignment so independent pytest
+    # processes agree on membership without creating uneven shard sizes.
+    ranked_items = sorted(
+        items, key=lambda item: (hashlib.sha256(item.nodeid.encode()).digest(), item.nodeid)
+    )
+    shard_by_nodeid = {item.nodeid: i % num_shards for i, item in enumerate(ranked_items)}
+    return [item for item in items if shard_by_nodeid[item.nodeid] == shard_id]
 
 
 class ShardPlugin:
