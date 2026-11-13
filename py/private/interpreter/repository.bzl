@@ -138,14 +138,15 @@ filegroup(
 def _build_file_content(major, minor, micro, python_bin, is_macos, is_windows, abi_flags, releaselevel, serial, symlinks = {}, archive = ""):
     """Generate the full BUILD.bazel content for an interpreter repo."""
 
-    # Selected only under py_pex_binary(scie = ...), so that no other build
-    # fetches the archive repo.
-    pbs_archive_attr = ""
+    # Its own target, resolved through its own toolchain type only by
+    # py_pex_binary(scie = ...), so that no other build fetches the archive repo.
+    pbs_archive_target = ""
     if archive:
-        pbs_archive_attr = """    pbs_archive = select({{
-        "@rules_py//py/private/interpreter:pex_scie_enabled": "{archive}",
-        "//conditions:default": None,
-    }}),
+        pbs_archive_target = """
+py_pbs_archive_toolchain(
+    name = "pbs_archive",
+    archive = "{archive}",
+)
 """.format(archive = archive)
 
     # A free-threaded build's standard library is lib/python3.14t, not
@@ -270,7 +271,7 @@ filegroup(
     return """\
 load("@rules_cc//cc:cc_import.bzl", "cc_import")
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
-load("@rules_py//py/private/interpreter:runtime.bzl", "py_runtime_toolchain")
+load("@rules_py//py/private/interpreter:runtime.bzl", "py_pbs_archive_toolchain", "py_runtime_toolchain")
 load("@rules_python//python/cc:py_cc_toolchain.bzl", "py_cc_toolchain")
 
 package(default_visibility = ["//visibility:public"])
@@ -314,7 +315,7 @@ filegroup(
 {venv_dlls_target}py_runtime_toolchain(
     name = "runtime",
     abi_flags = "{abi_flags}",
-{pbs_archive_attr}    files = [":files"],
+    files = [":files"],
     interpreter = "{python_bin}",
     interpreter_version_info = {{
         "major": "{major}",
@@ -331,10 +332,10 @@ py_cc_toolchain(
     headers = ":python_headers",
 {headers_abi3_attr}{libs_attr}    python_version = "{major}.{minor}",
 )
-""".format(
+{pbs_archive_target}""".format(
         abi_flags = abi_flags,
         abi3_header_target = abi3_header_target,
-        pbs_archive_attr = pbs_archive_attr,
+        pbs_archive_target = pbs_archive_target,
         header_interface_deps = repr(header_interface_deps),
         headers_abi3_attr = headers_abi3_attr,
         include_dirs = repr(include_dirs),
@@ -397,6 +398,7 @@ def _platform_setting_name(flag, value):
     return "{}_is_{}".format(name, value)
 
 _EXEC_TOOLS_TOOLCHAIN_TYPE = "@rules_py//py/private/toolchain:exec_tools_toolchain_type"
+_PBS_ARCHIVE_TOOLCHAIN_TYPE = "@rules_py//py/private/toolchain:pbs_archive_toolchain_type"
 
 def _exec_toolchain(name, exec_compatible_with, toolchain, toolchain_type, target_settings = None):
     """A toolchain() selected by exec platform, optionally gated on target settings."""
@@ -586,8 +588,17 @@ toolchain(
     toolchain = "@{repo}//:py_cc_toolchain",
     toolchain_type = "@rules_python//python/cc:toolchain_type",
 )
+
+toolchain(
+    name = "{name}_pbs_archive",
+    target_compatible_with = {target_compatible_with},
+    target_settings = {target_settings},
+    toolchain = "@{repo}//:pbs_archive",
+    toolchain_type = "{pbs_archive_toolchain_type}",
+)
 """.format(
             name = info["name"],
+            pbs_archive_toolchain_type = _PBS_ARCHIVE_TOOLCHAIN_TYPE,
             repo = info["repo"],
             target_compatible_with = target_compatible_with,
             target_settings = target_settings,

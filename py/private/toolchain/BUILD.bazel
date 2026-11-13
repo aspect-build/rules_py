@@ -21,6 +21,15 @@ toolchain_type(
     visibility = ["//visibility:public"],
 )
 
+# Resolved, in the configuration of a py_pex_binary(scie = ...)'s binary, to
+# the python-build-standalone archive of that binary's interpreter. A separate
+# type from the runtime's, so that only a scie build analyzes it and fetches
+# the archive.
+toolchain_type(
+    name = "pbs_archive_toolchain_type",
+    visibility = ["//visibility:public"],
+)
+
 bzl_library(
     name = "repo",
     srcs = ["repo.bzl"],

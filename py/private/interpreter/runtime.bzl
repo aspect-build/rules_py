@@ -56,8 +56,6 @@ def _py_runtime_toolchain_impl(ctx):
             # Read by py_image_layer, which packages these as symlinks even
             # where the action's inputs arrive resolved (remote execution).
             interpreter_symlinks = ctx.attr.symlinks,
-            # The PBS archive `files` came from, for py_pex_binary scies.
-            pbs_archive = ctx.file.pbs_archive,
         ),
         DefaultInfo(files = depset([ctx.file.interpreter], transitive = [runtime.files])),
     ]
@@ -96,10 +94,6 @@ build host regardless of the target platform being built for).""",
                   "so that a process started from there finds them.",
             allow_files = [".dll"],
         ),
-        "pbs_archive": attr.label(
-            doc = "The python-build-standalone archive the runtime was extracted from.",
-            allow_single_file = True,
-        ),
         "_bootstrap_template": attr.label(
             allow_single_file = True,
             default = "@rules_python//python/private:bootstrap_template",
@@ -118,4 +112,23 @@ build host regardless of the target platform being built for).""",
         ),
     },
     provides = [PyRuntimeInfo],
+)
+
+def _py_pbs_archive_toolchain_impl(ctx):
+    return [platform_common.ToolchainInfo(pbs_archive = ctx.file.archive)]
+
+py_pbs_archive_toolchain = rule(
+    doc = """Declares the python-build-standalone archive a provisioned runtime was extracted from.
+
+Registered for //py/private/toolchain:pbs_archive_toolchain_type with the same
+predicates as the runtime, and resolved only by py_pex_binary(scie = ...), so
+that no other build fetches the archive.""",
+    implementation = _py_pbs_archive_toolchain_impl,
+    attrs = {
+        "archive": attr.label(
+            doc = "The unextracted archive.",
+            allow_single_file = True,
+            mandatory = True,
+        ),
+    },
 )

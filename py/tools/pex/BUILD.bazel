@@ -13,10 +13,11 @@ py_binary(
     deps = [":pex_unpacked"],
 )
 
-# The science and scie-jump binaries a scie build runs, empty unless the target
-# builds a scie, so that no other build fetches them. Selected by the platform of
-# the configuration that names them: py_pex_binary takes science and one scie-jump
-# for the build host, and another scie-jump for the target.
+# The science and scie-jump binaries a scie build runs. Only py_pex_binary(scie =
+# ...) depends on them, so that no other build fetches them. Selected by the
+# platform of the configuration that names them: a scie takes science and one
+# scie-jump for the build host, and another scie-jump for the target. Empty on
+# other platforms.
 _SCIE_PLATFORMS = {
     "linux_aarch64": ("linux", "aarch64"),
     "linux_x86_64": ("linux", "x86_64"),
@@ -31,7 +32,6 @@ _SCIE_PLATFORMS = {
             "@platforms//os:" + os,
             "@platforms//cpu:" + cpu,
         ],
-        flag_values = {"//py/private/interpreter:pex_scie": "True"},
     )
     for platform, (os, cpu) in _SCIE_PLATFORMS.items()
 ]
