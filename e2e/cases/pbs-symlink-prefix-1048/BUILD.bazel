@@ -28,7 +28,7 @@ pbs_action_probe(
     python_version = "3.14",
 )
 
-# Snapshot one runtime on each side of the CPython 3.11/3.12 gate so a
+# Snapshot one runtime on each side of the CPython 3.11+ gate so a
 # generated-code diff shows the intentional empty 'home' value and the
 # unchanged retained-home shape. The extractor normalizes platform-dependent
 # PBS interpreter repository names without hiding a retained line.
@@ -39,9 +39,9 @@ pbs_pyvenv_cfg_snapshot(
 )
 
 pbs_pyvenv_cfg_snapshot(
-    name = "action_probe_313_venv_cfg_snapshot",
-    out = "action_probe_313.venv.cfg",
-    venv = ":action_probe_313.venv",
+    name = "action_probe_310_venv_cfg_snapshot",
+    out = "action_probe_310.venv.cfg",
+    venv = ":action_probe_310.venv",
 )
 
 build_test(
