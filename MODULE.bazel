@@ -22,6 +22,9 @@ bazel_dep(name = "rules_shell", version = "0.6.1")
 bazel_dep(name = "tar.bzl", version = "0.10.1")
 bazel_dep(name = "hermetic_launcher", version = "0.0.17")
 
+python_config = use_extension("//py:config.bzl", "python_config")
+use_repo(python_config, "aspect_rules_py_config")
+
 tools = use_extension("//py:extensions.bzl", "py_tools")
 tools.rules_py_tools()
 use_repo(tools, "rules_py_tools")
