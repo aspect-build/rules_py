@@ -48,7 +48,11 @@ def test_filter_items_are_balanced_and_independent_of_collection_order() -> None
 
 def test_modifyitems_filters_in_place() -> None:
     items = [SimpleNamespace(nodeid=f"test_{i}") for i in range(6)]
-    expected = filter_items_by_shard(items, 1, 2)
+    expected = [
+        SimpleNamespace(nodeid="test_0"),
+        SimpleNamespace(nodeid="test_2"),
+        SimpleNamespace(nodeid="test_3"),
+    ]
     ShardPlugin.pytest_collection_modifyitems(FakeConfig(1, 2), items)
     assert items == expected
 

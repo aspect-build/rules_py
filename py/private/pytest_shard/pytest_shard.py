@@ -46,7 +46,7 @@ def filter_items_by_shard(
     # Rank by a stable key before round-robin assignment so independent pytest
     # processes agree on membership without creating uneven shard sizes.
     ranked_items = sorted(
-        items, key=lambda item: (hashlib.sha256(item.nodeid.encode()).digest(), item.nodeid)
+        items, key=lambda item: hashlib.sha256(item.nodeid.encode()).digest()
     )
     shard_by_nodeid = {item.nodeid: i % num_shards for i, item in enumerate(ranked_items)}
     return [item for item in items if shard_by_nodeid[item.nodeid] == shard_id]

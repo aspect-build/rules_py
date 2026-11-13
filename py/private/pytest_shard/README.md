@@ -5,5 +5,6 @@ This is a fork of [pytest-shard](https://github.com/AdamGleave/pytest-shard) @ [
 ## Changes
 
 - The pytest hooks were moved into a class `ShardPlugin`, so that they can be loaded via `pytest.main`
-- The sharding strategy was changed to a simple round-robin strategy
-  - The hash-bashed strategy was causing unbalanced or empty shards with small test sets
+- The sharding strategy ranks tests by the SHA-256 digest of their node ID, then assigns them round-robin
+  - This keeps shard sizes balanced while making shard membership independent of collection order
+  - The previous hash-based assignment could produce unbalanced or empty shards with small test sets
