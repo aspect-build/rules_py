@@ -106,6 +106,14 @@ toolchain(
 )
 
 toolchain(
+    name = "python_3_12_aarch64_apple_darwin_pbs_archive",
+    target_compatible_with = ["@platforms//os:macos", "@platforms//cpu:aarch64"],
+    target_settings = [":python_version_is_3_12", ":freethreaded_is_false"],
+    toolchain = "@python_3_12_aarch64_apple_darwin//:pbs_archive",
+    toolchain_type = "@rules_py//py/private/toolchain:pbs_archive_toolchain_type",
+)
+
+toolchain(
     name = "python_3_12_aarch64_apple_darwin_exec_tools",
     exec_compatible_with = ["@platforms//os:macos", "@platforms//cpu:aarch64"],
     target_settings = [":python_version_is_3_12", ":freethreaded_is_false"],
@@ -128,6 +136,14 @@ toolchain(
     target_settings = [":python_version_is_3_12", ":freethreaded_is_false", ":platform_libc_is_glibc"],
     toolchain = "@python_3_12_aarch64_unknown_linux_gnu//:py_cc_toolchain",
     toolchain_type = "@rules_python//python/cc:toolchain_type",
+)
+
+toolchain(
+    name = "python_3_12_aarch64_unknown_linux_gnu_pbs_archive",
+    target_compatible_with = ["@platforms//os:linux", "@platforms//cpu:aarch64"],
+    target_settings = [":python_version_is_3_12", ":freethreaded_is_false", ":platform_libc_is_glibc"],
+    toolchain = "@python_3_12_aarch64_unknown_linux_gnu//:pbs_archive",
+    toolchain_type = "@rules_py//py/private/toolchain:pbs_archive_toolchain_type",
 )
 
 toolchain(
@@ -155,6 +171,14 @@ toolchain(
     toolchain_type = "@rules_python//python/cc:toolchain_type",
 )
 
+toolchain(
+    name = "python_3_12_aarch64_unknown_linux_musl_pbs_archive",
+    target_compatible_with = ["@platforms//os:linux", "@platforms//cpu:aarch64"],
+    target_settings = [":python_version_is_3_12", ":freethreaded_is_false", ":platform_libc_is_musl"],
+    toolchain = "@python_3_12_aarch64_unknown_linux_musl//:pbs_archive",
+    toolchain_type = "@rules_py//py/private/toolchain:pbs_archive_toolchain_type",
+)
+
 
 toolchain(
     name = "python_3_12_x86_64_apple_darwin",
@@ -170,6 +194,14 @@ toolchain(
     target_settings = [":python_version_is_3_12", ":freethreaded_is_false"],
     toolchain = "@python_3_12_x86_64_apple_darwin//:py_cc_toolchain",
     toolchain_type = "@rules_python//python/cc:toolchain_type",
+)
+
+toolchain(
+    name = "python_3_12_x86_64_apple_darwin_pbs_archive",
+    target_compatible_with = ["@platforms//os:macos", "@platforms//cpu:x86_64"],
+    target_settings = [":python_version_is_3_12", ":freethreaded_is_false"],
+    toolchain = "@python_3_12_x86_64_apple_darwin//:pbs_archive",
+    toolchain_type = "@rules_py//py/private/toolchain:pbs_archive_toolchain_type",
 )
 
 toolchain(
@@ -198,6 +230,14 @@ toolchain(
 )
 
 toolchain(
+    name = "python_3_12_x86_64_unknown_linux_gnu_pbs_archive",
+    target_compatible_with = ["@platforms//os:linux", "@platforms//cpu:x86_64"],
+    target_settings = [":python_version_is_3_12", ":freethreaded_is_false", ":platform_libc_is_glibc"],
+    toolchain = "@python_3_12_x86_64_unknown_linux_gnu//:pbs_archive",
+    toolchain_type = "@rules_py//py/private/toolchain:pbs_archive_toolchain_type",
+)
+
+toolchain(
     name = "python_3_12_x86_64_unknown_linux_gnu_exec_tools",
     exec_compatible_with = ["@platforms//os:linux", "@platforms//cpu:x86_64"],
     target_settings = [":python_version_is_3_12", ":freethreaded_is_false"],
@@ -222,6 +262,14 @@ toolchain(
     toolchain_type = "@rules_python//python/cc:toolchain_type",
 )
 
+toolchain(
+    name = "python_3_12_x86_64_unknown_linux_musl_pbs_archive",
+    target_compatible_with = ["@platforms//os:linux", "@platforms//cpu:x86_64"],
+    target_settings = [":python_version_is_3_12", ":freethreaded_is_false", ":platform_libc_is_musl"],
+    toolchain = "@python_3_12_x86_64_unknown_linux_musl//:pbs_archive",
+    toolchain_type = "@rules_py//py/private/toolchain:pbs_archive_toolchain_type",
+)
+
 
 toolchain(
     name = "python_3_12_x86_64_pc_windows_msvc",
@@ -237,6 +285,14 @@ toolchain(
     target_settings = [":python_version_is_3_12", ":freethreaded_is_false"],
     toolchain = "@python_3_12_x86_64_pc_windows_msvc//:py_cc_toolchain",
     toolchain_type = "@rules_python//python/cc:toolchain_type",
+)
+
+toolchain(
+    name = "python_3_12_x86_64_pc_windows_msvc_pbs_archive",
+    target_compatible_with = ["@platforms//os:windows", "@platforms//cpu:x86_64"],
+    target_settings = [":python_version_is_3_12", ":freethreaded_is_false"],
+    toolchain = "@python_3_12_x86_64_pc_windows_msvc//:pbs_archive",
+    toolchain_type = "@rules_py//py/private/toolchain:pbs_archive_toolchain_type",
 )
 
 toolchain(
@@ -265,6 +321,14 @@ toolchain(
 )
 
 toolchain(
+    name = "python_3_12_aarch64_pc_windows_msvc_pbs_archive",
+    target_compatible_with = ["@platforms//os:windows", "@platforms//cpu:aarch64"],
+    target_settings = [":python_version_is_3_12", ":freethreaded_is_false"],
+    toolchain = "@python_3_12_aarch64_pc_windows_msvc//:pbs_archive",
+    toolchain_type = "@rules_py//py/private/toolchain:pbs_archive_toolchain_type",
+)
+
+toolchain(
     name = "python_3_12_aarch64_pc_windows_msvc_exec_tools",
     exec_compatible_with = ["@platforms//os:windows", "@platforms//cpu:aarch64"],
     target_settings = [":python_version_is_3_12", ":freethreaded_is_false"],
@@ -287,6 +351,14 @@ toolchain(
     target_settings = [":python_version_is_3_12", ":freethreaded_is_false"],
     toolchain = "@python_3_12_i686_pc_windows_msvc//:py_cc_toolchain",
     toolchain_type = "@rules_python//python/cc:toolchain_type",
+)
+
+toolchain(
+    name = "python_3_12_i686_pc_windows_msvc_pbs_archive",
+    target_compatible_with = ["@platforms//os:windows", "@platforms//cpu:x86_32"],
+    target_settings = [":python_version_is_3_12", ":freethreaded_is_false"],
+    toolchain = "@python_3_12_i686_pc_windows_msvc//:pbs_archive",
+    toolchain_type = "@rules_py//py/private/toolchain:pbs_archive_toolchain_type",
 )
 
 toolchain(
@@ -315,6 +387,14 @@ toolchain(
 )
 
 toolchain(
+    name = "python_3_13_aarch64_apple_darwin_pbs_archive",
+    target_compatible_with = ["@platforms//os:macos", "@platforms//cpu:aarch64"],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_false"],
+    toolchain = "@python_3_13_aarch64_apple_darwin//:pbs_archive",
+    toolchain_type = "@rules_py//py/private/toolchain:pbs_archive_toolchain_type",
+)
+
+toolchain(
     name = "python_3_13_aarch64_apple_darwin_exec_tools",
     exec_compatible_with = ["@platforms//os:macos", "@platforms//cpu:aarch64"],
     target_settings = [":python_version_is_3_13", ":freethreaded_is_false"],
@@ -337,6 +417,14 @@ toolchain(
     target_settings = [":python_version_is_3_13", ":freethreaded_is_false", ":platform_libc_is_glibc"],
     toolchain = "@python_3_13_aarch64_unknown_linux_gnu//:py_cc_toolchain",
     toolchain_type = "@rules_python//python/cc:toolchain_type",
+)
+
+toolchain(
+    name = "python_3_13_aarch64_unknown_linux_gnu_pbs_archive",
+    target_compatible_with = ["@platforms//os:linux", "@platforms//cpu:aarch64"],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_false", ":platform_libc_is_glibc"],
+    toolchain = "@python_3_13_aarch64_unknown_linux_gnu//:pbs_archive",
+    toolchain_type = "@rules_py//py/private/toolchain:pbs_archive_toolchain_type",
 )
 
 toolchain(
@@ -364,6 +452,14 @@ toolchain(
     toolchain_type = "@rules_python//python/cc:toolchain_type",
 )
 
+toolchain(
+    name = "python_3_13_aarch64_unknown_linux_musl_pbs_archive",
+    target_compatible_with = ["@platforms//os:linux", "@platforms//cpu:aarch64"],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_false", ":platform_libc_is_musl"],
+    toolchain = "@python_3_13_aarch64_unknown_linux_musl//:pbs_archive",
+    toolchain_type = "@rules_py//py/private/toolchain:pbs_archive_toolchain_type",
+)
+
 
 toolchain(
     name = "python_3_13_x86_64_apple_darwin",
@@ -379,6 +475,14 @@ toolchain(
     target_settings = [":python_version_is_3_13", ":freethreaded_is_false"],
     toolchain = "@python_3_13_x86_64_apple_darwin//:py_cc_toolchain",
     toolchain_type = "@rules_python//python/cc:toolchain_type",
+)
+
+toolchain(
+    name = "python_3_13_x86_64_apple_darwin_pbs_archive",
+    target_compatible_with = ["@platforms//os:macos", "@platforms//cpu:x86_64"],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_false"],
+    toolchain = "@python_3_13_x86_64_apple_darwin//:pbs_archive",
+    toolchain_type = "@rules_py//py/private/toolchain:pbs_archive_toolchain_type",
 )
 
 toolchain(
@@ -407,6 +511,14 @@ toolchain(
 )
 
 toolchain(
+    name = "python_3_13_x86_64_unknown_linux_gnu_pbs_archive",
+    target_compatible_with = ["@platforms//os:linux", "@platforms//cpu:x86_64"],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_false", ":platform_libc_is_glibc"],
+    toolchain = "@python_3_13_x86_64_unknown_linux_gnu//:pbs_archive",
+    toolchain_type = "@rules_py//py/private/toolchain:pbs_archive_toolchain_type",
+)
+
+toolchain(
     name = "python_3_13_x86_64_unknown_linux_gnu_exec_tools",
     exec_compatible_with = ["@platforms//os:linux", "@platforms//cpu:x86_64"],
     target_settings = [":python_version_is_3_13", ":freethreaded_is_false"],
@@ -431,6 +543,14 @@ toolchain(
     toolchain_type = "@rules_python//python/cc:toolchain_type",
 )
 
+toolchain(
+    name = "python_3_13_x86_64_unknown_linux_musl_pbs_archive",
+    target_compatible_with = ["@platforms//os:linux", "@platforms//cpu:x86_64"],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_false", ":platform_libc_is_musl"],
+    toolchain = "@python_3_13_x86_64_unknown_linux_musl//:pbs_archive",
+    toolchain_type = "@rules_py//py/private/toolchain:pbs_archive_toolchain_type",
+)
+
 
 toolchain(
     name = "python_3_13_x86_64_pc_windows_msvc",
@@ -446,6 +566,14 @@ toolchain(
     target_settings = [":python_version_is_3_13", ":freethreaded_is_false"],
     toolchain = "@python_3_13_x86_64_pc_windows_msvc//:py_cc_toolchain",
     toolchain_type = "@rules_python//python/cc:toolchain_type",
+)
+
+toolchain(
+    name = "python_3_13_x86_64_pc_windows_msvc_pbs_archive",
+    target_compatible_with = ["@platforms//os:windows", "@platforms//cpu:x86_64"],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_false"],
+    toolchain = "@python_3_13_x86_64_pc_windows_msvc//:pbs_archive",
+    toolchain_type = "@rules_py//py/private/toolchain:pbs_archive_toolchain_type",
 )
 
 toolchain(
@@ -474,6 +602,14 @@ toolchain(
 )
 
 toolchain(
+    name = "python_3_13_aarch64_pc_windows_msvc_pbs_archive",
+    target_compatible_with = ["@platforms//os:windows", "@platforms//cpu:aarch64"],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_false"],
+    toolchain = "@python_3_13_aarch64_pc_windows_msvc//:pbs_archive",
+    toolchain_type = "@rules_py//py/private/toolchain:pbs_archive_toolchain_type",
+)
+
+toolchain(
     name = "python_3_13_aarch64_pc_windows_msvc_exec_tools",
     exec_compatible_with = ["@platforms//os:windows", "@platforms//cpu:aarch64"],
     target_settings = [":python_version_is_3_13", ":freethreaded_is_false"],
@@ -496,6 +632,14 @@ toolchain(
     target_settings = [":python_version_is_3_13", ":freethreaded_is_false"],
     toolchain = "@python_3_13_i686_pc_windows_msvc//:py_cc_toolchain",
     toolchain_type = "@rules_python//python/cc:toolchain_type",
+)
+
+toolchain(
+    name = "python_3_13_i686_pc_windows_msvc_pbs_archive",
+    target_compatible_with = ["@platforms//os:windows", "@platforms//cpu:x86_32"],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_false"],
+    toolchain = "@python_3_13_i686_pc_windows_msvc//:pbs_archive",
+    toolchain_type = "@rules_py//py/private/toolchain:pbs_archive_toolchain_type",
 )
 
 toolchain(
@@ -524,6 +668,14 @@ toolchain(
 )
 
 toolchain(
+    name = "python_3_13_aarch64_apple_darwin_freethreaded_pbs_archive",
+    target_compatible_with = ["@platforms//os:macos", "@platforms//cpu:aarch64"],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_true"],
+    toolchain = "@python_3_13_aarch64_apple_darwin_freethreaded//:pbs_archive",
+    toolchain_type = "@rules_py//py/private/toolchain:pbs_archive_toolchain_type",
+)
+
+toolchain(
     name = "python_3_13_aarch64_apple_darwin_freethreaded_exec_tools",
     exec_compatible_with = ["@platforms//os:macos", "@platforms//cpu:aarch64"],
     target_settings = [":python_version_is_3_13", ":freethreaded_is_true"],
@@ -546,6 +698,14 @@ toolchain(
     target_settings = [":python_version_is_3_13", ":freethreaded_is_true", ":platform_libc_is_glibc"],
     toolchain = "@python_3_13_aarch64_unknown_linux_gnu_freethreaded//:py_cc_toolchain",
     toolchain_type = "@rules_python//python/cc:toolchain_type",
+)
+
+toolchain(
+    name = "python_3_13_aarch64_unknown_linux_gnu_freethreaded_pbs_archive",
+    target_compatible_with = ["@platforms//os:linux", "@platforms//cpu:aarch64"],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_true", ":platform_libc_is_glibc"],
+    toolchain = "@python_3_13_aarch64_unknown_linux_gnu_freethreaded//:pbs_archive",
+    toolchain_type = "@rules_py//py/private/toolchain:pbs_archive_toolchain_type",
 )
 
 toolchain(
@@ -573,6 +733,14 @@ toolchain(
     toolchain_type = "@rules_python//python/cc:toolchain_type",
 )
 
+toolchain(
+    name = "python_3_13_aarch64_unknown_linux_musl_freethreaded_pbs_archive",
+    target_compatible_with = ["@platforms//os:linux", "@platforms//cpu:aarch64"],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_true", ":platform_libc_is_musl"],
+    toolchain = "@python_3_13_aarch64_unknown_linux_musl_freethreaded//:pbs_archive",
+    toolchain_type = "@rules_py//py/private/toolchain:pbs_archive_toolchain_type",
+)
+
 
 toolchain(
     name = "python_3_13_x86_64_apple_darwin_freethreaded",
@@ -588,6 +756,14 @@ toolchain(
     target_settings = [":python_version_is_3_13", ":freethreaded_is_true"],
     toolchain = "@python_3_13_x86_64_apple_darwin_freethreaded//:py_cc_toolchain",
     toolchain_type = "@rules_python//python/cc:toolchain_type",
+)
+
+toolchain(
+    name = "python_3_13_x86_64_apple_darwin_freethreaded_pbs_archive",
+    target_compatible_with = ["@platforms//os:macos", "@platforms//cpu:x86_64"],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_true"],
+    toolchain = "@python_3_13_x86_64_apple_darwin_freethreaded//:pbs_archive",
+    toolchain_type = "@rules_py//py/private/toolchain:pbs_archive_toolchain_type",
 )
 
 toolchain(
@@ -616,6 +792,14 @@ toolchain(
 )
 
 toolchain(
+    name = "python_3_13_x86_64_unknown_linux_gnu_freethreaded_pbs_archive",
+    target_compatible_with = ["@platforms//os:linux", "@platforms//cpu:x86_64"],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_true", ":platform_libc_is_glibc"],
+    toolchain = "@python_3_13_x86_64_unknown_linux_gnu_freethreaded//:pbs_archive",
+    toolchain_type = "@rules_py//py/private/toolchain:pbs_archive_toolchain_type",
+)
+
+toolchain(
     name = "python_3_13_x86_64_unknown_linux_gnu_freethreaded_exec_tools",
     exec_compatible_with = ["@platforms//os:linux", "@platforms//cpu:x86_64"],
     target_settings = [":python_version_is_3_13", ":freethreaded_is_true"],
@@ -640,6 +824,14 @@ toolchain(
     toolchain_type = "@rules_python//python/cc:toolchain_type",
 )
 
+toolchain(
+    name = "python_3_13_x86_64_unknown_linux_musl_freethreaded_pbs_archive",
+    target_compatible_with = ["@platforms//os:linux", "@platforms//cpu:x86_64"],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_true", ":platform_libc_is_musl"],
+    toolchain = "@python_3_13_x86_64_unknown_linux_musl_freethreaded//:pbs_archive",
+    toolchain_type = "@rules_py//py/private/toolchain:pbs_archive_toolchain_type",
+)
+
 
 toolchain(
     name = "python_3_13_x86_64_pc_windows_msvc_freethreaded",
@@ -655,6 +847,14 @@ toolchain(
     target_settings = [":python_version_is_3_13", ":freethreaded_is_true"],
     toolchain = "@python_3_13_x86_64_pc_windows_msvc_freethreaded//:py_cc_toolchain",
     toolchain_type = "@rules_python//python/cc:toolchain_type",
+)
+
+toolchain(
+    name = "python_3_13_x86_64_pc_windows_msvc_freethreaded_pbs_archive",
+    target_compatible_with = ["@platforms//os:windows", "@platforms//cpu:x86_64"],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_true"],
+    toolchain = "@python_3_13_x86_64_pc_windows_msvc_freethreaded//:pbs_archive",
+    toolchain_type = "@rules_py//py/private/toolchain:pbs_archive_toolchain_type",
 )
 
 toolchain(
@@ -683,6 +883,14 @@ toolchain(
 )
 
 toolchain(
+    name = "python_3_13_aarch64_pc_windows_msvc_freethreaded_pbs_archive",
+    target_compatible_with = ["@platforms//os:windows", "@platforms//cpu:aarch64"],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_true"],
+    toolchain = "@python_3_13_aarch64_pc_windows_msvc_freethreaded//:pbs_archive",
+    toolchain_type = "@rules_py//py/private/toolchain:pbs_archive_toolchain_type",
+)
+
+toolchain(
     name = "python_3_13_aarch64_pc_windows_msvc_freethreaded_exec_tools",
     exec_compatible_with = ["@platforms//os:windows", "@platforms//cpu:aarch64"],
     target_settings = [":python_version_is_3_13", ":freethreaded_is_true"],
@@ -705,6 +913,14 @@ toolchain(
     target_settings = [":python_version_is_3_13", ":freethreaded_is_true"],
     toolchain = "@python_3_13_i686_pc_windows_msvc_freethreaded//:py_cc_toolchain",
     toolchain_type = "@rules_python//python/cc:toolchain_type",
+)
+
+toolchain(
+    name = "python_3_13_i686_pc_windows_msvc_freethreaded_pbs_archive",
+    target_compatible_with = ["@platforms//os:windows", "@platforms//cpu:x86_32"],
+    target_settings = [":python_version_is_3_13", ":freethreaded_is_true"],
+    toolchain = "@python_3_13_i686_pc_windows_msvc_freethreaded//:pbs_archive",
+    toolchain_type = "@rules_py//py/private/toolchain:pbs_archive_toolchain_type",
 )
 
 toolchain(

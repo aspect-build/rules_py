@@ -178,39 +178,6 @@ py_library(<a href="#py_library-name">name</a>, <a href="#py_library-deps">deps<
 | <a id="py_library-virtual_deps"></a>virtual_deps |  -   | List of strings | optional |  `[]`  |
 
 
-<a id="py_pex_binary"></a>
-
-## py_pex_binary
-
-<pre>
-load("@rules_py//py:defs.bzl", "py_pex_binary")
-
-py_pex_binary(<a href="#py_pex_binary-name">name</a>, <a href="#py_pex_binary-binary">binary</a>, <a href="#py_pex_binary-inherit_path">inherit_path</a>, <a href="#py_pex_binary-inject_env">inject_env</a>, <a href="#py_pex_binary-python_interpreter_constraints">python_interpreter_constraints</a>,
-              <a href="#py_pex_binary-python_shebang">python_shebang</a>, <a href="#py_pex_binary-scie">scie</a>)
-</pre>
-
-Build a pex executable from a py_binary.
-
-`bazel run` on the pex gets the `binary`'s `env` and `env_inherit`, with
-`BAZEL_TARGET`, `BAZEL_TARGET_NAME` and `BAZEL_WORKSPACE` naming the pex.
-`env` paths must use `$(rlocationpath)`: the pex resolves runfiles from its own
-archive, so `$(rootpath)`, `$(location)` and `$(execpath)` values do not exist.
-Outside of Bazel only `inject_env` applies.
-
-**ATTRIBUTES**
-
-
-| Name  | Description | Type | Mandatory | Default |
-| :------------- | :------------- | :------------- | :------------- | :------------- |
-| <a id="py_pex_binary-name"></a>name |  A unique name for this target.   | <a href="https://bazel.build/concepts/labels#target-names">Name</a> | required |  |
-| <a id="py_pex_binary-binary"></a>binary |  The py_binary target to package.   | <a href="https://bazel.build/concepts/labels">Label</a> | required |  |
-| <a id="py_pex_binary-inherit_path"></a>inherit_path |  Whether to inherit the `sys.path` (aka PYTHONPATH) of the environment that the binary runs in.<br><br>Use `false` to not inherit `sys.path`; use `fallback` to inherit `sys.path` after packaged dependencies; and use `prefer` to inherit `sys.path` before packaged dependencies.   | String | optional |  `""`  |
-| <a id="py_pex_binary-inject_env"></a>inject_env |  Environment variables to set when running the pex binary.   | <a href="https://bazel.build/rules/lib/core/dict">Dictionary: String -> String</a> | optional |  `{}`  |
-| <a id="py_pex_binary-python_interpreter_constraints"></a>python_interpreter_constraints |  Python interpreter versions this PEX binary is compatible with. A list of semver strings. The placeholder strings `{major}`, `{minor}`, `{patch}` are substituted with the version of the `binary`'s own interpreter, the one the PEX is built for.   | List of strings | optional |  `["CPython=={major}.{minor}.*"]`  |
-| <a id="py_pex_binary-python_shebang"></a>python_shebang |  -   | String | optional |  `"#!/usr/bin/env python3"`  |
-| <a id="py_pex_binary-scie"></a>scie |  Build a [scie](https://docs.pex-tool.org/scie.html): a native executable that bundles the PEX with the python-build-standalone interpreter the `binary` runs on, so that it runs without any Python installed. `eager` embeds the interpreter. The scie is the target's executable, named after the target; the PEX itself is in the `pex` output group.<br><br>The binary's interpreter must come from rules_py's `python_interpreters` extension. The target and the build host must each be Linux or macOS, on x86_64 or aarch64; they need not match.   | String | optional |  `""`  |
-
-
 <a id="py_unpacked_wheel"></a>
 
 ## py_unpacked_wheel
@@ -931,5 +898,54 @@ Now you can run a command like the following, which publishes to https://test.py
 | <a id="py_wheel-twine_binary"></a>twine_binary |  A label of the external location of a binary target for twine.   |  `Label("@rules_python//tools/publish:twine")` |
 | <a id="py_wheel-publish_args"></a>publish_args |  arguments passed to twine, e.g. ["--repository-url", "https://pypi.my.org/simple/"]. These are subject to make var expansion, as with the `args` attribute. Note that you can also pass additional args to the bazel run command as in the example above.   |  `[]` |
 | <a id="py_wheel-kwargs"></a>kwargs |  other named parameters passed to the underlying [py_wheel rule](#py_wheel_rule)   |  none |
+
+
+<a id="py_pex_binary"></a>
+
+## py_pex_binary
+
+<pre>
+load("@rules_py//py:defs.bzl", "py_pex_binary")
+
+py_pex_binary(*, <a href="#py_pex_binary-name">name</a>, <a href="#py_pex_binary-args">args</a>, <a href="#py_pex_binary-binary">binary</a>, <a href="#py_pex_binary-compatible_with">compatible_with</a>, <a href="#py_pex_binary-deprecation">deprecation</a>, <a href="#py_pex_binary-exec_compatible_with">exec_compatible_with</a>,
+              <a href="#py_pex_binary-exec_properties">exec_properties</a>, <a href="#py_pex_binary-features">features</a>, <a href="#py_pex_binary-inherit_path">inherit_path</a>, <a href="#py_pex_binary-inject_env">inject_env</a>, <a href="#py_pex_binary-output_licenses">output_licenses</a>, <a href="#py_pex_binary-package_metadata">package_metadata</a>,
+              <a href="#py_pex_binary-python_interpreter_constraints">python_interpreter_constraints</a>, <a href="#py_pex_binary-python_shebang">python_shebang</a>, <a href="#py_pex_binary-restricted_to">restricted_to</a>, <a href="#py_pex_binary-scie">scie</a>, <a href="#py_pex_binary-tags">tags</a>,
+              <a href="#py_pex_binary-target_compatible_with">target_compatible_with</a>, <a href="#py_pex_binary-testonly">testonly</a>, <a href="#py_pex_binary-toolchains">toolchains</a>, <a href="#py_pex_binary-visibility">visibility</a>)
+</pre>
+
+Build a pex executable from a py_binary.
+
+`bazel run` on the pex gets the `binary`'s `env` and `env_inherit`, with
+`BAZEL_TARGET`, `BAZEL_TARGET_NAME` and `BAZEL_WORKSPACE` naming the pex.
+`env` paths must use `$(rlocationpath)`: the pex resolves runfiles from its own
+archive, so `$(rootpath)`, `$(location)` and `$(execpath)` values do not exist.
+Outside of Bazel only `inject_env` applies.
+
+**ATTRIBUTES**
+
+
+| Name  | Description | Type | Mandatory | Default |
+| :------------- | :------------- | :------------- | :------------- | :------------- |
+| <a id="py_pex_binary-name"></a>name |  A unique name for this macro instance. Normally, this is also the name for the macro's main or only target. The names of any other targets that this macro might create will be this name with a string suffix.   | <a href="https://bazel.build/concepts/labels#target-names">Name</a> | required |  |
+| <a id="py_pex_binary-args"></a>args |  <a href="https://bazel.build/reference/be/common-definitions#binary.args">Inherited rule attribute</a>   | List of strings | optional |  `None`  |
+| <a id="py_pex_binary-binary"></a>binary |  The py_binary target to package.   | <a href="https://bazel.build/concepts/labels">Label</a> | required |  |
+| <a id="py_pex_binary-compatible_with"></a>compatible_with |  <a href="https://bazel.build/reference/be/common-definitions#common.compatible_with">Inherited rule attribute</a>   | <a href="https://bazel.build/concepts/labels">List of labels</a>; <a href="https://bazel.build/reference/be/common-definitions#configurable-attributes">nonconfigurable</a> | optional |  `None`  |
+| <a id="py_pex_binary-deprecation"></a>deprecation |  <a href="https://bazel.build/reference/be/common-definitions#common.deprecation">Inherited rule attribute</a>   | String; <a href="https://bazel.build/reference/be/common-definitions#configurable-attributes">nonconfigurable</a> | optional |  `None`  |
+| <a id="py_pex_binary-exec_compatible_with"></a>exec_compatible_with |  <a href="https://bazel.build/reference/be/common-definitions#common.exec_compatible_with">Inherited rule attribute</a>   | <a href="https://bazel.build/concepts/labels">List of labels</a>; <a href="https://bazel.build/reference/be/common-definitions#configurable-attributes">nonconfigurable</a> | optional |  `None`  |
+| <a id="py_pex_binary-exec_properties"></a>exec_properties |  <a href="https://bazel.build/reference/be/common-definitions#common.exec_properties">Inherited rule attribute</a>   | <a href="https://bazel.build/rules/lib/core/dict">Dictionary: String -> String</a> | optional |  `None`  |
+| <a id="py_pex_binary-features"></a>features |  <a href="https://bazel.build/reference/be/common-definitions#common.features">Inherited rule attribute</a>   | List of strings | optional |  `None`  |
+| <a id="py_pex_binary-inherit_path"></a>inherit_path |  Whether to inherit the `sys.path` (aka PYTHONPATH) of the environment that the binary runs in.<br><br>Use `false` to not inherit `sys.path`; use `fallback` to inherit `sys.path` after packaged dependencies; and use `prefer` to inherit `sys.path` before packaged dependencies.   | String | optional |  `None`  |
+| <a id="py_pex_binary-inject_env"></a>inject_env |  Environment variables to set when running the pex binary.   | <a href="https://bazel.build/rules/lib/core/dict">Dictionary: String -> String</a> | optional |  `None`  |
+| <a id="py_pex_binary-output_licenses"></a>output_licenses |  <a href="https://bazel.build/reference/be/common-definitions#binary.output_licenses">Inherited rule attribute</a>   | List of strings | optional |  `None`  |
+| <a id="py_pex_binary-package_metadata"></a>package_metadata |  <a href="https://bazel.build/reference/be/common-definitions#common.package_metadata">Inherited rule attribute</a>   | <a href="https://bazel.build/concepts/labels">List of labels</a>; <a href="https://bazel.build/reference/be/common-definitions#configurable-attributes">nonconfigurable</a> | optional |  `None`  |
+| <a id="py_pex_binary-python_interpreter_constraints"></a>python_interpreter_constraints |  Python interpreter versions this PEX binary is compatible with. A list of semver strings. The placeholder strings `{major}`, `{minor}`, `{patch}` are substituted with the version of the `binary`'s own interpreter, the one the PEX is built for.   | List of strings | optional |  `None`  |
+| <a id="py_pex_binary-python_shebang"></a>python_shebang |  -   | String | optional |  `None`  |
+| <a id="py_pex_binary-restricted_to"></a>restricted_to |  <a href="https://bazel.build/reference/be/common-definitions#common.restricted_to">Inherited rule attribute</a>   | <a href="https://bazel.build/concepts/labels">List of labels</a>; <a href="https://bazel.build/reference/be/common-definitions#configurable-attributes">nonconfigurable</a> | optional |  `None`  |
+| <a id="py_pex_binary-scie"></a>scie |  Build a [scie](https://docs.pex-tool.org/scie.html): a native executable that bundles the PEX with the python-build-standalone interpreter the `binary` runs on, so that it runs without any Python installed. `eager` embeds the interpreter. The scie is the target's executable, named after the target; the PEX itself is in the `pex` output group.<br><br>The binary's interpreter must come from rules_py's `python_interpreters` extension. The target and the build host must each be Linux or macOS, on x86_64 or aarch64; they need not match.   | String; <a href="https://bazel.build/reference/be/common-definitions#configurable-attributes">nonconfigurable</a> | optional |  `""`  |
+| <a id="py_pex_binary-tags"></a>tags |  <a href="https://bazel.build/reference/be/common-definitions#common.tags">Inherited rule attribute</a>   | List of strings; <a href="https://bazel.build/reference/be/common-definitions#configurable-attributes">nonconfigurable</a> | optional |  `None`  |
+| <a id="py_pex_binary-target_compatible_with"></a>target_compatible_with |  <a href="https://bazel.build/reference/be/common-definitions#common.target_compatible_with">Inherited rule attribute</a>   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional |  `None`  |
+| <a id="py_pex_binary-testonly"></a>testonly |  <a href="https://bazel.build/reference/be/common-definitions#common.testonly">Inherited rule attribute</a>   | Boolean; <a href="https://bazel.build/reference/be/common-definitions#configurable-attributes">nonconfigurable</a> | optional |  `None`  |
+| <a id="py_pex_binary-toolchains"></a>toolchains |  <a href="https://bazel.build/reference/be/common-definitions#common.toolchains">Inherited rule attribute</a>   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional |  `None`  |
+| <a id="py_pex_binary-visibility"></a>visibility |  The visibility to be passed to this macro's exported targets. It always implicitly includes the location where this macro is instantiated, so this attribute only needs to be explicitly set if you want the macro's targets to be additionally visible somewhere else.   | <a href="https://bazel.build/concepts/labels">List of labels</a>; <a href="https://bazel.build/reference/be/common-definitions#configurable-attributes">nonconfigurable</a> | optional |  |
 
 
