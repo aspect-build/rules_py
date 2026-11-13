@@ -29,28 +29,32 @@ def test_positive_int() -> None:
         positive_int(-1)
 
 
-def test_filter_items_round_robin() -> None:
-    items = list(range(10))
-    assert filter_items_by_shard(items, 0, 3) == [0, 3, 6, 9]
-    assert filter_items_by_shard(items, 1, 3) == [1, 4, 7]
-    assert filter_items_by_shard(items, 2, 3) == [2, 5, 8]
+def test_filter_items_are_balanced_and_independent_of_collection_order() -> None:
+    items = [SimpleNamespace(nodeid=f"test_{i}") for i in range(30)]
+    reversed_items = list(reversed(items))
 
-    # Every item lands in exactly one shard.
-    assert sorted(
-        i for s in range(3) for i in filter_items_by_shard(items, s, 3)
-    ) == items
-
-    assert filter_items_by_shard(items, 0, 1) == items
-    assert filter_items_by_shard([], 0, 3) == []
-
-    # More shards than items leaves trailing shards empty.
-    assert filter_items_by_shard([0], 1, 2) == []
+    for shard_count in (1, 3, 8, 40):
+        shards = [filter_items_by_shard(items, i, shard_count) for i in range(shard_count)]
+        assert sorted(item.nodeid for shard in shards for item in shard) == sorted(
+            item.nodeid for item in items
+        )
+        assert max(map(len, shards)) - min(map(len, shards)) <= 1
+        for shard_id, shard in enumerate(shards):
+            assert {item.nodeid for item in shard} == {
+                item.nodeid
+                for item in filter_items_by_shard(reversed_items, shard_id, shard_count)
+            }
 
 
 def test_modifyitems_filters_in_place() -> None:
-    items: list[Any] = list(range(6))
+    items = [SimpleNamespace(nodeid=f"test_{i}") for i in range(6)]
+    expected = [
+        SimpleNamespace(nodeid="test_0"),
+        SimpleNamespace(nodeid="test_2"),
+        SimpleNamespace(nodeid="test_3"),
+    ]
     ShardPlugin.pytest_collection_modifyitems(FakeConfig(1, 2), items)
-    assert items == [1, 3, 5]
+    assert items == expected
 
 
 def test_modifyitems_shard_id_out_of_range() -> None:
