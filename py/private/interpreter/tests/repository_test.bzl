@@ -158,6 +158,51 @@ def _build_file_records_symlinks_test_impl(ctx):
 
 build_file_records_symlinks_test = unittest.make(_build_file_records_symlinks_test_impl)
 
+def _py_cc_toolchain_platform_test_impl(ctx):
+    env = unittest.begin(ctx)
+    for sys_platform, machine, libc in [
+        ("linux", "aarch64", ""),
+        ("darwin", "aarch64", ""),
+        ("win32", "x86_64", ""),
+        ("linux", "x86_64", "musl"),
+    ]:
+        content = repository_testlib.build_file_content(
+            major = "3",
+            minor = "14",
+            micro = "0",
+            python_bin = "bin/python3",
+            is_macos = sys_platform == "darwin",
+            is_windows = sys_platform == "win32",
+            abi_flags = "",
+            releaselevel = "final",
+            serial = "0",
+            sys_platform = sys_platform,
+            platform_machine = machine,
+            libc = libc,
+        )
+        asserts.true(env, 'sys_platform = "{}",'.format(sys_platform) in content, content)
+        asserts.true(env, 'platform_machine = "{}",'.format(machine) in content, content)
+        asserts.equals(env, bool(libc), 'libc = "musl",' in content, content)
+
+    # rules_python < 2.3.0 has no such attributes, so they must be omittable.
+    content = repository_testlib.build_file_content(
+        major = "3",
+        minor = "14",
+        micro = "0",
+        python_bin = "bin/python3",
+        is_macos = False,
+        is_windows = False,
+        abi_flags = "",
+        releaselevel = "final",
+        serial = "0",
+        platform_attrs = False,
+    )
+    asserts.false(env, "sys_platform" in content, content)
+    asserts.false(env, "platform_machine" in content, content)
+    return unittest.end(env)
+
+py_cc_toolchain_platform_test = unittest.make(_py_cc_toolchain_platform_test_impl)
+
 def repository_test_suite():
     unittest.suite(
         "repository_tests",
@@ -166,4 +211,5 @@ def repository_test_suite():
         find_symlinks_test,
         relative_link_test,
         build_file_records_symlinks_test,
+        py_cc_toolchain_platform_test,
     )
