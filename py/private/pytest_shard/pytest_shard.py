@@ -5,7 +5,12 @@ from collections.abc import Sequence
 
 from _pytest import nodes  # for type checking only
 
-_Item = TypeVar("_Item")
+class _HasNodeId(Protocol):
+    @property
+    def nodeid(self) -> str: ...
+
+
+_Item = TypeVar("_Item", bound=_HasNodeId)
 
 
 class _OptionGroup(Protocol):
