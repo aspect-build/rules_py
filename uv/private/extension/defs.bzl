@@ -1055,7 +1055,7 @@ _override_package_tag = tag_class(
         ),
         "env": attr.string_dict(
             default = {},
-            doc = "Extra environment variables merged into the build action's `env` dict. Values may reference $(VAR) make-variables sourced from extra `toolchains` listed above. Prefix an execroot-relative path with `$(EXECROOT)/` so it remains valid after the backend changes into the unpacked source tree. Omit CC/CXX/AR/LD/STRIP to use the configured C++ action tools.",
+            doc = "Extra environment variables merged into the build action's `env` dict. Values may reference $(VAR) make-variables sourced from extra `toolchains` listed above. Prefix an execroot-relative path with `$(EXECROOT)/` so it remains valid after the backend changes into the unpacked source tree. Omit CC/CXX/AR/LD/STRIP to use the configured C++ action tools; while CC and CXX are omitted, the toolchain's compile and link flags are passed too.",
         ),
         "config_settings": attr.string_list_dict(
             default = {},
