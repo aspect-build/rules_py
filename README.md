@@ -29,20 +29,14 @@ RBE) environments.
 | Feature                   | rules_python                                                                                            | rules_py                                                                                                                 |
 |:--------------------------|:--------------------------------------------------------------------------------------------------------|:-------------------------------------------------------------------------------------------------------------------------|
 | Dependency resolution     | `pip.parse` (repo rules, loading phase)                                                                 | Build-action wheel installs (`whl_install`)                                                                              |
-| uv integration            | `uv pip compile` → `requirements.txt` → `pip.parse`                                                     | Native `uv.lock` consumption                                                                                             |
-| Cross-platform lockfile   | `requirements.txt` (`uv.lock` via `uv pip compile`)                                                     | Native single `uv.lock` consumption                                                                                      |
-| sdist / PEP 517 builds    | Not supported ([#2410](https://github.com/bazel-contrib/rules_python/issues/2410), open since Nov 2024) | Build actions (`pep517_whl`, `pep517_native_whl`)                                                                        |
+| uv integration            | Native `uv.lock` consumption and `uv pip compile` → `requirements.txt` → `pip.parse`                    | Native `uv.lock` consumption                                                                                             |
+| Cross-platform lockfile   | Native single `uv.lock` consumption and `requirements.txt` (`uv.lock` via `uv pip compile`)             | Native single `uv.lock` consumption                                                                                      |
+| sdist / PEP 517 builds    | Planned ([#2410](https://github.com/bazel-contrib/rules_python/issues/2410))                            | Build actions (`pep517_whl`, `pep517_native_whl`)                                                                        |
 | Interpreter provisioning  | Download via rules_python extension                                                                     | Own [python-build-standalone](https://github.com/astral-sh/python-build-standalone) extension — no rules_python required |
-| Site-packages layout      | Standard `site-packages` layout (flag-enabled)                                                          | Standard `site-packages` symlink tree                                                                                    |
-| Cross-compilation         | Limited                                                                                                 | Native platform transitions (e.g. arm64 image on amd64 host)                                                             |
-| Virtual dependencies      | No                                                                                                      | `virtual_deps` — swap implementations at binary level                                                                    |
-| PEP 735 dependency groups | No                                                                                                      | `--@pypi//dep_group=prod` flag                                                                                                |
-
-> [!NOTE]
-> **rules_python's uv support**: `rules_python`'s uv integration runs `uv pip compile` as a build action to
-> generate a `requirements.txt`—it is a faster `pip-compile` replacement. The result still feeds into `pip.parse()` →
-> `whl_library` repository rules at loading phase. There is no `uv.lock` consumption; the rules_python maintainer has
-> [suggested](https://github.com/bazel-contrib/rules_python/discussions/3391) this work belongs in a dedicated project.
+| Site-packages layout      | Standard `site-packages` symlink tree (flag-enabled)                                                    | Standard `site-packages` symlink tree                                                                                    |
+| Cross-compilation         | Native platform transitions (e.g. arm64 image on amd64 host)                                            | Native platform transitions (e.g. arm64 image on amd64 host)                                                             |
+| Virtual dependencies      | Unified PyPI hub `@pypi//<dep>` declared by `pip.dep` tag class.                                        | `virtual_deps` — swap implementations at binary level                                                                    |
+| PEP 735 dependency groups | WIP, `rules_pycross` parity ([#3413](https://github.com/bazel-contrib/rules_python/issues/3413))        | `--@pypi//dep_group=prod` flag                                                                                           |
 
 ### Native `uv.lock` Dependency Resolution
 
