@@ -105,4 +105,5 @@ py_test(
     data = [":data_plugin"],
     imports = ["."],
     main = "data_main.py",
+    visibility = ["//py/tests/indexed-imports:__pkg__"],
 )

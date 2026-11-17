@@ -70,8 +70,6 @@ def install_import_index() -> None:
             else:
                 raise ValueError(f"Invalid Python import index record in {index_path}")
 
-    stdlib_module_names = getattr(sys, "stdlib_module_names", ())
-
     def indexed_path_distribution(
         distribution_type: type[Distribution],
         metadata_path: Path,
@@ -133,9 +131,15 @@ def install_import_index() -> None:
             if not isinstance(path, list):
                 return path
             package = name.replace(".", os.sep)
-            for position in indexed_first_party.get(name, ()):
-                root = os.path.join(site_packages, ordered_import_roots[position])
-                portion = os.path.normpath(os.path.join(root, package))
+            # Wheel portions first: site-packages precedes first-party roots.
+            wheel_roots = indexed_roots.get(name.partition(".")[0])
+            roots = [] if wheel_roots is None else wheel_roots.split("\t")
+            roots.extend(
+                ordered_import_roots[position]
+                for position in indexed_first_party.get(name, ())
+            )
+            for root in roots:
+                portion = os.path.normpath(os.path.join(site_packages, root, package))
                 if portion not in path and os.path.isdir(portion):
                     path.append(portion)
             return path
@@ -197,6 +201,8 @@ def install_import_index() -> None:
                     return None
 
                 parent_positions = indexed_first_party.get(parent_name)
+                if parent_positions is None:
+                    return None
                 known_portions = indexed_namespace_portions.get(parent_name)
                 if known_portions is None:
                     parent_directory = parent_name.replace(".", os.sep)
@@ -232,9 +238,9 @@ def install_import_index() -> None:
 
                 return self._resolve_spec(fullname, search_paths, target)
 
-            if "." in fullname or (
-                fullname in stdlib_module_names and fullname != "pkgutil"
-            ):
+            # Indexed roots follow site-packages, so the stdlib still shadows
+            # an indexed module of the same name, as it would on sys.path.
+            if "." in fullname:
                 return None
 
             roots = indexed_roots.get(fullname)

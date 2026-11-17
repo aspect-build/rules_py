@@ -169,9 +169,18 @@ def generate(
         records.append("P\t" + name + "\t" + "\t".join(map(str, sorted(positions))))
 
     opaque_namespace_prefixes = tuple(name + "." for name in opaque_namespaces)
+    indexed_namespaces = set()
+    # Sorting visits parents first. The finder prunes a child against its
+    # parent's indexed portions, so a child of an unindexed namespace (one
+    # below a regular package) gets no record either.
     for name, positions in sorted(namespace_claims.items()):
         parent = name.rpartition(".")[0]
-        parent_positions = namespace_claims.get(parent) or claims.get(parent)
+        if "." in parent:
+            if parent not in indexed_namespaces:
+                continue
+            parent_positions = namespace_claims[parent]
+        else:
+            parent_positions = claims[parent]
         if (
             len(parent_positions) < 2
             or parent in regular_packages
@@ -179,6 +188,7 @@ def generate(
             or parent.startswith(opaque_namespace_prefixes)
         ):
             continue
+        indexed_namespaces.add(name)
         records.append("N\t" + name + "\t" + "\t".join(map(str, sorted(positions))))
 
     return "\n".join(records) + "\n", "\n".join(pth) + "\n"

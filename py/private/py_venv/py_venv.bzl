@@ -29,6 +29,7 @@ load("@bazel_lib//lib:expand_make_vars.bzl", "expand_locations", "expand_variabl
 load("@bazel_lib//lib:paths.bzl", "BASH_RLOCATION_FUNCTION", "to_rlocation_path")
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load("//py/private:py_library.bzl", _py_library = "py_library_utils")
+load("//py/private:py_info_interop.bzl", "get_transitive_sources", "has_py_info")
 load("//py/private:py_semantics.bzl", _py_semantics = "semantics")
 load("//py/private:transitions.bzl", "python_transition")
 load("//py/private/toolchain:types.bzl", "EXEC_TOOLS_TOOLCHAIN", "PY_TOOLCHAIN")
@@ -73,7 +74,13 @@ def _assemble_venv_target(ctx, executable, console_scripts):
     ):
         indexed_runfiles = _py_library.make_merged_runfiles(
             ctx,
-            extra_depsets = [srcs_depset] + virtual_resolution.runfiles,
+            # The terminal adds `data` targets' Python sources to runfiles
+            # (see py_venv_exec), so their modules need index entries too.
+            extra_depsets = [srcs_depset] + virtual_resolution.runfiles + [
+                get_transitive_sources(target)
+                for target in ctx.attr.data
+                if has_py_info(target)
+            ],
         )
 
     default_env = {

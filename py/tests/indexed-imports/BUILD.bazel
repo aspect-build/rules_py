@@ -1,0 +1,86 @@
+"""Runtime behavior under `--//py:experimental_indexed_imports`.
+
+Each scenario runs twice: as a plain py_test (the physical layout) and through
+`indexed_imports_test`, which must behave the same.
+"""
+
+load("//py:defs.bzl", "py_library", "py_test")
+load(":defs.bzl", "fixture_wheel", "indexed_imports_test")
+
+package(default_testonly = True)
+
+# A regular package (`splitreg/__init__.py`) in two import roots, each holding
+# `splitreg/b/c/` with no `b/__init__.py`.
+py_library(
+    name = "split_first",
+    srcs = glob(["split/first/**/*.py"]),
+    imports = ["split/first"],
+)
+
+py_library(
+    name = "split_second",
+    srcs = glob(["split/second/**/*.py"]),
+    imports = ["split/second"],
+)
+
+py_test(
+    name = "split_regular_test",
+    srcs = ["test_split_regular.py"],
+    main = "test_split_regular.py",
+    deps = [
+        ":split_first",
+        ":split_second",
+    ],
+)
+
+# A first-party module whose name is in sys.stdlib_module_names but which this
+# interpreter does not ship (winsound exists only on Windows).
+py_library(
+    name = "stdlib_name",
+    srcs = ["stdlib_name/winsound.py"],
+    imports = ["stdlib_name"],
+)
+
+py_test(
+    name = "stdlib_name_test",
+    srcs = ["test_stdlib_name.py"],
+    main = "test_stdlib_name.py",
+    deps = [":stdlib_name"],
+)
+
+# A first-party pkgutil-style package whose extend_path must pick up the
+# same-named namespace directory from a wheel.
+fixture_wheel(
+    name = "graft_wheel",
+    distribution = "splitgraft_wheel",
+    files = {"splitgraft/wheel_part.py": "VALUE = \"wheel\"\n"},
+)
+
+py_library(
+    name = "graft_first_party",
+    srcs = glob(["graft/**/*.py"]),
+    imports = ["graft"],
+)
+
+py_test(
+    name = "extend_path_wheel_test",
+    srcs = ["test_extend_path_wheel.py"],
+    main = "test_extend_path_wheel.py",
+    deps = [
+        ":graft_first_party",
+        ":graft_wheel",
+    ],
+)
+
+[
+    indexed_imports_test(
+        name = name + "_indexed",
+        binary = binary,
+    )
+    for name, binary in [
+        ("split_regular_test", ":split_regular_test"),
+        ("stdlib_name_test", ":stdlib_name_test"),
+        ("extend_path_wheel_test", ":extend_path_wheel_test"),
+        ("data_python_dependency_test", "//py/tests/py-library-runfiles:data_python_dependency_runtime_test"),
+    ]
+]

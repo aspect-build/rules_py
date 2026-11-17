@@ -76,6 +76,21 @@ class ImportIndexTest(unittest.TestCase):
         self.assertIn("N\tshared.one\t1", index)
         self.assertIn("N\tshared.two\t2", index)
 
+    def test_namespaces_below_regular_packages_are_not_indexed(self) -> None:
+        index, _ = self._generate(
+            [
+                "R\t_main/first",
+                "R\t_main/second",
+                "S\tfirst/shared/__init__.py",
+                "S\tfirst/shared/b/c/x.py",
+                "S\tsecond/shared/__init__.py",
+                "S\tsecond/shared/b/c/y.py",
+            ]
+        )
+
+        self.assertIn("P\tshared\t1\t2", index)
+        self.assertEqual([row for row in index if row.startswith("N\t")], [])
+
 
 if __name__ == "__main__":
     unittest.main()
