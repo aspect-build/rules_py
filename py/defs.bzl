@@ -34,7 +34,7 @@ load(
 )
 load("//py/private:py_info.bzl", _PyInfo = "PyInfo")
 load("//py/private:py_library.bzl", _py_library = "py_library")
-load("//py/private:py_pex_binary.bzl", _py_pex_binary = "py_pex_binary")
+load("//py/private:py_pex_binary_macro.bzl", _py_pex_binary = "py_pex_binary")
 load("//py/private:py_pytest_main.bzl", _py_pytest_main = "py_pytest_main")
 load("//py/private:py_pytest_test.bzl", _py_pytest_test = "py_pytest_test")
 load("//py/private:py_unittest_test.bzl", _py_unittest_test = "py_unittest_test")

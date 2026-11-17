@@ -166,6 +166,12 @@ bzl_library(
     ],
 )
 
+bzl_library(
+    name = "py_pex_binary_macro",
+    srcs = ["py_pex_binary_macro.bzl"],
+    deps = [":py_pex_binary"],
+)
+
 # keep
 bzl_library(
     name = "py_info",

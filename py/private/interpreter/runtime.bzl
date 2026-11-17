@@ -115,7 +115,10 @@ build host regardless of the target platform being built for).""",
 )
 
 def _py_pbs_archive_toolchain_impl(ctx):
-    return [platform_common.ToolchainInfo(pbs_archive = ctx.file.archive)]
+    return [platform_common.ToolchainInfo(
+        pbs_archive = ctx.file.archive,
+        runtime = ctx.attr.runtime.label,
+    )]
 
 py_pbs_archive_toolchain = rule(
     doc = """Declares the python-build-standalone archive a provisioned runtime was extracted from.
@@ -128,6 +131,11 @@ that no other build fetches the archive.""",
         "archive": attr.label(
             doc = "The unextracted archive.",
             allow_single_file = True,
+            mandatory = True,
+        ),
+        "runtime": attr.label(
+            doc = "The py_runtime_toolchain extracted from `archive`. py_pex_binary uses the " +
+                  "archive only where this is the runtime its binary resolved.",
             mandatory = True,
         ),
     },

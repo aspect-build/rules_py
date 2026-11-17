@@ -88,7 +88,7 @@ bzl_library(
         "//py/private:py_image_layer",
         "//py/private:py_info",
         "//py/private:py_library",
-        "//py/private:py_pex_binary",
+        "//py/private:py_pex_binary_macro",
         "//py/private:py_pytest_main",
         "//py/private:py_pytest_test",
         "//py/private:py_unittest_test",

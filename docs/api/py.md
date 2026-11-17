@@ -921,6 +921,8 @@ Build a pex executable from a py_binary.
 archive, so `$(rootpath)`, `$(location)` and `$(execpath)` values do not exist.
 Outside of Bazel only `inject_env` applies.
 
+A plain pex's target is of kind `py_pex_binary`, a scie's of kind `py_pex_scie_binary`.
+
 **ATTRIBUTES**
 
 

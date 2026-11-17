@@ -146,6 +146,7 @@ def _build_file_content(major, minor, micro, python_bin, is_macos, is_windows, a
 py_pbs_archive_toolchain(
     name = "pbs_archive",
     archive = "{archive}",
+    runtime = ":runtime",
 )
 """.format(archive = archive)
 
