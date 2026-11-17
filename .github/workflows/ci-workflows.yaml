@@ -35,6 +35,11 @@ jobs:
               run: aspect gazelle --task:name=gazelle
     typecheck:
         runs-on: ubuntu-latest
+        env:
+            # Pin the dev-group interpreter instead of taking the runner's: on an image
+            # whose Python is outside requires-python, uv picks one the locked pillow
+            # 10.3.0 has no wheel for, and its sdist fails to build.
+            UV_PYTHON: "3.12"
         steps:
             - uses: actions/checkout@v6
             - uses: aspect-build/setup-aspect@ebca96eb49ef58c00d4226de8bd3a0813507dd87 # v2026.38.3
