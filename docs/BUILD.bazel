@@ -34,4 +34,9 @@ write_source_files(
         "api/py.md": ":py_api",
         "api/uv.md": ":uv_api",
     },
+    # The output is specific to the version in .bazelversion: a symbolic macro's
+    # inherited attributes include every common attribute of that Bazel version.
+    tags = [
+        "skip-on-bazel9",
+    ],
 )
