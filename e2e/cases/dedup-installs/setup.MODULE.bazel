@@ -79,4 +79,8 @@ uv.override_package(
     exclude_glob = ["**/*.rst"],
     lock = "//dedup-installs/triplicate:uv.lock",
 )
-use_repo(uv, "pypi_dedup")
+use_repo(
+    uv,
+    "pypi_dedup",
+    "whl__pyflakes__84b5be138a2dfbb4",
+)

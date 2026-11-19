@@ -188,10 +188,8 @@ def native_roots_for_segments(segments, collision_roots = ()):
 
 # Keep parsing, matching, and cache-to-source matching in sync with
 # py/tools/unpack/{exclude_glob.py,unpack.py} and their shared test vectors.
-# `whl_dist` extraction stays exclude-agnostic (the per-wheel repo never sees
-# a per-package exclude_glob); `whl_install` applies these at analysis time to
-# the selected wheel's layout so the advertised surface matches the install
-# action's filtered tree.
+# Wheel repositories apply exclusions shared by every consumer. Conflicting
+# consumers instead filter the selected wheel's layout during analysis.
 def parse_exclude_glob(value):
     """Return the validated segments of a site-packages-relative glob."""
     parts = value.split("/")
@@ -492,11 +490,10 @@ def derive_layout(record_segments):
     """Derive the site-packages layout from filtered RECORD segment lists.
 
     `record_segments` are site-packages-relative paths (install-root escapes
-    already dropped). Run once at extraction, and again at analysis time (in
-    `whl_install`) over the segments that survive `exclude_glob` — so removing
-    an `__init__.py`, or the last file under a top-level, reclassifies
-    namespace/regular and drops stale entries instead of leaving the advertised
-    topology out of sync with the installed tree.
+    already dropped). Run once at extraction, and again at analysis time only
+    when wheel consumers disagree on exclusions. Removing an `__init__.py`, or
+    the last file under a top-level, reclassifies namespace/regular and drops
+    stale entries instead of leaving the advertised topology inconsistent.
     """
 
     # First path segment = top-level name. Track which top-levels have a direct
@@ -569,7 +566,7 @@ def derive_layout(record_segments):
         native_roots = sorted(native_roots),
     )
 
-def extract_install_metadata(rctx, whl_path, basename):
+def extract_install_metadata(rctx, whl_path, basename, exclude_glob, carry_record_paths):
     """Peek inside a wheel and derive the layout `PyWheelsInfo` consumes.
 
     Reads:
@@ -584,6 +581,8 @@ def extract_install_metadata(rctx, whl_path, basename):
       whl_path: A resolved `rctx.path` to the wheel on disk.
       basename: The wheel's file name, which implies the `.dist-info` directory
         holding RECORD/entry_points.txt.
+      exclude_glob: Exclusions shared by every consumer of this wheel.
+      carry_record_paths: Whether conflicting consumers need unfiltered paths.
 
     Returns:
       A struct of sorted `list[str]` fields ready to pass straight through as
@@ -599,6 +598,13 @@ def extract_install_metadata(rctx, whl_path, basename):
     # paths venv assembly projects.
     parsed = parse_record(record, data_directory)
     record_segments = parsed.record_segments
+    if exclude_glob:
+        patterns = [parse_exclude_glob(pattern) for pattern in exclude_glob]
+        record_segments = [
+            segments
+            for segments in record_segments
+            if not record_path_excluded(segments, patterns)
+        ]
 
     # entry_points.txt: INI-style file. Only `[console_scripts]` interests
     # us — pip/uv synthesize executables under `bin/<name>` from those at
@@ -628,8 +634,7 @@ def extract_install_metadata(rctx, whl_path, basename):
 
     # A wheel's RECORD always lists at least its `.dist-info`, so a prebuilt
     # wheel's top_levels is never empty (empty stays reserved for source-built
-    # wheels of unknown layout). `record_paths` is preserved so whl_install can
-    # re-derive the layout after applying exclude_glob.
+    # wheels of unknown layout).
     layout = derive_layout(record_segments)
     return struct(
         top_levels = layout.top_levels,
@@ -640,6 +645,9 @@ def extract_install_metadata(rctx, whl_path, basename):
         regular_roots = layout.regular_roots,
         native_roots = layout.native_roots,
         console_scripts = sorted(console_scripts.values()),
-        record_paths = ["/".join(segments) for segments in record_segments],
+        record_paths = [
+            "/".join(segments)
+            for segments in parsed.record_segments
+        ] if carry_record_paths else [],
         data_files = parsed.data_files,
     )
