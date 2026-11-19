@@ -4,6 +4,8 @@ load(":exclude_feature.bzl", "exclude_feature_flag")
 
 package(default_visibility = ["//visibility:public"])
 
+exports_files(["versions.bzl"])
+
 bzl_library(
     name = "current_py_toolchain",
     srcs = ["current_py_toolchain.bzl"],

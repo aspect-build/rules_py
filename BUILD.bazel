@@ -29,3 +29,8 @@ alias(
     name = "buildifier",
     actual = "@buildifier_prebuilt//buildifier",
 )
+
+exports_files(
+    ["MODULE.bazel"],
+    visibility = ["//py/tests:__subpackages__"],
+)

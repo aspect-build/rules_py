@@ -1,0 +1,16 @@
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
+# Regression: every platform in PLATFORMS has its host interpreter repo in
+# the MODULE.bazel use_repo list, so sdist builds load on that host (#1676).
+sh_test(
+    name = "use_repo_test",
+    srcs = ["use_repo_test.sh"],
+    args = [
+        "$(rootpath //:MODULE.bazel)",
+        "$(rootpath //py/private/interpreter:versions.bzl)",
+    ],
+    data = [
+        "//:MODULE.bazel",
+        "//py/private/interpreter:versions.bzl",
+    ],
+)
