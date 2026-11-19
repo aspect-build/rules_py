@@ -40,17 +40,13 @@ assert_contains(
 )
 
 # A scie bundles the binary's interpreter, so it runs with no environment at all
-# (no PATH, hence no Python), and still finds its wheels and runfiles. It keeps
-# the default python_interpreter_constraints, which the embedded interpreter
-# must satisfy for the scie to start.
+# (no PATH, hence no Python), and still finds its wheels and runfiles.
 py_pex_binary(
     name = "print_modules_scie",
     binary = ":print_modules_bin",
     scie = "eager",
 )
 
-# The scie in `srcs`, not `tools`, so that this runs the target-configuration
-# scie users get rather than an exec-configuration build of the same binary.
 genrule(
     name = "run_print_modules_scie",
     srcs = ["print_modules_scie"],
