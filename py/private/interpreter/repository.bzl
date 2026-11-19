@@ -91,7 +91,7 @@ def _platform_markers(platform):
     else:
         # x86_64, ppc64le, s390x, riscv64 are already PEP 508 machine values.
         machine = arch
-    return sys_platform, machine, "musl" if "musl" in platform else ""
+    return sys_platform, machine, ("musl" if "musl" in platform else "")
 
 def _relative_link(from_dir, to):
     """Relative path from directory `from_dir` to `to`, both "/"-separated."""
