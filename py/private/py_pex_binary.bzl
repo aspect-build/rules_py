@@ -5,7 +5,9 @@ Follows [PEP-441 (PEX)](https://peps.python.org/pep-0441/)
 ## Ensuring a compatible interpreter is used
 
 The resulting zip file does *not* contain a Python interpreter.
-Users are expected to execute the PEX with a compatible interpreter on the runtime system.
+Users are expected to execute the PEX with a compatible interpreter on the runtime system,
+unless the PEX is built as a [scie](https://docs.pex-tool.org/scie.html) with `scie = "eager"`,
+which bundles the interpreter the `binary` runs on.
 
 Use the `python_interpreter_constraints` to provide an error if a wrong interpreter tries to execute the PEX, for example:
 
@@ -24,7 +26,7 @@ load("//py/private:providers.bzl", "PyWheelsInfo")
 load("//py/private:py_info.bzl", "PyInfo")
 load("//py/private/py_venv:types.bzl", "PY_VENV_KINDS", "VirtualenvInfo", "venv_root")
 load("//py/private/py_venv:virtuals_resolvers.bzl", "VENV_OWNED_ROOTS")
-load("//py/private/toolchain:types.bzl", "PY_TOOLCHAIN", "interpreter_files_and_version")
+load("//py/private/toolchain:types.bzl", "PBS_ARCHIVE_TOOLCHAIN", "PY_TOOLCHAIN", "interpreter_files_and_version")
 
 def _runfiles_path(file, workspace):
     if file.short_path.startswith("../"):
@@ -55,6 +57,8 @@ _PexClosureInfo = provider(
         "interpreter_roots": "depset[str] — runfiles-relative repo roots (`../<repo>/`) of every py_venv toolchain's hermetic interpreter in the closure.",
         "version": "struct(major, minor, micro) | None — the binary's own interpreter version; propagated only along the `venv`/`actual` edge, so it is the version the PEX is built for.",
         "freethreaded": "bool | None — whether the binary's venv resolved under free-threaded mode; propagated with `version`.",
+        "pbs_archive": "File | None — the PBS archive of the binary's own interpreter, resolved only by _scie_closure_aspect; propagated with `version`.",
+        "runtime": "Label | None — the runtime toolchain target, set only on a toolchain node, for the venv node to match the archive toolchain against.",
     },
 )
 
@@ -91,6 +95,8 @@ def _closure_aspect_impl(target, ctx):
             interpreter_roots = depset(list(roots)),
             version = version,
             freethreaded = None,
+            pbs_archive = None,
+            runtime = target.label,
         )]
 
     wheels = []
@@ -102,6 +108,7 @@ def _closure_aspect_impl(target, ctx):
     # carry other binaries' interpreters). `freethreaded` travels with it.
     version = None
     freethreaded = None
+    pbs_archive = None
     for attr_name in ["deps", "data"]:
         for dep in _label_targets(getattr(ctx.rule.attr, attr_name, None)):
             if _PexClosureInfo in dep:
@@ -127,6 +134,7 @@ def _closure_aspect_impl(target, ctx):
             interp.append(venv[_PexClosureInfo].interpreter_roots)
             version = venv[_PexClosureInfo].version
             freethreaded = venv[_PexClosureInfo].freethreaded
+            pbs_archive = venv[_PexClosureInfo].pbs_archive
         if VirtualenvInfo in venv:
             roots.append(depset([venv_root(venv[VirtualenvInfo].bin_python)]))
 
@@ -141,6 +149,8 @@ def _closure_aspect_impl(target, ctx):
             version = actual[_PexClosureInfo].version
         if freethreaded == None:
             freethreaded = actual[_PexClosureInfo].freethreaded
+        if pbs_archive == None:
+            pbs_archive = actual[_PexClosureInfo].pbs_archive
 
     # Fires on every py_library, not just wheel leaves: its PyWheelsInfo already
     # aggregates deps + `resolutions`, which is the only path by which
@@ -154,6 +164,15 @@ def _closure_aspect_impl(target, ctx):
             interp.append(py_tc[_PexClosureInfo].interpreter_roots)
             version = py_tc[_PexClosureInfo].version
 
+            # Resolved separately from the runtime, so another module's runtime
+            # can win that resolution while rules_py's archive toolchain still
+            # matches. Only the archive of the runtime the venv resolved is the
+            # interpreter the binary was built and tested against.
+            if ctx.attr._scie:
+                archive_tc = ctx.toolchains[PBS_ARCHIVE_TOOLCHAIN]
+                if archive_tc != None and archive_tc.runtime == py_tc[_PexClosureInfo].runtime:
+                    pbs_archive = archive_tc.pbs_archive
+
         # The venv node analyzes under its own transitioned configuration, so
         # the flag here reflects the binary's resolved free-threaded mode.
         freethreaded = ctx.attr._freethreaded[BuildSettingInfo].value
@@ -164,18 +183,28 @@ def _closure_aspect_impl(target, ctx):
         interpreter_roots = depset(transitive = interp),
         version = version,
         freethreaded = freethreaded,
+        pbs_archive = pbs_archive,
+        runtime = None,
     )]
 
-_closure_aspect = aspect(
-    implementation = _closure_aspect_impl,
-    attr_aspects = ["deps", "data", "actual", "venv"],
-    # Lets the aspect read `ctx.rule.toolchains[PY_TOOLCHAIN]` at py_venv nodes.
-    toolchains_aspects = [PY_TOOLCHAIN],
-    attrs = {
-        "_freethreaded": attr.label(default = "//py/private/interpreter:freethreaded"),
-    },
-    provides = [_PexClosureInfo],
-)
+def _closure_aspect_def(scie):
+    return aspect(
+        implementation = _closure_aspect_impl,
+        attr_aspects = ["deps", "data", "actual", "venv"],
+        # Lets the aspect read `ctx.rule.toolchains[PY_TOOLCHAIN]` at py_venv nodes.
+        toolchains_aspects = [PY_TOOLCHAIN],
+        # Only a scie resolves the archive toolchain, since analyzing it fetches
+        # the archive.
+        toolchains = [config_common.toolchain_type(PBS_ARCHIVE_TOOLCHAIN, mandatory = False)] if scie else [],
+        attrs = {
+            "_freethreaded": attr.label(default = "//py/private/interpreter:freethreaded"),
+            "_scie": attr.bool(default = scie),
+        },
+        provides = [_PexClosureInfo],
+    )
+
+_closure_aspect = _closure_aspect_def(scie = False)
+_scie_closure_aspect = _closure_aspect_def(scie = True)
 
 def _dep_arg(wheel):
     # pex `--dependency` wants the exec-root site-packages dir. Graft the
@@ -295,14 +324,32 @@ def _py_python_pex_impl(ctx):
     )
     args.add(output, format = "--output-file=%s")
 
+    outputs = [output]
+    tools = []
+    scie = None
+    if getattr(ctx.attr, "scie", ""):
+        if closure.pbs_archive == None:
+            fail("py_pex_binary {}: `scie` needs the interpreter the binary resolved to come from rules_py's python_interpreters extension, which provides its python-build-standalone archive.".format(ctx.label))
+        if not ctx.files._science or not ctx.files._host_scie_jump or not ctx.files._scie_jump:
+            fail("py_pex_binary {}: `scie` is supported only on Linux and macOS, on x86_64 and aarch64, for both the target and the build host.".format(ctx.label))
+        scie = ctx.actions.declare_file(ctx.attr.name)
+        outputs.append(scie)
+        tools = [closure.pbs_archive, ctx.files._science[0], ctx.files._host_scie_jump[0], ctx.files._scie_jump[0]]
+        args.add(ctx.attr.scie, format = "--scie=%s")
+        args.add(closure.pbs_archive, format = "--scie-pbs-archive=%s")
+        args.add(ctx.files._science[0], format = "--scie-science=%s")
+        args.add(ctx.files._host_scie_jump[0], format = "--scie-host-jump=%s")
+        args.add(ctx.files._scie_jump[0], format = "--scie-jump=%s")
+        args.add(scie, format = "--scie-output-file=%s")
+
     ctx.actions.run(
         executable = ctx.executable._pex,
         toolchain = None,
-        inputs = runfiles.files,
+        inputs = depset(tools, transitive = [runfiles.files]),
         arguments = [args],
-        outputs = [output],
+        outputs = outputs,
         mnemonic = "PyPex",
-        progress_message = "Building PEX binary %{label}",
+        progress_message = "Building PEX scie %{label}" if scie else "Building PEX binary %{label}",
     )
 
     # VIRTUAL_ENV names the binary's runfiles venv, which the pex does not carry.
@@ -317,14 +364,15 @@ def _py_python_pex_impl(ctx):
     environment["BAZEL_TARGET_NAME"] = ctx.attr.name
 
     return [
-        DefaultInfo(files = depset([output]), executable = output),
+        DefaultInfo(files = depset([scie or output]), executable = scie or output),
+        OutputGroupInfo(pex = depset([output])),
         RunEnvironmentInfo(
             environment = environment,
             inherited_environment = inherited_environment,
         ),
     ]
 
-_attrs = dict({
+_attrs = {
     "binary": attr.label(
         executable = True,
         cfg = "target",
@@ -355,19 +403,53 @@ the `binary`'s own interpreter, the one the PEX is built for.
 """,
     ),
     "_pex": attr.label(executable = True, cfg = "exec", default = "//py/tools/pex"),
-})
+}
 
+SCIE_DOC = """\
+Build a [scie](https://docs.pex-tool.org/scie.html): a native executable that bundles the PEX with
+the python-build-standalone interpreter the `binary` runs on, so that it runs without any Python
+installed. `eager` embeds the interpreter. The scie is the target's executable, named after the
+target; the PEX itself is in the `pex` output group.
+
+The binary's interpreter must come from rules_py's `python_interpreters` extension. The target
+and the build host must each be Linux or macOS, on x86_64 or aarch64; they need not match.
+"""
+
+# A scie gets its own rule, so that only a scie depends on the interpreter's
+# archive and on science and scie-jump, and fetches them: an attribute's
+# dependencies are fetched whatever its value, and a transition to gate them
+# would build the binary a second time, in a configuration of its own.
+_scie_attrs = _attrs | {
+    "binary": attr.label(
+        executable = True,
+        cfg = "target",
+        mandatory = True,
+        doc = "The py_binary target to package.",
+        aspects = [_scie_closure_aspect],
+    ),
+    "scie": attr.string(
+        doc = SCIE_DOC,
+        values = ["eager"],
+        mandatory = True,
+    ),
+    # See //py/tools/pex:science. science runs on the build host, and assembles
+    # the scie with that host's scie-jump; the scie embeds the target's.
+    "_science": attr.label(default = "//py/tools/pex:science", allow_files = True, cfg = "exec"),
+    "_host_scie_jump": attr.label(default = "//py/tools/pex:scie_jump", allow_files = True, cfg = "exec"),
+    "_scie_jump": attr.label(default = "//py/tools/pex:scie_jump", allow_files = True),
+}
+
+# Exported under the names their targets report as their kind, which `kind()`
+# queries and aspects match on; the public py_pex_binary macro in
+# py_pex_binary_macro.bzl picks between them.
 py_pex_binary = rule(
-    doc = """\
-Build a pex executable from a py_binary.
-
-`bazel run` on the pex gets the `binary`'s `env` and `env_inherit`, with
-`BAZEL_TARGET`, `BAZEL_TARGET_NAME` and `BAZEL_WORKSPACE` naming the pex.
-`env` paths must use `$(rlocationpath)`: the pex resolves runfiles from its own
-archive, so `$(rootpath)`, `$(location)` and `$(execpath)` values do not exist.
-Outside of Bazel only `inject_env` applies.
-""",
     implementation = _py_python_pex_impl,
     attrs = _attrs,
+    executable = True,
+)
+
+py_pex_scie_binary = rule(
+    implementation = _py_python_pex_impl,
+    attrs = _scie_attrs,
     executable = True,
 )

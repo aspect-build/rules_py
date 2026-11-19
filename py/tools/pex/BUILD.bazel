@@ -12,3 +12,44 @@ py_binary(
     visibility = ["//visibility:public"],
     deps = [":pex_unpacked"],
 )
+
+# The science and scie-jump binaries a scie build runs. Only py_pex_binary(scie =
+# ...) depends on them, so that no other build fetches them. Selected by the
+# platform of the configuration that names them: a scie takes science and one
+# scie-jump for the build host, and another scie-jump for the target. Empty on
+# other platforms.
+_SCIE_PLATFORMS = {
+    "linux_aarch64": ("linux", "aarch64"),
+    "linux_x86_64": ("linux", "x86_64"),
+    "macos_aarch64": ("macos", "aarch64"),
+    "macos_x86_64": ("macos", "x86_64"),
+}
+
+[
+    config_setting(
+        name = "scie_" + platform,
+        constraint_values = [
+            "@platforms//os:" + os,
+            "@platforms//cpu:" + cpu,
+        ],
+    )
+    for platform, (os, cpu) in _SCIE_PLATFORMS.items()
+]
+
+filegroup(
+    name = "science",
+    srcs = select(
+        {":scie_" + platform: ["@rules_py_science_{}//file".format(platform)] for platform in _SCIE_PLATFORMS} |
+        {"//conditions:default": []},
+    ),
+    visibility = ["//visibility:public"],
+)
+
+filegroup(
+    name = "scie_jump",
+    srcs = select(
+        {":scie_" + platform: ["@rules_py_scie_jump_{}//file".format(platform)] for platform in _SCIE_PLATFORMS} |
+        {"//conditions:default": []},
+    ),
+    visibility = ["//visibility:public"],
+)

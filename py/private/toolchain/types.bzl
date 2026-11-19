@@ -3,6 +3,7 @@
 PY_TOOLCHAIN = "@bazel_tools//tools/python:toolchain_type"
 EXEC_TOOLS_TOOLCHAIN = "@rules_py//py/private/toolchain:exec_tools_toolchain_type"
 NATIVE_BUILD_TOOLCHAIN = "@rules_py//py/private/toolchain:native_build_toolchain_type"
+PBS_ARCHIVE_TOOLCHAIN = "@rules_py//py/private/toolchain:pbs_archive_toolchain_type"
 
 def interpreter_symlinks(toolchain):
     """Symlinks of the runtime tree a resolved PY_TOOLCHAIN target recorded.

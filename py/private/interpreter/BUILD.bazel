@@ -19,6 +19,7 @@ bzl_library(
         ":sanitize",
         ":version_util",
         ":versions",
+        "@bazel_tools//tools/build_defs/repo:http.bzl",
     ],
 )
 

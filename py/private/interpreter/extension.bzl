@@ -1,5 +1,6 @@
 """Module extension for provisioning Python interpreters from python-build-standalone."""
 
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
 load(":repository.bzl", "python_interpreter", "python_interpreter_unavailable", "python_toolchains")
 load(":sanitize.bzl", "sanitize")
 load(":version_util.bzl", "is_decimal", "is_pre_release", "version_gt")
@@ -394,11 +395,21 @@ def _python_interpreters_impl(module_ctx):
                 python_interpreter(
                     name = repo_name,
                     abi_flags = config["abi_flags"],
+                    archive = "@{}_archive//file".format(repo_name),
                     python_version = asset_info["full_version"],
                     platform = platform_triple,
                     url = url,
                     sha256 = asset_info["sha256"],
                     strip_prefix = config["strip_prefix"],
+                )
+
+                # The unextracted archive, which a py_pex_binary scie embeds. The
+                # repository cache already holds it once the interpreter is fetched.
+                http_file(
+                    name = repo_name + "_archive",
+                    urls = [url],
+                    sha256 = asset_info["sha256"],
+                    downloaded_file_path = asset_info["filename"],
                 )
 
                 toolchain_entries.append(json.encode({

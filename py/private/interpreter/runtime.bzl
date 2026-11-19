@@ -113,3 +113,30 @@ build host regardless of the target platform being built for).""",
     },
     provides = [PyRuntimeInfo],
 )
+
+def _py_pbs_archive_toolchain_impl(ctx):
+    return [platform_common.ToolchainInfo(
+        pbs_archive = ctx.file.archive,
+        runtime = ctx.attr.runtime.label,
+    )]
+
+py_pbs_archive_toolchain = rule(
+    doc = """Declares the python-build-standalone archive a provisioned runtime was extracted from.
+
+Registered for //py/private/toolchain:pbs_archive_toolchain_type with the same
+predicates as the runtime, and resolved only by py_pex_binary(scie = ...), so
+that no other build fetches the archive.""",
+    implementation = _py_pbs_archive_toolchain_impl,
+    attrs = {
+        "archive": attr.label(
+            doc = "The unextracted archive.",
+            allow_single_file = True,
+            mandatory = True,
+        ),
+        "runtime": attr.label(
+            doc = "The py_runtime_toolchain extracted from `archive`. py_pex_binary uses the " +
+                  "archive only where this is the runtime its binary resolved.",
+            mandatory = True,
+        ),
+    },
+)
