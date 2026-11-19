@@ -1,5 +1,6 @@
 load(":extension_test.bzl", "extension_test_suite")
 load(":repository_test.bzl", "repository_test_suite")
+load(":runtime_test.bzl", "runtime_test_suite")
 load(":version_util_test.bzl", "version_util_test_suite")
 load(":versions_test.bzl", "versions_test_suite")
 
@@ -8,6 +9,8 @@ package(default_testonly = True)
 extension_test_suite()
 
 repository_test_suite()
+
+runtime_test_suite()
 
 version_util_test_suite()
 

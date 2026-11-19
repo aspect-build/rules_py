@@ -12,15 +12,24 @@ resolved runtime provider onto built binaries, where downstream consumers
 (e.g. rules_python's py_zipapp_binary) index it by that provider symbol.
 """
 
+load("@rules_python//python:features.bzl", rules_python_features = "features")
 load("@rules_python//python:py_runtime_info.bzl", _PyRuntimeInfo = "PyRuntimeInfo")
 
 PyRuntimeInfo = _PyRuntimeInfo
+
+# rules_python 2.0 added `PyRuntimeInfo.venv_bin_files`, and its venv code reads
+# it for every Windows runtime. An unreleased rules_python reports no version.
+_HAS_VENV_BIN_FILES = not rules_python_features.version or int(rules_python_features.version.split(".")[0]) >= 2
 
 def _py_runtime_toolchain_impl(ctx):
     version_info = ctx.attr.interpreter_version_info
     for key in ("major", "minor", "micro"):
         if key not in version_info:
             fail("interpreter_version_info must contain '{}'".format(key))
+
+    extra_runtime_fields = {}
+    if _HAS_VENV_BIN_FILES:
+        extra_runtime_fields["venv_bin_files"] = ctx.files.venv_dlls
 
     runtime = PyRuntimeInfo(
         interpreter = ctx.file.interpreter,
@@ -39,6 +48,7 @@ def _py_runtime_toolchain_impl(ctx):
         stage2_bootstrap_template = ctx.file._stage2_bootstrap_template,
         site_init_template = ctx.file._site_init_template,
         zip_main_template = ctx.file._zip_main_template,
+        **extra_runtime_fields
     )
 
     return [

@@ -154,14 +154,14 @@ case $0 in
 esac
 exec "${script_dir}/python" -c 'import sys; from importlib import import_module; from operator import attrgetter; sys.argv[0] = "cowsay"; sys.exit(attrgetter("cli")(import_module("cowsay.__main__"))())' "$@"
 ---
-LINK bin/python -> ../../../../../../../+python_interpreters+python_3_13_x86_64_pc_windows_msvc/python.exe
-LINK bin/python.exe -> python
-LINK bin/python3 -> python
-LINK bin/python3.13 -> python
-LINK bin/python3.dll -> ../../../../../../../+python_interpreters+python_3_13_x86_64_pc_windows_msvc/python3.dll
-LINK bin/python313.dll -> ../../../../../../../+python_interpreters+python_3_13_x86_64_pc_windows_msvc/python313.dll
-LINK bin/vcruntime140.dll -> ../../../../../../../+python_interpreters+python_3_13_x86_64_pc_windows_msvc/vcruntime140.dll
-LINK bin/vcruntime140_1.dll -> ../../../../../../../+python_interpreters+python_3_13_x86_64_pc_windows_msvc/vcruntime140_1.dll
+FILE bin/python (large)
+FILE bin/python.exe (large)
+FILE bin/python3 (large)
+FILE bin/python3.13 (large)
+FILE bin/python3.dll (large)
+FILE bin/python313.dll (large)
+FILE bin/vcruntime140.dll (large)
+FILE bin/vcruntime140_1.dll (large)
 FILE pyvenv.cfg
 ---
 home =
