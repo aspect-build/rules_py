@@ -128,6 +128,7 @@ parser.add_argument(
 
 parser.add_argument("--scie", dest="scie", default=None, choices=["eager"])
 parser.add_argument("--scie-pbs-archive", dest="scie_pbs_archive", default=None)
+parser.add_argument("--scie-pbs", dest="scie_pbs", default=None)
 parser.add_argument("--scie-science", dest="scie_science", default=None)
 parser.add_argument("--scie-host-jump", dest="scie_host_jump", default=None)
 parser.add_argument("--scie-jump", dest="scie_jump", default=None)
@@ -261,28 +262,10 @@ if options.scie:
     from pex.sysconfig import SysPlatform
     from pex.targets import Targets
 
-    # python-build-standalone names its archives
-    # cpython-<version>+<release>-<target triple>-<flavor>.<extension>.
+    # The archive's name, as py_pex_binary parsed it.
     archive_name = os.path.basename(options.scie_pbs_archive)
-    match = re.match(
-        r"^cpython-(?P<version>\d+\.\d+\.\d+)\+(?P<release>\d{8})-(?P<triple>.+)-(?P<flavor>install_only(?:_stripped)?)\.(?P<extension>tar\.(?:gz|zst))$",
-        archive_name,
-    )
-    if match is None:
-        sys.exit("A scie needs an install_only or install_only_stripped python-build-standalone archive, not %s." % archive_name)
-
-    triple = match.group("triple")
-    platforms_by_triple = {
-        "aarch64-apple-darwin": SysPlatform.MACOS_AARCH64,
-        "aarch64-unknown-linux-gnu": SysPlatform.LINUX_AARCH64,
-        "aarch64-unknown-linux-musl": SysPlatform.MUSL_LINUX_AARCH64,
-        "x86_64-apple-darwin": SysPlatform.MACOS_X86_64,
-        "x86_64-unknown-linux-gnu": SysPlatform.LINUX_X86_64,
-        "x86_64-unknown-linux-musl": SysPlatform.MUSL_LINUX_X86_64,
-    }
-    scie_platform = platforms_by_triple.get(triple)
-    if scie_platform is None:
-        sys.exit("A scie cannot be built for %s." % triple)
+    pbs = json.loads(options.scie_pbs)
+    scie_platform = SysPlatform.parse(pbs["platform"])
 
     # science fetches the interpreter and two scie-jumps, one to assemble the scie
     # with on this host and one for the scie to embed, from a mirror. Serve it one
@@ -304,7 +287,7 @@ if options.scie:
             with open(os.path.join(jump_dir, name + ".sha256"), "w") as fp:
                 fp.write("%s *%s\n" % (jump_digest, name))
 
-    release_dir = os.path.join(mirror, "providers", "PythonBuildStandalone", "download", match.group("release"))
+    release_dir = os.path.join(mirror, "providers", "PythonBuildStandalone", "download", pbs["release"])
     os.makedirs(release_dir)
     os.symlink(os.path.abspath(options.scie_pbs_archive), os.path.join(release_dir, archive_name))
     digest = hashlib.sha256()
@@ -312,35 +295,34 @@ if options.scie:
         while chunk := fp.read(1024 * 1024):
             digest.update(chunk)
     index = {
-        "release": match.group("release"),
+        "release": pbs["release"],
         "assets": [{
             "digest": {"fingerprint": digest.hexdigest(), "size": os.path.getsize(options.scie_pbs_archive)},
-            "file_type": match.group("extension"),
+            "file_type": pbs["extension"],
             "name": archive_name,
-            "rel_path": "download/%s/%s" % (match.group("release"), archive_name),
-            "target_triple": triple,
-            "version": match.group("version"),
+            "rel_path": "download/%s/%s" % (pbs["release"], archive_name),
+            "target_triple": pbs["triple"],
+            "version": pbs["version"],
         }],
     }
-    with open(os.path.join(release_dir, "distributions-%s-%s.json" % (match.group("version"), match.group("flavor"))), "w") as fp:
+    with open(os.path.join(release_dir, "distributions-%s-%s.json" % (pbs["version"], pbs["flavor"])), "w") as fp:
         json.dump(index, fp)
 
     scie_parser = ArgumentParser()
     scie.register_options(scie_parser)
     scie_args = [
-        "--scie", "eager",
+        "--scie", options.scie,
         "--scie-only",
         "--scie-platform", scie_platform.value,
-        "--scie-pbs-release", match.group("release"),
-        "--scie-python-version", match.group("version"),
+        "--scie-pbs-release", pbs["release"],
+        "--scie-python-version", pbs["version"],
         "--scie-science-binary", os.path.abspath(options.scie_science),
         "--scie-assets-base-url", "file://" + os.path.abspath(mirror),
     ]
-    if match.group("flavor") == "install_only_stripped":
+    if pbs["flavor"] == "install_only_stripped":
         scie_args.append("--scie-pbs-stripped")
     scie_options = scie.extract_options(scie_parser.parse_args(scie_args))
     assert scie_options is not None
-    # The scie is for this platform, whose interpreter is the default target.
     scie_configuration = scie_options.create_configuration(targets=Targets())
 
     # science is itself a scie, which unpacks under SCIE_BASE when it runs, and it

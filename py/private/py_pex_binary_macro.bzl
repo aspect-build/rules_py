@@ -2,11 +2,23 @@
 
 load(":py_pex_binary.bzl", "SCIE_DOC", _py_pex_rule = "py_pex_binary", _py_pex_scie_rule = "py_pex_scie_binary")
 
-def _py_pex_binary_impl(name, visibility, scie, **kwargs):
+def _py_pex_binary_impl(name, visibility, scie, target_compatible_with, **kwargs):
     if scie:
-        _py_pex_scie_rule(name = name, visibility = visibility, scie = scie, **kwargs)
+        # Incompatible, rather than failing analysis, on a target platform
+        # science cannot build a scie for.
+        supported = select({
+            Label("@rules_py_scie_tools//:supported"): [],
+            "//conditions:default": [Label("@platforms//:incompatible")],
+        })
+        _py_pex_scie_rule(
+            name = name,
+            visibility = visibility,
+            scie = scie,
+            target_compatible_with = supported + (target_compatible_with or []),
+            **kwargs
+        )
     else:
-        _py_pex_rule(name = name, visibility = visibility, **kwargs)
+        _py_pex_rule(name = name, visibility = visibility, target_compatible_with = target_compatible_with, **kwargs)
 
 py_pex_binary = macro(
     doc = """\
