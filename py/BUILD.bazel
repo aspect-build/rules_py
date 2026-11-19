@@ -127,3 +127,9 @@ bzl_library(
         "@bazel_tools//tools/build_defs/repo:http.bzl",
     ],
 )
+
+bzl_library(
+    name = "config",
+    srcs = ["config.bzl"],
+    visibility = ["//visibility:public"],
+)

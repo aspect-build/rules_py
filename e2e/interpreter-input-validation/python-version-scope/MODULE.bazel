@@ -1,0 +1,10 @@
+module(name = "python_version_scope_test")
+
+bazel_dep(name = "aspect_rules_py", version = "0.0.0")
+local_path_override(
+    module_name = "aspect_rules_py",
+    path = "../../..",
+)
+
+# Used by test.sh to opt into project scope.
+config = use_extension("@aspect_rules_py//py:config.bzl", "python_config")  # buildifier: disable=unused-variable
