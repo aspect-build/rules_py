@@ -1,9 +1,13 @@
 load("@bazel_skylib//rules:build_test.bzl", "build_test")
 load("@bazel_skylib//rules:write_file.bzl", "write_file")
+load("@rules_cc//cc/toolchains:cc_toolchain.bzl", "cc_toolchain")
+load("@rules_python//python:py_runtime.bzl", "py_runtime")
+load("@rules_python//python:py_runtime_pair.bzl", "py_runtime_pair")
 load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 load("@tar.bzl//tar:mtree.bzl", "mtree_mutate", "mtree_spec")
 load("@tar.bzl//tar:tar.bzl", "tar_rule")
 load("//py:defs.bzl", "py_binary", "py_test")
+load("//py/private/toolchain:tools.bzl", "dummy_toolchain")  # buildifier: disable=bzl-visibility
 load("//uv/private/pep517_whl:frontend.bzl", "pep517_frontend")
 load("//uv/private/pep517_whl:pep517_native_whl.bzl", "pep517_native_whl")
 load("//uv/private/pep517_whl:pep517_whl.bzl", "pep517_whl")
@@ -23,14 +27,18 @@ load(
 load(
     ":pep517_whl_test.bzl",
     "absolutize_flag_test",
+    "absolutize_msvc_entries_test",
     "config_settings_args_test",
     "cross_decision_test",
     "execroot_collision_toolchain",
     "hostile_python_env_target",
     "interpreter_platform_triple_test",
+    "msvc_toolchain_config",
     "pep517_native_whl_cross_mode_test",
     "pep517_native_whl_derived_env_test",
     "pep517_native_whl_execroot_collision_test",
+    "pep517_native_whl_msvc_linux_exec_test",
+    "pep517_native_whl_msvc_test",
     "pep517_native_whl_toolchain_env_test",
     "pep517_whl_console_scripts_test",
     "python_host_platform_test",
@@ -47,6 +55,8 @@ interpreter_platform_triple_test(name = "interpreter_platform_triple_test")
 cross_decision_test(name = "cross_decision_test")
 
 absolutize_flag_test(name = "absolutize_flag_test")
+
+absolutize_msvc_entries_test(name = "absolutize_msvc_entries_test")
 
 platform(
     name = "cross_target_platform",
@@ -448,4 +458,124 @@ pep517_whl(
 frontend_libc_override_test(
     name = "frontend_libc_override_test",
     target_under_test = ":__frontend_override_fixture",
+)
+
+# --- MSVC cl.exe sdist builds ---------------------------------------------
+#
+# A stub toolchain that reports compiler "msvc-cl" and sets PATH, INCLUDE
+# and LIB, a Windows interpreter with include/pyconfig.h and
+# libs/python312.lib, and a Windows platform that can build natively.
+
+platform(
+    name = "msvc_windows_x64",
+    constraint_values = [
+        "@platforms//os:windows",
+        "@platforms//cpu:x86_64",
+    ],
+)
+
+# Not testonly: rules_cc's current_cc_toolchain alias depends on the
+# resolved toolchain.
+msvc_toolchain_config(
+    name = "__msvc_toolchain_config",
+    testonly = False,
+)
+
+filegroup(
+    name = "__msvc_empty",
+    testonly = False,
+    srcs = [],
+)
+
+cc_toolchain(
+    name = "__msvc_cc_toolchain",
+    testonly = False,
+    all_files = ":__msvc_empty",
+    compiler_files = ":__msvc_empty",
+    dwp_files = ":__msvc_empty",
+    linker_files = ":__msvc_empty",
+    objcopy_files = ":__msvc_empty",
+    strip_files = ":__msvc_empty",
+    toolchain_config = ":__msvc_toolchain_config",
+)
+
+toolchain(
+    name = "msvc_cc_toolchain",
+    target_compatible_with = [
+        "@platforms//os:windows",
+        "@platforms//cpu:x86_64",
+    ],
+    toolchain = ":__msvc_cc_toolchain",
+    toolchain_type = "@bazel_tools//tools/cpp:toolchain_type",
+)
+
+genrule(
+    name = "__msvc_python_files",
+    outs = [
+        "msvc_python/python.exe",
+        "msvc_python/include/pyconfig.h",
+        "msvc_python/libs/python312.lib",
+    ],
+    cmd = "touch $(OUTS)",
+    tags = ["manual"],
+)
+
+py_runtime(
+    name = "__msvc_python_runtime",
+    files = [
+        "msvc_python/include/pyconfig.h",
+        "msvc_python/libs/python312.lib",
+    ],
+    interpreter = "msvc_python/python.exe",
+    interpreter_version_info = {
+        "major": "3",
+        "minor": "12",
+        "micro": "0",
+    },
+    python_version = "PY3",
+)
+
+py_runtime_pair(
+    name = "__msvc_python_runtime_pair",
+    py3_runtime = ":__msvc_python_runtime",
+)
+
+toolchain(
+    name = "msvc_python_toolchain",
+    toolchain = ":__msvc_python_runtime_pair",
+    toolchain_type = "@bazel_tools//tools/python:toolchain_type",
+)
+
+dummy_toolchain(name = "__msvc_native_build_sentinel")
+
+toolchain(
+    name = "msvc_native_build_toolchain",
+    exec_compatible_with = [
+        "@platforms//os:windows",
+        "@platforms//cpu:x86_64",
+    ],
+    target_compatible_with = [
+        "@platforms//os:windows",
+        "@platforms//cpu:x86_64",
+    ],
+    toolchain = ":__msvc_native_build_sentinel",
+    toolchain_type = "//py/private/toolchain:native_build_toolchain_type",
+)
+
+pep517_native_whl(
+    name = "__msvc_fixture",
+    src = ":__stub_sdist",
+    tags = ["manual"],
+    tool = ":__stub_tool",
+    version = "0.0.1",
+)
+
+pep517_native_whl_msvc_test(
+    name = "msvc_windows_exec_test",
+    target_under_test = ":__msvc_fixture",
+)
+
+pep517_native_whl_msvc_linux_exec_test(
+    name = "msvc_linux_exec_test",
+    target_under_test = ":__msvc_fixture",
 )

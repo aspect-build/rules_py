@@ -11,6 +11,7 @@ import sys
 import tempfile
 import unittest
 from os import makedirs, path
+from unittest import mock
 
 from uv.private.pep517_whl.tools import build_helper
 
@@ -793,6 +794,39 @@ class StaticRuntimeArchivesTest(unittest.TestCase):
             wrapper = self._wrapper(tmp, [])
             self.assertEqual(["-shared", "a.o"], _run_wrapper(wrapper, ["-shared", "a.o"]))
 
+
+
+class MsvcCompilerEnvTest(unittest.TestCase):
+    def test_cl_exe_is_driven_by_the_environment(self) -> None:
+        ambient = {
+            "CC": "gcc",
+            "CXX": "g++",
+            "CPP": "cpp",
+            "AR": "ar",
+            "LDSHARED": "gcc -shared",
+            "LDCXXSHARED": "g++ -shared",
+            "INCLUDE": "__EXECROOT__/sdk/include",
+        }
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.dict(os.environ, ambient):
+            env = build_helper._compiler_env(tmp, "__EXECROOT__", msvc=True)
+        for key in ambient:
+            if key != "INCLUDE":
+                self.assertNotIn(key, env)
+        self.assertEqual("1", env["DISTUTILS_USE_SDK"])
+        self.assertEqual("1", env["MSSdk"])
+        self.assertEqual(os.getcwd() + "/sdk/include", env["INCLUDE"])
+
+    def test_cargo_still_reaches_path(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.dict(os.environ, {"CARGO": "/rust/bin/cargo"}):
+            env = build_helper._compiler_env(tmp, msvc=True)
+        self.assertTrue(env["PATH"].startswith("/rust/bin" + os.pathsep))
+        self.assertEqual(path.join(tmp, ".cargo_home"), env["CARGO_HOME"])
+
+    def test_default_keeps_gnu_variables(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.dict(os.environ, {"CC": "/usr/bin/cc"}):
+            env = build_helper._compiler_env(tmp)
+        self.assertNotIn("DISTUTILS_USE_SDK", env)
+        self.assertIn("CC", env)
 
 
 if __name__ == "__main__":

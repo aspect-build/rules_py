@@ -10,7 +10,7 @@ load("@rules_cc//cc:action_names.bzl", "ACTION_NAMES")
 load("@rules_cc//cc/common:cc_common.bzl", "cc_common")
 load("//py/private/interpreter:versions.bzl", "PLATFORMS")
 load("//py/private/toolchain:types.bzl", "EXEC_TOOLS_TOOLCHAIN", "NATIVE_BUILD_TOOLCHAIN", "PY_TOOLCHAIN")
-load(":cc_layer.bzl", "CC_LAYER_ATTRS", "extract_cc_layer")
+load(":cc_layer.bzl", "CC_LAYER_ATTRS", "extract_cc_layer", "extract_msvc_layer")
 load(
     ":common.bzl",
     "PEP517_WHL_ATTRS",
@@ -41,6 +41,9 @@ _DERIVED_ENV = {
 }
 _EXECROOT_MARKER = "__RULES_PY_EXECROOT__"
 _INFER_CXX_COMPANION = "RULES_PY_INFER_CXX_COMPANION"
+
+# CcToolchainInfo.compiler values that cl.exe builds are driven by.
+_MSVC_COMPILERS = ["msvc-cl"]
 
 def _collect_toolchain_inputs_and_vars(ctx):
     """Gather files + Make-variable substitutions from `ctx.attr.toolchains`.
@@ -182,6 +185,29 @@ def _target_python_artifacts(runtime):
         include_dir = include_dir,
     )
 
+def _windows_python_artifacts(runtime):
+    """Collect the Windows interpreter files an MSVC build compiles and links against.
+
+    CPython for Windows keeps its headers in `include/` and its import
+    libraries in `libs/`: `Python.h` and `pyconfig.h` for cl.exe and
+    `python3*.lib` for link.exe.
+    """
+    files = runtime.files.to_list() if runtime and hasattr(runtime, "files") else []
+    include_dir = None
+    lib_files = []
+    for f in files:
+        if f.basename == "pyconfig.h" and f.dirname.endswith("/include"):
+            include_dir = f.dirname
+        elif f.extension == "lib" and f.basename.startswith("python3") and f.dirname.endswith("/libs"):
+            lib_files.append(f)
+    include_files = [f for f in files if include_dir and f.path.startswith(include_dir + "/")]
+    return struct(
+        include_files = include_files,
+        include_dir = include_dir,
+        lib_files = lib_files,
+        lib_dir = lib_files[0].dirname if lib_files else None,
+    )
+
 def _derive_python_host_platform(target_os, target_cpu):
     """Derive _PYTHON_HOST_PLATFORM from target platform constraints.
 
@@ -283,6 +309,11 @@ def _pep517_native_whl(ctx):
         fail("A toolchain listed in `toolchains` exports the reserved `EXECROOT` make-variable.")
     known_variables["EXECROOT"] = _EXECROOT_MARKER
 
+    cc_toolchain = cc_toolchain_raw
+    if hasattr(cc_toolchain, "cc_provider_in_toolchain") and hasattr(cc_toolchain, "cc"):
+        cc_toolchain = cc_toolchain.cc
+    msvc = getattr(cc_toolchain, "compiler", None) in _MSVC_COMPILERS
+
     cc_files, cc_tools, infer_cxx = _cc_toolchain_inputs_and_tools(ctx)
     if cc_files:
         extra_inputs.append(cc_files)
@@ -299,19 +330,31 @@ def _pep517_native_whl(ctx):
     for k, v in ctx.attr.env.items():
         env[k] = ctx.expand_make_variables("env", v, known_variables)
 
+    # cl.exe is found through PATH, and setuptools drives it without CC.
     for key, value in cc_tools.items():
-        if key not in ctx.attr.env:
+        if key not in ctx.attr.env and not msvc:
             env[key] = value
 
     env.pop(_INFER_CXX_COMPANION, None)
-    if "CXX" not in ctx.attr.env and cc_tools.get("CXX") and infer_cxx:
+    if "CXX" not in ctx.attr.env and cc_tools.get("CXX") and infer_cxx and not msvc:
         env[_INFER_CXX_COMPANION] = "1"
 
     cross_args = []
-    if cross:
-        cc_toolchain = cc_toolchain_raw
-        if hasattr(cc_toolchain, "cc_provider_in_toolchain") and hasattr(cc_toolchain, "cc"):
-            cc_toolchain = cc_toolchain.cc
+    if msvc:
+        if cross:
+            fail("{}: MSVC sdist builds need a Windows execution platform matching the target".format(ctx.label))
+        msvc_layer = extract_msvc_layer(ctx, cc_toolchain)
+        py_toolchain = ctx.toolchains[PY_TOOLCHAIN]
+        runtime = getattr(py_toolchain, "py3_runtime", None) if py_toolchain != None else None
+        artifacts = _windows_python_artifacts(runtime)
+        if not artifacts.include_dir or not artifacts.lib_dir:
+            fail("{}: the target interpreter has no include/pyconfig.h and libs/python3*.lib to build against".format(ctx.label))
+        extra_inputs.append(depset(artifacts.include_files + artifacts.lib_files))
+        env["PATH"] = msvc_layer.path
+        env["INCLUDE"] = ";".join([msvc_layer.include, _EXECROOT_MARKER + "\\" + artifacts.include_dir.replace("/", "\\")])
+        env["LIB"] = ";".join([msvc_layer.lib, _EXECROOT_MARKER + "\\" + artifacts.lib_dir.replace("/", "\\")])
+        cross_args = ["--msvc"]
+    elif cross:
         cc_layer = extract_cc_layer(ctx, cc_toolchain)
 
         # Toolchain flags first, then any flags the package set via `env`
