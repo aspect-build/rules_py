@@ -323,9 +323,6 @@ if options.scie:
         scie_args.append("--scie-pbs-stripped")
     scie_options = scie.extract_options(scie_parser.parse_args(scie_args))
     assert scie_options is not None
-    # pex takes the scie's platform and Python version from --scie-platform and
-    # --scie-python-version above, and drops any other platform a target names.
-    # Targets() only fills the required argument.
     scie_configuration = scie_options.create_configuration(targets=Targets())
 
     # science is itself a scie, which unpacks under SCIE_BASE when it runs, and it
