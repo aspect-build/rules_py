@@ -1,0 +1,5 @@
+load(":repository_test.bzl", "host_libc_test_suite")
+
+package(default_testonly = True)
+
+host_libc_test_suite()
