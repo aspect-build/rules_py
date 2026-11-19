@@ -7,6 +7,11 @@ _RPY_VERSION_FLAG = "@rules_python//python/config_settings:python_version"
 _FREETHREADING_FLAG = "@rules_py//py/private/interpreter:freethreaded"
 _EXCLUDE_FEATURE_FLAG = "@rules_py//py/private/interpreter:exclude_feature"
 
+# py_cc_toolchain only accepts sys_platform, platform_machine and libc since
+# rules_python 2.3.0, and rules_python exposes no `features` flag for them.
+# Probe the rule's source so older supported versions (>= 1.9.0) still analyze.
+_PY_CC_TOOLCHAIN_RULE = Label("@rules_python//python/private:py_cc_toolchain_rule.bzl")
+
 def _python_interpreter_impl(rctx):
     """Downloads and extracts a Python interpreter from PBS."""
     url = rctx.attr.url
@@ -39,6 +44,8 @@ def _python_interpreter_impl(rctx):
             releaselevel = level
             break
 
+    sys_platform, platform_machine, libc = _platform_markers(platform)
+
     # Delete terminfo symlink loops on newer PBS releases (linux only)
     if "linux" in platform:
         rctx.delete("share/terminfo")
@@ -46,6 +53,10 @@ def _python_interpreter_impl(rctx):
     rctx.file("BUILD.bazel", content = _build_file_content(
         abi_flags = rctx.attr.abi_flags,
         symlinks = {} if is_windows else _find_symlinks(rctx.path(".")),
+        sys_platform = sys_platform,
+        platform_machine = platform_machine,
+        libc = libc,
+        platform_attrs = "platform_machine" in rctx.read(_PY_CC_TOOLCHAIN_RULE),
         major = major,
         minor = minor,
         micro = micro,
@@ -58,6 +69,29 @@ def _python_interpreter_impl(rctx):
     ))
 
     return rctx.repo_metadata(reproducible = True)
+
+def _platform_markers(platform):
+    """PEP 508 (sys_platform, platform_machine, libc) for a PBS target triple.
+
+    py_cc_toolchain derives the extension soabi tag from these, so 32-bit x86
+    must not fall through to x86_64: on Windows that would give `win_amd64`
+    instead of `win32`.
+    """
+    if "windows" in platform:
+        sys_platform = "win32"
+    elif "apple-darwin" in platform:
+        sys_platform = "darwin"
+    else:
+        sys_platform = "linux"
+    arch = platform.split("-")[0]
+    if arch in ("aarch64", "arm64"):
+        machine = "aarch64"
+    elif arch in ("i386", "i586", "i686"):
+        machine = "x86_32"
+    else:
+        # x86_64, ppc64le, s390x, riscv64 are already PEP 508 machine values.
+        machine = arch
+    return sys_platform, machine, ("musl" if "musl" in platform else "")
 
 def _relative_link(from_dir, to):
     """Relative path from directory `from_dir` to `to`, both "/"-separated."""
@@ -135,7 +169,7 @@ filegroup(
 
     return "\n".join(lines), all_excludes
 
-def _build_file_content(major, minor, micro, python_bin, is_macos, is_windows, abi_flags, releaselevel, serial, symlinks = {}, archive = ""):
+def _build_file_content(major, minor, micro, python_bin, is_macos, is_windows, abi_flags, releaselevel, serial, symlinks = {}, archive = "", sys_platform = "linux", platform_machine = "x86_64", libc = "", platform_attrs = True):
     """Generate the full BUILD.bazel content for an interpreter repo."""
 
     # Its own target, resolved through its own toolchain type only by
@@ -164,6 +198,11 @@ py_pbs_archive_toolchain(
     abi3_header_target = ""
     headers_abi3_attr = ""
     libs_attr = ""
+    platform_attrs_content = ""
+    if platform_attrs:
+        platform_attrs_content = "    platform_machine = \"{}\",\n    sys_platform = \"{}\",\n".format(platform_machine, sys_platform)
+        if libc:
+            platform_attrs_content += "    libc = \"{}\",\n".format(libc)
 
     # Unlike POSIX, Windows extensions must link a Python import library:
     # https://docs.python.org/3/extending/windows.html#differences-between-unix-and-windows
@@ -332,7 +371,7 @@ py_cc_toolchain(
     name = "py_cc_toolchain",
     headers = ":python_headers",
 {headers_abi3_attr}{libs_attr}    python_version = "{major}.{minor}",
-)
+{platform_attrs})
 {pbs_archive_target}""".format(
         abi_flags = abi_flags,
         abi3_header_target = abi3_header_target,
@@ -342,6 +381,7 @@ py_cc_toolchain(
         include_dirs = repr(include_dirs),
         library_targets = library_targets,
         libs_attr = libs_attr,
+        platform_attrs = platform_attrs_content,
         python_bin = python_bin,
         major = major,
         minor = minor,
@@ -652,5 +692,6 @@ repository_testlib = struct(
     build_file_content = _build_file_content,
     feature_filegroups = _feature_filegroups,
     find_symlinks = _find_symlinks,
+    platform_markers = _platform_markers,
     relative_link = _relative_link,
 )
