@@ -203,6 +203,26 @@ def _py_cc_toolchain_platform_test_impl(ctx):
 
 py_cc_toolchain_platform_test = unittest.make(_py_cc_toolchain_platform_test_impl)
 
+def _platform_markers_test_impl(ctx):
+    env = unittest.begin(ctx)
+    for triple, expected in [
+        ("aarch64-apple-darwin", ("darwin", "aarch64", "")),
+        ("x86_64-apple-darwin", ("darwin", "x86_64", "")),
+        ("aarch64-unknown-linux-gnu", ("linux", "aarch64", "")),
+        ("aarch64-unknown-linux-musl", ("linux", "aarch64", "musl")),
+        ("x86_64-unknown-linux-gnu", ("linux", "x86_64", "")),
+        ("x86_64-unknown-linux-musl", ("linux", "x86_64", "musl")),
+        ("x86_64-pc-windows-msvc", ("win32", "x86_64", "")),
+        ("aarch64-pc-windows-msvc", ("win32", "aarch64", "")),
+        # 32-bit Windows must yield the `win32` soabi tag, not `win_amd64`.
+        ("i686-pc-windows-msvc", ("win32", "x86_32", "")),
+        ("ppc64le-unknown-linux-gnu", ("linux", "ppc64le", "")),
+    ]:
+        asserts.equals(env, expected, repository_testlib.platform_markers(triple), triple)
+    return unittest.end(env)
+
+platform_markers_test = unittest.make(_platform_markers_test_impl)
+
 def repository_test_suite():
     unittest.suite(
         "repository_tests",
@@ -212,4 +232,5 @@ def repository_test_suite():
         relative_link_test,
         build_file_records_symlinks_test,
         py_cc_toolchain_platform_test,
+        platform_markers_test,
     )

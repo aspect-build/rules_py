@@ -44,8 +44,7 @@ def _python_interpreter_impl(rctx):
             releaselevel = level
             break
 
-    sys_platform = "win32" if is_windows else ("darwin" if is_macos else "linux")
-    platform_machine = "aarch64" if platform.startswith(("aarch64", "arm64")) else "x86_64"
+    sys_platform, platform_machine, libc = _platform_markers(platform)
 
     # Delete terminfo symlink loops on newer PBS releases (linux only)
     if "linux" in platform:
@@ -56,7 +55,7 @@ def _python_interpreter_impl(rctx):
         symlinks = {} if is_windows else _find_symlinks(rctx.path(".")),
         sys_platform = sys_platform,
         platform_machine = platform_machine,
-        libc = "musl" if "musl" in platform else "",
+        libc = libc,
         platform_attrs = "platform_machine" in rctx.read(_PY_CC_TOOLCHAIN_RULE),
         major = major,
         minor = minor,
@@ -70,6 +69,29 @@ def _python_interpreter_impl(rctx):
     ))
 
     return rctx.repo_metadata(reproducible = True)
+
+def _platform_markers(platform):
+    """PEP 508 (sys_platform, platform_machine, libc) for a PBS target triple.
+
+    py_cc_toolchain derives the extension soabi tag from these, so 32-bit x86
+    must not fall through to x86_64: on Windows that would give `win_amd64`
+    instead of `win32`.
+    """
+    if "windows" in platform:
+        sys_platform = "win32"
+    elif "apple-darwin" in platform:
+        sys_platform = "darwin"
+    else:
+        sys_platform = "linux"
+    arch = platform.split("-")[0]
+    if arch in ("aarch64", "arm64"):
+        machine = "aarch64"
+    elif arch in ("i386", "i586", "i686"):
+        machine = "x86_32"
+    else:
+        # x86_64, ppc64le, s390x, riscv64 are already PEP 508 machine values.
+        machine = arch
+    return sys_platform, machine, "musl" if "musl" in platform else ""
 
 def _relative_link(from_dir, to):
     """Relative path from directory `from_dir` to `to`, both "/"-separated."""
@@ -670,5 +692,6 @@ repository_testlib = struct(
     build_file_content = _build_file_content,
     feature_filegroups = _feature_filegroups,
     find_symlinks = _find_symlinks,
+    platform_markers = _platform_markers,
     relative_link = _relative_link,
 )
