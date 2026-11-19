@@ -24,6 +24,7 @@ load("@bazel_lib//lib:paths.bzl", "to_rlocation_path")
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load("//py/private:providers.bzl", "PyWheelsInfo")
 load("//py/private:py_info.bzl", "PyInfo")
+load("//py/private:scie.bzl", "scie_platform_for_triple")
 load("//py/private/py_venv:types.bzl", "PY_VENV_KINDS", "VirtualenvInfo", "venv_root")
 load("//py/private/py_venv:virtuals_resolvers.bzl", "VENV_OWNED_ROOTS")
 load("//py/private/toolchain:types.bzl", "PBS_ARCHIVE_TOOLCHAIN", "PY_TOOLCHAIN", "interpreter_files_and_version")
@@ -213,6 +214,58 @@ def _dep_arg(wheel):
     suffix = "/".join(wheel.site_packages_rfpath.rsplit("/", 3)[1:])
     return "--dependency={}/{}".format(wheel.install_tree.path, suffix)
 
+# The archive flavors science embeds, by the suffix python-build-standalone
+# names them with.
+_SCIE_ARCHIVE_FLAVORS = {
+    "-{}.{}".format(flavor, extension): struct(flavor = flavor, extension = extension)
+    for flavor in ["install_only", "install_only_stripped"]
+    for extension in ["tar.gz", "tar.zst"]
+}
+
+def _scie_archive(label, basename):
+    """Parses the name of the python-build-standalone archive a scie embeds.
+
+    The one place it is parsed: the PyPex action takes the fields from here.
+    Parsed in analysis, so that an interpreter science cannot embed fails here
+    rather than in the action, after the archive is fetched.
+
+    Args:
+        label: the py_pex_binary's label, for errors.
+        basename: cpython-<version>+<release>-<target triple>-<flavor>.<extension>.
+
+    Returns:
+        A dict of version, release, triple, flavor, extension, and pex's name
+        for the platform the scie runs on.
+    """
+    flavor = None
+    name = basename
+    for suffix, candidate in _SCIE_ARCHIVE_FLAVORS.items():
+        if basename.endswith(suffix):
+            flavor = candidate
+            name = basename.removesuffix(suffix)
+    if flavor == None:
+        fail("py_pex_binary {}: a scie embeds only an install_only or install_only_stripped python-build-standalone archive, and the binary's interpreter comes from {}. Set the python_interpreters extension's build_config to install_only or install_only_stripped.".format(label, basename))
+
+    version, _, rest = name.removeprefix("cpython-").partition("+")
+    release, _, triple = rest.partition("-")
+    if not name.startswith("cpython-") or len(release) != 8 or not release.isdigit() or not triple:
+        fail("py_pex_binary {}: {} is not named as python-build-standalone names its archives.".format(label, basename))
+    parts = version.split(".")
+    if len(parts) != 3 or not all([part.isdigit() for part in parts]):
+        fail("py_pex_binary {}: a scie cannot embed the pre-release interpreter {}, since pex selects a scie's interpreter by its release number alone.".format(label, version))
+    platform = scie_platform_for_triple(triple)
+    if platform == None:
+        fail("py_pex_binary {}: a scie cannot be built for {}.".format(label, triple))
+
+    return {
+        "extension": flavor.extension,
+        "flavor": flavor.flavor,
+        "platform": platform,
+        "release": release,
+        "triple": triple,
+        "version": version,
+    }
+
 def _py_python_pex_impl(ctx):
     binary = ctx.attr.binary
     binary_default = binary[DefaultInfo]
@@ -330,6 +383,7 @@ def _py_python_pex_impl(ctx):
     if getattr(ctx.attr, "scie", ""):
         if closure.pbs_archive == None:
             fail("py_pex_binary {}: `scie` needs the interpreter the binary resolved to come from rules_py's python_interpreters extension, which provides its python-build-standalone archive.".format(ctx.label))
+        pbs = _scie_archive(ctx.label, closure.pbs_archive.basename)
         if not ctx.files._science or not ctx.files._host_scie_jump or not ctx.files._scie_jump:
             fail("py_pex_binary {}: `scie` is supported only on Linux and macOS, on x86_64 and aarch64, for both the target and the build host.".format(ctx.label))
         scie = ctx.actions.declare_file(ctx.attr.name)
@@ -337,6 +391,7 @@ def _py_python_pex_impl(ctx):
         tools = [closure.pbs_archive, ctx.files._science[0], ctx.files._host_scie_jump[0], ctx.files._scie_jump[0]]
         args.add(ctx.attr.scie, format = "--scie=%s")
         args.add(closure.pbs_archive, format = "--scie-pbs-archive=%s")
+        args.add(json.encode(pbs), format = "--scie-pbs=%s")
         args.add(ctx.files._science[0], format = "--scie-science=%s")
         args.add(ctx.files._host_scie_jump[0], format = "--scie-host-jump=%s")
         args.add(ctx.files._scie_jump[0], format = "--scie-jump=%s")
@@ -372,14 +427,17 @@ def _py_python_pex_impl(ctx):
         ),
     ]
 
-_attrs = {
-    "binary": attr.label(
+def _binary_attr(aspects):
+    return attr.label(
         executable = True,
         cfg = "target",
         mandatory = True,
         doc = "The py_binary target to package.",
-        aspects = [_closure_aspect],
-    ),
+        aspects = aspects,
+    )
+
+_attrs = {
+    "binary": _binary_attr([_closure_aspect]),
     "inject_env": attr.string_dict(
         doc = "Environment variables to set when running the pex binary.",
         default = {},
@@ -420,23 +478,17 @@ and the build host must each be Linux or macOS, on x86_64 or aarch64; they need 
 # dependencies are fetched whatever its value, and a transition to gate them
 # would build the binary a second time, in a configuration of its own.
 _scie_attrs = _attrs | {
-    "binary": attr.label(
-        executable = True,
-        cfg = "target",
-        mandatory = True,
-        doc = "The py_binary target to package.",
-        aspects = [_scie_closure_aspect],
-    ),
+    "binary": _binary_attr([_scie_closure_aspect]),
     "scie": attr.string(
         doc = SCIE_DOC,
         values = ["eager"],
         mandatory = True,
     ),
-    # See //py/tools/pex:science. science runs on the build host, and assembles
+    # See //py/private:scie.bzl. science runs on the build host, and assembles
     # the scie with that host's scie-jump; the scie embeds the target's.
-    "_science": attr.label(default = "//py/tools/pex:science", allow_files = True, cfg = "exec"),
-    "_host_scie_jump": attr.label(default = "//py/tools/pex:scie_jump", allow_files = True, cfg = "exec"),
-    "_scie_jump": attr.label(default = "//py/tools/pex:scie_jump", allow_files = True),
+    "_science": attr.label(default = "@rules_py_scie_tools//:science", allow_files = True, cfg = "exec"),
+    "_host_scie_jump": attr.label(default = "@rules_py_scie_tools//:scie_jump", allow_files = True, cfg = "exec"),
+    "_scie_jump": attr.label(default = "@rules_py_scie_tools//:scie_jump", allow_files = True),
 }
 
 # Exported under the names their targets report as their kind, which `kind()`

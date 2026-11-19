@@ -120,6 +120,7 @@ bzl_library(
     srcs = ["toolchains.bzl"],
     visibility = ["//visibility:public"],
     deps = [
+        "//py/private:scie",
         "//py/private/toolchain:repo",
         "//py/private/toolchain:tools",
         "@bazel_lib//lib:repositories",
