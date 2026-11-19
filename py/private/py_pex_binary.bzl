@@ -470,7 +470,9 @@ installed. `eager` embeds the interpreter. The scie is the target's executable, 
 target; the PEX itself is in the `pex` output group.
 
 The binary's interpreter must come from rules_py's `python_interpreters` extension. The target
-and the build host must each be Linux or macOS, on x86_64 or aarch64; they need not match.
+and the build host must each be Linux or macOS, on x86_64 or aarch64; they need not match. On any
+other target platform the target is incompatible, so that `bazel build //...` skips it. Only the
+target platform is checked that way: on any other build host, such as Windows, building it fails.
 """
 
 # A scie gets its own rule, so that only a scie depends on the interpreter's
