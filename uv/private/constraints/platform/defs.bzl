@@ -59,8 +59,10 @@ GENERIC_LINUX_ARCHES = [
 ]
 
 # Supported Windows platform tags and their CPU constraints.
+# win32 is the 32-bit x86 tag; mapping it to x86_64 would make it match
+# alongside win_amd64 on 64-bit Windows.
 WINDOWS_PLATFORMS = {
-    "win32": "x86_64",
+    "win32": "x86_32",
     "win_amd64": "x86_64",
     "win_arm64": "aarch64",
 }
