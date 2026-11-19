@@ -49,9 +49,9 @@ py_pex_binary(
 
 genrule(
     name = "run_print_modules_scie",
-    srcs = ["print_modules_scie"],
     outs = ["print_modules_scie.out"],
     cmd = "env -i HOME=$$PWD/home $(execpath print_modules_scie) >$@",
+    tools = ["print_modules_scie"],
 )
 
 assert_contains(
