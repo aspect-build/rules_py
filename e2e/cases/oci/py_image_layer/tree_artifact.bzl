@@ -12,6 +12,17 @@ def _tree_artifact_impl(ctx):
 
 tree_artifact = rule(implementation = _tree_artifact_impl)
 
+def _hardlinked_files_impl(ctx):
+    output = ctx.actions.declare_directory(ctx.label.name)
+    ctx.actions.run_shell(
+        outputs = [output],
+        arguments = [output.path],
+        command = 'mkdir -p "$1" && printf payload > "$1/a" && ln "$1/a" "$1/b"',
+    )
+    return [DefaultInfo(files = depset([output]))]
+
+hardlinked_files = rule(implementation = _hardlinked_files_impl)
+
 def _dir_and_symlink_impl(ctx):
     tree = ctx.actions.declare_directory(ctx.label.name + "_dir")
     ctx.actions.run_shell(
