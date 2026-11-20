@@ -1,0 +1,21 @@
+[project]
+name = "uv-dynamic-version"
+dynamic = ["version"]
+requires-python = ">=3.11"
+dependencies = ["dynver"]
+
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = []
+
+[tool.setuptools.dynamic]
+version = { file = "VERSION" }
+
+[tool.uv.sources]
+dynver = { workspace = true }
+
+[tool.uv.workspace]
+members = ["packages/*"]

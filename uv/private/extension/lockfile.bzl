@@ -12,6 +12,10 @@ load("//uv/private/whl_install:repository.bzl", "compatible_python_tags")
 load(":git_utils.bzl", "parse_git_url", "try_git_to_http_archive")
 load(":marker_simplify.bzl", "simplify_extra_marker")
 
+# uv omits `version` for source-tree packages that declare
+# `dynamic = ["version"]`; their lock records are keyed by this placeholder.
+DYNAMIC_VERSION = "0.0.0+dynamic"
+
 def fnv1a_64(s):
     """FNV-1a 64-bit hash as a 16-character hex string.
 
@@ -71,6 +75,8 @@ def normalize_deps(lock_id, lock_data):
     2.  It updates all dependency statements within the lockfile to be
         version-disambiguated, using the default versions where necessary.
 
+    Package records without a `version` get `DYNAMIC_VERSION`.
+
     Args:
         lock_id: A unique identifier for the lockfile.
         lock_data: The parsed content of the `uv.lock` file.
@@ -86,6 +92,8 @@ def normalize_deps(lock_id, lock_data):
     for spec in lock_data.get("package", []):
         # spec: RequirementSpec
         spec["name"] = normalize_name(spec["name"])
+        if "version" not in spec:
+            spec["version"] = DYNAMIC_VERSION
 
         # Collect all the versions first
         package_versions.setdefault(spec["name"], {})[spec["version"]] = 1
