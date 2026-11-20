@@ -1,0 +1,12 @@
+[project]
+name = "uv_gazelle_foreign_only_wheel"
+version = "0.0.0"
+requires-python = ">=3.11"
+dependencies = [
+    # Windows-only packages, locked on every platform. pywin32 ships only win*
+    # wheels, so on Linux/macOS its `:whl` falls through to `whl_missing`;
+    # pywinpty also ships an sdist, so its `:whl` falls back to a (maturin)
+    # source build. Gazelle indexing must handle both without either.
+    "pywin32 ; sys_platform == 'win32'",
+    "pywinpty ; sys_platform == 'win32'",
+]
