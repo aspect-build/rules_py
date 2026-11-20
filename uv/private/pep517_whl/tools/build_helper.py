@@ -372,10 +372,11 @@ elif is_link and exe_link_flags:
     # rustc hardcodes "-lgcc_s" on *-linux-gnu but this toolchain ships no
     # libgcc: the unwinder comes from the static runtime archives (or,
     # without them, from folding in "-lunwind" — cargo-zigbuild's trick,
-    # same ABI surface).
+    # same ABI surface). A toolchain whose own link flags name "-lgcc_s"
+    # (GNU libstdc++) does ship it.
     if static_runtime_archives:
         filtered = [a for a in filtered if a != "-lgcc_s"]
-    else:
+    elif "-lgcc_s" not in exe_link_flags:
         filtered = ["-lunwind" if a == "-lgcc_s" else a for a in filtered]
     filtered.extend(exe_link_flags)
     if not is_shared:
