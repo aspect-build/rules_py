@@ -21,6 +21,7 @@ genrule(
         "dotted_entry-1.0.dist-info/entry_points.txt=$(execpath dotted_entry/entry_points.txt)",
     ]),
     tools = ["@bazel_tools//tools/zip:zipper"],
+    visibility = ["//py/tests/unpacked-wheel-exec-inputs:__pkg__"],
 )
 
 py_unpacked_wheel(
