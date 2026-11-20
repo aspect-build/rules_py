@@ -245,10 +245,10 @@ write_source_files(
         "snapshots/pth_install_tree_fallback_namespace.venv.pth": "//pth-install-tree-fallback:namespace_test.venv.pth",
 
         # PBS pyvenv.cfg home handling (cases/pbs-symlink-prefix-1048).
-        # 3.11 is inside the narrow empty-home gate; 3.13 proves the normal
+        # 3.11 is inside the empty-home gate; 3.10 proves the normal
         # retained-home line stays intact outside it.
+        "snapshots/pbs_symlink_prefix_1048.python310.pyvenv.cfg": "//pbs-symlink-prefix-1048:action_probe_310.venv.cfg",
         "snapshots/pbs_symlink_prefix_1048.python311.pyvenv.cfg": "//pbs-symlink-prefix-1048:action_probe_311.venv.cfg",
-        "snapshots/pbs_symlink_prefix_1048.python313.pyvenv.cfg": "//pbs-symlink-prefix-1048:action_probe_313.venv.cfg",
 
         # Pins post-install exclusions and the retained RECORD-derived topology.
         "snapshots/whl_install.exclusions.cowsay.BUILD.bazel": "@whl_install__exclusions__cowsay__6_0//:BUILD.bazel",
