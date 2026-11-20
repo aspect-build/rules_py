@@ -52,6 +52,16 @@ def _windows_platforms_test_impl(ctx):
 
 windows_platforms_test = unittest.make(_windows_platforms_test_impl)
 
+def _windows_platform_cpus_test_impl(ctx):
+    """Regression: win32 wheels are 32-bit x86 and must not match x86_64 Windows."""
+    env = unittest.begin(ctx)
+    asserts.equals(env, "x86_32", WINDOWS_PLATFORMS["win32"])
+    asserts.equals(env, "x86_64", WINDOWS_PLATFORMS["win_amd64"])
+    asserts.equals(env, "aarch64", WINDOWS_PLATFORMS["win_arm64"])
+    return unittest.end(env)
+
+windows_platform_cpus_test = unittest.make(_windows_platform_cpus_test_impl)
+
 # -- supported_platform: rejected tags -----------------------------------------
 
 def _reject_win_ia64_test_impl(ctx):
@@ -156,6 +166,7 @@ def platform_suite():
         generic_linux_arches_test,
         musllinux_arches_test,
         windows_platforms_test,
+        windows_platform_cpus_test,
         reject_win_ia64_test,
         bare_linux_tags_test,
         reject_unsupported_arches_test,

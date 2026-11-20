@@ -60,7 +60,7 @@ GENERIC_LINUX_ARCHES = [
 
 # Supported Windows platform tags and their CPU constraints.
 WINDOWS_PLATFORMS = {
-    "win32": "x86_64",
+    "win32": "x86_32",
     "win_amd64": "x86_64",
     "win_arm64": "aarch64",
 }
