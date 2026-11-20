@@ -1,0 +1,12 @@
+[project]
+name = "remote_repo_contents_cache"
+version = "0.0.0"
+requires-python = ">=3.11"
+dependencies = [
+    "build",
+    "setuptools",
+    # sdist-only on PyPI, so every one is an sdist_build repository.
+    "docopt==0.6.2",
+    "hurry.filesize==0.9",
+    "sgmllib3k==1.0.0",
+]

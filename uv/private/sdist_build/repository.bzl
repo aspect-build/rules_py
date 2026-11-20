@@ -56,6 +56,7 @@ def _run_configure_tool(repository_ctx, archive_path, available_deps):
     cmd.extend([str(archive_path), str(context_path)])
 
     result = repository_ctx.execute(cmd, timeout = 30)
+    repository_ctx.delete(context_path)
     if result.return_code != 0:
         if repository_ctx.getenv("RULES_PY_UV_VERBOSE", ""):
             # buildifier: disable=print
@@ -194,6 +195,7 @@ def _sdist_build_impl(repository_ctx):
     is_native_override = repository_ctx.attr.is_native
     archive_path = _resolve_archive_path(repository_ctx)
     inspection = _run_configure_tool(repository_ctx, archive_path, available_deps) if archive_path else None
+    inspection_failed = bool(archive_path and repository_ctx.attr.configure_command) and inspection == None
 
     if is_native_override == "auto":
         if inspection != None:
@@ -372,6 +374,10 @@ exports_files(
         patch_attrs = patch_attrs,
         toolchain_attrs = toolchain_attrs,
     ))
+
+    # A failed inspection (e.g. the tool's timeout under load) falls back to a
+    # pure-Python guess that must not be shared through the repo contents cache.
+    return repository_ctx.repo_metadata(reproducible = not inspection_failed)
 
 sdist_build = repository_rule(
     implementation = _sdist_build_impl,

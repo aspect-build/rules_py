@@ -43,6 +43,13 @@ proving that `pyi_deps` resolve for ty while staying out of the runnable
 program. It needs the same compatibility flag, since rules_lint reads
 rules_python's `PyInfo`.
 
+`remote-repo-contents-cache` asserts that `sdist_build` repositories are served
+from `--experimental_remote_repo_contents_cache` (Bazel ≥ 8.8.0). Its `test.sh`
+starts a local `bazel-remote`, populates it from one empty client and checks
+that a second empty client reuses every `sdist_build` instead of running the
+rule. It is isolated so populating from scratch fetches only its own small
+graph.
+
 `rules-python-protobuf` contains protobuf's native `py_proto_library` and
 rules_proto_grpc_python consumer tests. Keeping both generators here prevents
 their rules_python/protobuf dependency graph from leaking into the main test module.
