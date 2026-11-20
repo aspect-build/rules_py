@@ -106,16 +106,14 @@ def _feature_filegroups(stdlib, is_windows):
     Returns a tuple of (feature_targets_str, all_feature_exclude_patterns).
     The exclude patterns are used to carve out feature files from the core filegroup.
     """
-    if is_windows:
-        return "", []
-
     lines = []
     all_excludes = []
+    layout_include = "include_windows" if is_windows else "include_posix"
 
     for feature_name, feature_info in INTERPRETER_FEATURES.items():
         patterns = [
             p.format(stdlib = stdlib)
-            for p in feature_info["include"]
+            for p in feature_info["include"] + feature_info.get(layout_include, [])
         ]
         all_excludes.extend(patterns)
 
@@ -150,9 +148,12 @@ py_pbs_archive_toolchain(
 )
 """.format(archive = archive)
 
-    # A free-threaded build's standard library is lib/python3.14t, not
-    # lib/python3.14.
-    stdlib = "lib/python{}.{}{}".format(major, minor, "t" if "t" in abi_flags else "")
+    if is_windows:
+        stdlib = "Lib"
+    else:
+        # A free-threaded build's standard library is lib/python3.14t, not
+        # lib/python3.14.
+        stdlib = "lib/python{}.{}{}".format(major, minor, "t" if "t" in abi_flags else "")
     feature_targets, feature_excludes = _feature_filegroups(stdlib, is_windows)
 
     include_dirs = ["include"]
@@ -244,8 +245,8 @@ filegroup(
 
 """
         venv_dlls_attr = "    venv_dlls = [\":venv_dlls\"],\n"
-        core_include = '["**/*.py", "**/*.pyd", "**/*.dll", "**/*.exe", "include/**", "Lib/**"]'
-        core_exclude = '["Lib/**/test/**", "Lib/**/tests/**", "**/__pycache__/*.pyc*"]'
+        core_include = repr(["**/*.py", "**/*.pyd", "**/*.dll", "**/*.exe", "include/**", stdlib + "/**"])
+        core_exclude = repr([stdlib + "/**/test/**", stdlib + "/**/tests/**", "**/__pycache__/*.pyc*"] + feature_excludes)
     else:
         core_include = '["bin/**", "lib/**"]'
         core_exclude = repr(
@@ -260,9 +261,8 @@ filegroup(
 
     # Build the select() expressions for optional features
     feature_selects = ""
-    if not is_windows:
-        for feature_name in INTERPRETER_FEATURES.keys():
-            feature_selects += """\
+    for feature_name in INTERPRETER_FEATURES.keys():
+        feature_selects += """\
     + select({{
         ":_exclude_{feature}": [],
         "//conditions:default": [":_feature_{feature}"],
