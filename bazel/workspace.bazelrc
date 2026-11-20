@@ -20,3 +20,5 @@ common:ci --jobs=64
 
 # Strip the configuration from output paths of actions that support path mapping.
 build --experimental_output_paths=strip
+# The llvm toolchain path-maps its module maps but Bazel 8 can't path-map C++ compiles.
+build --features=-layering_check --host_features=-layering_check

@@ -6,3 +6,7 @@
 # Bazel will not create the directory.
 try-import %workspace%/../../.aspect/bazelrc
 import %workspace%/../../bazel/workspace.bazelrc
+
+# llvm's sandboxed merged resource directory drops clang's builtin headers:
+# https://github.com/hermeticbuild/hermetic-llvm/issues/812
+build --strategy=CopyToDirectory=local --modify_execution_info=CopyToDirectory=+no-remote-cache

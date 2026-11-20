@@ -24,7 +24,8 @@ check_coverage() {
     echo "== bazel coverage ${target} =="
     # ^//coverage-drivers instruments this case's own sources (foo.py + the test
     # src) and excludes the @pypi_coverage_drivers wheels.
-    "$BAZEL" coverage --instrumentation_filter=^//coverage-drivers "${target}"
+    # A remote-cached test result doesn't download coverage.dat on its own.
+    "$BAZEL" coverage --instrumentation_filter=^//coverage-drivers --remote_download_regex='.*/coverage\.dat$' "${target}"
 
     [[ -s "${datfile}" ]] || {
         echo "FAIL: coverage data missing or empty: ${datfile}" >&2
