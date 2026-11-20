@@ -1,0 +1,74 @@
+# Windows interpreter files under exclude_feature. The test resolves the
+# interpreter's runtime files rather than a venv, whose tools would have to be
+# cross-compiled for Windows.
+
+load("@bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
+platform(
+    name = "windows_x64",
+    constraint_values = [
+        "@platforms//os:windows",
+        "@platforms//cpu:x86_64",
+    ],
+    flags = ["--@rules_py//py:python_version=3.13"],
+)
+
+platform(
+    name = "windows_x64_exclude_tkinter",
+    constraint_values = [
+        "@platforms//os:windows",
+        "@platforms//cpu:x86_64",
+    ],
+    flags = [
+        "--@rules_py//py:python_version=3.13",
+        "--@rules_py//py/private/interpreter:exclude_feature=tkinter",
+    ],
+)
+
+platform_transition_filegroup(
+    name = "interpreter",
+    srcs = ["@python_interpreters//:current_py_toolchain"],
+    target_platform = ":windows_x64",
+)
+
+platform_transition_filegroup(
+    name = "interpreter_exclude_tkinter",
+    srcs = ["@python_interpreters//:current_py_toolchain"],
+    target_platform = ":windows_x64_exclude_tkinter",
+)
+
+sh_test(
+    name = "test_kept",
+    srcs = ["test_windows_features.sh"],
+    args = [
+        "present:Lib/tkinter/__init__.py",
+        "present:DLLs/_tkinter.pyd",
+        "present:DLLs/tcl86t.dll",
+        "present:DLLs/tk86t.dll",
+        "present:tcl/dde1.4/tcldde14.dll",
+        "present:tcl/reg1.3/tclreg13.dll",
+        "present:tcl/tix8.4.3/pref/WmDefault.py",
+    ],
+    data = [":interpreter"],
+    target_compatible_with = ["@platforms//os:linux"],
+)
+
+sh_test(
+    name = "test_excluded",
+    srcs = ["test_windows_features.sh"],
+    args = [
+        "absent:Lib/tkinter/__init__.py",
+        "absent:DLLs/_tkinter.pyd",
+        "absent:DLLs/tcl86t.dll",
+        "absent:DLLs/tk86t.dll",
+        "absent:tcl/dde1.4/tcldde14.dll",
+        "absent:tcl/reg1.3/tclreg13.dll",
+        "absent:tcl/tix8.4.3/pref/WmDefault.py",
+        "present:Lib/os.py",
+        "present:DLLs/_ssl.pyd",
+        "present:python313.dll",
+    ],
+    data = [":interpreter_exclude_tkinter"],
+    target_compatible_with = ["@platforms//os:linux"],
+)
