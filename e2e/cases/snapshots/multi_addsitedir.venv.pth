@@ -1,7 +1,11 @@
 ../../../../../..
 import os, sys; _venv_bin = os.path.dirname(sys.executable); _path = os.environ.get("PATH", ""); os.environ["PATH"] = _path if _venv_bin in _path.split(os.pathsep) else _venv_bin + os.pathsep + _path; del _venv_bin, _path
+../../../../../../_main/uv-include-group/iniconfig_no_top_levels/lib/python3.11/site-packages
 import os, sys, site; site.addsitedir(os.path.normpath(os.path.join(sys.prefix, "../../..", "_main/uv-include-group/iniconfig_no_top_levels/lib/python3.11/site-packages")), vars().get("known_paths"))
 ../../../../../../_main
+../../../../../../_main/uv-include-group/packaging_no_top_levels/lib/python3.11/site-packages
 import os, sys, site; site.addsitedir(os.path.normpath(os.path.join(sys.prefix, "../../..", "_main/uv-include-group/packaging_no_top_levels/lib/python3.11/site-packages")), vars().get("known_paths"))
+../../../../../../_main/uv-include-group/pluggy_no_top_levels/lib/python3.11/site-packages
 import os, sys, site; site.addsitedir(os.path.normpath(os.path.join(sys.prefix, "../../..", "_main/uv-include-group/pluggy_no_top_levels/lib/python3.11/site-packages")), vars().get("known_paths"))
+../../../../../../_main/uv-include-group/pygments_no_top_levels/lib/python3.11/site-packages
 import os, sys, site; site.addsitedir(os.path.normpath(os.path.join(sys.prefix, "../../..", "_main/uv-include-group/pygments_no_top_levels/lib/python3.11/site-packages")), vars().get("known_paths"))
