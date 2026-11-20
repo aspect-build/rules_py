@@ -7,7 +7,6 @@ FILE lib/python3.13/site-packages/_many_scripts_bin.venv.pth
 ../../../../../../../../..
 import os, sys; _venv_bin = os.path.dirname(sys.executable); _path = os.environ.get("PATH", ""); os.environ["PATH"] = _path if _venv_bin in _path.split(os.pathsep) else _venv_bin + os.pathsep + _path; del _venv_bin, _path
 ../../../../../../../../../_main
-../../../../../../../../../+uv+project__rules_py
 ---
 LINK lib/python3.13/site-packages/_pytest -> ../../../../../../../../../+uv+whl_install__rules_py__pytest__8_1_1/actual_install.install/lib/python3.13/site-packages/_pytest
 LINK lib/python3.13/site-packages/arrow -> ../../../../../../../../../+uv+whl_install__rules_py__arrow__1_3_0/actual_install.install/lib/python3.13/site-packages/arrow
