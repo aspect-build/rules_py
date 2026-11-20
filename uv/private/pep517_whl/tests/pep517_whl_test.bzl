@@ -87,10 +87,21 @@ def _toolchain_env_test_impl(ctx):
         )
 
     args = build_actions[0].argv
+    asserts.true(env, "--toolchain-flags" in args, "native builds must pass the C++ toolchain's flags; argv: {}".format(args))
+    asserts.false(env, "--cross" in args, "a native build must not take the cross path")
+    for key in ("CFLAGS", "CXXFLAGS", "LDSHAREDFLAGS"):
+        asserts.true(env, action_env.get(key), "{} should carry the C++ toolchain's flags".format(key))
+
     marker_index = args.index("--execroot-marker")
     marker = args[marker_index + 1]
     asserts.equals(env, "-I{}/relative/include".format(marker), action_env.get("CPPFLAGS"))
-    asserts.equals(env, "{}/relative/libdep.a".format(marker), action_env.get("LDFLAGS"))
+
+    # Package LDFLAGS trail the C++ toolchain's link flags.
+    asserts.true(
+        env,
+        action_env.get("LDFLAGS", "").endswith(" {}/relative/libdep.a".format(marker)),
+        "LDFLAGS should end with the package's value; got: {}".format(action_env.get("LDFLAGS")),
+    )
 
     action_inputs = [f.path for f in build_actions[0].inputs.to_list()]
     for key in _CC_ENV_KEYS:

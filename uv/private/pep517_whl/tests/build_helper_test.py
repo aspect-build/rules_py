@@ -421,6 +421,14 @@ class TargetFlagsTest(unittest.TestCase):
         self.assertEqual(opts.target_os, "linux")
         self.assertEqual(opts.target_cpu, "aarch64")
 
+    def test_parser_accepts_toolchain_flags(self) -> None:
+        opts, _ = build_helper.PARSER.parse_known_args(["src.tar.gz", "out.whl"])
+        self.assertFalse(opts.toolchain_flags)
+        self.assertFalse(opts.cross)
+        opts, _ = build_helper.PARSER.parse_known_args(["src.tar.gz", "out.whl", "--toolchain-flags"])
+        self.assertTrue(opts.toolchain_flags)
+        self.assertFalse(opts.cross)
+
 
 
 def _run_wrapper(wrapper: str, args: list[str]) -> list[str]:
