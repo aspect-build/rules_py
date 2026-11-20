@@ -1,0 +1,23 @@
+load("@aspect_rules_py//py:defs.bzl", "py_binary")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
+py_binary(
+    name = "hello",
+    srcs = ["hello.py"],
+    main = "hello.py",
+)
+
+# Reproduces a py_binary launcher (hermetic_launcher 0.0.9) failing under
+# `bazel run` / direct exec when RUNFILES_DIR is not pre-set: the launcher
+# cannot self-locate its `.runfiles` dir and aborts with
+# "execve failed with errno 2". `bazel test` masks this by setting RUNFILES_DIR.
+#
+# Tagged `manual` so it stays out of the default `//...` gate until the launcher
+# fix lands; run explicitly with `bazel test //cases/run-runfiles-discovery:runs_via_bazel_run`.
+sh_test(
+    name = "runs_via_bazel_run",
+    srcs = ["run_it.sh"],
+    args = ["$(rootpath :hello)"],
+    data = [":hello"],
+    tags = ["manual"],
+)
