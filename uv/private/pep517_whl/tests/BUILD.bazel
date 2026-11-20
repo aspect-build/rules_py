@@ -222,8 +222,11 @@ hostile_python_env_target(
 
 # config_settings reach the backend through `build -C key=value`: the in-tree
 # backend compares what it receives against EXPECTED_CONFIG_SETTINGS (a single
-# value stays a str, repeated keys become a list).
+# value stays a str, repeated keys become a list). `--global-option` is the
+# dashed key setuptools reads; its `-`-prefixed setting must not be parsed as
+# an option by the helper or by `build`.
 _CONFIG_SETTINGS = {
+    "--global-option": ["--without-libyaml"],
     "setup-args": [
         "-Dblas=none",
         "-Dlapack=none",
@@ -232,12 +235,10 @@ _CONFIG_SETTINGS = {
 }
 
 _CONFIG_SETTING_FLAGS = [
-    "--config-setting",
-    "setup-args=-Dblas=none",
-    "--config-setting",
-    "setup-args=-Dlapack=none",
-    "--config-setting",
-    "single=one",
+    "--config-setting=--global-option=--without-libyaml",
+    "--config-setting=setup-args=-Dblas=none",
+    "--config-setting=setup-args=-Dlapack=none",
+    "--config-setting=single=one",
 ]
 
 pep517_native_whl(
@@ -245,7 +246,7 @@ pep517_native_whl(
     src = ":__python_env_sdist",
     config_settings = _CONFIG_SETTINGS,
     env = {
-        "EXPECTED_CONFIG_SETTINGS": '{"setup-args": ["-Dblas=none", "-Dlapack=none"], "single": "one"}',
+        "EXPECTED_CONFIG_SETTINGS": '{"--global-option": "--without-libyaml", "setup-args": ["-Dblas=none", "-Dlapack=none"], "single": "one"}',
     },
     tags = ["manual"],
     tool = ":__build_helper_reset",

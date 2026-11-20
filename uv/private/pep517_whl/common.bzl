@@ -52,11 +52,13 @@ def memory_args(ctx):
     return ["--monitor-memory"] if ctx.attr.monitor_memory else []
 
 def config_setting_args(ctx):
-    """`--config-setting key=value` per listed value, keys sorted for a stable action key."""
+    """`--config-setting=key=value` per listed value, keys sorted for a stable action key."""
     args = []
     for key in sorted(ctx.attr.config_settings):
         for value in ctx.attr.config_settings[key]:
-            args += ["--config-setting", "{}={}".format(key, value)]
+            # One argument, so a dashed key such as setuptools'
+            # `--global-option` isn't parsed as an option.
+            args.append("--config-setting={}={}".format(key, value))
     return args
 
 _PATCH_ATTRS = {
