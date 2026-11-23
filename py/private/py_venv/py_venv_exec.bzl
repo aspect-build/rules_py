@@ -279,6 +279,10 @@ that must match the terminal's Python environment in `deps`.
         doc = "Python source files. Forwarded to the sibling py_venv.",
         allow_files = [".py"],
     ),
+    "pyi_srcs": attr.label_list(
+        doc = "Type definition files, typically `.pyi` stubs. Forwarded to the sibling py_venv.",
+        allow_files = True,
+    ),
     "_allowlist_function_transition": attr.label(
         default = "@bazel_tools//tools/allowlists/function_transition_allowlist",
     ),

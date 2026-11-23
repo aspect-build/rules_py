@@ -404,7 +404,7 @@ def _split_kwargs_for_venv(kwargs, expose_venv):
                 venv_kwargs[name] = kwargs[name]
     return venv_kwargs
 
-def py_binary_with_venv(py_rule, name, main, srcs = [], deps = [], data = [], imports = [], tags = None, testonly = None, visibility = None, isolated = True, expose_venv = None, expose_venv_link = False, freethreaded = None, **kwargs):
+def py_binary_with_venv(py_rule, name, main, srcs = [], pyi_srcs = [], deps = [], data = [], imports = [], tags = None, testonly = None, visibility = None, isolated = True, expose_venv = None, expose_venv_link = False, freethreaded = None, **kwargs):
     """Split `py_rule(name, ...)` into a sibling py_venv target + a
     `py_rule` call routed at it via the internal `venv` rule
     attribute. Called for every `py_binary` / `py_test` macro invocation.
@@ -442,6 +442,7 @@ def py_binary_with_venv(py_rule, name, main, srcs = [], deps = [], data = [], im
     if freethreaded != None:
         venv_kwargs["freethreaded"] = freethreaded
     venv_kwargs["srcs"] = srcs
+    venv_kwargs["pyi_srcs"] = pyi_srcs
     venv_kwargs["deps"] = deps
     venv_kwargs["imports"] = imports
     venv_kwargs["data"] = data
@@ -487,6 +488,8 @@ def py_binary_with_venv(py_rule, name, main, srcs = [], deps = [], data = [], im
         # and the coverage walk can resolve the label (srcs are kept on
         # the launcher for the same reason).
         data = data,
+        # Kept on the launcher, like `srcs`, so aspects visiting it see the stubs.
+        pyi_srcs = pyi_srcs,
         tags = tags,
         testonly = testonly,
         visibility = visibility,

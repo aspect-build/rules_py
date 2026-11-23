@@ -42,6 +42,12 @@ def _make_srcs_depset(ctx, extra_depsets = []):
         ] + extra_depsets,
     )
 
+def _direct_type_stubs(ctx):
+    # Stubs may sit in `srcs` beside their modules or in `pyi_srcs`, which
+    # mirrors rules_python's attribute. Rules that reuse these helpers without
+    # declaring `pyi_srcs` simply contribute none.
+    return _type_stubs(ctx.files.srcs) + getattr(ctx.files, "pyi_srcs", [])
+
 def _make_pyi_depset(ctx, extra_depsets = []):
     # Stubs are partitioned out of `transitive_sources` to match rules_python's
     # PyInfo shape, where `.pyi` files never count as runtime sources.
@@ -50,7 +56,7 @@ def _make_pyi_depset(ctx, extra_depsets = []):
     pyi_deps = getattr(ctx.attr, "pyi_deps", [])
     return depset(
         order = "postorder",
-        direct = _type_stubs(ctx.files.srcs),
+        direct = _direct_type_stubs(ctx),
         transitive = [
             get_transitive_pyi_files(target)
             for target in ctx.attr.deps
@@ -202,7 +208,7 @@ def _py_library_impl(ctx):
 
     providers = [
         DefaultInfo(
-            files = depset(direct = ctx.files.srcs),
+            files = depset(direct = ctx.files.srcs + ctx.files.pyi_srcs),
             default_runfiles = runfiles,
         ),
         PyInfo(
@@ -229,7 +235,7 @@ def _py_library_impl(ctx):
         providers.append(RulesPythonPyInfo(
             imports = depset(transitive = [imports, pyi_imports]),
             transitive_sources = transitive_srcs,
-            direct_pyi_files = depset(_type_stubs(ctx.files.srcs)),
+            direct_pyi_files = depset(_direct_type_stubs(ctx)),
             transitive_pyi_files = transitive_pyi_files,
         ))
 
@@ -241,6 +247,15 @@ _attrs = dict({
 
         `.pyi` type stubs listed here are carried as `PyInfo.transitive_pyi_files`
         rather than as runtime sources.""",
+        allow_files = True,
+    ),
+    "pyi_srcs": attr.label_list(
+        doc = """Type definition files, typically `.pyi` stubs, for this target's modules.
+
+        Like stubs listed in `srcs`, they are carried as `PyInfo.transitive_pyi_files`
+        and never enter runfiles. Use this attribute when the runtime module comes from
+        another rule, such as a native extension or generated code, or when a target
+        ships only stubs. Matches rules_python's attribute of the same name.""",
         allow_files = True,
     ),
     "deps": attr.label_list(
