@@ -16,6 +16,7 @@ bzl_library(
     deps = [
         ":graph_utils",
         ":lockfile",
+        ":marker_simplify",
         ":projectfile",
         "//py/private/interpreter:resolve",
         "//uv/private:normalize_name",

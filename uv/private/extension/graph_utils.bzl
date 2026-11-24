@@ -1,6 +1,6 @@
 load("//uv/private:sha1.bzl", "sha1")
 load("//uv/private/graph:sccs.bzl", "sccs")
-load(":marker_simplify.bzl", "simplify_markers_for_extras")
+load(":marker_simplify.bzl", "simplify_conflict_markers", "simplify_markers_for_extras")
 
 def collect_sccs(marker_graph):
     """Computes Strongly Connected Components (SCCs) for a dependency marker_graph.
@@ -116,7 +116,7 @@ def combine_markers(lefts, rights):
 
     return acc
 
-def activate_extras(marker_graph, activated_extras, cfg):
+def activate_extras(marker_graph, activated_extras, cfg, conflict = None):
     """
     Configure an unconfigured marker graph by activating extras.
 
@@ -124,6 +124,15 @@ def activate_extras(marker_graph, activated_extras, cfg):
     - Merges all active extras into their base packages (add deps)
     - Translates all deps on extras to deps on the base package
     - Removes all extras pesudo-packages
+    - Decides uv's conflict-routing markers for the configuration's group,
+      dropping the edges uv never takes while that group is active
+
+    Args:
+        marker_graph: The unconfigured marker graph.
+        activated_extras: As returned by `collect_activated_extras`.
+        cfg: The configuration (dependency group) to activate.
+        conflict: `cfg`'s entry from `conflict_group_extras`, or None when
+            the lockfile declares no conflicts.
     """
 
     acc = {}
@@ -137,9 +146,13 @@ def activate_extras(marker_graph, activated_extras, cfg):
         acc.setdefault(pkg, {})
 
         for dep, markers in list(marked_deps.items()):
+            resolved_markers = simplify_conflict_markers(markers, conflict)
+            if markers and not resolved_markers:
+                continue
+
             # Normalize all deps to deps on the base package
             normalized_dep = (dep[0], dep[1], dep[2], "__base__")
-            acc[pkg].setdefault(normalized_dep, {}).update(markers)
+            acc[pkg].setdefault(normalized_dep, {}).update(resolved_markers)
 
         # For the current (base!) package, look up the closure of activated
         # extras and merge the _dependencies_ of those extras in.
@@ -160,7 +173,10 @@ def activate_extras(marker_graph, activated_extras, cfg):
                 # Resolve any `extra` markers using the extras we know are
                 # active. This avoids relying on the venv-name heuristic in
                 # decide_marker later.
-                simplified_implied_markers = simplify_markers_for_extras(implied_markers, active_extra_names)
+                simplified_implied_markers = simplify_markers_for_extras(
+                    simplify_conflict_markers(implied_markers, conflict),
+                    active_extra_names,
+                )
                 if simplified_implied_markers:
                     acc[pkg].setdefault(normalized_implied_dep, {}).update(combine_markers(extra_markers, simplified_implied_markers))
 
