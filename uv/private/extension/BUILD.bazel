@@ -7,6 +7,7 @@ bzl_library(
     deps = [
         ":graph_utils",
         ":lockfile",
+        ":marker_simplify",
         ":projectfile",
         "//py/private/interpreter:resolve",
         "//uv/private:normalize_name",
@@ -32,6 +33,7 @@ bzl_library(
     srcs = ["graph_utils.bzl"],
     visibility = ["//uv:__subpackages__"],
     deps = [
+        ":marker_simplify",
         "//uv/private:normalize_version",
         "//uv/private/graph:sccs",
     ],
@@ -67,6 +69,7 @@ bzl_library(
     visibility = ["//uv:__subpackages__"],
     deps = [
         ":dep_groups",
+        ":marker_simplify",
         "//uv/private:normalize_name",
         "//uv/private/versions",
     ],

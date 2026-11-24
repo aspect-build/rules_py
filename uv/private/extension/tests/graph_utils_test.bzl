@@ -1,6 +1,19 @@
 load("@bazel_skylib//lib:unittest.bzl", "asserts", "unittest")
 load("//uv/private/extension:graph_utils.bzl", "activate_extras", "collect_build_deps", "collect_sccs", "exclude_build_dep", "reachable_build_deps")
 
+# Markers as `uv lock` writes them for a project `conflict-repro` whose groups
+# `cpu` and `cuda` conflict, each with its own torch index.
+_CPU = "group-14-conflict-repro-cpu"
+_CUDA = "group-14-conflict-repro-cuda"
+_TORCH_DARWIN = "(sys_platform == 'darwin' and extra == '{cpu}') or (extra == '{cpu}' and extra == '{cuda}')".format(cpu = _CPU, cuda = _CUDA)
+_TORCH_CPU = "(sys_platform != 'darwin' and extra == '{cpu}') or (extra == '{cpu}' and extra == '{cuda}')".format(cpu = _CPU, cuda = _CUDA)
+_TORCH_PYPI = "(extra != '{cpu}' and extra != '{cuda}') or (extra == '{cpu}' and extra == '{cuda}')".format(cpu = _CPU, cuda = _CUDA)
+_TORCH_CU129 = "extra == '{cuda}'".format(cuda = _CUDA)
+_LABELS = {_CPU: 1, _CUDA: 1}
+_CPU_ROUTING = struct(extra = _CPU, labels = _LABELS)
+_CUDA_ROUTING = struct(extra = _CUDA, labels = _LABELS)
+
+
 def _extras_test_impl(ctx):
     env = unittest.begin(ctx)
 
@@ -622,10 +635,62 @@ reachable_build_deps_test = unittest.make(
     _reachable_build_deps_test_impl,
 )
 
+def _activate_extras_conflict_groups_test_impl(ctx):
+    env = unittest.begin(ctx)
+
+    lib = ("proj", "lib", "0.1.0", "__base__")
+    torch_darwin = ("proj", "torch", "2.9.1", "__base__")
+    torch_cpu = ("proj", "torch", "2.9.1+cpu", "__base__")
+    torch_cu129 = ("proj", "torch", "2.9.1+cu129", "__base__")
+    marker_graph = {
+        lib: {
+            torch_darwin: {_TORCH_DARWIN: 1, _TORCH_PYPI: 1},
+            torch_cpu: {_TORCH_CPU: 1},
+            torch_cu129: {_TORCH_CU129: 1},
+        },
+        torch_darwin: {},
+        torch_cpu: {},
+        torch_cu129: {},
+    }
+
+    asserts.equals(
+        env,
+        {
+            lib: {
+                torch_darwin: {"(sys_platform == \"darwin\")": 1},
+                torch_cpu: {"(sys_platform != \"darwin\")": 1},
+            },
+            torch_darwin: {},
+            torch_cpu: {},
+            torch_cu129: {},
+        },
+        activate_extras(marker_graph, {}, "cpu", _CPU_ROUTING),
+    )
+    asserts.equals(
+        env,
+        {
+            lib: {torch_cu129: {"": 1}},
+            torch_darwin: {},
+            torch_cpu: {},
+            torch_cu129: {},
+        },
+        activate_extras(marker_graph, {}, "cuda", _CUDA_ROUTING),
+    )
+
+    # Without conflicts the edges keep their markers as written.
+    asserts.equals(env, marker_graph[lib], activate_extras(marker_graph, {}, "cpu")[lib])
+
+    return unittest.end(env)
+
+activate_extras_conflict_groups_test = unittest.make(
+    _activate_extras_conflict_groups_test_impl,
+)
+
 def graph_utils_test_suite():
     unittest.suite(
         "extras_activation_tests",
         extras_activation_test,
+        activate_extras_conflict_groups_test,
     )
     unittest.suite(
         "collect_sccs_tests",

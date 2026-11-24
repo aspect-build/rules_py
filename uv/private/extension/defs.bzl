@@ -69,6 +69,7 @@ load("//uv/private/whl_install:metadata.bzl", "parse_console_script")
 load("//uv/private/whl_install:repository.bzl", "whl_install")
 load(":graph_utils.bzl", "activate_extras", "collect_build_deps", "collect_sccs")
 load(":lockfile.bzl", "build_marker_graph", "collect_bdists", "collect_configurations", "collect_sdists", "normalize_deps", "url_basename")
+load(":marker_simplify.bzl", "conflict_group_extras")
 load(":projectfile.bzl", "collate_versions_by_name", "collect_activated_extras", "extract_requirement_marker_pairs")
 
 # attr.string_dict cannot distinguish omission from an explicitly empty map.
@@ -433,8 +434,9 @@ def _parse_projects(module_ctx, hub_specs):
             # Shared across configurations so SCCs with identical content share
             # one id; content differing only in deps/markers stays distinct.
             scc_id_state = {}
+            conflict_extras = conflict_group_extras(project_data, lock_data)
             for cfg in configuration_names:
-                cfgd_marker_graph = activate_extras(marker_graph, activated_extras, cfg)
+                cfgd_marker_graph = activate_extras(marker_graph, activated_extras, cfg, conflict_extras.get(cfg))
                 cfgd_dep_to_scc, cfgd_scc_graph, cfgd_scc_deps = collect_sccs(cfgd_marker_graph, scc_id_state)
 
                 # Aggregated across configurations; markers that vary per graph

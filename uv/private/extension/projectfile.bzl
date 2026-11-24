@@ -5,6 +5,7 @@ Machinery specific to interacting with a pyproject.toml
 load("//uv/private:normalize_name.bzl", "normalize_name")
 load("//uv/private/versions:versions.bzl", "find_matching_version", "version_satisfies")
 load(":dep_groups.bzl", "resolve_dependency_group_specs")
+load(":marker_simplify.bzl", "conflict_group_extras", "simplify_conflict_markers")
 
 def extract_requirement_marker_pairs(projectfile, lock_id, req_string, version_map, package_versions = {}, preferred_versions = {}, fail_if_missing = True):
     """Parses a requirement string into a list of dependency-marker pairs.
@@ -222,10 +223,14 @@ def collect_activated_extras(projectfile, lock_id, project_data, lock_data, defa
 
     lockfile_group_versions = _extract_lockfile_group_versions(lock_id, lock_data)
 
+    # uv's conflict-routing label for each group, when the lock has conflicts.
+    conflict_extras = conflict_group_extras(project_data, lock_data)
+
     for group_name in dep_groups:
         resolved_specs = resolve_dependency_group_specs(dep_groups, group_name)
 
-        group_preferences = dict(lockfile_group_versions.get(group_name, {}))
+        # The lockfile's group names are normalized; look the group up the same way.
+        group_preferences = dict(lockfile_group_versions.get(normalize_name(group_name), {}))
 
         direct_versions = {}
         for spec in resolved_specs:
@@ -254,6 +259,7 @@ def collect_activated_extras(projectfile, lock_id, project_data, lock_data, defa
             for clause in clauses
         ]
         group_prefs = all_group_preferences.get(group_name, {})
+        conflict = conflict_extras.get(group_name)
 
         # Every minimal clause has a simple-path witness, so one round per
         # node plus one to drain reaches the fixed point.
@@ -267,6 +273,12 @@ def collect_activated_extras(projectfile, lock_id, project_data, lock_data, defa
                     continue
 
                 for next_dep, edge_markers in graph.get(parent_dep, {}).items():
+                    # Decide uv's conflict-routing terms for this group; an
+                    # edge uv never takes while the group is active is gone.
+                    edge_markers = simplify_conflict_markers(edge_markers, conflict)
+                    if not edge_markers:
+                        continue
+
                     pkg_name = next_dep[1]
                     pref = group_prefs.get(pkg_name)
                     target_dep = next_dep
