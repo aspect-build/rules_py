@@ -68,6 +68,7 @@ load("//uv/private/uv_project:repository.bzl", "uv_project")
 load("//uv/private/whl_install:repository.bzl", "whl_install")
 load(":graph_utils.bzl", "activate_extras", "collect_sccs")
 load(":lockfile.bzl", "build_marker_graph", "collect_bdists", "collect_configurations", "collect_markers", "collect_sdists", "normalize_deps")
+load(":marker_simplify.bzl", "conflict_group_extras")
 load(":projectfile.bzl", "collate_versions_by_name", "collect_activated_extras", "extract_requirement_marker_pairs")
 
 def _merge_scc_dep_markers_by_surface_package(marked_deps):
@@ -275,8 +276,9 @@ def _parse_projects(module_ctx, hub_specs):
 
             # Mapping from package to cfg to the SCC for that package in that cfg
             package_cfg_sccs = {}
+            conflict_extras = conflict_group_extras(project_data, lock_data)
             for cfg in configuration_names:
-                cfgd_marker_graph = activate_extras(marker_graph, activated_extras, cfg)
+                cfgd_marker_graph = activate_extras(marker_graph, activated_extras, cfg, conflict_extras.get(cfg))
                 cfgd_dep_to_scc, cfgd_scc_graph, cfgd_scc_deps = collect_sccs(cfgd_marker_graph)
 
                 # Aggregate the dependency graphs Note that this may be overly

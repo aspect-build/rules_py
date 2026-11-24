@@ -1,6 +1,16 @@
 load("@bazel_skylib//lib:unittest.bzl", "asserts", "unittest")
 load(":projectfile.bzl", "collect_activated_extras", "extract_requirement_marker_pairs")
 
+# Markers as `uv lock` writes them for a project `conflict-repro` whose groups
+# `cpu` and `cuda` conflict, each with its own torch index.
+_CPU = "group-14-conflict-repro-cpu"
+_CUDA = "group-14-conflict-repro-cuda"
+_TORCH_DARWIN = "(sys_platform == 'darwin' and extra == '{cpu}') or (extra == '{cpu}' and extra == '{cuda}')".format(cpu = _CPU, cuda = _CUDA)
+_TORCH_CPU = "(sys_platform != 'darwin' and extra == '{cpu}') or (extra == '{cpu}' and extra == '{cuda}')".format(cpu = _CPU, cuda = _CUDA)
+_TORCH_PYPI = "(extra != '{cpu}' and extra != '{cuda}') or (extra == '{cpu}' and extra == '{cuda}')".format(cpu = _CPU, cuda = _CUDA)
+_TORCH_CU129 = "extra == '{cuda}'".format(cuda = _CUDA)
+
+
 def _extract_requirement_marker_pairs_multi_version_no_specifier_test_impl(ctx):
     env = unittest.begin(ctx)
     result = extract_requirement_marker_pairs(
@@ -432,6 +442,146 @@ collect_activated_extras_transitive_condition_propagation_test = unittest.make(
     _collect_activated_extras_transitive_condition_propagation_test_impl,
 )
 
+def _conflict_torch_fixture():
+    """Two conflicting groups, each with its own torch index, reaching torch
+    both directly and through a workspace member `lib`, as `uv lock` writes
+    it."""
+    project_data = {
+        "project": {"name": "conflict-repro"},
+        "dependency-groups": {
+            "cpu": ["lib", "torch==2.9.1"],
+            "cuda": ["lib", "torch==2.9.1"],
+        },
+    }
+    lock_data = {
+        "conflicts": [[
+            {"package": "conflict-repro", "group": "cpu"},
+            {"package": "conflict-repro", "group": "cuda"},
+        ]],
+        "package": [
+            {
+                "name": "conflict-repro",
+                "version": "0.0.0",
+                "source": {"virtual": "."},
+                "dev-dependencies": {
+                    "cpu": [
+                        {"name": "lib", "version": "0.1.0"},
+                        {"name": "torch", "version": "2.9.1", "marker": _TORCH_DARWIN},
+                        {"name": "torch", "version": "2.9.1+cpu", "marker": _TORCH_CPU},
+                    ],
+                    "cuda": [
+                        {"name": "lib", "version": "0.1.0"},
+                        {"name": "torch", "version": "2.9.1+cu129"},
+                    ],
+                },
+            },
+        ],
+    }
+    lib = ("lock", "lib", "0.1.0", "__base__")
+    torch_darwin = ("lock", "torch", "2.9.1", "__base__")
+    torch_cpu = ("lock", "torch", "2.9.1+cpu", "__base__")
+    torch_cu129 = ("lock", "torch", "2.9.1+cu129", "__base__")
+    graph = {
+        lib: {
+            torch_darwin: {_TORCH_DARWIN: 1, _TORCH_PYPI: 1},
+            torch_cpu: {_TORCH_CPU: 1},
+            torch_cu129: {_TORCH_CU129: 1},
+        },
+        torch_darwin: {},
+        torch_cpu: {},
+        torch_cu129: {},
+    }
+    return struct(
+        project_data = project_data,
+        lock_data = lock_data,
+        graph = graph,
+        default_versions = {"lib": lib},
+        package_versions = {
+            "lib": {"0.1.0": 1},
+            "torch": {"2.9.1": 1, "2.9.1+cpu": 1, "2.9.1+cu129": 1},
+        },
+        torch_darwin = torch_darwin,
+        torch_cpu = torch_cpu,
+        torch_cu129 = torch_cu129,
+    )
+
+def _collect_activated_extras_conflict_groups_test_impl(ctx):
+    env = unittest.begin(ctx)
+    fx = _conflict_torch_fixture()
+
+    _cfg_names, activated_extras = collect_activated_extras(
+        "//:pyproject.toml",
+        "lock",
+        fx.project_data,
+        fx.lock_data,
+        fx.default_versions,
+        fx.graph,
+        fx.package_versions,
+    )
+
+    def markers(dep, group):
+        return activated_extras.get(dep, {}).get(group, {}).get(dep)
+
+    # Each group activates exactly the torch entries uv locked for it, with the
+    # conflict-routing terms decided and only the platform terms left.
+    asserts.equals(env, {"(sys_platform == \"darwin\")": 1}, markers(fx.torch_darwin, "cpu"))
+    asserts.equals(env, {"(sys_platform != \"darwin\")": 1}, markers(fx.torch_cpu, "cpu"))
+    asserts.equals(env, None, markers(fx.torch_cu129, "cpu"))
+
+    asserts.equals(env, {"": 1}, markers(fx.torch_cu129, "cuda"))
+    asserts.equals(env, None, markers(fx.torch_darwin, "cuda"))
+    asserts.equals(env, None, markers(fx.torch_cpu, "cuda"))
+
+    return unittest.end(env)
+
+collect_activated_extras_conflict_groups_test = unittest.make(
+    _collect_activated_extras_conflict_groups_test_impl,
+)
+
+def _collect_activated_extras_normalized_group_name_test_impl(ctx):
+    env = unittest.begin(ctx)
+
+    # uv.lock spells groups normalized; a pyproject group `Dev_GPU` is locked
+    # as `dev-gpu` and must still find its marker-gated candidates.
+    project_data = {
+        "project": {"name": "test_project"},
+        "dependency-groups": {"Dev_GPU": ["six"]},
+    }
+    lock_data = {
+        "package": [
+            {
+                "name": "test_project",
+                "version": "0.0.0",
+                "source": {"virtual": "."},
+                "dev-dependencies": {
+                    "dev-gpu": [
+                        {"name": "six", "version": "1.16.0", "marker": "sys_platform == 'linux'"},
+                        {"name": "six", "version": "1.17.0", "marker": "sys_platform != 'linux'"},
+                    ],
+                },
+            },
+        ],
+    }
+    six_116 = ("lock", "six", "1.16.0", "__base__")
+    six_117 = ("lock", "six", "1.17.0", "__base__")
+    _cfg_names, activated_extras = collect_activated_extras(
+        "//:pyproject.toml",
+        "lock",
+        project_data,
+        lock_data,
+        {},
+        {six_116: {}, six_117: {}},
+        {"six": {"1.16.0": 1, "1.17.0": 1}},
+    )
+    asserts.equals(env, {"sys_platform == 'linux'": 1}, activated_extras[six_116]["Dev_GPU"][six_116])
+    asserts.equals(env, {"sys_platform != 'linux'": 1}, activated_extras[six_117]["Dev_GPU"][six_117])
+
+    return unittest.end(env)
+
+collect_activated_extras_normalized_group_name_test = unittest.make(
+    _collect_activated_extras_normalized_group_name_test_impl,
+)
+
 def projectfile_test_suite():
     unittest.suite(
         "extract_requirement_marker_pairs_tests",
@@ -445,4 +595,6 @@ def projectfile_test_suite():
         collect_activated_extras_group_multi_version_test,
         collect_activated_extras_group_marker_fallback_test,
         collect_activated_extras_transitive_condition_propagation_test,
+        collect_activated_extras_conflict_groups_test,
+        collect_activated_extras_normalized_group_name_test,
     )

@@ -5,7 +5,7 @@ Machinery specific to interacting with a pyproject.toml
 load("//uv/private:normalize_name.bzl", "normalize_name")
 load("//uv/private/versions:versions.bzl", "find_matching_version")
 load(":dep_groups.bzl", "resolve_dependency_group_specs")
-load(":marker_simplify.bzl", "simplify_markers_for_extras")
+load(":marker_simplify.bzl", "conflict_group_extras", "simplify_conflict_markers", "simplify_markers_for_extras")
 
 def extract_requirement_marker_pairs(projectfile, lock_id, req_string, version_map, package_versions = {}, preferred_versions = {}):
     """Parses a requirement string into a list of dependency-marker pairs.
@@ -272,10 +272,26 @@ def collect_activated_extras(projectfile, lock_id, project_data, lock_data, defa
 
     lockfile_group_versions = _extract_lockfile_group_versions(lock_id, lock_data)
 
+    # uv's conflict-routing label for each group, when the lock has conflicts.
+    conflict_extras = conflict_group_extras(project_data, lock_data)
+
     for group_name in dep_groups.keys():
         resolved_specs = resolve_dependency_group_specs(dep_groups, group_name)
 
-        group_candidates = lockfile_group_versions.get(group_name, {})
+        # Decide the conflict-routing terms of the group's locked candidates
+        # for this group, so only the entries uv selects for it remain, gated
+        # by their environment terms alone. The lockfile's group names are
+        # normalized, so look the group up the same way.
+        conflict = conflict_extras.get(group_name)
+        group_candidates = {}
+        for pkg_name, candidates in lockfile_group_versions.get(normalize_name(group_name), {}).items():
+            live = []
+            for candidate, candidate_marker in candidates:
+                resolved = simplify_conflict_markers({candidate_marker: 1}, conflict)
+                if resolved:
+                    live.append((candidate, resolved.keys()[0]))
+            if live:
+                group_candidates[pkg_name] = live
 
         # A package the group locks under a marker — or at several marker-gated
         # versions — cannot be collapsed to an unconditional preference. Those
@@ -325,6 +341,7 @@ def collect_activated_extras(projectfile, lock_id, project_data, lock_data, defa
 
     for group_name, deps in normalized_dep_groups.items():
         worklist = list(deps)
+        conflict = conflict_extras.get(group_name)
         group_prefs = all_group_preferences.get(group_name, {})
         group_fanout = all_group_fanout_candidates.get(group_name, {})
 
@@ -351,8 +368,16 @@ def collect_activated_extras(projectfile, lock_id, project_data, lock_data, defa
             # on outgoing edges can be resolved using that extra.
             origin_extra = it[3] if it[3] != "__base__" else None
 
-            for next_dep, markers in graph.get(it, {}).items():
+            for next_dep, edge_markers in graph.get(it, {}).items():
                 pkg_name = next_dep[1]
+
+                # Conflict-routing terms first: they name groups, not this
+                # package's extras, so they are decided by the active group.
+                markers = simplify_conflict_markers(edge_markers, conflict)
+                if edge_markers and not markers:
+                    # uv never takes this edge while this group is active.
+                    continue
+
                 simplified_markers = simplify_markers_for_extras(markers, [origin_extra]) if origin_extra else markers
 
                 # Conjoin the conditions that (newly) activate this node with
