@@ -158,7 +158,7 @@ Must not be testonly. `py_image_layer` transitions the `//py:layer_tier` flag to
 <pre>
 load("@rules_py//py:defs.bzl", "py_library")
 
-py_library(<a href="#py_library-name">name</a>, <a href="#py_library-deps">deps</a>, <a href="#py_library-srcs">srcs</a>, <a href="#py_library-data">data</a>, <a href="#py_library-imports">imports</a>, <a href="#py_library-pyi_deps">pyi_deps</a>, <a href="#py_library-resolutions">resolutions</a>, <a href="#py_library-virtual_deps">virtual_deps</a>)
+py_library(<a href="#py_library-name">name</a>, <a href="#py_library-deps">deps</a>, <a href="#py_library-srcs">srcs</a>, <a href="#py_library-data">data</a>, <a href="#py_library-imports">imports</a>, <a href="#py_library-pyi_deps">pyi_deps</a>, <a href="#py_library-pyi_srcs">pyi_srcs</a>, <a href="#py_library-resolutions">resolutions</a>, <a href="#py_library-virtual_deps">virtual_deps</a>)
 </pre>
 
 
@@ -174,6 +174,7 @@ py_library(<a href="#py_library-name">name</a>, <a href="#py_library-deps">deps<
 | <a id="py_library-data"></a>data |  Runtime dependencies of the program.<br><br>The transitive closure of the `data` dependencies will be available in the `.runfiles` folder for this binary/test. The program may optionally use the Runfiles lookup library to locate the data files, see https://pypi.org/project/bazel-runfiles/. Data is analyzed in the inherited caller configuration. Put artifacts that must match the terminal's Python environment in `deps`.   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional |  `[]`  |
 | <a id="py_library-imports"></a>imports |  List of import directories to be added to the PYTHONPATH.   | List of strings | optional |  `[]`  |
 | <a id="py_library-pyi_deps"></a>pyi_deps |  Dependencies needed only for type checking.<br><br>These satisfy imports guarded by `typing.TYPE_CHECKING`. Their sources, stubs and wheels are carried in `PyInfo.transitive_pyi_files` for type checkers, but never become part of a runnable program: they are left out of runfiles, `sys.path`, the venv's site-packages, image layers, and pex files.   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional |  `[]`  |
+| <a id="py_library-pyi_srcs"></a>pyi_srcs |  Type definition files, typically `.pyi` stubs, for this target's modules.<br><br>Like stubs listed in `srcs`, they are carried as `PyInfo.transitive_pyi_files` and never enter runfiles. Use this attribute when the runtime module comes from another rule, such as a native extension or generated code, or when a target ships only stubs. Matches rules_python's attribute of the same name.   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional |  `[]`  |
 | <a id="py_library-resolutions"></a>resolutions |  Satisfy a virtual_dep with a mapping from external package name to the label of an installed package that provides it. See virtual_deps.   | Dictionary: String -> Label | optional |  `{}`  |
 | <a id="py_library-virtual_deps"></a>virtual_deps |  -   | List of strings | optional |  `[]`  |
 

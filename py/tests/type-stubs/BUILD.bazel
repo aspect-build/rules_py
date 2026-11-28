@@ -4,6 +4,7 @@ load(
     "first_party_stubs_test",
     "launcher_stubs_test",
     "merged_stubs_test",
+    "pyi_srcs_launcher_test",
     "rules_python_provider_stubs_test",
     "rules_python_pyi_fixture",
     "venv_stubs_test",
@@ -24,6 +25,51 @@ py_library(
 first_party_stubs_test(
     name = "first_party_stubs_test",
     target_under_test = ":annotated",
+)
+
+# The same stub declared through the dedicated `pyi_srcs` attribute.
+py_library(
+    name = "annotated_pyi_srcs",
+    srcs = ["annotated.py"],
+    imports = ["."],
+    pyi_srcs = ["annotated.pyi"],
+)
+
+first_party_stubs_test(
+    name = "pyi_srcs_stubs_test",
+    target_under_test = ":annotated_pyi_srcs",
+)
+
+rules_python_provider_stubs_test(
+    name = "rules_python_provider_pyi_srcs_test",
+    expected_direct = ["annotated.pyi"],
+    expected_transitive = ["annotated.pyi"],
+    target_under_test = ":annotated_pyi_srcs",
+)
+
+# `pyi_srcs` on a binary reaches its venv, while the launcher keeps the attribute for aspects.
+py_binary(
+    name = "pyi_srcs_bin",
+    srcs = ["pyi_srcs_main.py"],
+    main = "pyi_srcs_main.py",
+    pyi_srcs = ["annotated.pyi"],
+)
+
+pyi_srcs_launcher_test(
+    name = "pyi_srcs_launcher_test",
+    target_under_test = ":pyi_srcs_bin",
+)
+
+py_test(
+    name = "pyi_srcs_not_in_runfiles_test",
+    srcs = ["pyi_srcs_main.py"],
+    main = "pyi_srcs_main.py",
+    pyi_srcs = ["annotated.pyi"],
+)
+
+pyi_srcs_launcher_test(
+    name = "pyi_srcs_test_launcher_test",
+    target_under_test = ":pyi_srcs_not_in_runfiles_test",
 )
 
 # Stubs that only exist in @rules_python's PyInfo (the py_proto_library shape).

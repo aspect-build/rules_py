@@ -1,7 +1,7 @@
 """Analysis coverage for `.pyi` type-stub propagation.
 
 Stubs travel in `PyInfo.transitive_pyi_files`, partitioned away from
-`transitive_sources`, whether they were listed in a rules_py `srcs`, reached
+`transitive_sources`, whether they were listed in a rules_py `srcs` or `pyi_srcs`, reached
 through a `@rules_python` dependency, or pulled in by a virtual-dependency
 resolution. They never enter runfiles.
 """
@@ -72,6 +72,15 @@ def _launcher_stubs_test_impl(ctx):
     return analysistest.end(env)
 
 launcher_stubs_test = analysistest.make(_launcher_stubs_test_impl)
+
+def _pyi_srcs_launcher_test_impl(ctx):
+    env = analysistest.begin(ctx)
+    target = analysistest.target_under_test(env)
+    asserts.equals(env, ["annotated.pyi"], _basenames(target[PyInfo].transitive_pyi_files))
+    asserts.false(env, _has(_runfile_paths(target), ".pyi"), "launcher runfiles carry no stubs")
+    return analysistest.end(env)
+
+pyi_srcs_launcher_test = analysistest.make(_pyi_srcs_launcher_test_impl)
 
 def _venv_stubs_test_impl(ctx):
     env = analysistest.begin(ctx)
